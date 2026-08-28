@@ -935,10 +935,7 @@ def regenerate_multiple_angles_with_gpt_image_pipeline(
             regenerated_urls = []
             for idx, angle_url in enumerate(angle_urls[:4], start=1):
                 regen_prompt = (
-                    f"Photorealistic 9:16 vertical architectural room photo showcasing the {item_label} (Angle {idx} perspective view). "
-                    "Strictly preserve the identical lighting fixture design, materials, canopy structure, and exact room interior from the source image. "
-                    "Refine all lighting reflections, physical shadows, realistic textures, modern interior design, and clean ceiling integration in 8k resolution. "
-                    "Zero distortion, zero extra objects, maintain original scene geometry."
+                    f"Regenerate me this image"
                 ).strip()
 
                 out_url = ""
