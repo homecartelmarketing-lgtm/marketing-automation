@@ -152,6 +152,14 @@ TABLES: dict[str, TableConfig] = {
             "AIRTABLE_TABLE_ID_CHANDELIER_MYTH_AND_FACT", "KREA_MOODBOARD_ID_CHANDELIERS",
         ),
         _table(
+            "floor_lamp_myth_and_fact_story", "Floor Lamp Myth & Fact Story", "tblf5Yaki4ktwiLtx",
+            "AIRTABLE_TABLE_ID_FLOOR_LAMP_MYTH_AND_FACT", "KREA_MOODBOARD_ID_FLOOR_LAMPS",
+        ),
+        _table(
+            "pendant_lights_myth_and_fact_story", "Pendant Light Myth & Fact Story", "tblwBnWYRGcV6as45",
+            "AIRTABLE_TABLE_ID_PENDANT_LIGHTS_MYTH_AND_FACT", "KREA_MOODBOARD_ID_PENDANT_LIGHTS",
+        ),
+        _table(
             "table_lamps_one_product_three_styles",
             "Table Lamp 3 product 1 style",
             "",
