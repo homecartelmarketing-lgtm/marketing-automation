@@ -27,6 +27,41 @@ End-to-end automated generation pipeline for **Style This Story** (1080 x 1920 p
 
 ---
 
+## ➕ Add a New Table (No Code Changes — `.env` Only)
+
+Each Style This table has its **own** Airtable Table ID, Krea Moodboard ID, and room-interior prompt. To register a **brand-new table**, just add a numbered block to your `.env` (N = 1, 2, 3, ...) — the pipeline auto-detects it on startup:
+
+```dotenv
+STYLE_THIS_CUSTOM_1_NAME=Table Lamps
+STYLE_THIS_CUSTOM_1_TABLE_ID=tblXXXXXXXXXXXXXX
+STYLE_THIS_CUSTOM_1_MOODBOARD_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+STYLE_THIS_CUSTOM_1_PROMPT=Generate me a modern living room with a table lamp
+STYLE_THIS_CUSTOM_1_AKENEO_CATEGORY=table_lamps   # optional (scrape source; default floor_lamps)
+```
+
+| Field | Required? | Purpose |
+| :--- | :--- | :--- |
+| `..._NAME` | Recommended | Label shown in the menu; also becomes the `--category` slug (`Table Lamps` → `table_lamps`) |
+| `..._TABLE_ID` | **Yes** | Airtable Table ID (`tbl...`) |
+| `..._MOODBOARD_ID` | Optional | Krea Moodboard ID (defaults to the floor-lamp board) |
+| `..._PROMPT` | Optional | Krea room-interior prompt for this table |
+| `..._AKENEO_CATEGORY` | Optional | Which products to scrape (`floor_lamps`, `wall_lights`, `pendant_lights`, `chandeliers`, `table_lamps`, ...). Default: `floor_lamps` |
+| `..._KEY` | Optional | Explicit `--category` slug override |
+
+Then run it exactly like the built-in categories:
+
+```bash
+python run_style_this_story.py --category table_lamps
+# or pick it from the numbered list:
+python generate_style_this_story_pipeline.py --mode menu
+# or bypass categories entirely with a raw table id:
+python run_style_this_story.py --table-id tblXXXXXXXXXXXXXX
+```
+
+Add as many blocks as you need (`STYLE_THIS_CUSTOM_2_*`, `STYLE_THIS_CUSTOM_3_*`, ...). No Python edits required.
+
+---
+
 ## 🎨 Exact Layout & Typography Specifications (1080 x 1920 Canvas)
 
 ### Slide 1: `style_this01.jpg` -> `how_would_you_style_this.jpg`
@@ -47,11 +82,12 @@ End-to-end automated generation pipeline for **Style This Story** (1080 x 1920 p
    - Position: `X=781.7`, `Y=108.0`, `Width=190.3`, `Height=63.5`, `Rotation=0°` (Auto-stamped on all slides)
 2. **Heart Emoji Asset**:
    - Source: `assets/Heaart Emoji.jpg` (auto-transparent)
-   - Position: `X=250.8`, `Y=212.5`, `Width=77.8`, `Height=69.3`, `Rotation=0°`
+   - Size: `Width=77.8`, `Height=69.3`, `Rotation=0°`
+   - Rendered as part of a **horizontally-centered group** together with the headline text (placed immediately to the left of the headline), sitting directly above the pill.
 3. **Headline Text**:
    - Content: `Double tap if you choose:`
-   - Position: `X=346.6`, `Y=212.0`, `Width=904.7`, `Height=70.3`, `Rotation=0°`
-   - Font: `Poppins-Light.ttf` (Font size: **44px** non-bold), Clean Solid White with **NO text shadow or outline**.
+   - **Centered horizontally** as a group with the heart emoji, positioned directly above the color pill (24px gap).
+   - Font: `Poppins-Bold.ttf` (Font size: **44px** **bold**), Clean Solid White with **NO text shadow or outline**.
 4. **Dynamic Claude Room Vibe & Color Fields in Airtable**:
    - **Source Photos**: Sourced directly from `"Style This Blended"` attachment field (`style_this02.jpg`, `style_this03.jpg`, `style_this04.jpg`).
    - **Airtable Target Fields**:
@@ -63,9 +99,10 @@ End-to-end automated generation pipeline for **Style This Story** (1080 x 1920 p
      {"vibe_name": "Warm Olive", "hex_color": "#adb481"}
      ```
    - **Text Inside Pill**: Dynamic 1-3 word room color/vibe name sourced from the corresponding `"Style This Text Generated[1-3]"` field in **Font Size 44** `Poppins-Light.ttf` (non-bold, Solid White `#FFFFFF`, no shadow).
-   - **Dynamic Pill Shape**:
+   - **Dynamic Pill Shape** (Claude-generated text):
      - Auto-hugs text width + `44px` horizontal spread padding on each side.
-     - Height: `70.3 px`, `Y = 296.3` (placed directly beneath headline), centered horizontally (`X = 540.0`).
+     - Shape spec: `Width=606.4`, `Height=70.3`, `X=236.8`, `Y=1488`, `Rotation=0°`.
+     - Anchored at `Y = 1488` and **centered horizontally** (`X = 236.8` for the reference `606.4px` width); the headline group sits directly above it.
      - Background Color: The exact HEX color saved in `"Style This Auto Generated Color[1-3]"` for that room photo.
      - Roundness: `89` (Smooth rounded capsule ends), Opacity `100%`.
 
