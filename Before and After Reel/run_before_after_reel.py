@@ -45,7 +45,6 @@ from generate_before_after_reel_pipeline import (
     generate_qwen_blending_prompts,
     generate_qwen_image_blends,
     generate_slideshow_reels_pipeline,
-    regenerate_multiple_angles_with_gpt_image_pipeline,
 )
 
 FIELD_NAME = "Furniture Item"
@@ -164,12 +163,31 @@ def main(argv=None) -> int:
     base.require({"airtable", "krea", "fal"})
 
     reel_config = resolve_reel_table(args.target)
-    table_id = args.table_id or os.getenv(reel_config["env_table_key"], "").strip() or reel_config["default_table_id"]
-    category_code = reel_config["table_code"]
-    moodboard_id = (args.moodboard_id or "").strip() or reel_config.get("default_moodboard_id", "") or moodboard_id_for_category(category_code)
+    table_id = (
+        args.table_id
+        or os.getenv(reel_config.get("env_table_key", ""), "").strip()
+        or reel_config.get("default_table_id", "")
+    )
+    category_code = reel_config.get("table_code", "floor_lamps_day_night_reel")
+    akeneo_cat = (
+        reel_config.get("akeneo_category")
+        or reel_config.get("category_code")
+        or "floor_lamps"
+    )
+    moodboard_id = (
+        (args.moodboard_id or "").strip()
+        or os.getenv(reel_config.get("moodboard_env_key", ""), "").strip()
+        or reel_config.get("default_moodboard_id", "")
+        or moodboard_id_for_category(akeneo_cat)
+    )
+    interior_prompt = reel_config.get(
+        "interior_prompt",
+        "Generate me a modern bedroom that have beside a floor lamp",
+    )
+    placement_rule = reel_config.get("placement_rule", "")
 
     settings = load_scrape_settings(
-        category_code=category_code,
+        category_code=akeneo_cat,
         style_code=args.style,
         table_id_override=table_id,
         settings=base,
@@ -183,8 +201,9 @@ def main(argv=None) -> int:
     print("=" * 64)
     print(f"UNIFIED BEFORE & AFTER REEL AUTOMATION ({reel_config['label']})")
     print(f"Destination Table: {settings.airtable_base_id} / {table_id}")
-    print(f"Akeneo Source Category: {reel_config['category_code']} ({sort_mode})")
+    print(f"Akeneo Source Category: {akeneo_cat} ({sort_mode})")
     print(f"Krea Moodboard ID: {moodboard_id}")
+    print(f"Interior Prompt: \"{interior_prompt}\"")
     print("=" * 64)
 
     akeneo = AkeneoClient(
@@ -214,8 +233,8 @@ def main(argv=None) -> int:
             fal,
             airtable,
             moodboard_id,
-            reel_config["interior_prompt"],
-            placement_rule=reel_config.get("placement_rule", ""),
+            interior_prompt,
+            placement_rule=placement_rule,
             max_items=args.max_items,
         ):
             overall_success = False
@@ -225,7 +244,7 @@ def main(argv=None) -> int:
         runner = FurnitureItemScrapeRunner(
             akeneo,
             airtable,
-            category_code=category_code,
+            category_code=akeneo_cat,
             style_code=args.style,
             field_name=FIELD_NAME,
             item_name_field=ITEM_NAME_FIELD,
@@ -245,8 +264,8 @@ def main(argv=None) -> int:
                 fal,
                 airtable,
                 moodboard_id,
-                reel_config["interior_prompt"],
-                placement_rule=reel_config.get("placement_rule", ""),
+                interior_prompt,
+                placement_rule=placement_rule,
                 max_items=args.max_items,
             ):
                 overall_success = False

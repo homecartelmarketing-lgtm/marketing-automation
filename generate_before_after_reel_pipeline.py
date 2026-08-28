@@ -79,8 +79,6 @@ STATUS_INTERIOR_GENERATED = "Processing Interior Generated Photo"
 STATUS_GENERATING_PROMPT = "Processing Blending Prompt"
 STATUS_BLENDED_IMAGE = "Processing Day Image"
 STATUS_MULTIPLE_ANGLE = "Multiple Angle Blended Image Generating"
-STATUS_GPT_IMAGE_2 = "Multiple Angle GPT Image 2 Regenerating"
-STATUS_GPT_IMAGE_2_COMPLETE = "Multiple Angle GPT Image 2 Complete"
 STATUS_SLIDESHOW_GENERATED = "Slide Show Before and After Reel Generating"
 STATUS_COMPLETE = "Complete"
 
@@ -99,15 +97,7 @@ BLENDED_IMAGE_FIELDS = [BLENDED_IMAGE_FIELD, BLENDED_IMAGE_FIELD_FALLBACK, "Mood
 
 MULTIPLE_ANGLE_FIELD = "Multiple Angle Blended Image"
 MULTIPLE_ANGLE_FIELDS = [MULTIPLE_ANGLE_FIELD]
-REGENERATE_MULTIPLE_ANGLE_FIELD = "Regenerate Multiple Angle Blended Image"
-REGENERATE_MULTIPLE_ANGLE_FIELDS = [
-    REGENERATE_MULTIPLE_ANGLE_FIELD,
-    "Regenerated Multiple Angle Blended Image",
-    "Regenerate Multiple Angle",
-    "Regenerated Multiple Angle",
-]
 FAL_MULTIPLE_ANGLE_MODEL = "fal-ai/qwen-image-edit-2511-multiple-angles"
-GPT_IMAGE_2_MODEL = os.getenv("GPT_IMAGE_2_MODEL", "").strip() or "gpt-image-2"
 
 SLIDESHOW_FIELD = "Slide Show Before and After Reel"
 SLIDESHOW_FIELD_FALLBACK = "Slide Show Before & After Reel"
@@ -126,7 +116,6 @@ AUDIT_LOG_DIR = Path("output") / "logs"
 AUDIT_LOG_CLAUDE_SONNET = AUDIT_LOG_DIR / "before_after_reel_claude_sonnet_logs.json"
 AUDIT_LOG_NANO_BANANA = AUDIT_LOG_DIR / "before_after_reel_nano_banana_logs.json"
 AUDIT_LOG_FAL_AI = AUDIT_LOG_DIR / "before_after_reel_fal_ai_logs.json"
-AUDIT_LOG_GPT_IMAGE_2 = AUDIT_LOG_DIR / "before_after_reel_gpt_image_2_logs.json"
 
 GDRIVE_REELS_DIR = Path("G:/My Drive/Before & After Reels")
 GDRIVE_REELS_DIR_ALT = Path("G:/My Drive/Before and After Reels")
@@ -864,151 +853,6 @@ def generate_multiple_angles_pipeline(
     return failed == 0
 
 
-def regenerate_multiple_angles_with_gpt_image_pipeline(
-    fal: FalClient,
-    airtable: ScrapeAirtableClient,
-    *,
-    model: str = GPT_IMAGE_2_MODEL,
-    aspect_ratio: str = "9:16",
-    limit_records: int | None = None,
-) -> bool:
-    """Regenerate and enhance the 4 angle photos in 'Multiple Angle Blended Image' strictly using GPT Image 2 API via Fal AI (Phase 5)."""
-    records = airtable.list_records()
-    if not records:
-        print("[OK] No records found in Airtable for GPT Image 2 regeneration.")
-        return True
-
-    eligible = []
-    for record in records:
-        fields = record.get("fields", {})
-        status = str(fields.get(STATUS_FIELD) or "").strip().casefold()
-        if status in ("complete", "done", STATUS_GPT_IMAGE_2_COMPLETE.casefold(), STATUS_SLIDESHOW_GENERATED.casefold()):
-            continue
-        if get_first_field_value(fields, REGENERATE_MULTIPLE_ANGLE_FIELDS):
-            continue
-        angle_attachments = fields.get(MULTIPLE_ANGLE_FIELD)
-        if not angle_attachments:
-            continue
-        eligible.append(record)
-
-    if not eligible:
-        print(f"[OK] No records requiring GPT Image 2 angle regeneration ('{MULTIPLE_ANGLE_FIELD}' missing or already completed).")
-        return True
-
-    if limit_records is not None:
-        eligible = eligible[:limit_records]
-
-    print(
-        f"[INFO] Regenerating '{MULTIPLE_ANGLE_FIELD}' (4 angles, {aspect_ratio} ratio) for {len(eligible)} record(s) "
-        f"strictly using Fal AI GPT Image 2 API ({model})..."
-    )
-
-    succeeded = 0
-    failed = 0
-    for position, record in enumerate(eligible, start=1):
-        record_id = record["id"]
-        fields = record.get("fields", {})
-        item_label = fields.get(ITEM_NAME_FIELD) or fields.get(SKU_FIELD) or record_id
-
-        angle_urls = extract_all_attachment_urls(fields.get(MULTIPLE_ANGLE_FIELD))
-        prompt_text = str(get_first_field_value(fields, PROMPT_FIELDS) or "").strip()
-
-        if not angle_urls:
-            print(f"[SKIP] Record {record_id} ({item_label}) has no accessible angle attachment URLs.")
-            continue
-
-        print(
-            f"[INFO] [{position}/{len(eligible)}] Regenerating {len(angle_urls[:4])} viewing angles strictly with Fal AI GPT Image 2 for "
-            f"record {record_id} ({item_label}) in {aspect_ratio}..."
-        )
-
-        try:
-            target_status = resolve_status_choice(airtable, [STATUS_GPT_IMAGE_2, "Multiple Angle GPT Image 2 Regenerating", STATUS_MULTIPLE_ANGLE])
-            airtable.update_records([(record_id, {STATUS_FIELD: target_status})])
-            print(f"[INFO] Updated {STATUS_FIELD} to '{target_status}' on record {record_id}")
-        except Exception as status_err:
-            print(f"[WARN] Could not update transient status for record {record_id}: {status_err}")
-
-        downloaded_list = []
-        target_regen_field = resolve_table_field(airtable, REGENERATE_MULTIPLE_ANGLE_FIELDS, REGENERATE_MULTIPLE_ANGLE_FIELD)
-        try:
-            regenerated_urls = []
-            for idx, angle_url in enumerate(angle_urls[:4], start=1):
-                regen_prompt = (
-                    f"Regenerate me this image"
-                ).strip()
-
-                out_url = ""
-                # Call GPT Image 2 via Fal AI API
-                try:
-                    out_url = fal.generate_gpt_image_2(
-                        prompt=regen_prompt,
-                        image_urls=[angle_url],
-                        aspect_ratio=aspect_ratio,
-                        model=model,
-                    )
-                    if out_url:
-                        print(f"[OK] Fal AI GPT Image 2 ({model}) regenerated angle {idx} (9:16): {out_url}")
-                except Exception as gpt_err:
-                    print(f"[ERROR] Fal AI GPT Image 2 error for angle {idx}: {gpt_err}")
-
-                if out_url:
-                    regenerated_urls.append(out_url)
-
-            if not regenerated_urls:
-                raise AutomationError(f"Fal AI GPT Image 2 ({model}) failed to generate any regenerated angles for record {record_id}")
-
-            # Download and upload 9:16 JPEG attachments to Airtable 'Regenerate Multiple Angle Blended Image'
-            for idx, r_url in enumerate(regenerated_urls[:4], start=1):
-                try:
-                    resp = requests.get(r_url, stream=True)
-                    downloaded = download_to_temp_file(
-                        resp,
-                        prefix=f"angle_{idx}_gpt2_",
-                        suffix=".jpg",
-                        context=f"Download regenerated angle {idx} from {r_url}",
-                    )
-                    downloaded_list.append(downloaded)
-                    filename = f"angle_{idx}_{record_id}.jpg"
-                    airtable.upload_attachment(record_id, target_regen_field, downloaded, filename)
-                except Exception as up_err:
-                    print(f"[WARN] Failed uploading regenerated angle {idx} for record {record_id}: {up_err}")
-
-            append_audit_log({
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "record_id": record_id,
-                "item_label": item_label,
-                "phase": "Phase 5: GPT Image 2 Multiple Angle Regeneration",
-                "api_model": model,
-                "aspect_ratio": aspect_ratio,
-                "target_field": target_regen_field,
-                "input_angle_urls": angle_urls[:4],
-                "output_regenerated_urls": regenerated_urls[:4],
-            }, AUDIT_LOG_GPT_IMAGE_2)
-
-            done_status = resolve_status_choice(airtable, [STATUS_GPT_IMAGE_2_COMPLETE, "Multiple Angle GPT Image 2 Complete", "Standby"])
-            airtable.update_records([(record_id, {STATUS_FIELD: done_status})])
-            print(
-                f"[OK] Uploaded {len(downloaded_list)} regenerated 9:16 angle images to '{target_regen_field}' and updated "
-                f"{STATUS_FIELD} to '{done_status}' on record {record_id}"
-            )
-            succeeded += 1
-        except Exception as error:
-            print(f"[ERROR] Failed GPT Image 2 regeneration for record {record_id}: {error}")
-            failed += 1
-        finally:
-            for downloaded in downloaded_list:
-                try:
-                    downloaded.cleanup()
-                except Exception:
-                    pass
-
-    print(
-        f"[INFO] GPT Image 2 multiple angle regeneration complete: {succeeded} succeeded, {failed} failed."
-    )
-    return failed == 0
-
-
 def overlay_centered_poppins_text(
     pil_img: Image.Image,
     text: str,
@@ -1269,11 +1113,7 @@ def generate_slideshow_reels_pipeline(
         interior_url = extract_attachment_url(get_first_field_value(fields, INTERIOR_FIELDS))
         blended_url = extract_attachment_url(get_first_field_value(fields, BLENDED_IMAGE_FIELDS)) or interior_url
         outro_url = extract_attachment_url(get_first_field_value(fields, OUTRO_FIELDS))
-        angle_attachments = (
-            get_first_field_value(fields, REGENERATE_MULTIPLE_ANGLE_FIELDS)
-            or fields.get(MULTIPLE_ANGLE_FIELD)
-            or []
-        )
+        angle_attachments = fields.get(MULTIPLE_ANGLE_FIELD) or []
 
         angle_urls = []
         if isinstance(angle_attachments, list):
@@ -1584,12 +1424,6 @@ def parse_args(argv=None):
         default=None,
         help="Krea Moodboard ID override",
     )
-    parser.add_argument(
-        "--skip-gpt-regen",
-        action="store_true",
-        default=False,
-        help="Skip the GPT Image 2 multiple-angle regeneration phase (runs by default)",
-    )
     return parser.parse_args(argv)
 
 
@@ -1636,8 +1470,7 @@ def main(argv=None) -> int:
 
     overall_success = True
 
-    run_gpt_regen = not args.skip_gpt_regen
-    total_phases = 6 if run_gpt_regen else 5
+    total_phases = 5
 
     # Phase 1: Krea AI Room Interior Generation (9:16 Ratio - Before Image)
     print(f"\n[PHASE 1/{total_phases}] Krea AI Room Interior Photo Generation (Prompt: '{interior_prompt}')...")
@@ -1678,22 +1511,8 @@ def main(argv=None) -> int:
     ):
         overall_success = False
 
-    # Phase 5: GPT Image 2 Multiple Angle Regeneration (enhance the 4 angle photos, 9:16 Ratio)
-    slideshow_phase = 5
-    if run_gpt_regen:
-        slideshow_phase = 6
-        print(f"\n[PHASE 5/{total_phases}] GPT Image 2 Multiple Angle Regeneration (9:16 Ratio)...")
-        if not regenerate_multiple_angles_with_gpt_image_pipeline(
-            fal,
-            airtable,
-            limit_records=args.max_items,
-        ):
-            overall_success = False
-    else:
-        print("\n[SKIP] GPT Image 2 Multiple Angle Regeneration (disabled via --skip-gpt-regen).")
-
     # Final Phase: Slideshow Reel Video Generation (Slide Show Before and After Reel)
-    print(f"\n[PHASE {slideshow_phase}/{total_phases}] Slideshow Reel Video Generation (Slide Show Before and After Reel)...")
+    print(f"\n[PHASE 5/{total_phases}] Slideshow Reel Video Generation (Slide Show Before and After Reel)...")
     if not generate_slideshow_reels_pipeline(
         fal,
         airtable,
