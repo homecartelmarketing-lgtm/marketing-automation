@@ -826,10 +826,11 @@ def get_reel_tables() -> dict[str, dict[str, Any]]:
             ),
             "env_table_key": "AIRTABLE_TABLE_ID_BEFORE_AFTER_PENDANT_LIGHTS",
             "moodboard_env_key": "KREA_MOODBOARD_ID_BEFORE_AFTER_PENDANT_LIGHTS",
+            # No hardcoded default: moodboard id must be set by the user in .env
+            # (KREA_MOODBOARD_ID_BEFORE_AFTER_PENDANT_LIGHTS). Blank stays blank.
             "default_moodboard_id": _env_first(
                 "KREA_MOODBOARD_ID_BEFORE_AFTER_PENDANT_LIGHTS",
-                "KREA_MOODBOARD_ID_PENDANT_LIGHTS",
-                "0844ad92-c34a-4dc8-9d70-d09498dc098c",
+                "",
             ),
             "category_code": _env_first(
                 "BEFORE_AFTER_AKENEO_CATEGORY_PENDANT_LIGHTS",
@@ -839,9 +840,11 @@ def get_reel_tables() -> dict[str, dict[str, Any]]:
                 "BEFORE_AFTER_AKENEO_CATEGORY_PENDANT_LIGHTS",
                 "pendant_lights",
             ),
+            # No hardcoded default: Krea interior prompt must be set by the user
+            # in .env (BEFORE_AFTER_PROMPT_PENDANT_LIGHTS). Blank stays blank.
             "interior_prompt": _env_first(
                 "BEFORE_AFTER_PROMPT_PENDANT_LIGHTS",
-                "Generate me a modern dining room",
+                "",
             ),
             "placement_rule": _env_first(
                 "BEFORE_AFTER_PLACEMENT_RULE_PENDANT_LIGHTS",
@@ -859,10 +862,11 @@ def get_reel_tables() -> dict[str, dict[str, Any]]:
             ),
             "env_table_key": "AIRTABLE_TABLE_ID_BEFORE_AFTER_CHANDELIER",
             "moodboard_env_key": "KREA_MOODBOARD_ID_BEFORE_AFTER_CHANDELIER",
+            # No hardcoded default: moodboard id must be set by the user in .env
+            # (KREA_MOODBOARD_ID_BEFORE_AFTER_CHANDELIER). Blank stays blank.
             "default_moodboard_id": _env_first(
                 "KREA_MOODBOARD_ID_BEFORE_AFTER_CHANDELIER",
-                "KREA_MOODBOARD_ID_CHANDELIER_DAY_AND_NIGHT_REEL",
-                "b5ffdcbb-192e-4528-8d86-d1a4cf496887",
+                "",
             ),
             "category_code": _env_first(
                 "BEFORE_AFTER_AKENEO_CATEGORY_CHANDELIER",
@@ -872,9 +876,11 @@ def get_reel_tables() -> dict[str, dict[str, Any]]:
                 "BEFORE_AFTER_AKENEO_CATEGORY_CHANDELIER",
                 "chandeliers",
             ),
+            # No hardcoded default: Krea interior prompt must be set by the user
+            # in .env (BEFORE_AFTER_PROMPT_CHANDELIER). Blank stays blank.
             "interior_prompt": _env_first(
                 "BEFORE_AFTER_PROMPT_CHANDELIER",
-                "Generate me a photo a modern living room hanging chandelier from the ceiling",
+                "",
             ),
             "placement_rule": _env_first(
                 "BEFORE_AFTER_PLACEMENT_RULE_CHANDELIER",
