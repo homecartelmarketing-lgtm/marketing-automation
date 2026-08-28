@@ -1,0 +1,86 @@
+name: Product Closeup Reel
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: "Which phase to run"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - scrape
+          - generate
+      max_rows:
+        description: "Max rows to create in the scrape phase (blank = no limit)"
+        required: false
+        default: ""
+      record_id:
+        description: "Process a single Airtable record id (blank = all pending)"
+        required: false
+        default: ""
+
+  # ---- Scheduled run (OFF by default) -------------------------------------
+  # Uncomment to run automatically. Example: 06:00 UTC every day.
+  # schedule:
+  #   - cron: "0 6 * * *"
+
+concurrency:
+  group: product-closeup-reel
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: genspark_ai_developer
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install FFmpeg (for the reel renderer)
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install Pillow numpy imageio-ffmpeg
+
+      - name: Run Product Closeup Reel pipeline
+        env:
+          # --- Airtable ---
+          AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+          AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
+          AIRTABLE_TABLE_ID_TABLE_LAMPS_PRODUCT_CLOSEUP_REEL: ${{ secrets.AIRTABLE_TABLE_ID_TABLE_LAMPS_PRODUCT_CLOSEUP_REEL }}
+          # --- Krea (interiors) ---
+          KREA_API_TOKEN: ${{ secrets.KREA_API_TOKEN }}
+          KREA_API_BASE: ${{ secrets.KREA_API_BASE }}
+          # --- Fal (Claude Sonnet prompts + Nano Banana Pro blend) ---
+          FAL_KEY: ${{ secrets.FAL_KEY }}
+          # --- Akeneo (Phase 1 scrape) ---
+          CHANNEL_NAME: ${{ secrets.CHANNEL_NAME }}
+          AKENEO_HOST: ${{ secrets.AKENEO_HOST }}
+          AKENEO_CLIENT_ID: ${{ secrets.AKENEO_CLIENT_ID }}
+          AKENEO_SECRET: ${{ secrets.AKENEO_SECRET }}
+          AKENEO_USERNAME: ${{ secrets.AKENEO_USERNAME }}
+          AKENEO_PASSWORD: ${{ secrets.AKENEO_PASSWORD }}
+          AKENEO_STYLE: ${{ secrets.AKENEO_STYLE }}
+        run: |
+          ARGS="--phase ${{ github.event.inputs.phase }}"
+          if [ -n "${{ github.event.inputs.max_rows }}" ]; then
+            ARGS="$ARGS --max-rows ${{ github.event.inputs.max_rows }}"
+          fi
+          if [ -n "${{ github.event.inputs.record_id }}" ]; then
+            ARGS="$ARGS --record-id ${{ github.event.inputs.record_id }}"
+          fi
+          echo "Running: python generate_product_closeup_reel_pipeline.py $ARGS"
+          python generate_product_closeup_reel_pipeline.py $ARGS
