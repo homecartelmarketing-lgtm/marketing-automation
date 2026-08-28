@@ -41,7 +41,6 @@ from content_automation.overlay import (
     overlay_cta_story_layout,
     stamp_cta_story_watermark_and_logo,
 )
-from content_automation.qwen_client import QwenClient
 from content_automation.scraping import (
     ScrapeAirtableClient,
     load_scrape_settings,
@@ -179,8 +178,6 @@ WORD_GENERATED_FALLBACKS = [
 
 FAL_VISION_MODEL = os.getenv("CLAUDE_VISION_MODEL", "").strip() or "anthropic/claude-sonnet-5"
 FAL_BLENDING_MODEL = os.getenv("FAL_BLENDING_MODEL", "").strip() or "fal-ai/nano-banana-pro/edit"
-QWEN_PROMPT_MODEL = "qwen3.7-flash"
-QWEN_BLEND_MODEL = "qwen-image-3.0-pro"
 
 
 def base_has_key(client: Any) -> bool:
@@ -482,7 +479,7 @@ def generate_krea_interiors(
 
 
 def generate_claude_blending_prompts(
-    fal_or_qwen: Any,
+    fal: FalClient,
     airtable: ScrapeAirtableClient,
     *,
     vision_model: str = FAL_VISION_MODEL,
@@ -558,20 +555,11 @@ def generate_claude_blending_prompts(
         )
 
         try:
-            if hasattr(fal_or_qwen, "analyze_image"):
-                generated_prompt = fal_or_qwen.analyze_image(
-                    prompt=instruction,
-                    image_urls=image_urls,
-                    model=vision_model,
-                )
-            elif hasattr(fal_or_qwen, "describe_image"):
-                generated_prompt = fal_or_qwen.describe_image(interior_url, prompt=instruction)
-            else:
-                generated_prompt = (
-                    f"Seamlessly install the luxury {item_name} fixture into the modern room interior, "
-                    f"hanging from ceiling with soft warm glow casting realistic ambient light and subtle drop shadows, "
-                    f"photorealistic 8k vertical architectural composition"
-                )
+            generated_prompt = fal.generate_vision_prompt(
+                image_urls=image_urls,
+                prompt=instruction,
+                model=vision_model,
+            )
 
             target_field = get_first_field_name(fields, PROMPT_FIELD_FALLBACKS)
             airtable.update_records([(record_id, {target_field: generated_prompt.strip()})])
@@ -659,41 +647,21 @@ def generate_cta_blended_images(
 
         downloaded = None
         try:
-            if hasattr(fal_or_blend_client, "generate"):
-                image_url = fal_or_blend_client.generate(
-                    prompt=prompt_str,
-                    image_urls=image_urls,
-                    aspect_ratio=BLENDED_ASPECT_RATIO,
-                    resolution="1K",
-                    model=blend_model,
-                )
-                import requests
-                resp = requests.get(image_url, stream=True)
-                downloaded = download_to_temp_file(
-                    resp,
-                    prefix="cta_blend_",
-                    suffix=".jpg",
-                    context=f"Download CTA blended image from {image_url}",
-                )
-            elif hasattr(fal_or_blend_client, "generate_image_3_pro"):
-                image_url = fal_or_blend_client.generate_image_3_pro(
-                    prompt_str,
-                    image_urls,
-                    aspect_ratio=BLENDED_ASPECT_RATIO,
-                    size="1536*2688",
-                    model=blend_model,
-                    image_labels=["CTA Interior photo", "Furniture Item photo"],
-                )
-                import requests
-                resp = requests.get(image_url, stream=True)
-                downloaded = download_to_temp_file(
-                    resp,
-                    prefix="cta_blend_",
-                    suffix=".jpg",
-                    context=f"Download Qwen blended image from {image_url}",
-                )
-            else:
-                raise AutomationError("No valid blending client method available.")
+            image_url = fal_or_blend_client.generate(
+                prompt=prompt_str,
+                image_urls=image_urls,
+                aspect_ratio=BLENDED_ASPECT_RATIO,
+                resolution="1K",
+                model=blend_model,
+            )
+            import requests
+            resp = requests.get(image_url, stream=True)
+            downloaded = download_to_temp_file(
+                resp,
+                prefix="cta_blend_",
+                suffix=".jpg",
+                context=f"Download CTA blended image from {image_url}",
+            )
 
             filename = f"cta_blended_{record_id}.jpg"
             target_field = get_first_field_name(fields, BLENDED_FIELD_FALLBACKS)
@@ -1285,4 +1253,6 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+    sys.exit(main())
+
     sys.exit(main())

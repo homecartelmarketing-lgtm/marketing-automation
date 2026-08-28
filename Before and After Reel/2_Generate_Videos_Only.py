@@ -77,7 +77,7 @@ def main():
     print("=" * 64)
 
     fal = FalClient(settings.fal_key)
-    airtable = ScrapeAirtableClient(settings.airtable_api_key, settings.airtable_base_id, table_id)
+    airtable = ScrapeAirtableClient(settings.airtable_token, settings.airtable_base_id, table_id)
 
     success = generate_slideshow_reels_pipeline(fal, airtable, limit_records=args.limit)
     if success:

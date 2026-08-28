@@ -55,9 +55,9 @@ class WorkflowContext:
     airtable: AirtableClient
     assets: AssetCatalog
     krea: KreaClient
-    qwen: QwenClient
     kie: KieClient
     fal: FalClient | None = None
+    qwen: QwenClient | None = None  # Deprecated: prompts now run on Fal AI vision.
 
     @property
     def definition(self):
@@ -714,12 +714,43 @@ class BaseWorkflow:
                 except Exception as error:
                     print(f"[WARN] Failed to upload source to {target_field}: {error}")
 
+    def _fal_prompt_client(self) -> FalClient:
+        fal_client = self.ctx.fal
+        if not fal_client:
+            fal_client = FalClient(api_key=getattr(self.ctx.settings, "fal_key", ""))
+        return fal_client
+
+    def _fal_vision_prompt(self, image_urls: list[str], instruction: str) -> str:
+        return self._fal_prompt_client().generate_vision_prompt(
+            image_urls=image_urls,
+            prompt=instruction,
+        )
+
     def qwen_blend_prompt(self, room: LocalImage, product: LocalImage) -> str:
+        """Write an image-blending prompt from a room + product image.
+
+        Backed by Fal AI vision (Claude Sonnet via fal.ai). The ``qwen_`` name is
+        retained only for backwards compatibility with existing callers; no
+        DashScope/Qwen request is made.
+        """
         key = f"blend:{room.filename}:{product.filename}"
-        return self._cached_qwen(
+        instruction = (
+            "Analyze Image 1 as the target interior room photo and Image 2 as the exact "
+            "product photo. Write a detailed, clean image-to-image blending prompt that "
+            "places the product from Image 2 naturally into the room in Image 1.\n"
+            "CRITICAL SINGLE-PRODUCT RULES:\n"
+            "1. The product in Image 2 MUST be the ONLY lighting fixture / lamp in the final scene.\n"
+            "2. If Image 1 contains any pre-existing lamps or competing light fixtures, explicitly "
+            "instruct to remove and replace them so only the Image 2 product remains.\n"
+            "3. Exclude extra, duplicate, or competing furniture and clutter.\n"
+            "4. Preserve product identity, geometry, finish, proportions, realistic scale, "
+            "camera perspective, shadows, and lighting.\n\n"
+            "Output ONLY the prompt text, with no preamble, markdown, or quotes."
+        )
+        return self._cached_prompt(
             key,
-            lambda: self.ctx.qwen.blend_prompt(
-                self.public_url(room), self.public_url(product)
+            lambda: self._fal_vision_prompt(
+                [self.public_url(room), self.public_url(product)], instruction
             ),
         )
 
@@ -728,12 +759,18 @@ class BaseWorkflow:
         reference: LocalImage,
         room_type: str,
     ) -> str:
+        """Write a room-transform prompt from a reference image (Fal AI vision)."""
         key = f"room-transform:{reference.filename}:{room_type}"
-        return self._cached_qwen(
+        instruction = (
+            f"Analyze the reference interior photo. Write an image generation prompt for a "
+            f"coordinated modern {room_type} that keeps the SAME visible product without "
+            f"redesigning or replacing it, and retains the same palette, materials, lighting "
+            f"language, photographic quality, and visual identity as the reference.\n\n"
+            f"Output ONLY the prompt text, with no preamble, markdown, or quotes."
+        )
+        return self._cached_prompt(
             key,
-            lambda: self.ctx.qwen.room_transform_prompt(
-                self.public_url(reference), room_type
-            ),
+            lambda: self._fal_vision_prompt([self.public_url(reference)], instruction),
         )
 
     def qwen_grounded_description(
@@ -742,12 +779,18 @@ class BaseWorkflow:
         item_name: str,
         product_type: str,
     ) -> str:
+        """Write a grounded product description from a product image (Fal AI vision)."""
         key = f"description:{product.filename}:{item_name}:{product_type}"
-        return self._cached_qwen(
+        instruction = (
+            f"Product name: {item_name}. Product type: {product_type}. "
+            f"Write ONE concise, premium product description grounded ONLY in visible image "
+            f"evidence. Do not invent dimensions, materials, wattage, warranty, certification, "
+            f"or specifications.\n\n"
+            f"Output ONLY the description text, with no preamble, markdown, or quotes."
+        )
+        return self._cached_prompt(
             key,
-            lambda: self.ctx.qwen.grounded_description(
-                self.public_url(product), item_name, product_type
-            ),
+            lambda: self._fal_vision_prompt([self.public_url(product)], instruction),
         )
 
     def claude_blend_prompt(
@@ -772,10 +815,8 @@ class BaseWorkflow:
             f"4. Ensure natural hanging/placement height, realistic chain/rod/cord mounting, ceiling canopy, realistic daylight illumination, soft ambient glow, natural contact shadows on surrounding walls/floors, and authentic materials.\n\n"
             f"Output ONLY the prompt text, with no preamble, markdown formatting, or quotes."
         )
-        fal_client = self.ctx.fal
-        if not fal_client:
-            fal_client = FalClient(api_key=getattr(self.ctx.settings, "fal_key", ""))
-        return self._cached_qwen(
+        fal_client = self._fal_prompt_client()
+        return self._cached_prompt(
             key,
             lambda: fal_client.generate_vision_prompt(
                 image_urls=[self.public_url(room), self.public_url(product)],
@@ -818,7 +859,7 @@ class BaseWorkflow:
                 del manifest[filename]
                 self._write_json_object(self._job_manifest_path, manifest)
 
-    def _cached_qwen(self, key: str, producer) -> str:
+    def _cached_prompt(self, key: str, producer) -> str:
         with self._qwen_cache_lock:
             cache = self._read_json_object(self._qwen_cache_path)
             if value := str(cache.get(key) or "").strip():
@@ -834,6 +875,9 @@ class BaseWorkflow:
             cache[key] = value
             self._write_json_object(self._qwen_cache_path, cache)
             return value
+
+    # Backwards-compatible alias for any external callers.
+    _cached_qwen = _cached_prompt
 
     @staticmethod
     def _read_json_object(path: Path) -> dict:

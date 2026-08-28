@@ -248,10 +248,16 @@ def main(argv=None) -> int:
             print(f"[ERROR] {TABLES[table_code].label} schema: {error}")
 
     krea = KreaClient(settings.krea_token, settings.krea_base_url)
-    qwen = QwenClient(
-        settings.qwen_api_key,
-        settings.qwen_base_url,
-        settings.qwen_model,
+    # Prompt writing now runs on Fal AI vision; Qwen/DashScope is optional and
+    # only constructed when a key is actually configured.
+    qwen = (
+        QwenClient(
+            settings.qwen_api_key,
+            settings.qwen_base_url,
+            settings.qwen_model,
+        )
+        if settings.qwen_api_key
+        else None
     )
     kie = KieClient(
         settings.kie_api_key,

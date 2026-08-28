@@ -19,7 +19,6 @@ from .phased_content import (
     JsonlRunLogger,
     PhasedContentRunner,
 )
-from .qwen_client import QwenClient
 from .scraping.airtable import ScrapeAirtableClient
 
 
@@ -105,7 +104,6 @@ def run_cta_conversion(
     target_record_id: str | None = None,
     airtable: ScrapeAirtableClient | None = None,
     fal: FalClient | None = None,
-    qwen: QwenClient | None = None,
     model: str = FAL_NANO_BANANA_MODEL,
     aspect_ratio: str = "9:16",
     logger: JsonlRunLogger | None = None,
@@ -160,8 +158,8 @@ def run_cta_conversion(
     output_root.mkdir(parents=True, exist_ok=True)
     failures = 0
 
-    should_use_api = (use_local_pil is False) or (use_local_pil is None and (fal is not None or qwen is not None))
-    if should_use_api and (fal is not None or qwen is not None):
+    should_use_api = (use_local_pil is False) or (use_local_pil is None and fal is not None)
+    if should_use_api and fal is not None:
         prompt = AssetCatalog(settings.workspace).read_prompt("CTA/CTA.json")
         for record in eligible:
             record_id = str(record["id"])
@@ -177,26 +175,14 @@ def run_cta_conversion(
                 PhasedContentRunner._validate_9_16(source_path, SOURCE_FIELD)
 
                 input_urls = [source_url, layout_url]
-                if fal is not None:
-                    generated_url = fal.generate(
-                        prompt,
-                        input_urls,
-                        aspect_ratio=aspect_ratio,
-                        resolution="1K",
-                        model=model,
-                    )
-                    provider_label = "fal"
-                else:
-                    generated_url = qwen.generate_image_3_pro(
-                        prompt,
-                        input_urls,
-                        aspect_ratio=aspect_ratio,
-                        size="1536*2688",
-                        model=model,
-                        image_labels=[SOURCE_FIELD, LAYOUT_FIELD],
-                        custom_prefix="",
-                    )
-                    provider_label = "qwen"
+                generated_url = fal.generate(
+                    prompt,
+                    input_urls,
+                    aspect_ratio=aspect_ratio,
+                    resolution="1K",
+                    model=model,
+                )
+                provider_label = "fal"
 
                 output_path = output_root / f"{record_id}_cta_converted.jpg"
                 PhasedContentRunner._download(generated_url, output_path)

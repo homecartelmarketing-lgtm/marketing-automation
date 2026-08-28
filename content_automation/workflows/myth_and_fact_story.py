@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from PIL import Image, ImageOps
 
@@ -100,13 +101,24 @@ class MythAndFactStoryWorkflow(BaseWorkflow):
 
         # 1. Resolve or generate Interior2 (Living room)
         print("\n [PHASE 1/5] Room Interiors (Krea AI)...")
+        table_code = self.ctx.definition.table_code.lower()
+        custom_prompt = ""
+        if "chand" in table_code:
+            custom_prompt = (os.getenv("MYTH_AND_FACT_PROMPT_CHANDELIER") or "").strip()
+        elif "floor" in table_code:
+            custom_prompt = (os.getenv("MYTH_AND_FACT_PROMPT_FLOOR_LAMPS") or "").strip()
+        elif "pendant" in table_code:
+            custom_prompt = (os.getenv("MYTH_AND_FACT_PROMPT_PENDANT_LIGHTS") or "").strip()
+
+        prompt2 = custom_prompt or "Modern luxury living room interior, curvilinear boucle furniture, warm neutral Japandi aesthetic, empty high ceiling ready for lighting fixture, soft daylight, vertical 9:16 portrait"
+        prompt3 = (os.getenv("MYTH_AND_FACT_PROMPT_DINING") or "").strip() or custom_prompt or "Modern luxury dining room interior, large sleek dining table, warm ambient lighting, empty high ceiling ready for lighting fixture, soft diffused natural daylight, vertical 9:16 portrait"
+
         interior2 = None
         try:
             interior2 = self.record_attachment("Interior2", "source_interior2")
             print("  [OK] Using existing Interior 2 (Living Room)")
         except Exception:
-            print("  [GEN] Generating new 9:16 Interior 2 (Living Room)...")
-            prompt2 = "Modern luxury living room interior, curvilinear boucle furniture, warm neutral Japandi aesthetic, empty high ceiling ready for lighting fixture, soft daylight, vertical 9:16 portrait"
+            print(f"  [GEN] Generating new 9:16 Interior 2 (Prompt: '{prompt2}')...")
             moodboard_id = self.ctx.settings.moodboard_id(self.ctx.definition.table_code)
             interior2 = self.krea_image("source_interior2.jpg", prompt2, aspect_ratio="9:16", moodboard_id=moodboard_id)
             try:
@@ -121,8 +133,7 @@ class MythAndFactStoryWorkflow(BaseWorkflow):
             interior3 = self.record_attachment("Interior3", "source_interior3")
             print("  [OK] Using existing Interior 3 (Dining Room)")
         except Exception:
-            print("  [GEN] Generating new 9:16 Interior 3 (Dining Room)...")
-            prompt3 = "Modern luxury dining room interior, large sleek dining table, warm ambient lighting, empty high ceiling ready for lighting fixture, soft diffused natural daylight, vertical 9:16 portrait"
+            print(f"  [GEN] Generating new 9:16 Interior 3 (Prompt: '{prompt3}')...")
             moodboard_id = self.ctx.settings.moodboard_id(self.ctx.definition.table_code)
             interior3 = self.krea_image("source_interior3.jpg", prompt3, aspect_ratio="9:16", moodboard_id=moodboard_id)
             try:
@@ -157,7 +168,7 @@ class MythAndFactStoryWorkflow(BaseWorkflow):
             "debunk_layout",
         )
         outro_layout = _get_layout_or_fallback(
-            ("Outro", "Outro Layout"),
+            ("Outro Layout", "Outro"),
             [
                 Path("JSON Prompts/Myth and Fact/outro_layout.jpg"),
                 Path("Outro for All Reels/Outro.jpg"),
@@ -271,21 +282,10 @@ class MythAndFactStoryWorkflow(BaseWorkflow):
         )
         print("  [OK] Slide 3 (Fact) Complete: fact1.jpg")
 
-        # 9. Slide 4: Outro engagement slide (Local PIL Conversion - No Fal API needed)
-        print("\n [PHASE 5/5] Creating Slide 4 (Outro Layout Local Conversion)...")
-        outro_dest = self.ctx.workdir / "outro.jpg"
-        convert_outro_layout_slide(outro_thumbnail.path, outro_layout.path, outro_dest)
-        outro = LocalImage(outro_dest, "outro.jpg")
-        print("  [OK] Slide 4 (Outro) Complete: outro.jpg")
-
-        # Also populate Outro Layout column if available
-        for outro_col in ("Outro Layout", "Outro"):
-            try:
-                self.attach_exact(outro_col, [outro])
-                print(f"  [OK] Attached outro.jpg to column '{outro_col}'")
-                break
-            except Exception:
-                pass
+        # 9. Slide 4: Outro slide (Directly use Outro Layout attachment)
+        print("\n [PHASE 5/5] Resolving Slide 4 (Outro Layout)...")
+        outro = outro_layout
+        print("  [OK] Slide 4 (Outro) Complete: using attached Outro Layout")
 
         # 10. Upload all 4 final slides to Airtable
         finals = [debunk, myth1, fact1, outro]

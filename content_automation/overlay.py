@@ -709,15 +709,18 @@ STYLE_THIS_DOUBLE_TAP_BOX = StoryTextBox(
 )
 
 # Slide 2: Pill background + Claude Generated Text
-# Width 606.4, Height 70.3 (dynamically hugs text, positioned below headline at Y=296.3)
+# Width 606.4, Height 70.3, X 236.8, Y 1488 (dynamically hugs text, centered horizontally)
 STYLE_THIS_PILL_BOX = StoryTextBox(
     x=236.8,
-    y=296.3,
+    y=1488.0,
     width=606.4,
     height=70.3,
     canvas_width=1080,
     canvas_height=1920,
 )
+
+# Vertical gap (in canvas px) between the 'Double tap if you choose:' headline and the pill below it
+STYLE_THIS_DOUBLE_TAP_PILL_GAP = 24.0
 
 DEFAULT_STYLE_THIS_PILL_COLOR = "#adb481"
 
@@ -881,9 +884,12 @@ def create_style_this_double_tap_slide(
     """Create Slide 2-4 ('double_tap_blended0X.jpg') for Style This Story.
 
     1. Stamped HomeCartel Logo at top-right (X=781.7, Y=108.0, W=190.3, H=63.5)
-    2. Heart Emoji aligned before headline (X=250.8, Y=212.5, W=77.8, H=69.3)
-    3. Left-aligned headline 'Double tap if you choose:' in Poppins-Light (non-bold, no shadow) (X=346.6, Y=212.0, W=904.7, H=70.3)
-    4. Rounded Pill background dynamically below headline with color from Claude and centered Poppins-Light text
+    2. Heart Emoji + 'Double tap if you choose:' headline rendered as one
+       horizontally-centered group, sitting directly above the pill.
+    3. Headline text in Poppins-Bold (no shadow), Solid White.
+    4. Rounded color Pill for the Claude-generated vibe text anchored to the
+       shape spec (X=236.8, Y=1488, W=606.4, H=70.3), centered horizontally,
+       width dynamically hugging the text, with centered Poppins-Light text.
     """
     if isinstance(base_image, (str, Path)):
         source_base = Image.open(base_image)
@@ -911,7 +917,88 @@ def create_style_this_double_tap_slide(
 
         img = canvas.convert("RGBA")
 
-        # 2. Heart Emoji overlay
+        # ------------------------------------------------------------------
+        # Geometry is computed top-down so the headline (heart + 'Double tap
+        # if you choose:') and the Claude-generated color pill are all
+        # centered horizontally and stacked together. The pill anchors to
+        # STYLE_THIS_PILL_BOX (X=236.8, Y=1488, W=606.4, H=70.3) and the
+        # headline sits directly above it.
+        # ------------------------------------------------------------------
+
+        # Resolve fonts up-front (needed for measuring the headline & pill text)
+        # - Pill (Claude vibe text): Poppins-Light
+        # - Headline ('Double tap if you choose:'): Poppins-Bold
+        if font_path is None:
+            font_path = (
+                _resolve_font_path("Poppins-Light.ttf")
+                or _resolve_font_path("Poppins-Regular.ttf")
+                or _resolve_font_path("Poppins-Bold.ttf")
+            )
+        headline_font_path = (
+            _resolve_font_path("Poppins-Bold.ttf")
+            or _resolve_font_path("Poppins-SemiBold.ttf")
+            or font_path
+        )
+
+        txt_layer = Image.new("RGBA", img.size, (255, 255, 255, 0))
+        draw = ImageDraw.Draw(txt_layer)
+
+        # --- Pill text metrics (Font size 44 Poppins-Light) ---
+        clean_text = str(claude_text or "Warm Olive").strip().strip("[]\"'")
+        pill_font_size = int(round(44 * scale_y))
+        try:
+            font_pill = ImageFont.truetype(str(font_path), pill_font_size) if font_path else ImageFont.load_default()
+        except Exception:
+            font_pill = ImageFont.load_default()
+
+        bbox_p = font_pill.getbbox(clean_text)
+        tw = bbox_p[2] - bbox_p[0]
+        th = bbox_p[3] - bbox_p[1]
+
+        # --- Dynamic Pill geometry (roundness 89 / rounded ends, hugging text) ---
+        # Height & vertical anchor follow the shape spec (H=70.3, Y=1488),
+        # width dynamically hugs the text but the pill stays centered on the canvas.
+        pad_x = 44.0 * scale_x  # 44px horizontal spread on each side
+        pill_w = tw + pad_x * 2.0
+        pill_h = pill_box.height * scale_y  # 70.3px
+        pill_x = (canvas.width - pill_w) / 2.0  # Centered horizontally (X=236.8 for default width)
+        pill_y = pill_box.y * scale_y  # Y = 1488
+        pill_radius = min(int(round(pill_h / 2.0)), 40)
+
+        # --- Headline (heart + 'Double tap if you choose:') centered above pill ---
+        headline_text = "Double tap if you choose:"
+        hl_font_size = int(round(44 * scale_y))  # Font size 44 Poppins-Bold
+        try:
+            font_hl = ImageFont.truetype(str(headline_font_path), hl_font_size) if headline_font_path else ImageFont.load_default()
+        except Exception:
+            font_hl = ImageFont.load_default()
+
+        bbox_hl = font_hl.getbbox(headline_text)
+        hl_w = bbox_hl[2] - bbox_hl[0]
+        hl_visible_h = bbox_hl[3] - bbox_hl[1]
+
+        # Heart dimensions (scaled) and the gap between the heart and the text
+        heart_w = int(round(heart_box.width * scale_x))
+        heart_h = int(round(heart_box.height * scale_y))
+        heart_gap = int(round(18.0 * scale_x))  # spacing between heart and headline text
+        has_heart = bool(heart_asset_path) or _resolve_asset_file("Heaart Emoji.jpg") or _resolve_asset_file("Heart Emoji.jpg")
+        group_w = (heart_w + heart_gap if has_heart else 0) + hl_w
+
+        # Center the heart+text group horizontally
+        group_x = (canvas.width - group_w) / 2.0
+        # Place the headline group above the pill with a fixed gap
+        gap = STYLE_THIS_DOUBLE_TAP_PILL_GAP * scale_y
+        group_center_y = pill_y - gap - (max(heart_h, hl_visible_h) / 2.0)
+
+        # Heart position (left of the text, vertically centered on the group)
+        heart_x = int(round(group_x))
+        heart_y = int(round(group_center_y - heart_h / 2.0))
+
+        # Headline text position (right of the heart, vertically centered on the group)
+        hl_x = int(round(group_x + (heart_w + heart_gap if has_heart else 0) - bbox_hl[0]))
+        hl_y = int(round(group_center_y - hl_visible_h / 2.0 - bbox_hl[1]))
+
+        # 2. Heart Emoji overlay (centered as part of the headline group)
         if heart_asset_path is None:
             heart_asset_path = _resolve_asset_file("Heaart Emoji.jpg") or _resolve_asset_file("Heart Emoji.jpg")
 
@@ -929,65 +1016,18 @@ def create_style_this_double_tap_slide(
                 if bounds:
                     heart_prep = heart_prep.crop(bounds)
 
-                target_w = int(round(heart_box.width * scale_x))
-                target_h = int(round(heart_box.height * scale_y))
-                heart_resized = heart_prep.resize((target_w, target_h), Image.LANCZOS)
-
-                hx = int(round(heart_box.x * scale_x))
-                hy = int(round(heart_box.y * scale_y))
-                img.paste(heart_resized, (hx, hy), heart_resized)
+                heart_resized = heart_prep.resize((heart_w, heart_h), Image.LANCZOS)
+                img.paste(heart_resized, (heart_x, heart_y), heart_resized)
                 if close_heart:
                     heart_source.close()
             except Exception as err:
                 print(f"[WARN] Failed to overlay heart emoji: {err}")
 
-        # 3. Typography & Pill rendering (Poppins Light, non-bold, no shadow)
-        if font_path is None:
-            font_path = (
-                _resolve_font_path("Poppins-Light.ttf")
-                or _resolve_font_path("Poppins-Regular.ttf")
-                or _resolve_font_path("Poppins-Bold.ttf")
-            )
-
-        txt_layer = Image.new("RGBA", img.size, (255, 255, 255, 0))
-        draw = ImageDraw.Draw(txt_layer)
-
-        headline_text = "Double tap if you choose:"
-        hl_font_size = int(round(44 * scale_y))  # Font size 44 Poppins-Light
-        try:
-            font_hl = ImageFont.truetype(str(font_path), hl_font_size) if font_path else ImageFont.load_default()
-        except Exception:
-            font_hl = ImageFont.load_default()
-
-        hl_x = int(round(double_tap_box.x * scale_x))
-        bbox_hl = font_hl.getbbox(headline_text)
-        hl_visible_h = bbox_hl[3] - bbox_hl[1]
-        box_center_y = double_tap_box.y * scale_y + (double_tap_box.height * scale_y) / 2.0
-        hl_y = int(round(box_center_y - hl_visible_h / 2.0 - bbox_hl[1]))
-
-        # No shadow/outline on headline (Poppins Light)
+        # 3. Headline text (Poppins Bold, no shadow/outline)
         text_color = (255, 255, 255, 255)
         draw.text((hl_x, hl_y), headline_text, font=font_hl, fill=text_color)
 
-        # 4. Dynamic Pill background (roundness 89 / rounded ends, 100% opacity, hugging text width)
-        clean_text = str(claude_text or "Warm Olive").strip().strip("[]\"'")
-        pill_font_size = int(round(44 * scale_y))  # Font size 44 Poppins-Light
-        try:
-            font_pill = ImageFont.truetype(str(font_path), pill_font_size) if font_path else ImageFont.load_default()
-        except Exception:
-            font_pill = ImageFont.load_default()
-
-        bbox_p = font_pill.getbbox(clean_text)
-        tw = bbox_p[2] - bbox_p[0]
-        th = bbox_p[3] - bbox_p[1]
-
-        # Spread 40 horizontal padding (44px on each side)
-        pad_x = 44.0 * scale_x
-        pill_w = tw + pad_x * 2.0
-        pill_h = 70.3 * scale_y
-        pill_x = (canvas.width - pill_w) / 2.0  # Centered horizontally
-        pill_y = (double_tap_box.y + double_tap_box.height + 14.0) * scale_y  # Directly below headline
-        pill_radius = min(int(round(pill_h / 2.0)), 40)
+        # 4. Dynamic Pill background (roundness 89 / rounded ends, 100% opacity)
 
         hex_clean = pill_color_hex.lstrip("#")
         pill_rgb = tuple(int(hex_clean[i:i+2], 16) for i in (0, 2, 4)) if len(hex_clean) == 6 else (173, 180, 129)

@@ -10,7 +10,7 @@ class RevisedMoodboardFeedWorkflow(BaseWorkflow):
         AssetRequirement("referencephoto_moodboard.png"),
         AssetRequirement("second_moodboard.json", "json"),
     )
-    estimate = CallEstimate(krea=1, qwen=1, kie=3)
+    estimate = CallEstimate(krea=1, qwen=0, kie=3, fal=1)
     aspect_ratio = "4:5"
     attachment_fields = ("Moodboard V1", "Moodboard V2")
     final_filenames = (

@@ -485,7 +485,13 @@ class PhasedContentRunner:
             channel_name=settings.channel_name,
         )
         self.krea = krea or KreaClient(settings.krea_token, settings.krea_base_url)
-        self.qwen = qwen or QwenClient(settings.qwen_api_key, settings.qwen_base_url)
+        # Prompt writing runs on Fal AI vision; Qwen/DashScope is optional and only
+        # built when a key is configured (kept for backwards compatibility only).
+        self.qwen = qwen or (
+            QwenClient(settings.qwen_api_key, settings.qwen_base_url)
+            if getattr(settings, "qwen_api_key", "")
+            else None
+        )
         self.fal = fal or FalClient(settings.fal_key)
         self.run_id = uuid.uuid4().hex
         self.logger = logger or JsonlRunLogger(settings.workspace, definition.key, self.run_id)

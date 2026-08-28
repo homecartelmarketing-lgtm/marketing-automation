@@ -158,6 +158,14 @@ AKENEO_SOURCE_CATEGORY: dict[str, str] = {
     "floor_lamps_reel": "floor_lamps",
     "wall_sconces_reel": "wall_lights",
     "table_lamps_reel": "table_lamps",
+    # Singular aliases
+    "chandelier": "chandeliers",
+    "floor_lamp": "floor_lamps",
+    "pendant_light": "pendant_lights",
+    "wall_light": "wall_lights",
+    "table_lamp": "table_lamps",
+    "cluster_chandelier": "cluster_chandeliers",
+    "linear_chandelier": "chandeliers",
 }
 
 # Env overrides for the category code to send to Akeneo. Keys are *source*

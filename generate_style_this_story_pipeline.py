@@ -34,6 +34,7 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import sys
 import time
@@ -59,37 +60,120 @@ from content_automation.scraping import (
     load_scrape_settings,
 )
 
-# Category-specific Configuration for Style This Story
+def _env_first(*names_and_default: str) -> str:
+    """Return the first non-empty .env value among names; last arg is the default.
+
+    Example: _env_first("A", "B", "fallback") reads $A, then $B, then "fallback".
+    This lets every built-in table's Table ID / Moodboard ID / Prompt be overridden
+    from .env while keeping a sensible hard-coded default if .env is empty.
+    """
+    *names, default = names_and_default
+    for name in names:
+        val = os.getenv(name, "").strip()
+        if val:
+            return val
+    return default
+
+
+# Category-specific Configuration for Style This Story.
+# Every value below is read from .env first (so all table IDs, moodboard IDs and
+# prompts can live in .env), falling back to the built-in default only when the
+# matching .env key is absent.
 STYLE_THIS_CATEGORIES: dict[str, dict[str, Any]] = {
     "floor_lamps": {
         "name": "Floor Lamps",
         "category_code": "floor_lamps",
-        "table_id": os.getenv("AIRTABLE_TABLE_ID_STYLE_THIS_FLOOR_LAMPS", "").strip() or os.getenv("AIRTABLE_TABLE_ID_STYLE_THIS", "").strip() or "tblvSAzXasTVI85r9",
-        "moodboard_id": os.getenv("KREA_MOODBOARD_ID_STYLE_THIS_FLOOR_LAMPS", "").strip() or "b1641228-beec-4823-8d01-1de3eec8410d",
-        "prompt": "Generate me a modern bedroom that have beside a floor lamp",
+        "table_id": _env_first("AIRTABLE_TABLE_ID_STYLE_THIS_FLOOR_LAMPS", "AIRTABLE_TABLE_ID_STYLE_THIS", "tblvSAzXasTVI85r9"),
+        "moodboard_id": _env_first("KREA_MOODBOARD_ID_STYLE_THIS_FLOOR_LAMPS", "b1641228-beec-4823-8d01-1de3eec8410d"),
+        "prompt": _env_first("STYLE_THIS_PROMPT_FLOOR_LAMPS", "Generate me a modern bedroom that have beside a floor lamp"),
+        "akeneo_category": _env_first("STYLE_THIS_AKENEO_CATEGORY_FLOOR_LAMPS", "floor_lamps"),
     },
     "pendant_lights": {
         "name": "Pendant Lights",
         "category_code": "pendant_lights",
-        "table_id": os.getenv("AIRTABLE_TABLE_ID_STYLE_THIS_PENDANT_LIGHTS", "").strip() or "tblWdz71nULR0TZx7",
-        "moodboard_id": os.getenv("KREA_MOODBOARD_ID_STYLE_THIS_PENDANT_LIGHTS", "").strip() or "0844ad92-c34a-4dc8-9d70-d09498dc098c",
-        "prompt": "Generate me a modern dining room",
+        "table_id": _env_first("AIRTABLE_TABLE_ID_STYLE_THIS_PENDANT_LIGHTS", "tblWdz71nULR0TZx7"),
+        "moodboard_id": _env_first("KREA_MOODBOARD_ID_STYLE_THIS_PENDANT_LIGHTS", "0844ad92-c34a-4dc8-9d70-d09498dc098c"),
+        "prompt": _env_first("STYLE_THIS_PROMPT_PENDANT_LIGHTS", "Generate me a modern dining room"),
+        "akeneo_category": _env_first("STYLE_THIS_AKENEO_CATEGORY_PENDANT_LIGHTS", "pendant_lights"),
     },
     "chandeliers": {
         "name": "Chandeliers",
         "category_code": "chandeliers",
-        "table_id": os.getenv("AIRTABLE_TABLE_ID_STYLE_THIS_CHANDELIER", "").strip() or "tblp6AMYb13NPqkuT",
-        "moodboard_id": os.getenv("KREA_MOODBOARD_ID_STYLE_THIS_CHANDELIER", "").strip() or "fda7090c-787b-4116-94cd-3feef613eaaa",
-        "prompt": "Generate me a modern bedroom",
+        "table_id": _env_first("AIRTABLE_TABLE_ID_STYLE_THIS_CHANDELIER", "tblp6AMYb13NPqkuT"),
+        "moodboard_id": _env_first("KREA_MOODBOARD_ID_STYLE_THIS_CHANDELIER", "fda7090c-787b-4116-94cd-3feef613eaaa"),
+        "prompt": _env_first("STYLE_THIS_PROMPT_CHANDELIER", "Generate me a modern bedroom"),
+        "akeneo_category": _env_first("STYLE_THIS_AKENEO_CATEGORY_CHANDELIER", "chandeliers"),
     },
     "wall_lights": {
         "name": "Wall Lights",
         "category_code": "wall_lights",
-        "table_id": os.getenv("AIRTABLE_TABLE_ID_STYLE_THIS_WALL_LIGHTS", "").strip() or "tblXJrvSBkJNhRHLa",
-        "moodboard_id": os.getenv("KREA_MOODBOARD_ID_STYLE_THIS_WALL_LIGHTS", "").strip() or "b1641228-beec-4823-8d01-1de3eec8410d",
-        "prompt": "Generate me a modern living room with a wall light",
+        "table_id": _env_first("AIRTABLE_TABLE_ID_STYLE_THIS_WALL_LIGHTS", "tblXJrvSBkJNhRHLa"),
+        "moodboard_id": _env_first("KREA_MOODBOARD_ID_STYLE_THIS_WALL_LIGHTS", "b1641228-beec-4823-8d01-1de3eec8410d"),
+        "prompt": _env_first("STYLE_THIS_PROMPT_WALL_LIGHTS", "Generate me a modern living room with a wall light"),
+        "akeneo_category": _env_first("STYLE_THIS_AKENEO_CATEGORY_WALL_LIGHTS", "wall_lights"),
     },
 }
+
+
+def _slugify_category_key(raw: str, fallback: str) -> str:
+    """Turn a human name into a safe category key (lowercase, underscores)."""
+    slug = re.sub(r"[^a-z0-9]+", "_", (raw or "").strip().lower()).strip("_")
+    return slug or fallback
+
+
+def load_custom_categories_from_env() -> dict[str, dict[str, Any]]:
+    """Load extra Style This categories defined in .env without touching code.
+
+    Add a new table by defining a numbered block in .env (N = 1, 2, 3, ...):
+
+        STYLE_THIS_CUSTOM_1_NAME=Table Lamps
+        STYLE_THIS_CUSTOM_1_TABLE_ID=tblXXXXXXXXXXXXXX
+        STYLE_THIS_CUSTOM_1_MOODBOARD_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+        STYLE_THIS_CUSTOM_1_PROMPT=Generate me a modern living room with a table lamp
+
+    Only TABLE_ID is strictly required. If MOODBOARD_ID is omitted it falls back
+    to the floor-lamp moodboard; if PROMPT is omitted a generic prompt is used.
+    An optional STYLE_THIS_CUSTOM_1_KEY can set the --category slug explicitly.
+    """
+    custom: dict[str, dict[str, Any]] = {}
+    default_moodboard = STYLE_THIS_CATEGORIES["floor_lamps"]["moodboard_id"]
+
+    for n in range(1, 51):  # supports up to 50 custom tables
+        prefix = f"STYLE_THIS_CUSTOM_{n}_"
+        table_id = os.getenv(prefix + "TABLE_ID", "").strip()
+        if not table_id:
+            # allow non-contiguous numbering: keep scanning a few slots
+            if n <= 10:
+                continue
+            # after slot 10, stop at the first empty to avoid scanning all 50
+            break
+
+        name = os.getenv(prefix + "NAME", "").strip() or f"Custom {n}"
+        explicit_key = os.getenv(prefix + "KEY", "").strip().lower()
+        key = _slugify_category_key(explicit_key or name, f"custom_{n}")
+
+        moodboard_id = os.getenv(prefix + "MOODBOARD_ID", "").strip() or default_moodboard
+        prompt = os.getenv(prefix + "PROMPT", "").strip() or f"Generate me a modern room featuring the {name.lower()}"
+        # Optional: which Akeneo category to scrape products from for this table.
+        # Defaults to floor_lamps (same as the built-in scrape source) if unset.
+        akeneo_category = os.getenv(prefix + "AKENEO_CATEGORY", "").strip() or "floor_lamps"
+
+        custom[key] = {
+            "name": name,
+            "category_code": key,
+            "table_id": table_id,
+            "moodboard_id": moodboard_id,
+            "prompt": prompt,
+            "akeneo_category": akeneo_category,
+            "is_custom": True,
+        }
+
+    return custom
+
+
+# Merge any .env-defined custom categories on top of the built-in ones.
+# This lets you add a brand-new table + moodboard + prompt from .env alone.
+STYLE_THIS_CATEGORIES.update(load_custom_categories_from_env())
 
 STYLE_THIS_TABLE_MAP: dict[str, str] = {
     k: v["table_id"] for k, v in STYLE_THIS_CATEGORIES.items()
@@ -531,10 +615,10 @@ def generate_story_cards_for_style_this(
             try:
                 color_prompt = (
                     "Analyze the dominant visual color atmosphere and visible palette of this interior design photograph.\n"
-                    "1. Generate a concise, natural, consumer-friendly 1 to 3 word color or style vibe description (e.g. 'Warm Olive', 'Terracotta Amber', 'Sage Minimalist', 'Muted Brass', 'Charcoal Slate').\n"
+                    "1. Generate an original, concise, natural, consumer-friendly 1 to 3 word color or style vibe description based purely on the actual tones in the photo.\n"
                     "2. Select a rich, harmonious HEX color code from that specific photograph to use as the background badge/pill behind white text.\n"
                     "RULES: Return ONLY a valid JSON object with no preamble, no markdown, and no quotes around the JSON, in this exact format:\n"
-                    "{\"vibe_name\": \"Warm Olive\", \"hex_color\": \"#adb481\"}"
+                    "{\"vibe_name\": \"<color/style vibe>\", \"hex_color\": \"#<hex_code>\"}"
                 )
                 raw_resp = fal.generate_vision_prompt(
                     image_urls=[b_url],
@@ -782,9 +866,14 @@ def parse_args(argv=None):
     )
     parser.add_argument(
         "--category",
-        choices=["floor_lamps", "wall_lights", "pendant_lights", "chandeliers", "chandelier"],
+        choices=sorted(STYLE_THIS_TABLE_MAP.keys()),
         default=None,
-        help="Style This Category (auto-selects matching Table ID: floor_lamps, wall_lights, pendant_lights, chandeliers)",
+        metavar="CATEGORY",
+        help=(
+            "Style This Category (auto-selects matching Table ID, Moodboard ID & Prompt). "
+            "Built-in: floor_lamps, wall_lights, pendant_lights, chandeliers. "
+            "Custom categories defined via STYLE_THIS_CUSTOM_N_* in .env are also accepted."
+        ),
     )
     parser.add_argument(
         "--table-id",
@@ -845,8 +934,15 @@ def run_pipeline(
         else:
             settings.require({"airtable", "krea", "fal"})
 
+    # Resolve category config first so custom (.env) tables can pick their own
+    # Akeneo scrape source, moodboard and prompt.
+    cat_cfg = TABLE_ID_TO_CATEGORY_CONFIG.get(table_id, STYLE_THIS_CATEGORIES["floor_lamps"])
+    cat_label = cat_cfg["name"]
+    target_category_code = cat_cfg["category_code"]
+    scrape_category_code = cat_cfg.get("akeneo_category") or DEFAULT_CATEGORY
+
     scrape_settings = load_scrape_settings(
-        category_code=DEFAULT_CATEGORY,
+        category_code=scrape_category_code,
         style_code=style,
         table_id_override=table_id,
         settings=settings,
@@ -859,10 +955,6 @@ def run_pipeline(
     )
     krea = KreaClient(settings.krea_token, settings.krea_base_url)
     fal = FalClient(settings.fal_key)
-
-    cat_cfg = TABLE_ID_TO_CATEGORY_CONFIG.get(table_id, STYLE_THIS_CATEGORIES["floor_lamps"])
-    cat_label = cat_cfg["name"]
-    target_category_code = cat_cfg["category_code"]
 
     if moodboard_id == DEFAULT_MOODBOARD_ID and cat_cfg.get("moodboard_id"):
         moodboard_id = cat_cfg["moodboard_id"]
@@ -986,24 +1078,29 @@ def run_pipeline(
 
 def run_interactive_menu():
     """Interactive CLI menu for Style This Story."""
+    # Built-in categories first (stable order), then any .env custom categories.
+    builtin_order = ["floor_lamps", "pendant_lights", "chandeliers", "wall_lights"]
+    cat_keys = [k for k in builtin_order if k in STYLE_THIS_CATEGORIES]
+    cat_keys += [k for k in STYLE_THIS_CATEGORIES if k not in cat_keys]
+
     while True:
         print("\n" + "=" * 64)
         print(" Style This Story Automation - Select Category / Table")
         print("=" * 64)
-        print("  [1] 🛋️ Floor Lamps     (Table: tblvSAzXasTVI85r9 | Moodboard: b1641228...)")
-        print("  [2] 💡 Pendant Lights   (Table: tblWdz71nULR0TZx7 | Moodboard: 0844ad92...)")
-        print("  [3] 🏮 Chandeliers      (Table: tblp6AMYb13NPqkuT | Moodboard: fda7090c...)")
-        print("  [4] 🕯️ Wall Lights      (Table: tblXJrvSBkJNhRHLa | Moodboard: Default)")
+        for idx, key in enumerate(cat_keys, start=1):
+            cfg = STYLE_THIS_CATEGORIES[key]
+            tag = " [custom]" if cfg.get("is_custom") else ""
+            mb = (cfg.get("moodboard_id") or "")[:8]
+            print(f"  [{idx}] {cfg['name']}{tag}  (Table: {cfg['table_id']} | Moodboard: {mb}...)")
         print("  [0] Exit")
         print("=" * 64)
         try:
-            cat_choice = input("Select Category [1-4, 0]: ").strip()
+            cat_choice = input(f"Select Category [1-{len(cat_keys)}, 0]: ").strip()
             if cat_choice == "0":
                 break
-            
-            cat_keys = ["floor_lamps", "pendant_lights", "chandeliers", "wall_lights"]
-            if not cat_choice.isdigit() or int(cat_choice) not in range(1, 5):
-                print("[WARN] Invalid selection. Please enter a number between 1 and 4.")
+
+            if not cat_choice.isdigit() or int(cat_choice) not in range(1, len(cat_keys) + 1):
+                print(f"[WARN] Invalid selection. Please enter a number between 1 and {len(cat_keys)}.")
                 continue
 
             selected_key = cat_keys[int(cat_choice) - 1]

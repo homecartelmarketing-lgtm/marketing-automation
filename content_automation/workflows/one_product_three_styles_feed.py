@@ -8,7 +8,7 @@ from .base import BaseWorkflow
 
 class OneProductThreeStylesFeedWorkflow(BaseWorkflow):
     requirements = ()
-    estimate = CallEstimate(krea=3, qwen=3, kie=3)
+    estimate = CallEstimate(krea=3, qwen=0, kie=3, fal=3)
     aspect_ratio = "4:5"
     final_filenames = (
         "1_product_3_style_blended1.jpg",
