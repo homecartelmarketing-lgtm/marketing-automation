@@ -615,10 +615,10 @@ def generate_story_cards_for_style_this(
             try:
                 color_prompt = (
                     "Analyze the dominant visual color atmosphere and visible palette of this interior design photograph.\n"
-                    "1. Generate a concise, natural, consumer-friendly 1 to 3 word color or style vibe description (e.g. 'Warm Olive', 'Terracotta Amber', 'Sage Minimalist', 'Muted Brass', 'Charcoal Slate').\n"
+                    "1. Generate an original, concise, natural, consumer-friendly 1 to 3 word color or style vibe description based purely on the actual tones in the photo.\n"
                     "2. Select a rich, harmonious HEX color code from that specific photograph to use as the background badge/pill behind white text.\n"
                     "RULES: Return ONLY a valid JSON object with no preamble, no markdown, and no quotes around the JSON, in this exact format:\n"
-                    "{\"vibe_name\": \"Warm Olive\", \"hex_color\": \"#adb481\"}"
+                    "{\"vibe_name\": \"<color/style vibe>\", \"hex_color\": \"#<hex_code>\"}"
                 )
                 raw_resp = fal.generate_vision_prompt(
                     image_urls=[b_url],

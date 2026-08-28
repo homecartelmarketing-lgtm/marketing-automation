@@ -1599,11 +1599,27 @@ def main(argv=None) -> int:
     base.require({"airtable", "krea", "fal"})
 
     reel_config = resolve_reel_table(args.target, args.category)
-    table_id = args.table_id or os.getenv(reel_config["env_table_key"], "").strip() or reel_config["default_table_id"]
-    category_code = reel_config["category_code"] if args.category is None else args.category
-    if category_code and not os.getenv("AKENEO_CATEGORY"):
-        os.environ["AKENEO_CATEGORY"] = category_code
-    moodboard_id = args.moodboard_id or moodboard_id_for_category(category_code) or reel_config["default_moodboard_id"]
+    table_id = (
+        args.table_id
+        or os.getenv(reel_config.get("env_table_key", ""), "").strip()
+        or reel_config.get("default_table_id", "")
+    )
+    akeneo_cat = (
+        args.category
+        or reel_config.get("akeneo_category")
+        or reel_config.get("category_code")
+        or "floor_lamps"
+    )
+    if akeneo_cat and not os.getenv("AKENEO_CATEGORY"):
+        os.environ["AKENEO_CATEGORY"] = akeneo_cat
+    moodboard_id = (
+        args.moodboard_id
+        or os.getenv(reel_config.get("moodboard_env_key", ""), "").strip()
+        or reel_config.get("default_moodboard_id", "")
+        or moodboard_id_for_category(akeneo_cat)
+    )
+    interior_prompt = reel_config.get("interior_prompt", "")
+    placement_rule = reel_config.get("placement_rule", "")
 
     settings = load_scrape_settings()
 
@@ -1618,12 +1634,12 @@ def main(argv=None) -> int:
     overall_success = True
 
     # Phase 1: Krea AI Room Interior Generation (9:16 Ratio - Before Image)
-    print(f"\n[PHASE 1/5] Krea AI Room Interior Photo Generation (Prompt: '{reel_config['interior_prompt']}')...")
+    print(f"\n[PHASE 1/5] Krea AI Room Interior Photo Generation (Prompt: '{interior_prompt}')...")
     if not generate_krea_interiors_pipeline(
         krea,
         airtable,
         moodboard_id=moodboard_id,
-        prompt=reel_config["interior_prompt"],
+        prompt=interior_prompt,
         limit_records=args.max_items,
     ):
         overall_success = False
@@ -1633,7 +1649,7 @@ def main(argv=None) -> int:
     if not generate_claude_blending_prompts(
         fal,
         airtable,
-        placement_rule=reel_config.get("placement_rule", ""),
+        placement_rule=placement_rule,
         limit_records=args.max_items,
     ):
         overall_success = False
