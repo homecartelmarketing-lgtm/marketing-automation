@@ -9,7 +9,7 @@ from .base import BaseWorkflow, FIXED_PRODUCT_BLEND_PROMPT
 
 class CollectionCategoryFeedWorkflow(BaseWorkflow):
     requirements = ()
-    estimate = CallEstimate(krea=4, qwen=3, kie=1)
+    estimate = CallEstimate(krea=4, qwen=0, kie=1, fal=3)
     aspect_ratio = "4:5"
     final_filenames = (
         "collection_styled_1.jpg",
@@ -55,12 +55,12 @@ class CollectionCategoryFeedWorkflow(BaseWorkflow):
             ("kitchen", "collection_categ_kitchen.jpg"),
         )
 
-        def qwen_prompt(spec):
+        def transform_prompt(spec):
             room_type, filename = spec
             return room_type, filename, self.qwen_room_transform_prompt(base, room_type)
 
         with ThreadPoolExecutor(max_workers=3) as executor:
-            prompt_specs = list(executor.map(qwen_prompt, room_specs))
+            prompt_specs = list(executor.map(transform_prompt, room_specs))
 
         def generate_room(spec):
             room_type, filename, prompt = spec
