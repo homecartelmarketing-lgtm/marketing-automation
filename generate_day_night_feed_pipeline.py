@@ -61,7 +61,6 @@ from content_automation.errors import AutomationError, ProviderError
 from content_automation.fal_client import FalClient
 from content_automation.krea_client import KreaClient
 from content_automation.media import attachment_filename, download_to_temp_file
-from content_automation.qwen_client import QwenClient
 from content_automation.scraping import ScrapeAirtableClient, load_scrape_settings
 from content_automation.scraping.categories import (
     SCRAPE_CATEGORIES,
@@ -269,7 +268,6 @@ def generate_krea_interior_for_feed(
 
 def generate_blending_prompt_for_feed(
     fal: FalClient,
-    qwen: QwenClient | None,
     airtable: ScrapeAirtableClient,
     record_id: str,
     fields: dict[str, Any],
@@ -305,26 +303,11 @@ def generate_blending_prompt_for_feed(
         f"Output ONLY the prompt text, with no preamble, markdown formatting, or quotes."
     )
 
-    prompt_text = ""
-    try:
-        prompt_text = fal.generate_vision_prompt(
-            image_urls=[interior_url, furniture_url],
-            prompt=instruction,
-            model=FAL_VISION_MODEL,
-        )
-    except Exception as fal_err:
-        print(f"  [WARN] Fal AI Claude vision error ({fal_err}), falling back to Qwen...")
-        if qwen:
-            try:
-                prompt_text = qwen.generate_blending_json_prompt(
-                    interior_url,
-                    furniture_url,
-                    model="qwen3.7-flash",
-                )
-            except Exception as qwen_err:
-                raise AutomationError(f"Both Claude and Qwen prompt generation failed: {fal_err} | {qwen_err}")
-        else:
-            raise
+    prompt_text = fal.generate_vision_prompt(
+        image_urls=[interior_url, furniture_url],
+        prompt=instruction,
+        model=FAL_VISION_MODEL,
+    )
 
     prompt_text = prompt_text.strip().strip('"').strip("'")
     target_prompt_field = PROMPT_FIELD
@@ -518,7 +501,6 @@ def finalize_feed_record(
 def process_single_feed_row(
     krea: KreaClient,
     fal: FalClient,
-    qwen: QwenClient | None,
     airtable: ScrapeAirtableClient,
     record: dict[str, Any],
     *,
@@ -564,7 +546,6 @@ def process_single_feed_row(
     # Step 2: Claude Sonnet 5 Vision Blending Prompt
     blend_prompt = generate_blending_prompt_for_feed(
         fal,
-        qwen,
         airtable,
         record_id,
         fields,
@@ -774,7 +755,6 @@ def main(argv=None) -> int:
     )
     krea = KreaClient(base_settings.krea_token, base_settings.krea_base_url)
     fal = FalClient(base_settings.fal_key)
-    qwen = QwenClient(base_settings.qwen_api_key, base_settings.qwen_base_url) if getattr(base_settings, "qwen_api_key", None) else None
 
     # Handle Scrape Mode
     if args.mode == "scrape" or args.scrape_only:
@@ -832,7 +812,6 @@ def main(argv=None) -> int:
             ok = process_single_feed_row(
                 krea,
                 fal,
-                qwen,
                 airtable,
                 rec,
                 moodboard_id=moodboard_id,

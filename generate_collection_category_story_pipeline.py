@@ -42,7 +42,6 @@ from content_automation.overlay import (
     HOMECARTEL_STORY_LOGO_BOX,
     create_three_image_story_grid,
 )
-from content_automation.qwen_client import QwenClient
 from content_automation.scraping import ScrapeAirtableClient, load_scrape_settings
 from content_automation.scraping.categories import (
     SCRAPE_CATEGORIES,
@@ -198,10 +197,6 @@ FAL_BLENDING_MODEL = (
 FAL_ASSEMBLY_MODEL = (
     os.getenv("COLLECTION_STORY_MODEL", "").strip() or "fal-ai/nano-banana-pro/edit"
 )
-
-QWEN_PROMPT_MODEL = "qwen3.7-flash"
-QWEN_BLEND_MODEL = "qwen-image-3.0-pro"
-QWEN_BLEND_SIZE = "2560*1440"
 
 # ── Audit Logging ───────────────────────────────────────────────────────
 
@@ -713,7 +708,7 @@ def generate_krea_interiors_pipeline(
 # ══════════════════════════════════════════════════════════════════════════
 
 def generate_claude_blending_prompts(
-    fal_or_qwen: Any,
+    fal: FalClient,
     airtable: ScrapeAirtableClient,
     *,
     vision_model: str = FAL_VISION_MODEL,
@@ -808,24 +803,11 @@ def generate_claude_blending_prompts(
             )
 
             try:
-                if hasattr(fal_or_qwen, "generate_vision_prompt"):
-                    generated_prompt = fal_or_qwen.generate_vision_prompt(
-                        image_urls=[interior_url, furniture_url],
-                        prompt=instruction,
-                        model=vision_model,
-                    ).strip().strip('"').strip("'")
-                elif hasattr(fal_or_qwen, "generate_blending_json_prompt_with_usage"):
-                    prompt_res, _ = fal_or_qwen.generate_blending_json_prompt_with_usage(
-                        interior_url,
-                        furniture_url,
-                        model=vision_model,
-                    )
-                    generated_prompt = str(prompt_res).strip()
-                else:
-                    generated_prompt = fal_or_qwen.generate_blending_json_prompt(
-                        interior_url,
-                        furniture_url,
-                    )
+                generated_prompt = fal.generate_vision_prompt(
+                    image_urls=[interior_url, furniture_url],
+                    prompt=instruction,
+                    model=vision_model,
+                ).strip().strip('"').strip("'")
 
                 append_audit_log({
                     "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -958,24 +940,13 @@ def generate_nano_banana_blends(
 
             downloaded = None
             try:
-                if hasattr(fal_or_blend_client, "generate"):
-                    image_url = fal_or_blend_client.generate(
-                        prompt=prompt_text,
-                        image_urls=image_inputs,
-                        aspect_ratio=aspect_ratio,
-                        resolution="1K",
-                        model=blend_model,
-                    )
-                elif hasattr(fal_or_blend_client, "generate_image_3_pro"):
-                    image_url = fal_or_blend_client.generate_image_3_pro(
-                        prompt_text,
-                        image_inputs,
-                        size=QWEN_BLEND_SIZE,
-                        model=QWEN_BLEND_MODEL,
-                        image_labels=[f"Interior{slot} photo", f"Furniture Item{slot} photo"],
-                    )
-                else:
-                    raise ProviderError("No compatible Fal or Qwen blend method found.")
+                image_url = fal_or_blend_client.generate(
+                    prompt=prompt_text,
+                    image_urls=image_inputs,
+                    aspect_ratio=aspect_ratio,
+                    resolution="1K",
+                    model=blend_model,
+                )
 
                 append_audit_log({
                     "timestamp": datetime.now(timezone.utc).isoformat(),
