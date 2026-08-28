@@ -1,0 +1,144 @@
+    {
+  "assistant_instruction": "Do not generate an image. Use this only as a detailed JSON prompt for future image conversion or image editing.",
+
+  "task": "Convert the uploaded second interior photo into a vertical editorial moodboard collage inspired by the first reference image. Use the second photo as the main source image and create multiple cropped detail panels from it, arranged in the same clean luxury grid style as the first reference. Match the typography style, label font, text size, spacing, white borders, and premium editorial layout of the first reference image.",
+
+  "source_image_instruction": {
+    "main_source": "Use the second uploaded dining and kitchen interior photo as the only visual source.",
+    "do_not_change_scene": "Keep the luxury dining and kitchen design accurate: cream and beige palette, curved ceiling with warm cove lighting, black linear chandelier, glass dining table, sculptural upholstered dining chairs, marble kitchen island, transparent accent chair, tall curtains, natural daylight, warm reflections, and high-end minimalist style.",
+    "visual_goal": "Transform the single interior photo into a luxury material-and-detail moodboard collage, similar to the first reference image."
+  },
+
+  "reference_style_instruction": {
+    "layout_reference": "Use the first reference image only as the layout, collage structure, typography, text label style, border spacing, and editorial moodboard guide.",
+    "overall_style": "Luxury interior design moodboard, clean editorial magazine layout, premium catalog presentation, warm neutral palette, refined modern aesthetic.",
+    "aspect_ratio": "9:16 vertical Instagram story format.",
+    "grid_style": "Create a multi-panel collage with white dividing borders between each photo crop. Use a clean structured grid with a mixture of larger and smaller rectangular image panels, similar to the first reference.",
+    "border_style": {
+      "color": "Pure white",
+      "thickness": "Thin to medium white separators, matching the first reference image",
+      "spacing": "Consistent narrow spacing between panels",
+      "outer_margin": "Small white outer margin around the entire collage"
+    }
+  },
+
+  "collage_panel_instructions": {
+    "panel_1": {
+      "type": "large detail crop",
+      "content": "Close-up crop of the black linear chandelier above the dining table, showing the slim horizontal black bar and warm LED tube lights.",
+      "placement": "Top left or upper area, similar to the chandelier detail panel in the reference."
+    },
+    "panel_2": {
+      "type": "room overview",
+      "content": "Wide crop of the full dining and kitchen space, including the glass dining table, chairs, chandelier, ceiling, and kitchen background.",
+      "placement": "Top right or upper large panel."
+    },
+    "panel_3": {
+      "type": "material detail",
+      "content": "Close-up crop of the cream upholstered sculptural dining chairs, showing the soft boucle-like texture.",
+      "label": "CREAM BOUCLE"
+    },
+    "panel_4": {
+      "type": "material detail",
+      "content": "Close-up crop of the black chandelier metal finish or black linear frame.",
+      "label": "MATTE BLACK"
+    },
+    "panel_5": {
+      "type": "material detail",
+      "content": "Close-up crop of the marble kitchen island or marble backsplash with soft beige veining.",
+      "label": "MARBLE ISLAND"
+    },
+    "panel_6": {
+      "type": "detail crop",
+      "content": "Close-up crop of the warm LED chandelier lights glowing above the table.",
+      "label": "LINEAR LED"
+    },
+    "panel_7": {
+      "type": "detail crop",
+      "content": "Close-up crop of the transparent amber accent chair on the right side.",
+      "label": "ACRYLIC CHAIR"
+    },
+    "panel_8": {
+      "type": "architecture detail",
+      "content": "Close-up crop of the curved ceiling with warm cove lighting.",
+      "label": "CURVED CEILING"
+    },
+    "panel_9": {
+      "type": "lifestyle crop",
+      "content": "Crop of the glass dining table with plates, glasses, flowers, and decorative objects.",
+      "placement": "Lower left or lower large panel."
+    },
+    "panel_10": {
+      "type": "feature detail",
+      "content": "Close-up crop of the chandelier and ceiling area, emphasizing the modern lighting design.",
+      "placement": "Lower right panel."
+    }
+  },
+
+  "text_label_style": {
+    "important_instruction": "Match the first reference image label style exactly.",
+    "font_style": "Clean modern uppercase sans-serif font, similar to the reference image.",
+    "font_weight": "Medium to semi-bold.",
+    "font_size": "Same visual text size as the first reference labels. Do not make the text larger or smaller.",
+    "letter_spacing": "Slight letter spacing, clean editorial look.",
+    "text_color": "#222222 or very dark charcoal.",
+    "label_background": "White rectangular label box.",
+    "label_padding": "Small horizontal padding and compact vertical padding, matching the first reference.",
+    "label_position": "Place labels near the bottom center of selected panels, slightly overlapping the image crop like the first reference.",
+    "label_alignment": "Centered text inside each white label box.",
+    "text_case": "All caps only."
+  },
+
+  "allowed_labels": [
+    "CREAM BOUCLE",
+    "MATTE BLACK",
+    "MARBLE ISLAND",
+    "LINEAR LED",
+    "ACRYLIC CHAIR",
+    "CURVED CEILING",
+    "GLASS DINING",
+    "WARM COVE LIGHT"
+  ],
+
+  "composition_rules": {
+    "maintain_reference_similarity": "The final collage should clearly feel like the first reference moodboard: same luxury editorial grid, same white border system, same label style, same font size, and same clean arrangement.",
+    "image_crops": "Use only realistic cropped sections from the second photo. Do not invent new furniture, new materials, new windows, new chandelier shapes, or new room elements.",
+    "lighting": "Preserve the soft natural daylight and warm interior glow from the second photo.",
+    "color_palette": "Keep the palette warm, neutral, cream, beige, marble white, soft gold accents, and matte black lighting details.",
+    "quality": "Ultra-realistic, high-resolution, sharp editorial interior photography, realistic shadows, realistic reflections, premium magazine layout."
+  },
+
+  "negative_prompt": {
+    "do_not_add": [
+      "Do not add logos",
+      "Do not add brand names",
+      "Do not add watermarks",
+      "Do not add social media handles",
+      "Do not add price text",
+      "Do not add random captions",
+      "Do not add people",
+      "Do not add extra furniture not found in the source photo",
+      "Do not change the chandelier design",
+      "Do not change the room style"
+    ],
+    "avoid_errors": [
+      "Avoid blurry crops",
+      "Avoid distorted furniture",
+      "Avoid warped chandelier lines",
+      "Avoid unreadable text",
+      "Avoid oversized labels",
+      "Avoid tiny labels",
+      "Avoid mismatched font",
+      "Avoid thick borders that overpower the collage",
+      "Avoid dark or heavy filters",
+      "Avoid cartoon or illustration style"
+    ]
+  },
+
+  "final_output": {
+    "format": "Vertical 9:16 luxury interior moodboard collage",
+    "style_match": "Very close to the first reference image",
+    "main_subject": "The second dining and kitchen interior photo converted into an editorial detail collage",
+    "text_requirement": "Use only short uppercase material/detail labels, matching the font and text size from the first reference."
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "task": "carousel_premium_white_background_logo_layout",
+  "input_order": {
+    "image_1": "fixed HomeCartel presentation and branding reference",
+    "image_2": "exact Airtable Furniture Item to preserve"
+  },
+  "objective": "Create a premium minimalist HomeCartel product advertisement using the exact product from image 2 while preserving the campaign composition and branding from image 1.",
+  "product_preservation": [
+    "Preserve the exact product identity, shape, proportions, structure, materials, colors, finishes, glass, crystal, metalwork, and unique visible details from image 2.",
+    "Do not copy or retain the sample product from image 1.",
+    "Remove the original room or background from image 2.",
+    "Do not redesign, simplify, distort, crop away critical parts, or invent details."
+  ],
+  "background": {
+    "color": "solid clean white",
+    "rules": "Keep the entire canvas bright white with only subtle natural studio shadows. Do not add rooms, walls, scenery, gradients, patterns, textures, or unrelated objects."
+  },
+  "layout_and_branding": [
+    "Use image 1 to control the product placement, crop, visual balance, negative space, lighting, and premium catalog style.",
+    "Preserve the HomeCartel registered logo exactly in its original bottom-right position, size, color, typeface, spacing, and safe margin.",
+    "Do not move, redraw, resize, recolor, rotate, crop, cover, or alter the logo or registered-trademark symbol.",
+    "Ensure the product does not overlap the logo."
+  ],
+  "output": {
+    "aspect_ratio": "3:4",
+    "quality": "photorealistic premium high-resolution HomeCartel campaign image"
+  }
+}

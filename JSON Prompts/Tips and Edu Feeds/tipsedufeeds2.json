@@ -1,0 +1,89 @@
+{
+  "assistant_instruction": {
+    "generate_image": false,
+    "instruction": "Do not generate an image from this JSON alone. Use this JSON only as the editing instruction for Tips & Educational Feed Layout 2 when processing the supplied images through Nano Banana Pro image-to-image."
+  },
+
+  "task": "create_dynamic_tips_educational_feed_layout_2",
+
+  "objective": "Use Reference Image 1 as the fixed Layout 2 design template and Reference Image 2 as the finished blended interior or product-interior photo. Replace only the solid black background area of the Layout 2 template with the blended photo while preserving the complete Layout 2 typography composition, the large white numeral 2, positioning, spacing, proportions, and visual hierarchy. Analyze the blended photo and replace the placeholder tip text with one short, original, useful educational tip based only on details visibly supported by that photo.",
+
+  "reference_images": {
+    "reference_image_1": {
+      "role": "FIXED_LAYOUT_2_TEMPLATE",
+      "instruction": "This is the first image supplied to Nano Banana Pro. Use it as the exact visual reference for Layout 2. Preserve the large white numeral 2 in the lower-left section, including its wide rounded geometric form, thin uniform stroke, open curved bowl, straight flat baseline bar, size, white color, position, margins, and relationship to the text block. Preserve the original text area, typography style, approximate font size, line spacing, alignment, and overall editorial composition. The black background is only a replaceable placeholder."
+    },
+    "reference_image_2": {
+      "role": "BLENDED_PHOTO_AND_TIP_SOURCE",
+      "instruction": "This is the second image supplied to Nano Banana Pro. It is the finished blended interior or product-interior photo created earlier in the workflow. Use this exact photo as the new full background. Analyze this photo from scratch to determine the educational tip. The blended photo may be different for every run."
+    }
+  },
+
+  "image_input_order": {
+    "image_1": "Layout 2 template",
+    "image_2": "Finished blended photo",
+    "instruction": "Always interpret the first supplied image as the fixed layout reference and the second supplied image as the dynamic background and content-analysis source. Never reverse their roles."
+  },
+
+  "canvas": {
+    "aspect_ratio": "4:5",
+    "reference_dimensions": "1080 x 1350 pixels",
+    "orientation": "vertical Instagram feed post"
+  },
+
+  "background_rules": {
+    "replace": "Remove only the solid black background of Reference Image 1 and replace it completely with Reference Image 2.",
+    "coverage": "The blended photo must fill the entire 4:5 canvas edge to edge with no remaining black borders, letterboxing, or empty areas.",
+    "preserve_source": "Keep the blended photo visually accurate. Preserve the existing product, furniture, architecture, lighting, colors, materials, textures, shadows, reflections, perspective, scale, and atmosphere.",
+    "crop": "Crop, scale, or reposition the blended photo only when necessary to fit the 4:5 composition. Never stretch or distort it. Keep the primary product and important interior details visible.",
+    "restriction": "Do not redesign the blended room, replace the product, invent new major objects, modify the product identity, or create a completely different scene."
+  },
+
+  "tip_generation": {
+    "placeholder": "Auto-generated tips and educational sentence goes here. Auto-generated tips and educational sentence goes here.",
+    "instruction": "Replace the full placeholder wording with exactly one concise educational tip inspired directly by the visible content of Reference Image 2. The placeholder sentence is repeated twice in the template only to show the size of the text block. It is one single text area, not two separate tips.",
+    "analysis": "Analyze the blended photo and identify the strongest practical design insight. The tip may relate to lighting placement, fixture scale, furniture arrangement, spatial balance, material coordination, color harmony, focal points, layering, texture, proportion, or another clearly visible design principle.",
+    "product_awareness": "When a lighting or furniture product is clearly featured, the tip may naturally relate to how that product works within the room, but do not turn the tip into a product advertisement.",
+    "accuracy": "Mention only details that can reasonably be supported by the current blended photo. Never invent furniture, materials, colors, architectural features, lighting effects, or design elements that are not visible.",
+    "originality": "Generate a fresh tip for every new blended photo. Do not copy the placeholder text, examples, previous outputs, or wording contained in this JSON.",
+    "length": "Target roughly 18 to 26 words so the tip fills the existing four-line text area without shrinking or enlarging the original typography scale.",
+    "tone": "Professional English, useful, premium, modern, polished, educational, and editorial.",
+    "restriction": "Do not generate hashtags, headings, captions, calls to action, promotional statements, or multiple separate tips."
+  },
+
+  "layout_2_rules": {
+    "number": "The stylized white numeral 2 is permanent and must remain exactly as the main numeric element. Never replace it with another number, icon, symbol, or graphic.",
+    "number_position": "Keep the numeral 2 in the same lower-left location shown in the template, occupying approximately x 122 to 247 and y 997 to 1186 on a 1080 x 1350 canvas.",
+    "number_style": "Preserve its white color, wide rounded geometric form, thin uniform stroke, open curved bowl, straight flat baseline bar, cap height of approximately 189 pixels, and overall proportions. The numeral 2 is deliberately much wider and lighter in stroke than the numeral 1 used in Layout 1. Do not narrow, thicken, or restyle it.",
+    "text_position": "Place the generated educational tip in the exact original placeholder text region immediately to the right of the numeral 2, beginning at approximately x 272, ending no further right than x 975, and spanning approximately y 1015 to 1185.",
+    "text_style": "Preserve the clean white modern geometric sans-serif typography, approximate font size of 42 pixels on a 1080 x 1350 canvas, weight, tight line spacing of approximately 42 pixels, left alignment, and minimalist editorial appearance of the reference template.",
+    "line_breaks": "Wrap the new tip naturally across approximately four lines to fill the existing text area while keeping the composition visually balanced.",
+    "hierarchy": "Maintain the same visual relationship between the numeral 2 and the smaller tip text. The numeral and the text block share approximately the same top and bottom alignment.",
+    "spacing": "Preserve the approximate original margins and the roughly 25 pixel gap between the numeral and the text block.",
+    "safe_area": "Keep all typography fully inside the canvas and prevent text from being clipped."
+  },
+
+  "readability_rules": {
+    "instruction": "The white numeral 2 and generated tip must remain clearly readable over the blended background.",
+    "preferred_method": "Prioritize intelligent cropping and positioning of the background so the typography appears over a visually suitable area.",
+    "allowed_adjustment": "When necessary, apply only subtle localized darkening or a soft transparent shadow behind the typography.",
+    "restriction": "Do not add a large opaque black rectangle, solid text panel, or heavy overlay that hides a major portion of the blended photo."
+  },
+
+  "strict_rules": {
+    "layout_locked": "This is Layout 2 only. Do not transform it into Layout 1 or Layout 3.",
+    "change_only": "Only the black background and placeholder tip wording should change.",
+    "preserve_number": "Do not remove, rotate, recolor, distort, redesign, or significantly resize the numeral 2.",
+    "preserve_product": "Do not alter the identity, shape, structure, materials, color, or proportions of the featured product visible in the blended photo.",
+    "no_extras": "Do not add logos, extra numbers, icons, headings, borders, watermarks, hashtags, promotional text, or unrelated graphics.",
+    "reanalyze_each_run": "Analyze every newly supplied blended photo independently and create a tip specifically for that image."
+  },
+
+  "output": {
+    "aspect_ratio": "4:5",
+    "dimensions": "1080 x 1350 pixels",
+    "style": "premium minimalist HomeCartel educational editorial feed",
+    "quality": "high-resolution realistic blended-photo background with crisp readable typography",
+    "result": "The finished blended photo fills the background while the original Layout 2 composition remains visually intact, with the permanent white numeral 2 and one newly generated educational tip based specifically on the current blended photo."
+  }
+}

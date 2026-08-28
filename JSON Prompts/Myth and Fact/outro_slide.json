@@ -1,0 +1,49 @@
+{
+  "task": "create_outro_question_slide_from_locked_layout_and_photo",
+  "output": {
+    "aspect_ratio": "9:16",
+    "orientation": "portrait",
+    "quality": "premium, sharp, photorealistic HomeCartel story outro"
+  },
+  "input_images": {
+    "image_1": {
+      "role": "LOCKED_OUTRO_LAYOUT",
+      "instruction": "Use image 1 as the exact composition and branding template. Only its solid black background and the headline question text 'Were you surprised?' are to be modified."
+    },
+    "image_2": {
+      "role": "BACKGROUND_AND_QUESTION_SOURCE",
+      "instruction": "Use this exact supplied photo as the replacement background and the only source for the new question. Do not use or infer information from any Myth or Fact slide."
+    }
+  },
+  "background_edit": {
+    "instruction": "Replace only the solid black background of image 1 with image 2. Scale and crop image 2 proportionally to fill the full 9:16 canvas without borders, stretching, warping, or distortion.",
+    "readability": "Keep a dark base under the photo and darken the photo uniformly enough for all white foreground elements and text to remain crisp, sharp, and perfectly readable."
+  },
+  "question_generation": {
+    "target_text_to_replace": "Were you surprised?",
+    "instruction": "Locate the exact visible question text 'Were you surprised?' in image 1. Erase and replace ONLY that question text by generating one new original, engaging question grounded solely in the room, lighting, furniture, placement, or styling clearly visible in image 2.",
+    "length": "Maximum 12 words, one concise sentence, ending with exactly one question mark.",
+    "fit": "Write the newly generated question directly in the exact location where 'Were you surprised?' was located, matching the original text placement and size without overlapping other elements.",
+    "restrictions": [
+      "Do not include square brackets, quotation marks, hashtags, labels, captions, answers, facts, or calls to action.",
+      "Do not invent brands, materials, dimensions, or objects not visible in image 2.",
+      "Do not reuse the original phrase 'Were you surprised?'."
+    ]
+  },
+  "locked_foreground": {
+    "instruction": "Treat all other foreground layout elements in image 1 as strictly locked pixels. Preserve them exactly in their original position, size, alignment, and appearance:",
+    "elements": [
+      "shocked-face emoji",
+      "Reply with your answer on this story.",
+      "all existing branding and logo elements"
+    ]
+  },
+  "strict_restrictions": [
+    "Do not alter, rewrite, translate, or remove the subtext 'Reply with your answer on this story.'.",
+    "Do not modify, move, or remove any existing logo or branding.",
+    "Do not redesign or regenerate the supplied room photo.",
+    "Do not add extra text, captions, watermarks, borders, or graphic elements.",
+    "Do not output square, landscape, 4:5, or any ratio other than 9:16."
+  ],
+  "final_check": "Verify that: (1) image 2 fills the background cleanly; (2) the question 'Were you surprised?' was replaced by exactly one photo-grounded question of 12 words or fewer; (3) the text 'Reply with your answer on this story.' and all branding/emojis remain 100% intact, readable, and in their exact original positions."
+}

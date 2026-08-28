@@ -1,0 +1,57 @@
+{
+  "task": "Convert the uploaded interior photo into a luxury vertical 3-section material palette board of three realistic close-up texture panels. Use the layout reference only as a structure template.",
+  "aspect_ratio": "9:16 vertical portrait",
+  "style": "luxury material palette board, refined editorial design, realistic tactile textures, minimal typography, soft natural lighting",
+  "input_references": {
+    "interior_reference_photo": "Main source for all materials. Identify the strongest finishes, textures and furniture fabrics visible. Do NOT recreate the room scene - convert it into close-up texture panels only.",
+    "layout_reference_photo": "Structure and typography template. Follow its vertical stack of three equal panels and copy its text treatment exactly. Do NOT copy its colors, crops or materials - replace those with textures from the interior photo."
+  },
+  "layout": {
+    "panel_count": 3,
+    "arrangement": "Three equal horizontal panels stacked top to bottom, each one third of the canvas, split by clean straight divisions with no thick borders.",
+    "composition": "Full bleed. Each panel fills the full canvas width edge-to-edge and touches its neighbours directly, with no outer frame, border, margin or gap anywhere."
+  },
+  "panels": {
+    "top": {
+      "label": "[MATERIAL 01]",
+      "source": "A dominant architectural, decorative, lighting, wall, flooring, stone, wood, metal or glass finish from the interior photo.",
+      "texture": "Realistic close-up preserving surface detail, subtle imperfections, lighting and depth."
+    },
+    "middle": {
+      "label": "[FURNITURE MATERIAL]",
+      "source": "STRICT: must come from a dominant furniture piece - sofa, sectional, lounge or accent chair, bed, headboard, bench, ottoman or dining chair upholstery.",
+      "examples": ["LINEN","BOUCLE","VELVET","LEATHER","WOOL","TWEED","RATTAN","CANE"],
+      "priority": "Pick the furniture material with the largest surface and clearest texture, even if neutral. Never use wall, floor, ceiling, stone, glass, lighting, cabinetry or metal finishes here unless part of the furniture.",
+      "fallback": "If none is visible, use the closest soft furnishing - cushion, throw or rug fiber.",
+      "texture": "Realistic close-up showing weave, upholstery grain, leather texture, boucle loops, velvet nap or fibers."
+    },
+    "bottom": {
+      "label": "[MATERIAL 03]",
+      "source": "Another dominant or complementary material from the interior photo, different from the middle panel.",
+      "texture": "Realistic close-up that feels tactile and premium."
+    }
+  },
+  "material_labels": "Replace each placeholder with the detected material name. Short uppercase words only, such as GLASS, OAK, LINEN, MARBLE, BRASS, VELVET. Prefer strong texture or color identity.",
+  "typography": {
+    "match_the_reference": "Copy the text treatment of the layout reference image EXACTLY - same weight, same tracking, same label size relative to its panel, same divider length, same vertical placement. This is the highest priority requirement.",
+    "font": "Geometric sans-serif in the style of Poppins. LIGHT to REGULAR weight only - never bold, never heavy.",
+    "size": "Small and understated. The label must never dominate its panel.",
+    "letter_spacing": "Widely tracked out, with clear airy gaps between letters.",
+    "text_transform": "uppercase",
+    "position": "Centered horizontally AND vertically inside its own panel - never near the top or bottom edge.",
+    "divider_line": "One short thin hairline centered directly below the label, clearly SHORTER than the label text - roughly one third of the text width. Never a full-width underline."
+  },
+  "text_color_visibility": {
+    "instruction": "Analyze each panel brightness before applying text, then choose the most readable color.",
+    "rules": [
+      "Dark charcoal or warm brown text on light materials.",
+      "Warm ivory or soft white text on dark materials.",
+      "Never dark text on dark or shadowed textures.",
+      "Never white text on pale or bright reflective surfaces."
+    ],
+    "dark_text": ["#2F2A25","#3F3026","#4A4038"],
+    "light_text": ["#F4EFE7","#F7F2EA","#EDE4D8"]
+  },
+  "visual_style": "Soft natural daylight, gentle contrast, realistic tactile surfaces. Elegant, calm, timeless. All panels from the same interior palette.",
+  "negative_prompt": "No full room scene. No placeholder colors from the layout reference. No material names not visible in the interior photo. NEVER put flooring, wood, stone, glass, lighting or cabinetry in the middle panel - it must be upholstery fabric. No outer frame, white border, margin or gap around or between panels. No bold or heavy text. No underline as wide as or wider than the label text. No missing divider line. No shadow box, scrim or dark band behind the text. No label placed near the top or bottom edge of a panel. No logos, watermarks, captions or extra text. No uneven panel heights. No low-contrast text. No blurred textures. No people or unrelated objects. Not a flat color-block graphic, textures must be realistic."
+}

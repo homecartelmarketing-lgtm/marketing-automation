@@ -1,0 +1,47 @@
+{
+  "task": "blend_three_table_lamps_onto_minimalist_podium_background_turned_on",
+  "instruction": "Use the first uploaded image as the main background scene with three white circular podiums. Place each of the three uploaded table lamp reference photos realistically onto its own separate podium. All three table lamps must be turned on, visibly glowing, and naturally integrated. Dim the background lighting slightly so the warm lamp glow stands out. Output a high-end luxury studio product photoshoot. Do not add a fourth lamp or extra podiums.",
+  "aspect_ratio": "4:5 vertical portrait",
+  "output_style": "photorealistic luxury product display, minimalist studio photography, clean editorial catalog image, softly dimmed premium studio environment, realistic glow lighting, realistic shadows",
+  "main_background_reference": {
+    "use_image": "First uploaded image with circular white podiums",
+    "background_edit_instruction": "Slightly dim background brightness while keeping wall, floor, and podiums visible so lamp glow stands out naturally.",
+    "do_not_change": ["podium positions", "warm white wall", "minimal studio setup", "clean neutral color palette"]
+  },
+  "product_placement": {
+    "overall_rule": "Place one table lamp on each podium surface with correct perspective, realistic contact shadows, and believable scale. Keep full table lamp visible from base to top.",
+    "lamp_placement": "Center each table lamp on its podium surface. Maintain front-facing, upright orientation without cropping."
+  },
+  "lamp_activation_and_glow": {
+    "all_lamps_must_be_on": true,
+    "lighting_instruction": "Turn on all table lamps. Each lamp emits a warm-white or neutral-warm glow through its shade, diffuser, or bulb area.",
+    "light_spill": "Add subtle warm light spill onto podium tops, stems, wall, and floor. Materials should react naturally with soft reflections."
+  },
+  "realism_and_blending": {
+    "cutout_quality": "Cleanly isolate table lamps, removing original background edges.",
+    "shadow_match": "Add realistic soft contact shadows directly under each lamp base and soft cast shadows matching studio lighting.",
+    "perspective_match": "Match camera angle and floor perspective. Lamps sit planted on podium surfaces, not pasted."
+  },
+  "composition": {
+    "layout": "Balanced multi-product arrangement across podiums with clean headroom and 4:5 vertical portrait crop.",
+    "crop": "Maintain 4:5 vertical portrait crop with all lamps fully visible."
+  },
+  "quality_requirements": {
+    "photorealistic": true,
+    "high_resolution": true,
+    "natural_blending": true,
+    "realistic_lamp_glow": true
+  },
+  "negative_prompt": [
+    "plain product cutout collage",
+    "floating product",
+    "cropped lamp",
+    "floor lamp scale",
+    "harsh shadows",
+    "unrealistic lighting",
+    "distorted product",
+    "blurry product",
+    "text",
+    "people"
+  ]
+}

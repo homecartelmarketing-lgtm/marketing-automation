@@ -1,0 +1,173 @@
+{
+  "assistant_instruction": "Edit the uploaded HomeCartel reference poster using the newly uploaded product image. Do not redesign the poster or generate an unrelated composition. Preserve the reference poster's editorial identity, typography style, hierarchy, spacing, layering, background, logo treatment, and overall visual balance.",
+  "task": "Completely replace the Sode Chandelier and all Sode-specific text with the user-provided item while maintaining the same premium HomeCartel poster style. Automatically generate exactly two product-description paragraphs and adapt the non-logo text colors to the replacement item's palette while ensuring strong readability.",
+  "required_inputs": {
+    "item_name": "Olthara ",
+    "product_type": "Chandelier",
+    "optional_confirmed_product_details": "OPTIONAL: Enter only confirmed information such as material, finish, color, special feature, or intended room. Leave blank when unavailable."
+  },
+  "upload_order": {
+    "first_uploaded_image": "The original HomeCartel Sode Chandelier poster. Use it only as the exact layout, typography, logo, composition, scale, crop, spacing, and visual-style reference.",
+    "second_uploaded_image": "The new item to feature. Use it as the exact product-design reference and as the source for visible colors, finishes, shapes, materials, and construction details."
+  },
+  "main_edit_instruction": {
+    "reference_preservation": "Treat the first image as an existing poster to be carefully edited, not as inspiration for a completely new design.",
+    "remove_original_item": "Completely remove the Sode Chandelier, including its chain, canopy, gold branch structure, crystal strands, reflections, shadows, and every product-specific component.",
+    "insert_replacement_item": "Insert one accurate representation of the item from the second uploaded image. Do not create duplicates or add accessories that are absent from the product reference.",
+    "product_accuracy": "Preserve the replacement item's recognizable silhouette, proportions, construction, number and arrangement of components, finish, colors, textures, decorative details, suspension system, and material appearance. Do not merge it with any part of the original Sode Chandelier.",
+    "editorial_treatment": "Present the replacement item as a premium oversized editorial product close-up, using the bold scale and intentional cropping seen in the reference poster.",
+    "product_placement": "Place the product mainly across the left and lower areas of the canvas. It may extend naturally beyond the left or bottom edge when this creates the same intentional close-up feeling as the reference.",
+    "adaptive_fit": "Adjust only the product's proportional scale, natural rotation, and crop to suit its real shape. Preserve enough clean space on the right for two readable description paragraphs.",
+    "hanging_fixture_rule": "If the product is a chandelier or pendant light, show its actual canopy, cable, rod, or chain exactly as supported by the product image. Do not reuse the original Sode chain.",
+    "non_hanging_item_rule": "If the replacement is not a hanging fixture, do not add a canopy, ceiling cable, rod, chain, crystals, or chandelier components.",
+    "background": "Keep the original clean solid white background. Do not add an interior, room, scenery, furniture, architecture, decorative graphics, borders, or colored panels.",
+    "lighting": "Use bright but natural soft studio lighting with realistic highlights, material definition, reflections, transparency, and subtle shadows. Avoid gray color casting, flat lighting, excessive brightness, blown highlights, or an overly yellow tint."
+  },
+  "headline_replacement": {
+    "item_name": {
+      "source": "Use the exact value entered in required_inputs.item_name.",
+      "replace": "Replace the word SODE completely.",
+      "display_case": "Display the supplied item name in uppercase without adding brackets, quotation marks, labels, or extra words.",
+      "font_style": "Match the bold modern geometric sans-serif appearance, heavy weight, tight spacing, and strong editorial character of SODE.",
+      "hierarchy": "Keep the item name as the largest and most visually dominant text element.",
+      "placement": "Maintain the same large upper-middle position and layered relationship with the product as the SODE headline.",
+      "maximum_lines": 2,
+      "fit_rule": "If the supplied name is longer than SODE, reduce the complete word proportionally only as much as necessary to keep every letter safely inside the canvas. Never stretch, condense, warp, crop, or disproportionately resize individual letters."
+    },
+    "product_type": {
+      "source": "Use the exact value entered in required_inputs.product_type.",
+      "replace": "Replace the word chandelier completely.",
+      "display_case": "Use lowercase or title case according to the supplied wording. Do not add brackets, quotation marks, labels, or extra wording.",
+      "font_style": "Match the thin rounded geometric sans-serif appearance and weight used for the original word chandelier.",
+      "hierarchy": "Keep the product type clearly subordinate to the item name but larger than the description text.",
+      "placement": "Position it directly below and aligned with the item-name headline, following the reference poster's typographic relationship.",
+      "maximum_lines": 1,
+      "fit_rule": "Scale the complete phrase proportionally when needed so it remains fully visible and does not extend beyond the right edge."
+    },
+    "relationship_rule": "Preserve the original contrast between the oversized bold item name and the thinner product type. Their size relationship, alignment, spacing, and typography must remain consistent with the reference even when the words change."
+  },
+  "automatic_two_paragraph_description": {
+    "main_instruction": "Replace all lorem ipsum with exactly two original English paragraphs based on the replacement item's visible characteristics, the supplied item name and product type, and any optional confirmed details.",
+    "paragraph_1": {
+      "purpose": "Design and Material Story",
+      "content": "Describe the item's visible silhouette, form, finish, material appearance, texture, construction details, and overall design character.",
+      "tone": "Refined, descriptive, premium, concise, and appropriate for a luxury furniture or lighting catalogue.",
+      "length": "35 to 50 words",
+      "placement": "Place it in the open right-middle area using approximately the same text-block position and width as the first reference paragraph."
+    },
+    "paragraph_2": {
+      "purpose": "Styling and Atmosphere",
+      "content": "Explain the atmosphere the item can create, suitable room settings, compatible interior styles, and how it can complement an interior composition.",
+      "tone": "Warm, aspirational, useful, editorial, and tasteful without sounding exaggerated or overly promotional.",
+      "length": "50 to 70 words",
+      "placement": "Place it beneath the first paragraph in the lower-right area, following the second reference text block."
+    },
+    "writing_rules": [
+      "Generate exactly two paragraphs and nothing else in the description area.",
+      "Do not add paragraph headings, bullet points, captions, slogans, prices, websites, hashtags, calls to action, or a third paragraph.",
+      "Mention the supplied item name naturally no more than once across both paragraphs.",
+      "Use complete, grammatically correct English sentences.",
+      "Do not reproduce any lorem ipsum text.",
+      "Do not place quotation marks around either paragraph.",
+      "Do not invent exact materials unless they are confirmed by the user or unmistakably visible in the product reference.",
+      "Do not invent measurements, technical specifications, bulb types, wattage, certifications, warranties, performance claims, availability, or country of origin.",
+      "When a material or feature is uncertain, describe only its visible appearance rather than stating it as a confirmed technical fact.",
+      "Avoid repetitive adjectives and exaggerated claims such as perfect, ultimate, revolutionary, finest, or best."
+    ],
+    "typography": {
+      "font_style": "Match the clean, light, rounded sans-serif appearance of the original description.",
+      "font_weight": "Light to regular.",
+      "alignment": "Follow the original centered-right or right-aligned text-block treatment.",
+      "line_spacing": "Maintain the reference poster's airy but controlled line spacing.",
+      "paragraph_spacing": "Keep a clearly visible and intentional gap between the two paragraphs.",
+      "readability": "Every word must be fully visible and correctly spelled. The paragraphs must not overlap the product, item name, product type, logo, one another, or the canvas edges."
+    }
+  },
+  "adaptive_text_color_system": {
+    "main_instruction": "Automatically select the item-name, product-type, and description colors from the replacement item's visible palette. The result must feel coordinated with the item while remaining clearly readable against the white background.",
+    "palette_extraction": {
+      "primary_text_color": "Choose one distinctive dominant or accent color from the replacement item for the oversized item name.",
+      "secondary_text_color": "Choose one darker complementary shade from the same item palette for the product type and both description paragraphs.",
+      "maximum_color_count": 2,
+      "consistency_rule": "Do not assign separate colors to individual letters, words, sentences, or paragraphs. Use one primary and one secondary text color consistently."
+    },
+    "visibility_rules": {
+      "background": "Solid white.",
+      "contrast_priority": "Readability takes priority over copying an item's exact color.",
+      "contrast_target": "Aim for at least a 4.5:1 contrast ratio for the product type and paragraph text against white.",
+      "item_name_visibility": "The item name must remain strongly visible at a glance and must not disappear into the white background or a similarly colored product area.",
+      "light_item_rule": "For a white, cream, beige, pale gold, silver, glass, crystal, or pastel item, use a substantially darker and richer version of its dominant or accent color.",
+      "dark_item_rule": "For a black, charcoal, dark brown, navy, or similarly dark item, use a refined medium-dark tone or a visible accent color taken from its hardware, finish, or decorative details.",
+      "transparent_item_rule": "For a mostly clear glass or crystal item, derive the text palette from its metal frame, canopy, hardware, colored reflections, or strongest visible accent.",
+      "multicolored_item_rule": "For a multicolored item, select the most distinctive sophisticated accent that supports a premium HomeCartel aesthetic.",
+      "low_contrast_correction": "If the sampled shade is pale, washed out, muddy, or difficult to read, darken and slightly enrich it until visibility is strong.",
+      "overlap_correction": "If text overlaps the product, ensure contrast against both the white background and the overlapping product area. Make a small product-position adjustment if adequate readability cannot otherwise be achieved."
+    },
+    "element_assignments": {
+      "item_name": "Use the selected primary product-derived color. It should feel rich, refined, and visually dominant.",
+      "product_type": "Use the selected darker secondary product-derived color.",
+      "paragraph_1": "Use exactly the same secondary color as the product type.",
+      "paragraph_2": "Use exactly the same secondary color as the product type and Paragraph 1.",
+      "homecartel_logo": "Preserve the logo in its original solid black. Never recolor it based on the product."
+    },
+    "color_restrictions": [
+      "Avoid neon, fluorescent, excessively saturated, muddy, dull gray, or low-contrast shades.",
+      "Do not add gradients, outlines, strokes, glows, heavy shadows, or colored boxes behind the text.",
+      "Do not alter the established font style, font weight, scale hierarchy, alignment, or spacing when adapting color.",
+      "Do not use more than two non-logo text colors."
+    ]
+  },
+  "brand_logo_preservation": {
+    "preserve_exactly": true,
+    "instruction": "Keep the original HomeCartel logo exactly intact in the upper-right area.",
+    "appearance": "Preserve its original solid black color, typography, registered trademark symbol, size, proportions, sharpness, and internal spacing.",
+    "safe_space": "Maintain clear white space around the complete logo and keep it safely away from every canvas edge.",
+    "restrictions": [
+      "Do not recreate, translate, recolor, restyle, stretch, crop, distort, resize, or move the logo.",
+      "Do not allow the product, item name, product type, or paragraphs to overlap or obscure the logo.",
+      "Do not remove or alter the registered trademark symbol."
+    ]
+  },
+  "layout_preservation": {
+    "aspect_ratio": "Maintain the same vertical portrait aspect ratio as the uploaded reference poster.",
+    "background": "Clean solid white.",
+    "visual_hierarchy": [
+      "HomeCartel logo",
+      "Oversized item name",
+      "Product type",
+      "Oversized cropped product image",
+      "Exactly two description paragraphs"
+    ],
+    "negative_space": "Preserve generous white negative space and the clean, uncluttered luxury editorial appearance.",
+    "safe_margins": "Keep all text and the complete HomeCartel logo safely inside the canvas.",
+    "intentional_layering": "The product may overlap a portion of the oversized item-name headline only when it recreates the intentional layered look of the reference and the name remains recognizable.",
+    "protected_areas": "The product must never cover the HomeCartel logo, product type, or either description paragraph.",
+    "adaptive_balance": "For differently shaped items, make only necessary proportional adjustments to product scale, crop, and spacing. Do not create a different poster layout."
+  },
+  "strict_negative_instructions": [
+    "Do not retain any visible part of the original Sode Chandelier.",
+    "Do not retain the words SODE or chandelier unless they exactly match the new user-provided item name or product type.",
+    "Do not alter the replacement item's design, proportions, color arrangement, or number of components.",
+    "Do not stretch, warp, squash, horizontally widen, or vertically elongate the product.",
+    "Do not generate multiple copies of the product.",
+    "Do not change the white background into an interior scene.",
+    "Do not add furniture, people, architecture, plants, decorations, borders, graphic shapes, textures, or unrelated accessories.",
+    "Do not replace the supplied item name or product type with AI-generated wording.",
+    "Do not add brackets or quotation marks around the item name, product type, or paragraphs.",
+    "Do not add extra logos or branding.",
+    "Do not allow any text or logo element to touch or extend beyond the canvas edges."
+  ],
+  "final_quality_check": [
+    "The replacement item accurately matches the second uploaded product image.",
+    "The original Sode Chandelier and all of its components are completely removed.",
+    "The supplied item name and product type are reproduced exactly and spelled correctly.",
+    "The item name retains the bold SODE-style typography and the product type retains the thinner chandelier-style typography.",
+    "Exactly two original product-description paragraphs are present.",
+    "The description is grounded in visible or confirmed product information and contains no invented technical claims.",
+    "The non-logo text colors coordinate with the replacement item and remain clearly visible against white.",
+    "The product type and both paragraphs use one consistent secondary color.",
+    "The HomeCartel logo remains solid black, unchanged, unobstructed, and safely inside the canvas.",
+    "All text is readable, correctly spelled, properly spaced, and free from overlap.",
+    "The completed design retains the same premium HomeCartel editorial identity as the reference poster."
+  ]
+}

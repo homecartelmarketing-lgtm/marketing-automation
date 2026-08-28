@@ -1,0 +1,71 @@
+{
+  "assistant_instruction": {
+    "generate_image": false,
+    "instruction": "Do not generate an image. Use this JSON only as a reusable image-generation or image-editing prompt."
+  },
+  "task": "convert_dynamic_interior_photo_into_editorial_material_and_design_flatlay_moodboard",
+  "objective": "Convert the currently uploaded interior photo into a premium vertical editorial flat-lay moodboard inspired by the first reference image. The interior photo is dynamic and may be completely different every time this prompt is used. Analyze the new interior from scratch and build the moodboard entirely from the actual colors, materials, furniture, lighting fixtures, decorative objects, architectural finishes, and design details visible in that specific uploaded interior.",
+  "reference_images": {
+    "reference_image_1": {
+      "role": "STYLE_LAYOUT_AND_COMPOSITION_REFERENCE_ONLY",
+      "instruction": "Use the first reference image only as inspiration for the overall vertical flat-lay composition, editorial moodboard structure, material swatches, framed interior photographs, isolated design-object samples, elegant spacing, realistic shadows, overhead camera angle, and premium interior-design presentation. Do not copy its exact materials, colors, furniture, lamp, objects, artwork, or decorative elements unless those elements genuinely appear in the current interior source photo."
+    },
+    "reference_image_2": {
+      "role": "DYNAMIC_PRIMARY_INTERIOR_SOURCE",
+      "instruction": "Use the second uploaded image, or whichever new interior image is supplied in this position, as the ONLY source for determining the moodboard content. The source interior will change each time, so always perform a fresh visual analysis before generating the moodboard."
+    }
+  },
+  "dynamic_analysis": {
+    "instruction": "Carefully examine the current interior and identify its dominant and secondary color palette, wall and ceiling finishes, flooring, stone or marble surfaces, metals, woods, upholstery fabrics, curtains, rugs, furniture finishes, lighting fixtures, decorative objects, artwork, plants, and other visually distinctive design features.",
+    "material_selection": "Select only the most representative materials and colors actually visible in the current interior. Translate them into realistic physical swatches, small tiles, stone blocks, fabric pieces, metal samples, wood samples, glass pieces, or other appropriate material specimens.",
+    "object_selection": "Choose a small number of distinctive furniture, lighting, hardware, or decor details from the current interior and present them as isolated miniature product-style objects when appropriate.",
+    "important_rule": "Never reuse predetermined materials or objects from previous interiors. Every newly uploaded interior must produce a unique moodboard based on its own visual characteristics."
+  },
+  "composition": {
+    "orientation": "vertical portrait format",
+    "camera": "perfectly straight overhead top-down flat-lay photography",
+    "background": "use a large refined neutral architectural surface derived from the current interior, such as marble, stone, plaster, concrete, wood, or another dominant finish visible in the source image",
+    "layout_style": "carefully curated asymmetric editorial arrangement with generous negative space, sophisticated balance, realistic depth, and an upscale interior design studio aesthetic",
+    "framed_images": {
+      "quantity": "2 approximately",
+      "instruction": "Create two white-bordered printed-photo or architectural presentation frames featuring carefully selected crops from the uploaded interior. One may show a wider view of the room and the other may highlight a distinctive focal element such as a chandelier, pendant, chair, table, artwork, cabinetry, fireplace, or another important feature. The images must remain faithful to the original interior."
+    },
+    "material_swatches": {
+      "quantity": "approximately 7 to 12",
+      "instruction": "Arrange realistic three-dimensional samples around the framed photographs. Include only materials and colors genuinely derived from the current interior. Vary the shapes naturally between square tiles, rectangular slabs, folded textiles, small blocks, curved samples, or other appropriate forms."
+    },
+    "design_objects": {
+      "quantity": "approximately 2 to 5",
+      "instruction": "Include a few isolated miniature representations of recognizable design elements from the current interior, such as a lighting component, furniture silhouette, handle, hardware detail, decorative accessory, or architectural element. Do not introduce unrelated products."
+    }
+  },
+  "visual_translation_rules": {
+    "colors": "Extract the actual dominant and accent colors from the current uploaded interior. Preserve their real relationships and proportions.",
+    "textures": "Accurately reproduce visible textures including fabric weave, stone veining, marble patterns, wood grain, brushed or polished metal, glass transparency, ceramic surfaces, plaster, leather, rug fibers, and other finishes when present.",
+    "lighting": "Use warm natural editorial lighting with directional sunlight or soft studio illumination inspired by the first reference. Create realistic cast shadows beneath every physical sample and framed photograph.",
+    "depth": "All moodboard pieces must feel physically placed on the background surface, with believable thickness, contact shadows, edge highlights, subtle imperfections, and realistic material depth."
+  },
+  "source_fidelity": {
+    "preserve_interior_identity": "The framed photographs and extracted design details must clearly correspond to the currently uploaded interior.",
+    "no_redesign": "Do not redesign the source room, change its architecture, replace furniture, invent major decorative elements, or alter its defining aesthetic.",
+    "no_reference_copying": "Do not copy the red, black, gray, cream, marble, lamp, artwork, fabric, or other specific components seen in the first reference unless matching elements are independently visible in the current source interior.",
+    "no_fixed_palette": "There is no predetermined color palette. The final colors must always come from the newly uploaded interior."
+  },
+  "style": {
+    "aesthetic": "luxury interior design material board, architectural styling presentation, high-end editorial flat lay, sophisticated contemporary design catalog",
+    "realism": "photorealistic",
+    "quality": "high-resolution professional commercial photography",
+    "finish": "clean, elegant, tactile, understated, premium, curated and visually cohesive"
+  },
+  "restrictions": [
+    "Do not add text, labels, captions, logos, watermarks, or typography unless specifically requested.",
+    "Do not simply place the full interior photo on a background without transforming it into a material moodboard.",
+    "Do not copy the exact moodboard contents of Reference Image 1.",
+    "Do not use generic predetermined material samples.",
+    "Do not introduce colors or materials that conflict with the current interior.",
+    "Do not overcrowd the composition.",
+    "Do not distort the source interior inside the framed photographs.",
+    "Always adapt the entire moodboard to the latest uploaded interior image."
+  ],
+  "final_instruction": "Create a cohesive, photorealistic vertical interior-design flat-lay moodboard that visually summarizes the unique design language of the current uploaded interior. Use the first reference only to guide presentation and composition, while every material, color, photograph, texture, and design object must be freshly derived from the current dynamic interior source."
+}

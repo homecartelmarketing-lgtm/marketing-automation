@@ -1,0 +1,118 @@
+{
+  "dynamic_item_color_generation": {
+    "placeholder_to_replace": "[Item Color]",
+    "instruction": "Analyze only the actual user-supplied interior photograph and automatically generate a concise, human-readable color name based exclusively on the visible color palette of that specific interior image.",
+    "strict_photo_based_color_detection": "The generated color name must be derived directly and independently from the supplied interior photograph. Do not rely on predefined color names, example colors, preset palettes, default interior color terminology, previously generated colors, or colors mentioned anywhere else in the prompt.",
+    "no_example_color_bias": "Do not provide, reference, imitate, prioritize, or reuse any example color names or example color styles in this prompt. No example colors should be included because the system must determine the appropriate color entirely from the newly supplied interior photograph.",
+    "analysis_method": {
+      "instruction": "Visually analyze the complete interior photograph and identify the most representative color or blended color impression naturally present in the scene.",
+      "consider": [
+        "overall dominant visual color impression",
+        "major furniture surfaces",
+        "large textile areas",
+        "walls and architectural surfaces",
+        "flooring and rugs",
+        "curtains and window treatments",
+        "lighting fixture finishes",
+        "large decorative elements",
+        "the combined and blended color atmosphere of the interior"
+      ],
+      "selection_rule": "Select the color that best represents the actual visual appearance and blended palette of the supplied interior photograph rather than selecting a color from a predefined list."
+    },
+    "blended_color_interpretation": {
+      "instruction": "When the interior contains several related tones, intelligently interpret their visual blend and overall color impression. Generate a natural color description that accurately represents the combined appearance of the room.",
+      "important": "The generated color must respond dynamically to every new interior photograph. A different photograph must trigger a completely new color analysis."
+    },
+    "color_name_style": {
+      "format": "short, natural, consumer-friendly color description",
+      "preferred_length": "1 to 3 words",
+      "restriction": "Do not use RGB values, HEX codes, CMYK values, Pantone references, numerical color specifications, or technical color codes as the visible label.",
+      "output_text_format": "Display the automatically generated color name as plain readable text on the pill label, without any square brackets, replacing the original '[Item Color]' placeholder."
+    },
+    "important": [
+      "Never display the literal placeholder '[Item Color]' in the final image.",
+      "Never select a color simply because that color is mentioned elsewhere in the prompt.",
+      "Never use a preset or default color.",
+      "Never reuse a color generated for a previous interior image.",
+      "Always perform a fresh visual color analysis of the currently supplied interior photograph."
+    ]
+  },
+
+  "dynamic_color_label": {
+    "element": "rounded rectangular pill-style background behind the automatically generated color name",
+    "reference": "Preserve only the general rounded shape, proportions, padding, size relationship, and placement of the label from the original layout reference.",
+    "dynamic_background_color_generation": {
+      "instruction": "Automatically determine the rounded label background color exclusively from the actual colors visible in the current user-supplied interior photograph.",
+      "strict_source_rule": "The label background color must be generated from the current interior photograph only. Do not use preset colors, example colors, default colors, previous output colors, or colors described elsewhere in the prompt.",
+      "no_fixed_white_background": "Do not automatically retain the original white label background. The label background must dynamically adapt to each newly supplied interior photograph.",
+      "photo_palette_analysis": "Analyze the dominant and supporting colors of the complete interior scene and select a label background color that naturally belongs to the photograph's real visual palette.",
+      "blended_palette_rule": "When the photograph contains multiple related colors, the label background may use an intelligently derived blended or harmonized tone based on the overall visible palette of the photograph.",
+      "design_goal": "The dynamically generated label background should visually coordinate with the interior while remaining sufficiently distinct from the specific portion of the photograph directly behind the label."
+    },
+    "automatic_text_contrast": {
+      "instruction": "Automatically analyze the brightness, luminance, and visual contrast of the dynamically generated label background and select an appropriate text color that provides maximum readability.",
+      "restriction": "Do not use a predefined text color based on examples. Determine the text color dynamically from the actual generated label background.",
+      "priority": "Maintain clear, accessible visual contrast between the generated color name and its rounded label background."
+    },
+    "shape": {
+      "style": "soft rounded rectangle or pill",
+      "corner_radius": "high and visually consistent with the reference template",
+      "padding": "balanced horizontal and vertical padding",
+      "alignment": "centered directly beneath the 'Double tap if you choose:' headline",
+      "shadow": "use only a very subtle shadow when necessary for separation from the photograph"
+    }
+  },
+
+  "automatic_palette_behavior": {
+    "instruction": "Treat every newly supplied interior photograph as a completely new color-analysis task. Do not carry over any color decisions from previous images or from examples contained in earlier prompts.",
+    "fresh_analysis_required": true,
+    "dynamic_elements": [
+      "automatically detected interior color name",
+      "rounded color-label background color",
+      "color-label text color",
+      "contrast adjustments required for readability"
+    ],
+    "fixed_elements": [
+      "heart icon",
+      "headline wording 'Double tap if you choose:'",
+      "general layout structure",
+      "relative positioning of the overlay elements",
+      "typographic hierarchy",
+      "9:16 portrait canvas"
+    ],
+    "strict_no_examples_rule": "Do not include any example color names, sample palettes, suggested colors, preset color combinations, or example outputs in the generation instructions. Such examples must not influence the final result.",
+    "source_of_truth": "The currently supplied interior photograph is the only source of truth for determining the generated color name and the dynamic label background color."
+  },
+
+  "color_generation_priority_rule": {
+    "highest_priority_instruction": "Ignore any color names, color styles, color examples, palette examples, or previous color results that may appear in surrounding instructions or prior generations. Perform an independent visual analysis of the current interior photograph.",
+    "required_behavior": "The system must visually inspect the actual supplied interior image, interpret its dominant and blended palette, and create the color label from that image alone.",
+    "prohibited_behavior": [
+      "Do not choose from a predefined list of colors.",
+      "Do not use example colors as suggestions.",
+      "Do not default to common interior colors.",
+      "Do not copy the color used in the reference template.",
+      "Do not reuse the color generated for another photograph.",
+      "Do not select a color merely because its name appears in the prompt.",
+      "Do not force the interior photograph to match a predetermined color.",
+      "Do not recolor the interior to match the generated label.",
+      "Do not use a fixed label background color."
+    ]
+  },
+
+  "negative_instructions_addition": [
+    "Do not include example color names in the prompt or final image.",
+    "Do not include example color styles or sample palettes.",
+    "Do not base the generated color on examples from previous instructions.",
+    "Do not use a predefined color list.",
+    "Do not use a preset color palette.",
+    "Do not reuse previously generated colors.",
+    "Do not automatically choose commonly used interior color names.",
+    "Do not keep the color-label background permanently white.",
+    "Do not use the original template background color as the generated item color.",
+    "Do not modify the interior photograph to force it to match a predetermined color.",
+    "Always derive both the displayed color name and the rounded label background from a fresh analysis of the currently supplied interior photograph."
+  ],
+
+  "final_color_instruction": "For every supplied interior photograph, independently analyze the actual visible and blended color palette of that specific image. Automatically replace '[Item Color]' with a natural color name derived solely from the photograph — display it as plain text without square brackets — and automatically generate the rounded label background from the same photograph's palette. Do not use, reference, or imitate any example colors, sample color names, preset palettes, default colors, or previous results. The supplied interior photograph must be the exclusive source used to determine all dynamically generated color elements. Never render square brackets in the final image."
+}

@@ -1,0 +1,49 @@
+{
+    "task": "edit_layout_2_with_dynamic_photo_and_tip",
+    "instruction": "Create the final edited image. This is a strict compositing and typesetting task, not a redesign.",
+    "input_order": {
+        "image_1": "LOCKED Layout 2 template containing the white numeral 2 and placeholder text on black.",
+        "image_2": "Dynamic blended interior photo used as the full-bleed background and as the only source for the written tip."
+    },
+    "objective": "Replace the black background of Image 1 with Image 2 and replace only the placeholder wording with one contextual tip. The final result must look like the same Layout 2 template laid over a new photograph. Do not reinterpret, modernize, or redesign the template.",
+    "template_lock": {
+        "instruction": "Treat Image 1 as an exact registration guide and reusable overlay, not merely as style inspiration.",
+        "number_2": "Keep the existing white numeral 2 as a locked graphic. Preserve its exact glyph silhouette, thin stroke weight, proportions, size, position, baseline, and orientation. Prefer retaining/compositing its original pixels instead of redrawing it.",
+        "text_box": "Use the exact placeholder text bounding box from Image 1. Keep its left edge, right edge, top edge, width, baseline rhythm, and relationship to the numeral 2.",
+        "allowed_changes": "Only the black pixels behind the layout and the placeholder words may change.",
+        "forbidden_changes": "Do not move, center, enlarge, shrink, thicken, distort, rotate, recolor, restyle, or regenerate the numeral 2. Do not move or center the text block."
+    },
+    "typography_lock": {
+        "font_family": "Match the template's neutral modern neo-grotesk sans-serif exactly; Helvetica Neue or Neue Haas Grotesk appearance. Do not use a rounded, geometric, condensed, serif, handwritten, display, or decorative font.",
+        "number_weight": "Thin/Light, approximately 300, exactly matching the template numeral.",
+        "tip_weight": "Regular, approximately 400, exactly matching the placeholder's clean editorial typography.",
+        "color": "Pure white #FFFFFF.",
+        "alignment": "Strictly left-aligned. Never center-align, right-align, justify, curve, stagger, or individually center the lines.",
+        "capitalization": "Sentence case only.",
+        "letter_spacing": "Neutral, tight professional tracking; do not spread letters apart.",
+        "line_height": "Compact editorial leading, approximately 0.92 to 1.0 times the text size. Do not use loose line spacing.",
+        "scale": "Match the template text size. The tip must remain clearly smaller than the numeral 2.",
+        "effects": "No outline, glow, bevel, extrusion, colored stroke, or heavy drop shadow."
+    },
+    "tip_generation": {
+        "instruction": "Analyze only Image 2 and write one original, practical interior-design tip supported by visible details in that photo.",
+        "length": "Use 9 to 16 words, excluding the numeral 2. Prefer one sentence that wraps into exactly 3 or 4 balanced lines inside the locked text box.",
+        "wrapping": "Create editorial line breaks similar to the reference: balanced left-aligned lines, approximately 18 to 30 characters per line when possible. Do not create a tall narrow stack of short centered lines.",
+        "tone": "Premium, specific, helpful, natural, and concise.",
+        "accuracy": "Mention only visible furniture, lighting, color, scale, material, placement, or styling. Do not invent details.",
+        "prohibited_copy": "Never output the placeholder phrase, brackets, meta-instructions, labels, headings, hashtags, quotation marks, or the words 'according to the photo'."
+    },
+    "background": {
+        "coverage": "Use Image 2 edge to edge and fill the entire 9:16 canvas with no black border.",
+        "preserve": "Keep its main lighting fixture, furniture, architecture, materials, colors, perspective, lighting, shadows, and photorealism accurate.",
+        "crop": "Crop only as needed while keeping the main subject fully recognizable and leaving a readable lower-left typography area.",
+        "readability": "A subtle bottom-to-transparent dark gradient or very soft localized shadow is allowed behind the lower text only. Keep the photo visible; never add a solid or large opaque black panel."
+    },
+    "final_check": "Before output, verify that the original numeral 2 still looks pixel-identical to Image 1; the tip is left-aligned immediately to its right in the original text box; the font family, weights, size, leading, and white color match the template; the tip is 3 or 4 balanced lines; and Image 2 fills the 9:16 background.",
+    "output": {
+        "aspect_ratio": "9:16",
+        "resolution": "1K",
+        "style": "premium minimalist editorial interior feed",
+        "quality": "photorealistic background with crisp, correctly spelled typography"
+    }
+}

@@ -1,0 +1,100 @@
+{
+  "task": "create_homecartel_instagram_story_with_correct_text_hierarchy",
+  "reference_story_template": "uploaded_homecartel_black_story_reference",
+  "input_image": "uploaded_edited_bedroom_with_single_pendant_light",
+  "aspect_ratio": "9:16",
+  "editable_content": {
+    "item_name": "Norvethiel A",
+    "product_type": "Alabaster Chandelier"
+  },
+  "editable_content_rule": "To change the item name, edit only editable_content.item_name. Use the exact value from editable_content.item_name everywhere the prompt refers to the item name. Change editable_content.product_type only when the product type also changes.",
+  "output_format": {
+    "ratio": "vertical Instagram story",
+    "dimensions": "9:16",
+    "orientation": "portrait",
+    "style": "clean editorial HomeCartel product story layout"
+  },
+  "main_instruction": "Use the first uploaded bedroom image as the full background photo and use the second uploaded black HomeCartel reference image only as the exact layout reference for logo placement, text placement, font style, font size, line spacing, and text hierarchy. Do not generate the image from scratch. Replace the black background area with the bedroom/product photo while keeping the HomeCartel logo and text treatment exactly like the second reference image. IMPORTANT: the logo and the text block are TWO SEPARATE, INDEPENDENT elements in the reference. They are NOT one group.",
+
+  "layout_elements": {
+    "note": "There are exactly two independent overlay elements. The logo is one element. The item-name + product-type is a second element. They must never be merged into a single group.",
+
+    "logo": {
+      "text": "HomeCartel",
+      "is_independent_fixed_element": true,
+      "position": "TOP-RIGHT corner, in the exact same spot as the black reference image",
+      "anchor": "top-right",
+      "instruction": "Keep the HomeCartel logo locked in the top-right corner exactly as shown in the black reference image. Do not move it toward the item name or product type under any circumstance.",
+      "style": "white logo, same font, same weight, same size, same letter spacing, same top-right position as the reference",
+      "strict_rule": "Do not redraw, redesign, restyle, stretch, distort, recolor, reposition, or misspell the HomeCartel logo. It always stays in the top-right corner. It is NEVER grouped with, stacked above, or attached to the item name or product type."
+    },
+
+    "text_block": {
+      "grouping_rule": "The item name and product type are the ONLY grouped elements. They stay together as one compact block. The logo is NOT part of this block.",
+      "item_name": {
+        "text": "Use the exact value from editable_content.item_name",
+        "style": "bold item name",
+        "font_size": "same as the item name in the black reference image",
+        "font_weight": "bold only",
+        "color": "white",
+        "line_position": "top line of the text block",
+        "strict_rule": "Item name must be bold. Do not make the product type heavier than the item name."
+      },
+      "product_type": {
+        "text": "Use the exact value from editable_content.product_type",
+        "style": "regular weight product type",
+        "font_size": "same as the product type in the black reference image",
+        "font_weight": "regular or medium only",
+        "color": "white",
+        "line_position": "directly below the item name with the exact same vertical spacing as the black reference image",
+        "strict_rule": "Product type must not be bold. The item name should be visually heavier than the product type."
+      },
+      "spelling_rule": "Render the product type EXACTLY as written in editable_content.product_type. Spell 'Alabaster Chandelier' correctly. Do not output 'Chandeller' or any misspelling.",
+      "text_order": [
+        "The editable_content.item_name value on top in bold",
+        "The editable_content.product_type value below the item name in regular weight"
+      ],
+      "spacing_reference": "Copy the exact spacing from the black reference image: item-name-to-product-type spacing, line height, and compact grouping must match the reference exactly.",
+      "alignment": "left-aligned as shown in the black reference image",
+      "text_color": "white"
+    },
+
+    "do_not_change": [
+      "do not move the HomeCartel logo out of the top-right corner",
+      "do not attach or group the logo with the item name or product type",
+      "do not stack the logo directly above the item name",
+      "do not make the product type bold",
+      "do not make the product type heavier than the item name",
+      "do not make the product type larger than the item name",
+      "do not swap the item name and product type",
+      "do not place the product type above the item name",
+      "do not change the line spacing",
+      "do not increase the gap between item name and product type",
+      "do not use a different font",
+      "do not change or redraw the HomeCartel logo"
+    ]
+  },
+
+  "text_placement_rule": {
+    "logo_position": "HomeCartel logo stays fixed in the TOP-RIGHT corner, matching the black reference exactly. It never follows the text block.",
+    "text_block_position": "Place the grouped item-name + product-type block on the readable cream wall area, near the pendant light, similar to the reference. Keep the exact internal spacing from the black reference image.",
+    "movement_rule": "If the item-name + product-type block must move for readability, move ONLY that block. Never move the logo. Never merge the logo into the block.",
+    "safe_area": "Keep the text readable on the cream wall area and avoid covering the pendant globes, bed pillows, wall painting, or important product details.",
+    "scale_rule": "Do not resize the logo or text larger than the black reference. Match the reference font size and compact spacing."
+  },
+
+  "background_photo_instruction": {
+    "photo_use": "Use the edited bedroom photo with one bedside pendant light as the full 9:16 background.",
+    "crop": "Keep the pendant light, bed, bedside table, headboard, wall painting, rug, and ceiling visible.",
+    "preserve_room": "Do not change the room, furniture, pendant light, lighting, textures, shadows, or perspective."
+  },
+
+  "product_details": {
+    "item_name_source": "editable_content.item_name",
+    "product_type_source": "editable_content.product_type",
+    "quantity": "one pendant light only",
+    "product_location": "left side of the bed, hanging above the bedside table"
+  },
+
+  "negative_prompt": "Do not generate the image from scratch. Do not move the HomeCartel logo away from the top-right corner. Do not group, stack, merge, or attach the logo to the item name or product type. Do not place the logo directly above the item name. Do not make the product type bold. Do not make the product type heavier or bigger than the item name. Do not make the item name regular weight. Do not swap the text order. Do not put the product type above the item name. Do not change the text spacing. Do not change the item-name-to-product-type spacing. Do not stretch, redesign, recolor, or reposition the HomeCartel logo. Do not misspell HomeCartel. Do not misspell 'Alabaster Chandelier' (never write 'Chandeller'). Do not change the font style. Do not change the font size from the reference. Do not add two pendant lights. Do not duplicate the pendant. Do not crop out the pendant light. Do not cover the pendant light with text. Do not make the layout look different from the black HomeCartel reference. Do not make the image CGI, cartoon, blurry, overexposed, harshly lit, or artificial."
+}

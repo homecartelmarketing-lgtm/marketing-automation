@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/nocturne-80073f7a-4183-48c5-b51f-8fcd51533893/styles.css">
+<script src="_ds/nocturne-80073f7a-4183-48c5-b51f-8fcd51533893/_ds_bundle.js"></script>
+<style>
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .cc-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+  .cc-scroll::-webkit-scrollbar-thumb { background: var(--color-neutral-800); border-radius: 8px; border: 2px solid var(--color-bg); }
+  .cc-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+  .cc-card { transition: box-shadow .18s ease, transform .18s ease; }
+  .cc-nav-item:hover { background: color-mix(in srgb, var(--color-text) 6%, transparent); }
+  .cc-thumb:hover { filter: brightness(1.08); }
+</style>
+</helmet>
+<div style="display:flex; height:100vh; width:100%; background:var(--color-bg); color:var(--color-text); font-family:var(--font-body); overflow:hidden;">
+
+  <aside class="cc-scroll" style="width:256px; flex:0 0 256px; border-right:1px solid var(--color-divider); display:flex; flex-direction:column; overflow-y:auto; background:linear-gradient(180deg, color-mix(in srgb, var(--color-accent) 6%, var(--color-bg)), var(--color-bg) 220px);">
+    <div style="display:flex; align-items:center; gap:10px; padding:18px 18px 14px;">
+      <div style="width:30px; height:30px; border-radius:8px; border:1px solid var(--color-accent); display:flex; align-items:center; justify-content:center; color:var(--color-accent);">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11 12 3l9 8"/><path d="M5 10v10h14V10"/><path d="M9.5 20v-6h5v6"/></svg>
+      </div>
+      <div style="line-height:1.1;">
+        <div style="font-family:var(--font-heading); font-weight:600; font-size:15px; letter-spacing:-0.01em;">HomeCartel</div>
+        <div style="font-size:11px; color:var(--color-neutral-500);">Content Studio</div>
+      </div>
+    </div>
+
+    <div style="padding:6px 12px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 8px 6px;">
+        <span style="font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--color-text);">Feeds</span>
+        <span style="font-size:10px; color:var(--color-neutral-500); font-variant-numeric:tabular-nums;">3:4</span>
+      </div>
+      <nav style="display:flex; flex-direction:column; gap:2px;">
+        <div class="cc-nav-item" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-radius:8px; background:color-mix(in srgb, var(--color-accent) 14%, transparent); border:1px solid color-mix(in srgb, var(--color-accent) 45%, transparent); cursor:pointer;">
+          <span style="display:flex; align-items:center; gap:9px; font-size:13.5px; color:var(--color-accent-100);">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-300)" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+            Collection Category
+          </span>
+          <span style="font-size:11px; color:var(--color-accent-300); font-variant-numeric:tabular-nums;">4</span>
+        </div>
+        <sc-for list="{{ comingFeeds }}" as="c" hint-placeholder-count="6">
+          <div class="cc-nav-item" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-radius:8px; cursor:default; opacity:0.55;">
+            <span style="display:flex; align-items:center; gap:9px; font-size:13.5px; color:var(--color-neutral-300);">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-500)" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+              {{ c.name }}
+            </span>
+            <span style="font-size:9px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-600); border:1px solid var(--color-neutral-800); padding:1px 5px; border-radius:5px;">Soon</span>
+          </div>
+        </sc-for>
+      </nav>
+    </div>
+
+    <div style="padding:6px 12px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 8px 6px;">
+        <span style="font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--color-neutral-500);">Stories</span>
+        <span style="font-size:9px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-600); border:1px solid var(--color-neutral-800); padding:1px 5px; border-radius:5px;">Coming soon</span>
+      </div>
+      <div style="padding:2px 10px 6px; font-size:12px; color:var(--color-neutral-600);">10 story formats · 9:16</div>
+    </div>
+
+    <div style="padding:6px 12px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:2px 8px 6px;">
+        <span style="font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--color-neutral-500);">Reels</span>
+        <span style="font-size:9px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-600); border:1px solid var(--color-neutral-800); padding:1px 5px; border-radius:5px;">Coming soon</span>
+      </div>
+      <div style="padding:2px 10px 6px; font-size:12px; color:var(--color-neutral-600);">11 reel formats · 9:16</div>
+    </div>
+
+    <div style="margin-top:auto; padding:14px 16px; border-top:1px solid var(--color-divider);">
+      <div style="display:flex; align-items:center; gap:8px; font-size:11px; color:var(--color-neutral-500);">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-400)" stroke-width="1.6"><path d="M22 12H2"/><path d="m7 4-5 8 5 8"/><path d="M17 4h5v16"/><path d="m12 4-5 8 5 8h10"/></svg>
+        Source: Google Drive
+      </div>
+      <div style="font-family:ui-monospace,monospace; font-size:11px; color:var(--color-neutral-400); margin-top:4px; word-break:break-all;">G:\My Drive\Collection Category Feed\</div>
+    </div>
+  </aside>
+
+  <main class="cc-scroll" style="flex:1; min-width:0; overflow-y:auto; display:flex; flex-direction:column;">
+    <header style="position:sticky; top:0; z-index:5; background:color-mix(in srgb, var(--color-bg) 92%, transparent); backdrop-filter:blur(8px); border-bottom:1px solid var(--color-divider); padding:16px 28px; display:flex; align-items:flex-end; justify-content:space-between; gap:16px;">
+      <div>
+        <div style="display:flex; align-items:center; gap:7px; font-size:12px; color:var(--color-neutral-500); margin-bottom:5px;">
+          <span>Feeds</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+          <span style="color:var(--color-neutral-300);">Collection Category Feed</span>
+        </div>
+        <h2 style="font-size:26px; margin:0;">Collection Category Feed</h2>
+        <p style="margin:4px 0 0; font-size:13px; color:var(--color-neutral-400);">5 lighting products → 5 AI interiors → 5 blended posts per set</p>
+      </div>
+      <button onClick="{{ openNewRun }}" class="btn btn-primary" style="white-space:nowrap;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+        New Collection Run
+      </button>
+    </header>
+
+    <section style="padding:22px 28px 6px; display:grid; grid-template-columns:repeat(4, 1fr); gap:14px;">
+      <sc-for list="{{ stats }}" as="s" hint-placeholder-count="4">
+        <div style="border:1px solid var(--color-divider); border-radius:12px; padding:14px 16px; background:var(--color-surface);">
+          <div style="display:flex; align-items:center; gap:7px; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-500);">
+            <span style="width:8px; height:8px; border-radius:50%; background:{{ s.dot }};"></span>
+            {{ s.label }}
+          </div>
+          <div style="font-family:var(--font-heading); font-size:27px; font-weight:600; margin-top:6px; letter-spacing:-0.02em;">{{ s.value }}</div>
+          <div style="font-size:11.5px; color:var(--color-neutral-500); margin-top:1px;">{{ s.sub }}</div>
+        </div>
+      </sc-for>
+    </section>
+
+    <div style="padding:14px 28px 6px; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+      <div style="display:inline-flex; padding:3px; gap:2px; border:1px solid var(--color-divider); border-radius:9px; background:var(--color-surface);">
+        <sc-for list="{{ filters }}" as="f" hint-placeholder-count="4">
+          <button onClick="{{ f.select }}" style="border:0; cursor:pointer; font-family:var(--font-heading); font-size:13px; padding:6px 14px; border-radius:6px; background:{{ f.bg }}; color:{{ f.color }};">{{ f.label }}</button>
+        </sc-for>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--color-neutral-500); font-family:ui-monospace,monospace; border:1px solid var(--color-divider); border-radius:8px; padding:6px 11px; background:var(--color-surface);">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-400)" stroke-width="1.6"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+        G:\My Drive\Collection Category Feed\
+      </div>
+    </div>
+
+    <section style="padding:12px 28px 40px; display:grid; grid-template-columns:repeat(auto-fill, minmax(430px, 1fr)); gap:18px;">
+      <sc-for list="{{ filteredSets }}" as="set" hint-placeholder-count="4">
+        <div class="cc-card" style="border:1px solid var(--color-divider); border-radius:14px; background:var(--color-surface); overflow:hidden; display:flex; flex-direction:column;">
+
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px 10px;">
+            <div style="display:flex; align-items:center; gap:9px;">
+              <span style="display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-family:var(--font-heading); font-weight:600; padding:3px 9px; border-radius:20px; background:{{ set.badgeBg }}; color:{{ set.badgeColor }};">
+                <span style="width:7px; height:7px; border-radius:50%; background:{{ set.dotColor }};"></span>{{ set.statusLabel }}
+              </span>
+              <sc-if value="{{ set.posted }}" hint-placeholder-val="{{ false }}">
+                <span style="font-size:11px; font-family:var(--font-heading); padding:3px 8px; border-radius:20px; border:1px solid var(--color-neutral-700); color:var(--color-neutral-300);">Posted</span>
+              </sc-if>
+            </div>
+            <div style="text-align:right; line-height:1.25;">
+              <div style="font-size:12px; color:var(--color-neutral-300);">{{ set.date }}</div>
+              <div style="font-size:10.5px; font-family:ui-monospace,monospace; color:var(--color-neutral-600);">{{ set.id }}</div>
+            </div>
+          </div>
+
+          <div onClick="{{ set.open }}" style="cursor:pointer; padding:0 16px; display:grid; grid-template-columns:repeat(5, 1fr); gap:6px;">
+            <sc-for list="{{ set.items }}" as="it" hint-placeholder-count="5">
+              <div class="cc-thumb" style="position:relative; aspect-ratio:4/5; border-radius:7px; overflow:hidden; background:var(--color-neutral-900); transition:filter .15s ease;">
+                {{ it.imgEl }}
+                <span style="position:absolute; top:4px; left:4px; font-size:8.5px; font-weight:600; letter-spacing:0.03em; text-transform:uppercase; padding:1px 4px; border-radius:3px; background:color-mix(in srgb, var(--color-bg) 68%, transparent); color:var(--color-neutral-200);">{{ it.short }}</span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div onClick="{{ set.open }}" style="cursor:pointer; padding:12px 16px 6px; display:flex; flex-direction:column; gap:4px;">
+            <sc-for list="{{ set.items }}" as="it" hint-placeholder-count="5">
+              <div style="display:flex; align-items:baseline; gap:8px; font-size:12.5px;">
+                <span style="flex:0 0 96px; color:var(--color-neutral-500); font-size:11px;">{{ it.cat }}</span>
+                <span style="flex:1; min-width:0; color:var(--color-neutral-200); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ it.name }}</span>
+                <span style="font-family:ui-monospace,monospace; font-size:10.5px; color:var(--color-neutral-600);">{{ it.sku }}</span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="padding:8px 16px 14px; margin-top:auto;">
+            <div style="display:flex; align-items:center; gap:8px; font-size:11px; color:var(--color-neutral-500); margin-bottom:11px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-400)" stroke-width="1.6"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              <span style="color:var(--color-neutral-300); font-family:var(--font-heading); font-weight:600;">{{ set.cost }}</span>
+              <span>est · {{ set.costBreak }}</span>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap:6px;">
+              <button onClick="{{ set.openDrive }}" class="btn btn-secondary" style="font-size:12px; padding:6px 10px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+                Drive folder
+              </button>
+              <button onClick="{{ set.download }}" class="btn btn-secondary" style="font-size:12px; padding:6px 10px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16"/></svg>
+                Download all
+              </button>
+              <button onClick="{{ set.viewPrompts }}" class="btn btn-secondary" style="font-size:12px; padding:6px 10px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5h16M4 12h10M4 19h7"/></svg>
+                Prompts
+              </button>
+              <button onClick="{{ set.post }}" disabled="{{ set.postDisabled }}" class="btn btn-primary" style="font-size:12px; padding:6px 10px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+                {{ set.postCta }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </sc-for>
+    </section>
+  </main>
+
+  <sc-if value="{{ showDetail }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModal }}" style="position:fixed; inset:0; z-index:40; background:rgba(8,9,15,0.72); backdrop-filter:blur(3px); display:flex; align-items:center; justify-content:center; padding:28px;">
+      <div onClick="{{ stop }}" class="cc-scroll" style="width:min(1040px, 96vw); max-height:92vh; overflow:auto; background:var(--color-surface); border:1px solid var(--color-neutral-700); border-radius:16px; box-shadow:var(--shadow-lg); animation:fadein .18s ease;">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--color-divider); position:sticky; top:0; background:var(--color-surface); z-index:2;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-family:var(--font-heading); font-weight:600; padding:3px 9px; border-radius:20px; background:{{ activeSet.badgeBg }}; color:{{ activeSet.badgeColor }};">
+              <span style="width:7px; height:7px; border-radius:50%; background:{{ activeSet.dotColor }};"></span>{{ activeSet.statusLabel }}
+            </span>
+            <h3 style="font-size:17px; margin:0;">Collection Set</h3>
+            <span style="font-family:ui-monospace,monospace; font-size:11px; color:var(--color-neutral-500);">{{ activeSet.id }}</span>
+          </div>
+          <button onClick="{{ closeModal }}" class="btn btn-icon btn-secondary" aria-label="Close">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1.15fr 1fr; gap:0;">
+          <div style="padding:20px; border-right:1px solid var(--color-divider);">
+            <div style="position:relative; aspect-ratio:4/5; border-radius:12px; overflow:hidden; background:var(--color-neutral-900);">
+              {{ currentSlide.imgEl }}
+              <sc-if value="{{ currentSlide.pending }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; background:rgba(15,16,26,0.55); color:var(--color-neutral-200); font-size:13px;">
+                  <span style="width:22px; height:22px; border:2px solid var(--color-accent-700); border-top-color:var(--color-accent-300); border-radius:50%; animation:spin .8s linear infinite;"></span>
+                  {{ currentSlide.pendingLabel }}
+                </div>
+              </sc-if>
+              <div style="position:absolute; top:12px; left:12px; display:flex; align-items:center; gap:7px;">
+                <span style="font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px; background:color-mix(in srgb, var(--color-bg) 62%, transparent); color:var(--color-neutral-100);">Slot {{ slideNum }} / {{ slideTotal }}</span>
+                <span style="font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px; background:color-mix(in srgb, var(--color-accent) 30%, transparent); color:var(--color-accent-100);">{{ currentSlide.cat }}</span>
+              </div>
+              <button onClick="{{ prevSlide }}" class="btn btn-icon" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); background:color-mix(in srgb, var(--color-bg) 68%, transparent); color:var(--color-text); border:1px solid var(--color-neutral-700);">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+              </button>
+              <button onClick="{{ nextSlide }}" class="btn btn-icon" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); background:color-mix(in srgb, var(--color-bg) 68%, transparent); color:var(--color-text); border:1px solid var(--color-neutral-700);">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-top:12px;">
+              <sc-for list="{{ activeSet.items }}" as="it" hint-placeholder-count="5">
+                <button onClick="{{ it.goThis }}" aria-label="Go to slot" style="width:9px; height:9px; padding:0; border:0; border-radius:50%; cursor:pointer; background:{{ it.dotBg }};"></button>
+              </sc-for>
+            </div>
+            <div style="margin-top:12px; text-align:center;">
+              <div style="font-family:var(--font-heading); font-weight:600; font-size:15px;">{{ currentSlide.name }}</div>
+              <div style="font-size:12px; color:var(--color-neutral-500); font-family:ui-monospace,monospace; margin-top:2px;">{{ currentSlide.sku }}</div>
+            </div>
+          </div>
+
+          <div style="padding:20px; display:flex; flex-direction:column; gap:14px;">
+            <div>
+              <div style="font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-500); margin-bottom:8px;">Set details</div>
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                <div style="display:flex; justify-content:space-between; font-size:13px;"><span style="color:var(--color-neutral-500);">Created</span><span>{{ activeSet.date }}</span></div>
+                <div style="display:flex; justify-content:space-between; font-size:13px;"><span style="color:var(--color-neutral-500);">Status</span><span>{{ activeSet.statusLabel }}</span></div>
+                <div style="display:flex; justify-content:space-between; font-size:13px;"><span style="color:var(--color-neutral-500);">Provider cost</span><span style="font-family:var(--font-heading); font-weight:600;">{{ activeSet.cost }}</span></div>
+                <div style="display:flex; justify-content:space-between; font-size:13px; gap:12px;"><span style="color:var(--color-neutral-500);">Breakdown</span><span style="color:var(--color-neutral-300); text-align:right;">{{ activeSet.costBreak }}</span></div>
+              </div>
+            </div>
+            <div class="hr" style="margin:2px 0;"></div>
+            <div>
+              <div style="font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-500); margin-bottom:8px;">5 products</div>
+              <div style="display:flex; flex-direction:column; gap:2px;">
+                <sc-for list="{{ activeSet.items }}" as="it" hint-placeholder-count="5">
+                  <button onClick="{{ it.goThis }}" style="text-align:left; border:0; cursor:pointer; background:{{ it.rowBg }}; border-radius:7px; padding:7px 9px; display:flex; align-items:baseline; gap:8px;">
+                    <span style="flex:0 0 88px; color:var(--color-neutral-500); font-size:11px;">{{ it.cat }}</span>
+                    <span style="flex:1; min-width:0; color:var(--color-neutral-100); font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ it.name }}</span>
+                    <span style="font-family:ui-monospace,monospace; font-size:10.5px; color:var(--color-neutral-600);">{{ it.sku }}</span>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+            <div style="margin-top:auto; display:flex; flex-wrap:wrap; gap:7px; padding-top:6px;">
+              <button onClick="{{ activeSet.openDrive }}" class="btn btn-secondary" style="font-size:12.5px;">Open Drive folder</button>
+              <button onClick="{{ activeSet.download }}" class="btn btn-secondary" style="font-size:12.5px;">Download all</button>
+              <button onClick="{{ activeSet.viewPrompts }}" class="btn btn-secondary" style="font-size:12.5px;">View prompts</button>
+              <button onClick="{{ activeSet.post }}" disabled="{{ activeSet.postDisabled }}" class="btn btn-primary" style="font-size:12.5px;">{{ activeSet.postCta }}</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showPrompts }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closePrompts }}" style="position:fixed; inset:0; z-index:50; background:rgba(8,9,15,0.72); backdrop-filter:blur(3px); display:flex; align-items:center; justify-content:center; padding:28px;">
+      <div onClick="{{ stop }}" class="cc-scroll" style="width:min(680px, 96vw); max-height:88vh; overflow:auto; background:var(--color-surface); border:1px solid var(--color-neutral-700); border-radius:16px; box-shadow:var(--shadow-lg); animation:fadein .18s ease;">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--color-divider); position:sticky; top:0; background:var(--color-surface);">
+          <div>
+            <h3 style="font-size:16px; margin:0;">Blending prompts</h3>
+            <div style="font-size:12px; color:var(--color-neutral-500);">Claude Sonnet 5 · per-slot · {{ activeSet.id }}</div>
+          </div>
+          <button onClick="{{ closePrompts }}" class="btn btn-icon btn-secondary" aria-label="Close">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div style="padding:18px 20px; display:flex; flex-direction:column; gap:12px;">
+          <sc-for list="{{ activeSet.items }}" as="it" hint-placeholder-count="5">
+            <div style="border:1px solid var(--color-divider); border-radius:10px; padding:12px 14px;">
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                <span style="font-size:10.5px; font-weight:600; padding:2px 7px; border-radius:6px; background:color-mix(in srgb, var(--color-accent) 16%, transparent); color:var(--color-accent-200);">Slot {{ it.n }}</span>
+                <span style="font-size:12px; color:var(--color-neutral-400);">{{ it.cat }} · {{ it.name }}</span>
+              </div>
+              <p style="margin:0; font-size:12.5px; line-height:1.55; color:var(--color-neutral-300);">{{ it.prompt }}</p>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showNewRun }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeNewRun }}" style="position:fixed; inset:0; z-index:50; background:rgba(8,9,15,0.72); backdrop-filter:blur(3px); display:flex; align-items:center; justify-content:center; padding:28px;">
+      <div onClick="{{ stop }}" style="width:min(500px, 96vw); background:var(--color-surface); border:1px solid var(--color-neutral-700); border-radius:16px; box-shadow:var(--shadow-lg); animation:fadein .18s ease; overflow:hidden;">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--color-divider);">
+          <h3 style="font-size:16px; margin:0;">New Collection Run</h3>
+          <button onClick="{{ closeNewRun }}" class="btn btn-icon btn-secondary" aria-label="Close">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div style="padding:18px 20px; display:flex; flex-direction:column; gap:14px;">
+          <div>
+            <label style="display:block; font-size:12px; color:var(--color-neutral-400); margin-bottom:6px;">Content type</label>
+            <div style="display:flex; align-items:center; gap:8px; border:1px solid var(--color-divider); border-radius:8px; padding:9px 12px; font-size:13.5px; background:var(--color-bg); color:var(--color-neutral-300);">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-400)" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+              Collection Category Feed
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div>
+              <label style="display:block; font-size:12px; color:var(--color-neutral-400); margin-bottom:6px;">Style</label>
+              <div style="border:1px solid var(--color-divider); border-radius:8px; padding:9px 12px; font-size:13.5px; background:var(--color-bg);">modern</div>
+            </div>
+            <div>
+              <label style="display:block; font-size:12px; color:var(--color-neutral-400); margin-bottom:6px;">Rows to build</label>
+              <div style="display:flex; align-items:center; border:1px solid var(--color-divider); border-radius:8px; overflow:hidden; background:var(--color-bg);">
+                <button onClick="{{ rowsDown }}" style="border:0; background:transparent; color:var(--color-text); cursor:pointer; padding:8px 12px; font-size:16px;">−</button>
+                <span style="flex:1; text-align:center; font-size:14px; font-family:var(--font-heading);">{{ runRows }}</span>
+                <button onClick="{{ rowsUp }}" style="border:0; background:transparent; color:var(--color-text); cursor:pointer; padding:8px 12px; font-size:16px;">+</button>
+              </div>
+            </div>
+          </div>
+          <div>
+            <label style="display:block; font-size:12px; color:var(--color-neutral-400); margin-bottom:6px;">Mode</label>
+            <div style="display:inline-flex; padding:3px; gap:2px; border:1px solid var(--color-divider); border-radius:9px; background:var(--color-bg); width:100%;">
+              <sc-for list="{{ modes }}" as="m" hint-placeholder-count="2">
+                <button onClick="{{ m.select }}" style="flex:1; border:0; cursor:pointer; font-family:var(--font-heading); font-size:13px; padding:8px 12px; border-radius:6px; background:{{ m.bg }}; color:{{ m.color }};">{{ m.label }}</button>
+              </sc-for>
+            </div>
+            <p style="margin:8px 0 0; font-size:11.5px; color:var(--color-neutral-500);">{{ modeHint }}</p>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--color-neutral-500); font-family:ui-monospace,monospace; border-top:1px solid var(--color-divider); padding-top:14px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-400)" stroke-width="1.6"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+            Output → G:\My Drive\Collection Category Feed\
+          </div>
+          <button onClick="{{ startRun }}" class="btn btn-primary btn-block" style="padding:11px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 4v16l14-8z"/></svg>
+            {{ startLabel }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showPost }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closePost }}" style="position:fixed; inset:0; z-index:50; background:rgba(8,9,15,0.72); backdrop-filter:blur(3px); display:flex; align-items:center; justify-content:center; padding:28px;">
+      <div onClick="{{ stop }}" class="cc-scroll" style="width:min(940px, 96vw); max-height:92vh; overflow:auto; background:var(--color-surface); border:1px solid var(--color-neutral-700); border-radius:16px; box-shadow:var(--shadow-lg); animation:fadein .18s ease;">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--color-divider); position:sticky; top:0; background:var(--color-surface); z-index:2;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-300)" stroke-width="1.7"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg>
+            <h3 style="font-size:17px; margin:0;">Post to Instagram</h3>
+            <span style="font-family:ui-monospace,monospace; font-size:11px; color:var(--color-neutral-500);">{{ activeSet.id }}</span>
+          </div>
+          <button onClick="{{ closePost }}" class="btn btn-icon btn-secondary" aria-label="Close">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <div style="display:grid; grid-template-columns:0.95fr 1fr; gap:0;">
+          <div style="padding:20px; border-right:1px solid var(--color-divider);">
+            <div style="display:flex; align-items:center; gap:8px; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-500); margin-bottom:10px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+              Carousel · 5 slides
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+              <sc-for list="{{ activeSet.items }}" as="it" hint-placeholder-count="5">
+                <div style="position:relative; aspect-ratio:4/5; border-radius:9px; overflow:hidden; background:var(--color-neutral-900);">
+                  {{ it.imgElFull }}
+                  <span style="position:absolute; top:5px; left:5px; font-size:8.5px; font-weight:600; letter-spacing:0.03em; text-transform:uppercase; padding:1px 5px; border-radius:4px; background:color-mix(in srgb, var(--color-bg) 68%, transparent); color:var(--color-neutral-100);">{{ it.short }}</span>
+                  <span style="position:absolute; bottom:5px; right:5px; font-size:9px; font-weight:600; padding:1px 5px; border-radius:10px; background:color-mix(in srgb, var(--color-bg) 68%, transparent); color:var(--color-neutral-200);">{{ it.n }}/5</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="padding:20px; display:flex; flex-direction:column; gap:12px; min-height:440px;">
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+              <div style="font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-500);">Caption</div>
+              <span style="font-size:11px; color:var(--color-neutral-500); font-variant-numeric:tabular-nums;">{{ captionLen }} chars</span>
+            </div>
+
+            <sc-if value="{{ captionEmpty }}" hint-placeholder-val="{{ true }}">
+              <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; border:1px dashed var(--color-neutral-800); border-radius:12px; padding:24px; text-align:center;">
+                <div style="width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:color-mix(in srgb, var(--color-accent) 14%, transparent); color:var(--color-accent-300);">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><path d="m6.3 6.3 2.8 2.8M14.9 14.9l2.8 2.8M17.7 6.3l-2.8 2.8M9.1 14.9l-2.8 2.8"/></svg>
+                </div>
+                <div>
+                  <div style="font-family:var(--font-heading); font-weight:600; font-size:15px;">No caption yet</div>
+                  <p style="margin:5px 0 0; font-size:12.5px; color:var(--color-neutral-500); max-width:280px;">Generate a caption from the 5 products in this set, then edit it before posting.</p>
+                </div>
+                <div style="display:flex; align-items:center; gap:9px;">
+                  <button onClick="{{ generateCaption }}" class="btn btn-primary" style="padding:9px 16px;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><path d="m6.3 6.3 2.8 2.8M14.9 14.9l2.8 2.8"/></svg>
+                    Generate caption
+                  </button>
+                  <button onClick="{{ writeOwn }}" class="btn btn-secondary" style="padding:9px 16px;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                    Write / paste my own
+                  </button>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ captionLoading }}" hint-placeholder-val="{{ false }}">
+              <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; border:1px solid var(--color-divider); border-radius:12px; color:var(--color-neutral-300); font-size:13px;">
+                <span style="width:24px; height:24px; border:2px solid var(--color-accent-700); border-top-color:var(--color-accent-300); border-radius:50%; animation:spin .8s linear infinite;"></span>
+                Writing caption…
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ captionReady }}" hint-placeholder-val="{{ false }}">
+              <textarea onChange="{{ captionOnInput }}" onInput="{{ captionOnInput }}" value="{{ postCaption }}" placeholder="Paste or write your caption here…" spellcheck="false" style="flex:1; min-height:220px; resize:vertical; width:100%; background:var(--color-bg); color:var(--color-text); border:1px solid var(--color-divider); border-radius:10px; padding:12px 13px; font-family:var(--font-body); font-size:13.5px; line-height:1.6;"></textarea>
+              <div style="display:flex; align-items:center; gap:7px;">
+                <button onClick="{{ generateCaption }}" class="btn btn-ghost" style="font-size:12.5px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>
+                  Regenerate
+                </button>
+                <button onClick="{{ copyCaption }}" class="btn btn-ghost" style="font-size:12.5px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+                  Copy
+                </button>
+              </div>
+            </sc-if>
+
+            <div style="margin-top:auto; display:flex; align-items:center; gap:9px; padding-top:8px; border-top:1px solid var(--color-divider);">
+              <button onClick="{{ closePost }}" class="btn btn-secondary" style="flex:0 0 auto;">Cancel</button>
+              <button onClick="{{ confirmPost }}" disabled="{{ postConfirmDisabled }}" class="btn btn-primary" style="flex:1;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+                {{ confirmLabel }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showToast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; bottom:22px; left:50%; transform:translateX(-50%); z-index:60; background:var(--color-neutral-900); border:1px solid var(--color-neutral-700); color:var(--color-neutral-100); font-size:13px; padding:11px 18px; border-radius:10px; box-shadow:var(--shadow-md); animation:fadein .2s ease; display:flex; align-items:center; gap:9px;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-300)" stroke-width="1.8"><path d="M20 6 9 17l-5-5"/></svg>
+      {{ toast }}
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    statusFilter: "All",
+    modal: null,        // 'detail' | 'prompts' | 'newrun'
+    activeSetId: null,
+    slide: 0,
+    posted: {},         // id -> true
+    extra: [],          // user-created runs
+    runRows: 1,
+    runMode: "Dry run",
+    toast: null,
+    captions: {},       // id -> caption text
+    manualEdit: {},     // id -> true (user chose to write their own)
+    captionLoading: false,
+  };
+
+  IMGS = [
+    "assets/samples/set1_blended1.jpg",
+    "assets/samples/set1_blended2.jpg",
+    "assets/samples/set1_blended3.jpg",
+    "assets/samples/set1_interior1.jpg",
+    "assets/samples/set1_interior2.jpg",
+  ];
+  CATS = ["Chandelier", "Floor Lamp", "Table Lamp", "Pendant Light", "Linear Chandelier"];
+  SHORT = ["CHN", "FLR", "TBL", "PND", "LIN"];
+  NAMES = [
+    ["Aurelia 8-Light Brass Chandelier", "Celeste Crystal Chandelier", "Halo Ring Chandelier", "Verona Empire Chandelier", "Lyra Sputnik Chandelier"],
+    ["Nordic Arc Floor Lamp", "Lumen Tripod Floor Lamp", "Halden Reader Floor Lamp", "Sienna Torchiere Floor Lamp", "Atlas Task Floor Lamp"],
+    ["Halden Ceramic Table Lamp", "Marlow Brass Table Lamp", "Pia Alabaster Table Lamp", "Onyx Column Table Lamp", "Dune Linen Table Lamp"],
+    ["Solano Dome Pendant", "Orbit Globe Pendant", "Cove Cone Pendant", "Fjord Ribbed Pendant", "Basalt Bell Pendant"],
+    ["Meridian Linear Chandelier", "Axis Bar Linear Chandelier", "Strata Island Linear", "Vector Rail Linear", "Helix Linear Chandelier"],
+  ];
+  ROOMS = ["living room", "bedroom", "dining room", "kitchen", "open-concept living and dining room"];
+
+  raw() {
+    return [
+      { id: "rec5o1QcAtVbN2", date: "Aug 16, 2026", status: "Done", cost: "$0.41", n: 0 },
+      { id: "rec2BISmaXN3KF", date: "Aug 15, 2026", status: "Done", cost: "$0.39", n: 1 },
+      { id: "rec3JHV2h1sQBS", date: "Aug 17, 2026", status: "Processing", cost: "$0.24", n: 2 },
+      { id: "recXO6nMHJQlD3", date: "Aug 17, 2026", status: "Standby", cost: "$0.06", n: 3 },
+      { id: "recYogDHPpB9zZ", date: "Aug 14, 2026", status: "Done", cost: "$0.44", n: 4 },
+    ];
+  }
+
+  statusStyle(status) {
+    if (status === "Done") return { badgeBg: "var(--color-accent-900)", badgeColor: "var(--color-accent-200)", dotColor: "var(--color-accent-400)", dot: "var(--color-accent-400)" };
+    if (status === "Processing") return { badgeBg: "var(--color-accent-800)", badgeColor: "var(--color-accent-100)", dotColor: "var(--color-accent-200)", dot: "var(--color-accent-300)" };
+    return { badgeBg: "var(--color-neutral-900)", badgeColor: "var(--color-neutral-300)", dotColor: "var(--color-neutral-500)", dot: "var(--color-neutral-600)" };
+  }
+
+  // how many slots have a finished interior/blend, by status
+  readyCount(status) {
+    if (status === "Done") return 5;
+    if (status === "Processing") return 3;
+    return 0;
+  }
+
+  buildSet(r) {
+    const ss = this.statusStyle(r.status);
+    const ready = this.readyCount(r.status);
+    const rot = r.n % 5;
+    const items = this.CATS.map((cat, i) => {
+      const idx = (i + rot) % 5;
+      const isReady = i < ready;
+      const name = this.NAMES[i][r.n % 5];
+      const sku = this.SHORT[i] + "-" + (2000 + r.n * 111 + i * 37).toString().slice(0, 4);
+      const img = this.IMGS[idx];
+      return {
+        n: i + 1, cat, short: this.SHORT[i], name, sku,
+        img,
+        imgEl: React.createElement("img", { src: img, alt: name, style: { width: "100%", height: "100%", objectFit: "cover", opacity: isReady ? 1 : 0.28 } }),
+        imgElFull: React.createElement("img", { src: img, alt: name, style: { width: "100%", height: "100%", objectFit: "cover" } }),
+        imgOpacity: isReady ? 1 : 0.28,
+        pending: !isReady,
+        pendingLabel: r.status === "Processing" ? "Generating interior…" : "Awaiting interior",
+        prompt: `Place the ${name} as the sole lighting fixture in a modern ${this.ROOMS[i]}, preserving its exact geometry, scale and metal/glass finish. Remove every competing light source and keep the ceiling plain. Studio-grade commercial styling, natural falloff, 4:5 crop, 1K.`,
+      };
+    });
+    const posted = !!this.state.posted[r.id];
+    return {
+      ...r, ...ss, items,
+      statusLabel: r.status,
+      cost: r.cost,
+      costBreak: r.status === "Standby" ? "akeneo scrape only" : "krea ×4 · qwen ×3 · kie ×1",
+      posted,
+      postLabel: posted ? "Posted ✓" : "Mark posted",
+      postCta: posted ? "Posted ✓" : "Post",
+      postDisabled: r.status !== "Done",
+      post: (e) => {
+        this.stopE(e);
+        if (r.status !== "Done") { this.flash("Set must be Done before posting"); return; }
+        this.setState({ modal: "post", activeSetId: r.id });
+      },
+      open: () => this.setState({ modal: "detail", activeSetId: r.id, slide: 0 }),
+      openDrive: (e) => { this.stopE(e); this.flash(`Opening G:\\My Drive\\Collection Category Feed\\${r.date} … (${r.id})`); },
+      download: (e) => { this.stopE(e); this.flash(`Downloading 5 ready-to-post images for ${r.id}`); },
+      viewPrompts: (e) => { this.stopE(e); this.setState({ modal: "prompts", activeSetId: r.id }); },
+      markPosted: (e) => { this.stopE(e); this.togglePosted(r.id); },
+    };
+  }
+
+  allSets() {
+    return [...this.state.extra, ...this.raw()].map((r) => this.buildSet(r));
+  }
+
+  stopE(e) { if (e && e.stopPropagation) e.stopPropagation(); }
+  flash(msg) {
+    this.setState({ toast: msg });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: null }), 2600);
+  }
+  togglePosted(id) {
+    const posted = { ...this.state.posted, [id]: !this.state.posted[id] };
+    this.setState({ posted });
+    this.flash(posted[id] ? "Marked as posted" : "Unmarked");
+  }
+
+  renderVals() {
+    const sets = this.allSets();
+    const f = this.state.statusFilter;
+    const filteredSets = f === "All" ? sets : sets.filter((s) => s.status === f);
+
+    const count = (st) => sets.filter((s) => s.status === st).length;
+    const totalCost = sets.reduce((a, s) => a + parseFloat(s.cost.replace("$", "")), 0);
+    const stats = [
+      { label: "Total sets", value: String(sets.length), sub: "in this table", dot: "var(--color-neutral-500)" },
+      { label: "Done", value: String(count("Done")), sub: "ready to post", dot: "var(--color-accent-400)" },
+      { label: "In progress", value: String(count("Processing") + count("Standby")), sub: "processing / standby", dot: "var(--color-accent-200)" },
+      { label: "Provider cost", value: "$" + totalCost.toFixed(2), sub: "this batch, est.", dot: "var(--color-neutral-500)" },
+    ];
+
+    const filters = ["All", "Done", "Processing", "Standby"].map((label) => ({
+      label,
+      bg: f === label ? "var(--color-accent-800)" : "transparent",
+      color: f === label ? "var(--color-accent-100)" : "var(--color-neutral-400)",
+      select: () => this.setState({ statusFilter: label }),
+    }));
+
+    const comingFeeds = [
+      { name: "Tips & Educational" }, { name: "Moodboard #1" }, { name: "Moodboard #2" },
+      { name: "1 Product, 3 Styles" }, { name: "Day & Night" }, { name: "Product Showcase Feed" },
+    ];
+
+    const activeSet0 = sets.find((s) => s.id === this.state.activeSetId) || null;
+    let activeSet = activeSet0;
+    let currentSlide = null, slideNum = 0, slideTotal = 0;
+    if (activeSet0) {
+      slideTotal = activeSet0.items.length;
+      const si = Math.min(this.state.slide, slideTotal - 1);
+      slideNum = si + 1;
+      activeSet = {
+        ...activeSet0,
+        items: activeSet0.items.map((it, i) => ({
+          ...it,
+          goThis: () => this.setState({ slide: i }),
+          dotBg: i === si ? "var(--color-accent-400)" : "var(--color-neutral-700)",
+          rowBg: i === si ? "color-mix(in srgb, var(--color-accent) 14%, transparent)" : "transparent",
+        })),
+        openDrive: (e) => { this.stopE(e); this.flash(`Opening G:\\My Drive\\Collection Category Feed\\${activeSet0.date} …`); },
+        download: (e) => { this.stopE(e); this.flash(`Downloading 5 ready-to-post images for ${activeSet0.id}`); },
+        viewPrompts: (e) => { this.stopE(e); this.setState({ modal: "prompts" }); },
+        markPosted: (e) => { this.stopE(e); this.togglePosted(activeSet0.id); },
+        _si: si,
+        post: (e) => {
+          this.stopE(e);
+          if (activeSet0.status !== "Done") { this.flash("Set must be Done before posting"); return; }
+          this.setState({ modal: "post" });
+        },
+        postCta: activeSet0.posted ? "Posted ✓" : "Post",
+        postDisabled: activeSet0.status !== "Done",
+      };
+      currentSlide = activeSet.items[si];
+    }
+
+    const capId = this.state.activeSetId;
+    const caption = (capId && this.state.captions[capId]) || "";
+    const manual = !!(capId && this.state.manualEdit[capId]);
+    const captionEmpty = !this.state.captionLoading && caption.length === 0 && !manual;
+    const captionReady = !this.state.captionLoading && (caption.length > 0 || manual);
+
+    const modes = ["Dry run", "Execute"].map((label) => ({
+      label,
+      bg: this.state.runMode === label ? "var(--color-accent-800)" : "transparent",
+      color: this.state.runMode === label ? "var(--color-accent-100)" : "var(--color-neutral-400)",
+      select: () => this.setState({ runMode: label }),
+    }));
+
+    return {
+      stats, filters, comingFeeds, filteredSets,
+      showDetail: this.state.modal === "detail",
+      showPrompts: this.state.modal === "prompts",
+      showNewRun: this.state.modal === "newrun",
+      showPost: this.state.modal === "post",
+      showToast: !!this.state.toast,
+      captionLoading: this.state.captionLoading,
+      captionEmpty, captionReady,
+      postCaption: caption,
+      captionLen: caption.length,
+      postConfirmDisabled: caption.length === 0 || this.state.captionLoading,
+      confirmLabel: (capId && this.state.posted[capId]) ? "Posted ✓" : "Post & mark done",
+      generateCaption: () => this.generateCaption(),
+      writeOwn: () => { const id = this.state.activeSetId; this.setState((s) => ({ manualEdit: { ...s.manualEdit, [id]: true } })); },
+      captionOnInput: (e) => this.captionOnInput(e),
+      copyCaption: () => this.copyCaption(),
+      confirmPost: () => this.confirmPost(),
+      closePost: () => this.setState({ modal: null }),
+      toast: this.state.toast,
+      activeSet, currentSlide, slideNum, slideTotal,
+      closeModal: () => this.setState({ modal: null }),
+      closePrompts: () => this.setState({ modal: null }),
+      closeNewRun: () => this.setState({ modal: null }),
+      openNewRun: () => this.setState({ modal: "newrun", runRows: 1, runMode: "Dry run" }),
+      stop: (e) => this.stopE(e),
+      prevSlide: (e) => { this.stopE(e); this.setState((s) => ({ slide: (s.slide - 1 + slideTotal) % slideTotal })); },
+      nextSlide: (e) => { this.stopE(e); this.setState((s) => ({ slide: (s.slide + 1) % slideTotal })); },
+      runRows: this.state.runRows,
+      rowsUp: () => this.setState((s) => ({ runRows: Math.min(10, s.runRows + 1) })),
+      rowsDown: () => this.setState((s) => ({ runRows: Math.max(1, s.runRows - 1) })),
+      modes,
+      modeHint: this.state.runMode === "Dry run"
+        ? "No Airtable writes, no paid provider calls. Preview the plan only."
+        : "Live run — scrapes Akeneo, generates interiors, and bills Krea / Qwen / KIE.",
+      startLabel: this.state.runMode === "Dry run"
+        ? "Preview run (dry)"
+        : `Start run · ${this.state.runRows} set${this.state.runRows > 1 ? "s" : ""}`,
+      startRun: () => this.startRun(),
+    };
+  }
+
+  startRun() {
+    if (this.state.runMode === "Dry run") {
+      this.setState({ modal: null });
+      this.flash(`Dry run: would build ${this.state.runRows} set(s) — no writes, no charges`);
+      return;
+    }
+    const stamp = Date.now().toString(36).slice(-6);
+    const extra = [];
+    for (let i = 0; i < this.state.runRows; i++) {
+      extra.push({ id: "recNEW" + stamp + i, date: "Aug 17, 2026", status: "Standby", cost: "$0.06", n: (this.state.extra.length + i + 5) });
+    }
+    this.setState((s) => ({ extra: [...extra, ...s.extra], modal: null, statusFilter: "All" }));
+    this.flash(`Started ${this.state.runRows} new run(s) · Status → Standby`);
+  }
+
+  activeRaw() {
+    return [...this.state.extra, ...this.raw()].find((r) => r.id === this.state.activeSetId) || null;
+  }
+
+  localCaption(set) {
+    const n = set.items.map((it) => it.name);
+    return `Five ways to light a room — one collection.\n\nFrom the ${n[0]} making a statement overhead to the quiet glow of the ${n[2]}, this drop layers warmth into every corner of the home. Swipe through all five ✨\n\n· ${n[0]}\n· ${n[1]}\n· ${n[2]}\n· ${n[3]}\n· ${n[4]}\n\nShop the full lighting edit — link in bio.\n\n#HomeCartel #LightingDesign #InteriorInspo #ModernHome #HomeDecor #LightItUp #InteriorStyling`;
+  }
+
+  async generateCaption() {
+    const raw = this.activeRaw();
+    if (!raw) return;
+    const set = this.buildSet(raw);
+    this.setState({ captionLoading: true });
+    let text = "";
+    try {
+      if (typeof window !== "undefined" && window.claude && window.claude.complete) {
+        const products = set.items.map((it) => `${it.cat}: ${it.name}`).join(", ");
+        const prompt = `You write Instagram captions for HomeCartel, a modern home-lighting brand. Write one caption for a 5-slide product carousel featuring: ${products}. Keep it warm and aspirational, 2-3 short sentences, then a bullet list of the 5 product names, then a soft call to action, then 6-8 relevant hashtags. Return only the caption text.`;
+        text = await window.claude.complete(prompt);
+      }
+    } catch (e) { text = ""; }
+    if (!text || !text.trim()) text = this.localCaption(set);
+    this.setState((s) => ({
+      captions: { ...s.captions, [raw.id]: text.trim() },
+      captionLoading: false,
+    }));
+  }
+
+  captionOnInput(e) {
+    const val = e.target.value;
+    const id = this.state.activeSetId;
+    this.setState((s) => ({ captions: { ...s.captions, [id]: val } }));
+  }
+
+  copyCaption() {
+    const text = this.state.captions[this.state.activeSetId] || "";
+    try { navigator.clipboard.writeText(text); } catch (e) {}
+    this.flash("Caption copied to clipboard");
+  }
+
+  confirmPost() {
+    const id = this.state.activeSetId;
+    if (!id || !(this.state.captions[id] || "").length) return;
+    this.setState((s) => ({ posted: { ...s.posted, [id]: true }, modal: null }));
+    this.flash("Posted to Instagram · marked as done");
+  }
+}
+</script>
+</body>
+</html>

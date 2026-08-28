@@ -1,0 +1,40 @@
+# Secrets -- .env holds live Airtable/Akeneo/Krea/Kie/Zoho credentials.
+.env
+.env.local
+.env.day-night-reel
+.env.tips-edu-story
+
+# Python bytecode and packaging artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# PyInstaller output (rebuild with: pyinstaller AkeneoScraper.spec)
+build/
+dist/
+
+# Generated and scratch data
+output/
+backups/
+tmp/
+
+# Test and tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Editors / OS / IDE config
+.vscode/
+.idea/
+.agents/
+.claude/
+.gemini/
+*.swp
+Thumbs.db
+desktop.ini
+
+# Scratch / temp
+scratch/

@@ -1,0 +1,56 @@
+{
+  "assistant_instruction": {
+    "generate_image": false,
+    "instruction": "Do not generate image. Use this JSON as a reusable prompt for converting any uploaded interior photo into a three-material editorial moodboard."
+  },
+  "task": "dynamic_interior_to_material_moodboard",
+  "objective": "Analyze the current uploaded interior photo and convert it into a premium three-swatch material moodboard. The interior is dynamic and may change every time. Determine all materials, colors, textures, finishes, and labels from the current interior only. Use the reference only for layout, white background, typography, and editorial style.",
+  "source_rules": {
+    "dynamic_input": "Treat the uploaded interior photo as the only source for material selection.",
+    "reanalyze_each_time": "Analyze every new interior from scratch. Never reuse materials unless genuinely visible in the new photo.",
+    "no_room_recreation": "Do not include the full interior; translate the room into material samples only."
+  },
+  "reference_rules": {
+    "instruction": "Follow the reference moodboard's three-swatch arrangement, layering, white space, shadows, minimalist labels, and premium presentation. Do not copy its materials, colors, textures, labels, wording, or content."
+  },
+  "material_selection": {
+    "count": 3,
+    "instruction": "Identify the three most important design-defining materials, finishes, textures, or surfaces actually visible in the uploaded interior.",
+    "logic": "Choose the best three genuine room materials. Any material categories mentioned in this JSON are guidance only and must never become automatic selections.",
+    "accuracy": "Match visible color, undertone, grain, weave, veining, reflectivity, softness, roughness, and finish as closely as possible.",
+    "exclude": "Do not select logos, watermarks, text overlays, people, complete furniture pieces, whole lighting fixtures, or decorative graphics."
+  },
+  "strict_no_copy_rule": {
+    "instruction": "Any material names, phrases, categories, or examples in this JSON are guidance only. Never copy, reuse, lightly modify, closely paraphrase, or treat them as default output. Do not copy text from the reference moodboard.",
+    "label_generation": "Generate every final label independently from the current interior. There is no fixed vocabulary. Use a label only when it accurately describes a visibly detected material.",
+    "enforcement": "Never output a material name merely because it appears in this prompt; it must be justified by the uploaded image."
+  },
+  "swatch_rendering": {
+    "instruction": "Render all three selections as realistic close-up physical samples, never flat color blocks.",
+    "details": "Show authentic material-specific surface detail, including realistic grain, fibers, weave, veining, pores, texture, finish, or reflections. Painted surfaces should appear subtly tactile.",
+    "quality": "Use photorealistic macro detail and soft studio lighting."
+  },
+  "layout": {
+    "background": "Pure white only. No gradients, colored backgrounds, patterns, or decorative scenery.",
+    "upper_left": "Place one large square swatch in the upper-left area.",
+    "upper_right": "Place one large square swatch in the upper-right area.",
+    "lower_center": "Place the third swatch below the upper pair, approximately centered, with a subtle layered or overlapping relationship inspired by the reference.",
+    "spacing": "Maintain generous white space and a balanced luxury-editorial composition.",
+    "edges": "Use clean edges for rigid materials. Use a zigzag edge only for a genuinely soft material.",
+    "shadows": "Add soft, diffused light-gray shadows beneath each sample."
+  },
+  "labels": {
+    "instruction": "Create one concise label for each swatch based strictly on its detected material, color, character, or finish.",
+    "length": "Prefer two to four words.",
+    "style": "Use refined interior-design terminology with a modern sans-serif font.",
+    "placement": "Position each label near the top of its sample.",
+    "legibility": "Use white text on dark samples and dark-neutral text on very light samples. Do not add boxes, banners, or heavy effects.",
+    "anti_copy": "Do not copy or imitate any label shown in the reference image or any example wording contained in this JSON."
+  },
+  "restrictions": "Do not include the original interior photo, miniature room images, furniture cutouts, complete decor objects, people, logos, watermarks, extra headlines, extra captions, or more than three swatches.",
+  "output": {
+    "orientation": "vertical portrait",
+    "style": "minimalist, photorealistic premium editorial moodboard",
+    "final_rule": "For every new interior, independently identify three context-specific materials and create three original labels. Never recycle, default to, imitate, or copy examples from this prompt or wording from the reference."
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "task": "place_single_table_lamp_on_center_podium_product_solo_showcase_with_item_name_label",
+  "aspect_ratio": "4:5 vertical portrait",
+  "main_instruction": "Use the uploaded minimalist podium image as the main background scene. Place the uploaded table lamp product directly on the center of the circular white podium. The table lamp must be turned on, visibly glowing, and realistically integrated into the softly dimmed studio background. Add an item name label centered above the table lamp: \"[INPUT_ITEM_NAME_HERE]\" in Poppins font.",
+  "USER_TEXT_INPUT": {
+    "item_name": "[INPUT_ITEM_NAME_HERE]"
+  },
+  "input_references": {
+    "background_reference": "Uploaded image with one circular white podium",
+    "product_reference": "Uploaded table lamp product photo",
+    "item_name_layout_reference": "Use attached reference photo as guide for item name label placement and clean luxury typography."
+  },
+  "product_placement": {
+    "product_type": "table lamp",
+    "placement": "Place table lamp standing upright on exact center of circular podium with realistic scale and contact shadows.",
+    "scale": "Scale proportionally to podium without cropping or floating."
+  },
+  "item_name_label": {
+    "text_content": "[INPUT_ITEM_NAME_HERE]",
+    "placement": "Center aligned horizontally above table lamp",
+    "font_family": "Poppins",
+    "font_size": 48,
+    "font_weight": "medium",
+    "text_color": "white",
+    "style": "clean luxury catalog typography"
+  },
+  "lighting_instruction": {
+    "lamp_state": "Turned on with warm natural glow (2700K-3000K) illuminating nearby wall, podium top, and floor.",
+    "shadow_behavior": "Realistic soft contact shadows under lamp base and soft cast shadows."
+  },
+  "scene_style": {
+    "overall_style": "photorealistic luxury product display in 4:5 vertical portrait crop",
+    "mood": "softly dimmed premium studio environment with clean white podium"
+  },
+  "negative_prompt": [
+    "collage look",
+    "floating product",
+    "oversized table lamp",
+    "cropped lamp",
+    "harsh shadows",
+    "unrealistic lighting",
+    "distorted product",
+    "wrong font",
+    "text overlapping lamp"
+  ],
+  "final_output_goal": "A realistic luxury solo product showcase image where one table lamp is centered on the white podium, turned on with a warm glow. The item name label \"[INPUT_ITEM_NAME_HERE]\" appears centered above in Poppins font."
+}

@@ -1,0 +1,77 @@
+{
+  "assistant_instruction": {
+    "generate_image": false,
+    "instruction": "Do not generate an image from this JSON alone. Use this JSON only as the editing instruction for the Myth slide layout when processing the supplied images through Nano Banana Pro image-to-image."
+  },
+  "task": "create_myth_slide_with_auto_generated_text",
+  "objective": "Use Reference Image 1 as the fixed Myth slide layout template and Reference Image 2 as the finished blended interior-product photograph. Replace only the solid black background area of the Myth layout with the blended photo while preserving the red cross emoji, MYTH: headline, white underline, and their exact positioning, spacing, and visual hierarchy. Replace the placeholder text [Auto Generated] with one short, original design myth statement based on the visible content of the blended photo, specifically mentioning the lighting fixture or furniture product shown.",
+  "reference_images": {
+    "reference_image_1": {
+      "role": "FIXED_MYTH_LAYOUT_TEMPLATE",
+      "instruction": "This is the first image supplied to Nano Banana Pro. Use it as the exact visual reference for the Myth slide layout. Preserve the red cross mark emoji in its original position, the bold white MYTH: headline text, the thin white horizontal underline, and all original spacing, alignment, font size, font weight, and positioning. The [Auto Generated] placeholder text area is the only text element that should change. The black background is only a replaceable placeholder."
+    },
+    "reference_image_2": {
+      "role": "BLENDED_PHOTO_AND_MYTH_SOURCE",
+      "instruction": "This is the second image supplied to Nano Banana Pro. It is the finished blended interior-product photo created earlier in the workflow by combining Interior2 and Furniture Item. Use this exact photo as the new full background. Analyze this photo to determine the design myth statement. The blended photo may be different for every run."
+    }
+  },
+  "image_input_order": {
+    "image_1": "Myth slide layout template",
+    "image_2": "Finished blended interior-product photo",
+    "instruction": "Always interpret the first supplied image as the fixed layout reference and the second supplied image as the dynamic background and content-analysis source. Never reverse their roles."
+  },
+  "background_rules": {
+    "replace": "Remove only the solid black background of Reference Image 1 and replace it completely with Reference Image 2.",
+    "coverage": "The blended photo must fill the entire canvas edge to edge with no remaining black borders or empty areas.",
+    "preserve_source": "Keep the blended photo visually accurate. Preserve the existing product, furniture, architecture, lighting, colors, materials, textures, shadows, reflections, perspective, scale, and atmosphere.",
+    "crop": "Crop, scale, or reposition the blended photo only when necessary to fit the final composition. Keep the primary product and important interior details visible.",
+    "restriction": "Do not redesign the blended room, replace the product, invent new major objects, modify the product identity, or create a completely different scene."
+  },
+  "myth_text_generation": {
+    "placeholder": "[Auto Generated]",
+    "instruction": "Replace the [Auto Generated] placeholder wording with exactly one concise design myth statement inspired directly by the visible content of Reference Image 2.",
+    "analysis": "Analyze the blended photo and identify the most prominent lighting fixture or furniture product. Create a common interior design myth that relates to the visible product category, placement, scale, styling, or usage.",
+    "product_awareness": "The myth statement must naturally reference the type of lighting fixture or furniture product visible in the photo. For example, if a chandelier is visible, the myth could be about chandelier sizing, placement height, or style matching.",
+    "myth_style": "Write the myth as a commonly believed but incorrect statement about interior design. It should sound like advice people often repeat but is actually wrong or overly simplistic.",
+    "accuracy": "Base the myth only on product categories and design elements that are clearly visible in the blended photo. Never invent furniture, materials, or design elements that are not shown.",
+    "originality": "Generate a fresh myth for every new blended photo. Do not copy the placeholder text, examples, previous outputs, or wording contained in this JSON.",
+    "length": "Keep the myth concise enough to fit naturally in the existing text area below the underline without significantly changing the original typography scale. One to two sentences maximum.",
+    "tone": "Professional English, authoritative, sounds like common design advice that people believe.",
+    "restriction": "Do not generate hashtags, headings, captions, calls to action, promotional statements, fact corrections, or multiple separate myths."
+  },
+  "layout_rules": {
+    "emoji": "The red cross mark emoji is permanent and must remain exactly as shown in the template.",
+    "emoji_position": "Keep the emoji in the same upper-left location shown in the template.",
+    "emoji_style": "Preserve its original appearance, size, and color exactly.",
+    "headline": "The bold white MYTH: text is permanent and must remain exactly as shown.",
+    "headline_position": "Keep MYTH: in the same position directly to the right of the emoji.",
+    "headline_style": "Preserve the bold white sans-serif typography, font size, weight, and alignment.",
+    "underline": "The thin white horizontal line beneath the MYTH: headline must remain exactly as shown.",
+    "underline_position": "Keep the underline in the same position below MYTH: as the template.",
+    "text_position": "Place the generated myth text in the exact position of the [Auto Generated] placeholder, below the underline.",
+    "text_style": "Use the same clean white modern sans-serif typography visible in the template for the [Auto Generated] area. Match the approximate font size, weight, line spacing, and alignment.",
+    "line_breaks": "Wrap the new myth text naturally across multiple lines to fit the existing text area while keeping the composition visually balanced.",
+    "safe_area": "Keep all typography fully inside the canvas and prevent text from being clipped."
+  },
+  "readability_rules": {
+    "instruction": "The emoji, MYTH: headline, underline, and generated myth text must remain clearly readable over the blended background.",
+    "preferred_method": "Prioritize intelligent cropping and positioning of the background so the typography appears over a visually suitable area.",
+    "allowed_adjustment": "When necessary, apply only subtle localized darkening or a soft transparent shadow behind the typography area.",
+    "restriction": "Do not add a large opaque black rectangle, solid text panel, or heavy overlay that hides a major portion of the blended photo."
+  },
+  "strict_rules": {
+    "change_only": "Only the black background and [Auto Generated] placeholder text should change.",
+    "preserve_emoji": "Do not remove, recolor, resize, reposition, or replace the red cross mark emoji.",
+    "preserve_headline": "Do not remove, reword, recolor, resize, or reposition the MYTH: headline.",
+    "preserve_underline": "Do not remove, recolor, resize, or reposition the white underline.",
+    "preserve_product": "Do not alter the identity, shape, structure, materials, color, or proportions of the featured product visible in the blended photo.",
+    "no_extras": "Do not add logos, extra emojis, icons, headings, borders, watermarks, hashtags, promotional text, or unrelated graphics.",
+    "reanalyze_each_run": "Analyze every newly supplied blended photo independently and create a myth specifically for that image."
+  },
+  "output": {
+    "aspect_ratio": "9:16",
+    "style": "premium minimalist HomeCartel branded design myth editorial",
+    "quality": "high-resolution realistic blended-photo background with crisp readable typography",
+    "result": "The finished blended photo fills the background while the original Myth layout composition remains visually intact, with the permanent red cross emoji, MYTH: headline, white underline, and one newly generated design myth statement based specifically on the current blended photo."
+  }
+}

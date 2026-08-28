@@ -1,0 +1,53 @@
+{
+  "task": "Edit the second uploaded image as a locked CTA poster template. Use the first uploaded image only as the replacement background photo.",
+  "input_roles": {
+    "first_uploaded_image": "The completed blended interior. This is the only source for the new background photo and for understanding the room when writing the headline.",
+    "second_uploaded_image": "The CTA Layout. This is the mandatory base canvas. Preserve its exact dimensions, layout, logo, typography, text positions, spacing, alignment, and contact details."
+  },
+  "allowed_edits_only": [
+    "Replace only the background-photo area of the second uploaded image with the first uploaded image.",
+    "Replace only the literal placeholder [Auto Generated] in the second uploaded image with one newly generated headline."
+  ],
+  "background_edit": {
+    "instruction": "Keep the second uploaded image as the base canvas and place the first uploaded image behind its existing CTA design.",
+    "format": "Vertical 9:16 Instagram Story.",
+    "crop": "Crop and position the first image naturally to fill the background. Keep its main furniture or lighting subject visible. Do not stretch, distort, over-zoom, redesign, relight, or invent objects.",
+    "preserve_source": "Preserve the first image's product identity, room, furniture, decor, colors, lighting, shadows, reflections, materials, perspective, and realism.",
+    "source_text_rule": "Do not copy, carry over, recreate, or add any logo, headline, supporting text, contact text, watermark, or other text from the first uploaded image."
+  },
+  "placeholder_replacement": {
+    "target": "[Auto Generated]",
+    "instruction": "Find the exact visible placeholder [Auto Generated] in the second uploaded image. Erase it completely, including both square brackets, and write the new headline in that exact same text box.",
+    "headline": "Generate one original 2-to-4-word English headline inspired only by the visible room, furniture, lighting, materials, mood, or design style in the first uploaded image.",
+    "capitalization": "Use Title Case for the headline (capitalize only the first letter of each word, for example: 'Elevate Your Lighting' or 'Timeless Elegance'). Never render the headline in ALL CAPS.",
+    "style": "Match the placeholder's exact font family, font size, font weight, white color, alignment, line spacing, width, and position from the second uploaded image.",
+    "position_lock": "The new headline must occupy only the original [Auto Generated] location. Do not place the headline anywhere else.",
+    "clean_text": "Render only the headline words. Do not include brackets, quotation marks, labels, prefixes, suffixes, notes, or the words Auto Generated.",
+    "required_validation": "The final image must contain no visible [Auto Generated] text and no second or duplicate headline."
+  },
+  "locked_template_elements": {
+    "instruction": "Treat every element of the second uploaded image other than its background photo and [Auto Generated] placeholder as locked pixels.",
+    "must_remain_unchanged": [
+      "The HomeCartel logo, if present",
+      "Follow @HomeCartel for",
+      "more home inspiration.",
+      "0977 825 5588 (or send us a DM)",
+      "(02) 8248 8071 | Dial 1",
+      "sales@homecartel.com",
+      "All font sizes, weights, colors, positions, alignment, spacing, and grouping"
+    ],
+    "text_accuracy": "Do not rewrite, regenerate, duplicate, relocate, resize, restyle, remove, or add to any locked text. Preserve it exactly as it appears in the second uploaded image."
+  },
+  "strict_prohibitions": [
+    "Do not render the headline in ALL CAPS. Use Title Case (capitalize only the first letter of each word, e.g. 'Elevate Your Lighting').",
+    "Do not create a new poster layout.",
+    "Do not add a headline or CTA block near the top, center, or any location outside the original placeholder.",
+    "Do not create duplicate HomeCartel logos, headlines, supporting copy, contact details, or text blocks.",
+    "Do not move the original CTA block.",
+    "Do not leave the [Auto Generated] placeholder visible.",
+    "Do not add new furniture, fixtures, decor, architecture, people, logos, watermarks, borders, or graphics.",
+    "Do not change anything except the background photo and the placeholder headline."
+  ],
+  "final_check": "Before returning the image, verify that the second image's original CTA layout is unchanged, the background now uses the first image, [Auto Generated] is gone, exactly one new headline appears in its original place, and no duplicate text or logo was added.",
+  "output": "Return one high-resolution 9:16 CTA Story image."
+}

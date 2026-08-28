@@ -1,0 +1,44 @@
+{
+  "task": "create_fact_slide_that_debunks_the_myth_slide",
+  "critical_rule": "THE BACKGROUND MUST COME FROM IMAGE 2 ONLY. Image 2 and image 3 show DIFFERENT rooms. Image 3 is a finished slide that already carries a photo background, and that photo is the WRONG room. It must never appear in the output. Image 3 is supplied for its printed words only.",
+  "image_input_order": {
+    "image_1": "FACT_LAYOUT_TEMPLATE. The layout to keep: check mark emoji, bold white FACT: headline, thin white underline, and all spacing, alignment, and typography. Its black area is a placeholder to be filled by image 2. [Auto Generated] is the only text that may change.",
+    "image_2": "BACKGROUND_SOURCE. The blended Interior3 + Furniture Item photo. This is the ONLY source of the output background. Every pixel of the finished background comes from here.",
+    "image_3": "TEXT_ONLY_DO_NOT_COPY. The finished Myth slide. Treat it as a written note, not a picture. Read ONLY the myth sentence printed on it. Its room, product, background photo, red cross emoji, and MYTH: headline are all forbidden in the output.",
+    "instruction": "Never reverse these three roles."
+  },
+  "background_rules": {
+    "replace": "Fill the black area of image 1 completely with image 2, edge to edge, no black borders or empty areas. Crop, scale, or reposition image 2 only as needed, keeping its main product and key interior details visible.",
+    "preserve_source": "Keep image 2 accurate: same product, architecture, lighting, colors, materials, textures, shadows, perspective, scale, atmosphere.",
+    "forbidden_source": "Never take the background, room, furniture, or any pixel from image 3. If the room shown in the output matches image 3 instead of image 2, the result is wrong.",
+    "restriction": "Do not redesign the room, replace or alter the product, invent major objects, or build a different scene."
+  },
+  "fact_text_generation": {
+    "placeholder": "[Auto Generated]",
+    "instruction": "Read the myth sentence printed on image 3, then replace the [Auto Generated] wording with exactly one concise fact that debunks that specific myth.",
+    "debunk_requirement": "Correct the exact claim on image 3, not a different or generic topic, and state what is actually true rather than only that the myth is false.",
+    "product_awareness": "Ground the correction in the lighting or furniture product visible in image 2 so the fact matches the photo on screen.",
+    "accuracy": "Use only the myth text on image 3 and elements clearly visible in image 2. Never invent furniture, materials, dimensions, or specifications.",
+    "originality": "Fresh fact every run. Do not copy the placeholder, the myth wording, or wording from this JSON.",
+    "length": "One to two sentences maximum, short enough to sit in the existing text area without changing the typography scale.",
+    "restriction": "Professional English, authoritative and corrective. Do not restate the myth on the slide. No hashtags, headings, captions, calls to action, or multiple facts."
+  },
+  "layout_rules": {
+    "emoji": "The check mark emoji is permanent: same upper-left position, appearance, size, color. Never swap it for the red cross emoji from image 3.",
+    "headline": "The bold white FACT: headline is permanent: same position right of the emoji, same typography, size, weight, alignment. Never output MYTH:.",
+    "underline": "Keep the thin white horizontal line below FACT: exactly as shown.",
+    "text_style": "Place the fact exactly where [Auto Generated] sits, below the underline, in the template's clean white modern sans-serif type. Wrap naturally to fit the text area, fully inside the canvas, never clipped."
+  },
+  "readability_rules": "All typography must stay clearly readable over the background. Prefer cropping and positioning image 2 so text sits over a suitable area; only if needed add subtle darkening or a soft shadow behind the text. No opaque black rectangle or heavy overlay.",
+  "strict_rules": {
+    "change_only": "Only the black background and the [Auto Generated] text may change. Never remove, reword, recolor, resize, or reposition the emoji, headline, or underline.",
+    "preserve_product": "Do not alter the identity, shape, structure, materials, color, or proportions of the product in image 2.",
+    "no_extras": "No logos, extra emojis, icons, borders, watermarks, or unrelated graphics."
+  },
+  "final_check": "Before returning the image, verify all four: (1) the room, product, and camera angle in the background match IMAGE 2, not image 3; (2) the icon is the check mark, not a red cross; (3) the headline reads FACT:; (4) the body text is a fact answering the myth printed on image 3. If check 1 fails, redo the background using image 2.",
+  "output": {
+    "aspect_ratio": "9:16",
+    "style": "premium minimalist HomeCartel fact editorial",
+    "result": "Image 2 fills the background, the Fact layout stays intact, and one newly generated fact debunks the myth shown on image 3."
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "task": "carousel_product_name_and_measurement_layout",
+  "input_order": {
+    "image_1": "fixed Layout 2 reference",
+    "image_2": "exact Airtable Furniture Item to preserve"
+  },
+  "objective": "Replace only the sample product and sample metadata in image 1 with the exact product and runtime Airtable metadata supplied by the automation.",
+  "layout_rules": [
+    "Preserve the clean white background, product crop, composition, HomeCartel branding, text positions, typography hierarchy, margins, and spacing from image 1.",
+    "Render the Item Name in the reference bold style.",
+    "Render the Product Type in the reference regular style.",
+    "Render the Measurement in the reference measurement position and style.",
+    "Remove every sample product name, sample product type, and sample measurement from the reference."
+  ],
+  "product_preservation": [
+    "Use only the exact product from image 2.",
+    "Preserve its identity, shape, proportions, structure, finish, colors, materials, and visible construction.",
+    "Do not copy or retain the sample product from image 1.",
+    "Do not redesign, simplify, distort, or invent product details."
+  ],
+  "runtime_metadata": {
+    "item_name": "{{ITEM_NAME}}",
+    "product_type": "{{PRODUCT_TYPE}}",
+    "measurement": "{{MEASUREMENT}}",
+    "instruction": "The automation appends authoritative runtime values. Render those values exactly and never invent missing facts."
+  },
+  "output": {
+    "aspect_ratio": "3:4",
+    "quality": "clean premium high-resolution product catalog layout"
+  }
+}

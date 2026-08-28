@@ -1,0 +1,49 @@
+{
+  "task": "Edit image 2 as a locked HomeCartel Style Tip of the Day template. Use image 1 only for the new background and one photo-based styling tip.",
+  "input_roles": {
+    "image_1": "The blended interior from Tips Edu Blended Image. It is the replacement background and the only visual source for the generated tip.",
+    "image_2": "The template from Tips Edu layout. It is the mandatory base canvas and layout reference."
+  },
+  "only_allowed_edits": [
+    "Replace only image 2's black background area with image 1.",
+    "Replace only the exact placeholder [Generated Tips Base On The Photo] with one generated styling tip."
+  ],
+  "background": {
+    "instruction": "Keep image 2 as the base canvas and place image 1 behind its existing logo, title, underline, and text area.",
+    "format": "Vertical 9:16 Instagram Story.",
+    "crop": "Fill the background naturally. Keep the main furniture or lighting subject visible. Do not stretch, distort, over-zoom, or leave black borders.",
+    "preserve": "Keep image 1 photorealistic. Preserve its product identity, room, lighting, shadows, colors, furniture, decor, materials, textures, reflections, and perspective.",
+    "readability": "Only if essential, add a very subtle dark treatment behind existing text. Do not noticeably darken the photo.",
+    "no_source_text": "Do not copy or add any logo, title, caption, contact detail, watermark, or text from image 1."
+  },
+  "locked_template": {
+    "rule": "Every part of image 2 except its black background and exact placeholder is locked.",
+    "logo": "Keep the HomeCartel logo exactly unchanged, including its registered mark, wording, white color, font, size, spacing, alignment, and top-right position.",
+    "title": "Keep Style Tip of the Day exactly unchanged in its original lower-left position, including wording, font, bold weight, white color, size, spacing, line height, and alignment.",
+    "underline": "Keep the thin white underline exactly unchanged in length, thickness, position, and spacing.",
+    "composition": "Keep all original margins, safe areas, padding, hierarchy, alignment, grouping, and positions."
+  },
+  "tip_edit": {
+    "target": "[Generated Tips Base On The Photo]",
+    "instruction": "Erase the exact placeholder completely, including both square brackets, then write the new tip only in that same text box.",
+    "content": "Write one original, concise English interior styling tip based only on visible details in image 1. It may address visible furniture placement, lighting, color balance, materials, texture, scale, contrast, decor balance, or product styling.",
+    "tone": "Elegant, practical, premium, polished, and suitable for HomeCartel.",
+    "length": "Exactly one short sentence that fits the original placeholder area.",
+    "style": "Match the placeholder's exact font, size, regular weight, white color, letter spacing, line height, alignment, width, and position.",
+    "clean_output": "Show only the tip sentence. Do not include brackets, labels, prefixes, suffixes, notes, quotation marks, or placeholder wording.",
+    "accuracy": "Do not mention anything not visibly present in image 1.",
+    "validation": "The placeholder must be absent and exactly one generated tip must appear."
+  },
+  "never_do": [
+    "Do not create a new layout or move any template element.",
+    "Do not redraw, retype, resize, move, recolor, crop, blur, or duplicate the logo.",
+    "Do not change, move, duplicate, resize, or restyle the title or underline.",
+    "Do not add another title, tip, logo, CTA, contact block, border, icon, or decoration.",
+    "Do not place the tip outside the original placeholder box.",
+    "Do not leave the placeholder or brackets visible.",
+    "Do not add or remove furniture, lighting, decor, architecture, people, or products.",
+    "Do not change anything except the background and placeholder tip."
+  ],
+  "final_check": "Verify that image 2's layout, logo, title, underline, positions, and typography are unchanged; image 1 fills the background; the placeholder is gone; one relevant tip is in its original place; and no duplicate text or logo exists.",
+  "output": "Return one high-resolution photorealistic 9:16 HomeCartel Style Tip of the Day Story image."
+}

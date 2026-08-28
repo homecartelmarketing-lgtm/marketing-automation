@@ -1,0 +1,38 @@
+{
+  "task": "create_debunk_cover_from_locked_layout_and_photo",
+  "output": {
+    "aspect_ratio": "9:16",
+    "orientation": "portrait",
+    "quality": "premium, sharp, photorealistic HomeCartel story cover"
+  },
+  "input_images": {
+    "image_1": {
+      "role": "LOCKED_DEBUNK_LAYOUT",
+      "instruction": "Use image 1 as the exact composition and branding template. Its solid black area is the only replaceable region."
+    },
+    "image_2": {
+      "role": "BACKGROUND_PHOTO",
+      "instruction": "Use this exact supplied photo as the replacement background. Do not redesign or regenerate the room, furniture, lighting, architecture, or camera perspective."
+    }
+  },
+  "background_edit": {
+    "instruction": "Replace only the solid black background of image 1 with image 2. Scale and crop image 2 proportionally to fill the full 9:16 canvas without borders, stretching, warping, or distortion. Preserve the strongest visible room and lighting details.",
+    "readability": "Keep a solid black base under the photo and render the photo at approximately 40% opacity (60% transparency), uniformly across the canvas, so the original white branding remains crisp and readable."
+  },
+  "locked_foreground": {
+    "instruction": "Copy and preserve these elements from image 1 exactly, fully opaque, and above the photo:",
+    "elements": [
+      "HomeCartel logo and registered trademark symbol",
+      "the exact two-line headline Debunking: / Design Myths",
+      "headline capitalization, colon, line break, typography, size, weight, alignment, and position",
+      "thin white underline, including its length, thickness, spacing, and position"
+    ]
+  },
+  "strict_restrictions": [
+    "Do not add, remove, rewrite, regenerate, resize, recolor, or reposition any text, logo, or underline.",
+    "Do not add captions, questions, watermarks, objects, effects, borders, or extra branding.",
+    "Do not replace, modify, or hallucinate content inside the supplied photo.",
+    "Do not output square, landscape, 4:5, or any ratio other than 9:16."
+  ],
+  "final_check": "Before returning the image, verify that only the black background changed; the supplied photo fills it subtly; and every original HomeCartel foreground element remains unchanged, fully opaque, correctly spelled, and in its original position."
+}

@@ -1,0 +1,1788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HomeCartel • Content Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* Nocturne — design-system tokens and component classes */
+    :root {
+      --color-bg: #161826;
+      --color-surface: #232532;
+      --color-text: #e9e9ed;
+      --color-accent: #9184d9;
+      --color-accent-2: #a7a1db;
+      --color-divider: color-mix(in srgb, #e9e9ed 16%, transparent);
+
+      /* Tonal ramps */
+      --color-neutral-100: #f3f5fe;
+      --color-neutral-200: #e4e7f5;
+      --color-neutral-300: #cfd3e5;
+      --color-neutral-400: #b2b6ca;
+      --color-neutral-500: #9397ab;
+      --color-neutral-600: #75798c;
+      --color-neutral-700: #595d6c;
+      --color-neutral-800: #3f424d;
+      --color-neutral-900: #292b31;
+
+      --color-accent-100: #f5f4ff;
+      --color-accent-200: #e7e5fe;
+      --color-accent-300: #d2cefd;
+      --color-accent-400: #b5abfc;
+      --color-accent-500: #968ae0;
+      --color-accent-600: #796cbf;
+      --color-accent-700: #5d5294;
+      --color-accent-800: #423a6a;
+      --color-accent-900: #2b2741;
+
+      --color-accent-2-100: #f5f4ff;
+      --color-accent-2-200: #e7e5fe;
+      --color-accent-2-300: #d2cefd;
+      --color-accent-2-400: #b5afe8;
+      --color-accent-2-500: #9690c9;
+      --color-accent-2-600: #7972a9;
+      --color-accent-2-700: #5c5783;
+      --color-accent-2-800: #423e5d;
+      --color-accent-2-900: #2b293a;
+
+      --font-heading: "Inter", system-ui, sans-serif;
+      --font-heading-weight: 500;
+      --font-body: "Inter", system-ui, sans-serif;
+
+      --space-1: 2.8px;
+      --space-2: 5.6px;
+      --space-3: 8.4px;
+      --space-4: 11.2px;
+      --space-6: 16.8px;
+      --space-8: 22.4px;
+
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 14px;
+
+      --shadow-sm: 0 0 0 1px #3f424d;
+      --shadow-md: 0 0 0 1px #595d6c, 0 6px 18px rgba(0,0,0,0.55);
+      --shadow-lg: 0 0 0 1px #9397ab, 0 16px 40px rgba(0,0,0,0.65);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--color-bg);
+      color: var(--color-text);
+      font-family: var(--font-body);
+      font-size: 14px;
+      line-height: 1.55;
+      height: 100vh;
+      width: 100%;
+      overflow: hidden;
+      display: flex;
+    }
+
+    h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading); font-weight: var(--font-heading-weight); line-height: 1.12; letter-spacing: -0.015em; }
+    h1 { font-size: 36px; }
+    h2 { font-size: 26px; }
+    h3 { font-size: 20px; }
+    h4 { font-size: 17px; }
+    h5 { font-size: 15px; }
+    h6 { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    .cc-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+    .cc-scroll::-webkit-scrollbar-thumb { background: var(--color-neutral-800); border-radius: 8px; border: 2px solid var(--color-bg); }
+    .cc-scroll::-webkit-scrollbar-thumb:hover { background: var(--color-neutral-700); }
+    .cc-card { transition: box-shadow .18s ease, transform .18s ease; }
+    .cc-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+    .cc-nav-item { transition: background .15s ease, border-color .15s ease; }
+    .cc-nav-item:hover { background: color-mix(in srgb, var(--color-text) 6%, transparent); }
+    .cc-thumb:hover { filter: brightness(1.08); }
+
+    /* Rules */
+    .hr {
+      height: 1px; border: 0; margin: var(--space-4) 0;
+      background: linear-gradient(to right, transparent, var(--color-divider) 48px, var(--color-divider) calc(100% - 48px), transparent);
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      cursor: pointer; text-decoration: none;
+      font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+      font-size: 13.5px; line-height: 1.2; color: var(--color-text);
+      background: transparent; border: 1px solid transparent;
+      padding: var(--space-2) calc(var(--space-3) * 1.2);
+      border-radius: var(--radius-md);
+      transition: all 0.15s ease;
+    }
+    .btn svg { display: block; }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-primary { color: var(--color-accent-100); background: var(--color-accent-800); border-color: var(--color-accent-700); }
+    .btn-primary:hover { background: var(--color-accent-700); border-color: var(--color-accent-500); }
+    .btn-primary:active { background: color-mix(in srgb, var(--color-accent) 22%, transparent); }
+    .btn-secondary { border-color: var(--color-divider); color: var(--color-neutral-300); }
+    .btn-secondary:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); color: var(--color-text); }
+    .btn-secondary:active { background: color-mix(in srgb, var(--color-text) 14%, transparent); }
+    .btn-ghost { color: var(--color-accent); padding-inline: var(--space-1); }
+    .btn-ghost:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
+    .btn-icon { width: 34px; height: 34px; padding: 0; border-radius: var(--radius-md); }
+    .btn-block { width: 100%; margin-top: var(--space-2); }
+  </style>
+</head>
+<body>
+
+  <!-- Left Sidebar (256px fixed) -->
+  <aside class="cc-scroll" style="width:256px; flex:0 0 256px; border-right:1px solid var(--color-divider); display:flex; flex-direction:column; overflow-y:auto; background:linear-gradient(180deg, color-mix(in srgb, var(--color-accent) 6%, var(--color-bg)), var(--color-bg) 220px);">
+    <div style="display:flex; align-items:center; gap:10px; padding:18px 18px 14px;">
+      <div style="width:30px; height:30px; border-radius:8px; border:1px solid var(--color-accent); display:flex; align-items:center; justify-content:center; color:var(--color-accent);">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11 12 3l9 8"/><path d="M5 10v10h14V10"/><path d="M9.5 20v-6h5v6"/></svg>
+      </div>
+      <div style="line-height:1.1;">
+        <div style="font-family:var(--font-heading); font-weight:600; font-size:15px; letter-spacing:-0.01em;">HomeCartel</div>
+        <div style="font-size:11px; color:var(--color-neutral-500);">Content Studio</div>
+      </div>
+    </div>
+
+    <!-- Feeds Section -->
+    <div style="padding:6px 12px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 8px 6px;">
+        <span style="font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--color-text);">Feeds</span>
+        <span style="font-size:10px; color:var(--color-neutral-500); font-variant-numeric:tabular-nums;">4:5</span>
+      </div>
+      <nav style="display:flex; flex-direction:column; gap:2px;">
+        <div id="navItemCollection" onclick="selectView('collection')" class="cc-nav-item" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-radius:8px; background:color-mix(in srgb, var(--color-accent) 14%, transparent); border:1px solid color-mix(in srgb, var(--color-accent) 45%, transparent); cursor:pointer;">
+          <span style="display:flex; align-items:center; gap:9px; font-size:13.5px; color:var(--color-accent-100);">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-300)" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+            Collection Category
+          </span>
+          <span id="collCountBadge" style="font-size:11px; color:var(--color-accent-300); font-variant-numeric:tabular-nums;">0</span>
+        </div>
+
+        <div class="cc-nav-item" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-radius:8px; cursor:default; opacity:0.55;">
+          <span style="display:flex; align-items:center; gap:9px; font-size:13.5px; color:var(--color-neutral-300);">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-500)" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+            Tips & Educational
+          </span>
+          <span style="font-size:9px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-600); border:1px solid var(--color-neutral-800); padding:1px 5px; border-radius:5px;">Soon</span>
+        </div>
+
+        <div class="cc-nav-item" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-radius:8px; cursor:default; opacity:0.55;">
+          <span style="display:flex; align-items:center; gap:9px; font-size:13.5px; color:var(--color-neutral-300);">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-500)" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+            Moodboard #1
+          </span>
+          <span style="font-size:9px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-600); border:1px solid var(--color-neutral-800); padding:1px 5px; border-radius:5px;">Soon</span>
+        </div>
+
+        <div class="cc-nav-item" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-radius:8px; cursor:default; opacity:0.55;">
+          <span style="display:flex; align-items:center; gap:9px; font-size:13.5px; color:var(--color-neutral-300);">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-500)" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+            Moodboard #2
+          </span>
+          <span style="font-size:9px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-600); border:1px solid var(--color-neutral-800); padding:1px 5px; border-radius:5px;">Soon</span>
+        </div>
+
+        <div class="cc-nav-item" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-radius:8px; cursor:default; opacity:0.55;">
+          <span style="display:flex; align-items:center; gap:9px; font-size:13.5px; color:var(--color-neutral-300);">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-500)" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+            1 Product, 3 Styles
+          </span>
+          <span style="font-size:9px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-600); border:1px solid var(--color-neutral-800); padding:1px 5px; border-radius:5px;">Soon</span>
+        </div>
+
+        <div class="cc-nav-item" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-radius:8px; cursor:default; opacity:0.55;">
+          <span style="display:flex; align-items:center; gap:9px; font-size:13.5px; color:var(--color-neutral-300);">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-500)" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+            Day & Night
+          </span>
+          <span style="font-size:9px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-600); border:1px solid var(--color-neutral-800); padding:1px 5px; border-radius:5px;">Soon</span>
+        </div>
+
+        <div class="cc-nav-item" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-radius:8px; cursor:default; opacity:0.55;">
+          <span style="display:flex; align-items:center; gap:9px; font-size:13.5px; color:var(--color-neutral-300);">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-500)" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+            Product Showcase Feed
+          </span>
+          <span style="font-size:9px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-600); border:1px solid var(--color-neutral-800); padding:1px 5px; border-radius:5px;">Soon</span>
+        </div>
+      </nav>
+    </div>
+
+    <!-- Stories Section -->
+    <div style="padding:6px 12px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 8px 6px;">
+        <span style="font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--color-neutral-500);">Stories</span>
+        <span style="font-size:9px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-600); border:1px solid var(--color-neutral-800); padding:1px 5px; border-radius:5px;">Coming soon</span>
+      </div>
+      <div style="padding:2px 10px 6px; font-size:12px; color:var(--color-neutral-600);">10 story formats · 9:16</div>
+    </div>
+
+    <!-- Reels Section -->
+    <div style="padding:6px 12px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:2px 8px 6px;">
+        <span style="font-size:11px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--color-neutral-500);">Reels</span>
+      </div>
+      <nav style="display:flex; flex-direction:column; gap:2px;">
+        <div id="navItemBeforeAfter" onclick="selectView('beforeafter')" class="cc-nav-item" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-radius:8px; cursor:pointer; background:transparent; border:1px solid transparent;">
+          <span style="display:flex; align-items:center; gap:9px; font-size:13.5px; color:var(--color-neutral-300);">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-neutral-500)" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18"/><path d="m8 8-3 4 3 4M16 8l3 4-3 4"/></svg>
+            Before &amp; After
+          </span>
+          <span id="reelsCountBadge" style="font-size:11px; color:var(--color-neutral-600); font-variant-numeric:tabular-nums;">0</span>
+        </div>
+      </nav>
+      <div style="padding:6px 10px 6px; font-size:12px; color:var(--color-neutral-600);">11 reel formats · 9:16</div>
+    </div>
+
+    <!-- Storage Path Footer -->
+    <div style="margin-top:auto; padding:14px 16px; border-top:1px solid var(--color-divider);">
+      <div style="display:flex; align-items:center; gap:8px; font-size:11px; color:var(--color-neutral-500);">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-400)" stroke-width="1.6"><path d="M22 12H2"/><path d="m7 4-5 8 5 8"/><path d="M17 4h5v16"/><path d="m12 4-5 8 5 8h10"/></svg>
+        Source: Google Drive
+      </div>
+      <div style="font-family:ui-monospace,monospace; font-size:10.5px; color:var(--color-neutral-400); margin-top:4px; word-break:break-all;" id="sidebarDrivePath">
+        G:\My Drive\Collection Category Feed\
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Stage -->
+  <main class="cc-scroll" style="flex:1; min-width:0; overflow-y:auto; display:flex; flex-direction:column;">
+    
+    <!-- ========================================== -->
+    <!-- VIEW 1: Collection Category Feed (4:5 Carousels) -->
+    <!-- ========================================== -->
+    <div id="viewCollectionFeed" style="display:flex; flex-direction:column;">
+      
+      <!-- Header -->
+      <header style="position:sticky; top:0; z-index:5; background:color-mix(in srgb, var(--color-bg) 92%, transparent); backdrop-filter:blur(8px); border-bottom:1px solid var(--color-divider); padding:16px 28px; display:flex; align-items:flex-end; justify-content:space-between; gap:16px;">
+        <div>
+          <div style="display:flex; align-items:center; gap:7px; font-size:12px; color:var(--color-neutral-500); margin-bottom:5px;">
+            <span>Feeds</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+            <span style="color:var(--color-neutral-300);">Collection Category Feed</span>
+          </div>
+          <h2 style="font-size:26px; margin:0; font-family:var(--font-heading); font-weight:600; letter-spacing:-0.015em;">Collection Category Feed</h2>
+          <p style="margin:4px 0 0; font-size:13px; color:var(--color-neutral-400);">5 lighting products → 5 AI interiors → 5 blended posts per set</p>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:10px;">
+          <button id="copyShareBtn" class="btn btn-secondary" onclick="copyPublicLink()" style="display:none;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            Copy Share Link
+          </button>
+
+          <button onclick="openNewRunModal()" class="btn btn-primary" style="white-space:nowrap; padding:8px 14px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            New Collection Run
+          </button>
+        </div>
+      </header>
+
+      <!-- KPI Summary Cards -->
+      <section id="statsContainer" style="padding:16px 28px 0; display:grid; grid-template-columns:repeat(4, 1fr); gap:14px;">
+        <!-- Injected via JS -->
+      </section>
+
+      <!-- Pending Instagram posts Panel -->
+      <section id="pendingIgPanel" style="display:none; padding:16px 28px 0;">
+        <div style="border:1px solid var(--color-divider); border-radius:12px; background:var(--color-surface); overflow:hidden;">
+          <div style="display:flex; align-items:center; gap:8px; padding:12px 16px 10px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="#E4405F"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+            <span style="font-size:11px; font-weight:600; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-400);">Scheduled on Instagram</span>
+            <span id="pendingIgCount" style="font-size:11px; color:var(--color-neutral-500); font-variant-numeric:tabular-nums;"></span>
+          </div>
+          <div style="padding:0 16px 10px; font-size:11.5px; color:var(--color-neutral-500); line-height:1.5;">
+            Instagram has no scheduling API, so these are held here — <strong>not</strong> in Meta Business Suite Planner.
+            This dashboard must be running at the scheduled time.
+          </div>
+          <div id="pendingIgList" style="display:flex; flex-direction:column;"></div>
+        </div>
+      </section>
+
+      <!-- Filters & Source Path -->
+      <div style="padding:18px 28px 6px; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+        <div style="display:inline-flex; padding:3px; gap:2px; border:1px solid var(--color-divider); border-radius:9px; background:var(--color-surface);" id="filterContainer">
+          <!-- Injected via JS -->
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--color-neutral-500); font-family:ui-monospace,monospace; border:1px solid var(--color-divider); border-radius:8px; padding:6px 11px; background:var(--color-surface);">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-400)" stroke-width="1.6"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+          <span id="mainDrivePath">G:\My Drive\Collection Category Feed\</span>
+        </div>
+      </div>
+
+      <!-- Collection Sets Grid -->
+      <section style="padding:12px 28px 40px; display:grid; grid-template-columns:repeat(auto-fill, minmax(430px, 1fr)); gap:18px;" id="setsGrid">
+        <!-- Injected via JavaScript -->
+      </section>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- VIEW 2: Before & After Reels (9:16 Vertical Video Reels) -->
+    <!-- ========================================== -->
+    <div id="viewBeforeAfterReels" style="display:none; flex-direction:column;">
+      
+      <!-- Header -->
+      <header style="position:sticky; top:0; z-index:5; background:color-mix(in srgb, var(--color-bg) 92%, transparent); backdrop-filter:blur(8px); border-bottom:1px solid var(--color-divider); padding:16px 28px; display:flex; align-items:flex-end; justify-content:space-between; gap:16px;">
+        <div>
+          <div style="display:flex; align-items:center; gap:7px; font-size:12px; color:var(--color-neutral-500); margin-bottom:5px;">
+            <span>Reels</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+            <span style="color:var(--color-neutral-300);">Before &amp; After</span>
+          </div>
+          <h2 style="font-size:26px; margin:0; font-family:var(--font-heading); font-weight:600; letter-spacing:-0.015em;">Before &amp; After Reels</h2>
+          <p style="margin:4px 0 0; font-size:13px; color:var(--color-neutral-400);">Empty room → styled interior · vertical 9:16 reels with compiled video outputs, one product each</p>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:10px;">
+          <button onclick="flashToast('Generating new Before & After reel pipeline...')" class="btn btn-primary" style="white-space:nowrap; padding:8px 14px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            New Reel
+          </button>
+        </div>
+      </header>
+
+      <!-- Filters & Source Path -->
+      <div style="padding:18px 28px 6px; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+        <div style="display:inline-flex; padding:3px; gap:2px; border:1px solid var(--color-divider); border-radius:9px; background:var(--color-surface);" id="reelsFilterContainer">
+          <!-- Injected via JS -->
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--color-neutral-500); font-family:ui-monospace,monospace; border:1px solid var(--color-divider); border-radius:8px; padding:6px 11px; background:var(--color-surface);">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-400)" stroke-width="1.6"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+          <span id="reelsDrivePath">G:\My Drive\Before &amp; After Reels\</span>
+        </div>
+      </div>
+
+      <!-- Reels Grid (320px 9:16 Cards) -->
+      <section style="padding:12px 28px 40px; display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:18px;" id="reelsGrid">
+        <!-- Injected via JavaScript -->
+      </section>
+    </div>
+
+  </main>
+
+  <!-- ========================================== -->
+  <!-- MODALS -->
+  <!-- ========================================== -->
+
+  <!-- 1. Detailed Slide & Set Inspection Modal (Collection) -->
+  <div id="detailModal" style="position:fixed; inset:0; z-index:40; background:rgba(8,9,15,0.72); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; padding:28px;" onclick="closeDetailModal()">
+    <div onclick="event.stopPropagation()" class="cc-scroll" style="width:min(1040px, 96vw); max-height:92vh; overflow:auto; background:var(--color-surface); border:1px solid var(--color-neutral-700); border-radius:16px; box-shadow:var(--shadow-lg); animation:fadein .18s ease;">
+      
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--color-divider); position:sticky; top:0; background:var(--color-surface); z-index:2;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span id="modalBadge" style="display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-family:var(--font-heading); font-weight:600; padding:3px 9px; border-radius:20px;">
+            <span id="modalDot" style="width:7px; height:7px; border-radius:50%;"></span>
+            <span id="modalStatusText">Done</span>
+          </span>
+          <h3 style="font-size:17px; margin:0; font-family:var(--font-heading);">Collection Set</h3>
+          <span id="modalRecordId" style="font-family:ui-monospace,monospace; font-size:11px; color:var(--color-neutral-500);"></span>
+        </div>
+        <button onclick="closeDetailModal()" class="btn btn-icon btn-secondary" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1.15fr 1fr; gap:0;">
+        
+        <!-- Left Column: Carousel Viewer -->
+        <div style="padding:20px; border-right:1px solid var(--color-divider);">
+          <div style="position:relative; aspect-ratio:4/5; border-radius:12px; overflow:hidden; background:var(--color-neutral-900);">
+            <img id="modalSlideImg" src="" alt="Slide Preview" style="width:100%; height:100%; object-fit:cover;"/>
+            
+            <div id="modalPendingOverlay" style="position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:10px; background:rgba(15,16,26,0.55); color:var(--color-neutral-200); font-size:13px;">
+              <span style="width:22px; height:22px; border:2px solid var(--color-accent-700); border-top-color:var(--color-accent-300); border-radius:50%; animation:spin .8s linear infinite;"></span>
+              <span id="modalPendingLabel">Generating interior…</span>
+            </div>
+
+            <div style="position:absolute; top:12px; left:12px; display:flex; align-items:center; gap:7px;">
+              <span id="modalSlotNumBadge" style="font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px; background:color-mix(in srgb, var(--color-bg) 62%, transparent); color:var(--color-neutral-100);">Slot 1 / 5</span>
+              <span id="modalSlotCatBadge" style="font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px; background:color-mix(in srgb, var(--color-accent) 30%, transparent); color:var(--color-accent-100);">Chandelier</span>
+            </div>
+
+            <button onclick="modalPrevSlide()" class="btn btn-icon" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); background:color-mix(in srgb, var(--color-bg) 68%, transparent); color:var(--color-text); border:1px solid var(--color-neutral-700);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+            </button>
+            <button onclick="modalNextSlide()" class="btn btn-icon" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); background:color-mix(in srgb, var(--color-bg) 68%, transparent); color:var(--color-text); border:1px solid var(--color-neutral-700);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+          </div>
+
+          <!-- Dots -->
+          <div id="modalDotsContainer" style="display:flex; align-items:center; justify-content:center; gap:8px; margin-top:12px;"></div>
+
+          <div style="margin-top:12px; text-align:center;">
+            <div id="modalItemName" style="font-family:var(--font-heading); font-weight:600; font-size:15px;"></div>
+            <div id="modalItemSku" style="font-size:12px; color:var(--color-neutral-500); font-family:ui-monospace,monospace; margin-top:2px;"></div>
+          </div>
+        </div>
+
+        <!-- Right Column: Details & Items -->
+        <div style="padding:20px; display:flex; flex-direction:column; gap:14px;">
+          <div>
+            <div style="font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-500); margin-bottom:8px;">Set details</div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <div style="display:flex; justify-content:space-between; font-size:13px;"><span style="color:var(--color-neutral-500);">Created</span><span id="modalDate"></span></div>
+              <div style="display:flex; justify-content:space-between; font-size:13px;"><span style="color:var(--color-neutral-500);">Status</span><span id="modalStatusDetail"></span></div>
+              <div style="display:flex; justify-content:space-between; font-size:13px;"><span style="color:var(--color-neutral-500);">Provider cost</span><span id="modalCost" style="font-family:var(--font-heading); font-weight:600;"></span></div>
+              <div style="display:flex; justify-content:space-between; font-size:13px; gap:12px;"><span style="color:var(--color-neutral-500);">Breakdown</span><span id="modalCostBreak" style="color:var(--color-neutral-300); text-align:right;"></span></div>
+            </div>
+          </div>
+
+          <div class="hr" style="margin:2px 0;"></div>
+
+          <div>
+            <div style="font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-500); margin-bottom:8px;">5 products</div>
+            <div id="modalItemsList" style="display:flex; flex-direction:column; gap:2px;"></div>
+          </div>
+
+          <div style="margin-top:auto; display:flex; flex-wrap:wrap; gap:7px; padding-top:6px;">
+            <button id="modalDriveBtn" onclick="openDriveFolderAction()" class="btn btn-secondary" style="font-size:12.5px;">Open Drive folder</button>
+            <a id="modalDownloadBtn" href="#" class="btn btn-secondary" style="font-size:12.5px;">Download all</a>
+            <button id="modalPromptsBtn" onclick="openPromptsModalForActive()" class="btn btn-secondary" style="font-size:12.5px;">View prompts</button>
+            <button id="modalPostBtn" onclick="handlePostClickForActive()" class="btn btn-primary" style="font-size:12.5px;">Post</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Before / After Reel Inspection & Video Player Modal -->
+  <div id="reelModal" style="position:fixed; inset:0; z-index:40; background:rgba(8,9,15,0.72); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; padding:28px;" onclick="closeReelModal()">
+    <div onclick="event.stopPropagation()" class="cc-scroll" style="width:min(920px, 96vw); max-height:92vh; overflow:auto; background:var(--color-surface); border:1px solid var(--color-neutral-700); border-radius:16px; box-shadow:var(--shadow-lg); animation:fadein .18s ease;">
+      
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--color-divider); position:sticky; top:0; background:var(--color-surface); z-index:2;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span id="reelModalBadge" style="display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-family:var(--font-heading); font-weight:600; padding:3px 9px; border-radius:20px;">
+            <span id="reelModalDot" style="width:7px; height:7px; border-radius:50%;"></span>
+            <span id="reelModalStatusText">Done</span>
+          </span>
+          <h3 style="font-size:17px; margin:0; font-family:var(--font-heading);">Before / After Reel</h3>
+          <span id="reelModalRecordId" style="font-family:ui-monospace,monospace; font-size:11px; color:var(--color-neutral-500);"></span>
+        </div>
+        <button onclick="closeReelModal()" class="btn btn-icon btn-secondary" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1.15fr 1fr; gap:0;">
+        
+        <!-- Left Column: Video Player & Stills Viewer -->
+        <div style="padding:20px; border-right:1px solid var(--color-divider); display:flex; flex-direction:column; gap:10px;">
+          
+          <!-- View Toggle: Video vs Dual Stills -->
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:2px;">
+            <div style="display:inline-flex; padding:2px; gap:2px; border:1px solid var(--color-divider); border-radius:7px; background:var(--color-bg);">
+              <button id="reelTabVideoBtn" onclick="switchReelModalTab('video')" style="border:0; cursor:pointer; font-size:12px; padding:4px 10px; border-radius:5px; background:var(--color-accent-800); color:var(--color-accent-100);">🎬 Video Reel</button>
+              <button id="reelTabStillsBtn" onclick="switchReelModalTab('stills')" style="border:0; cursor:pointer; font-size:12px; padding:4px 10px; border-radius:5px; background:transparent; color:var(--color-neutral-400);">🖼️ Before & After Stills</button>
+            </div>
+            <span id="reelModalDurationBadge" style="font-size:11px; font-weight:600; color:var(--color-accent-300);">0:12</span>
+          </div>
+
+          <!-- Video Player Container -->
+          <div id="reelVideoContainer" style="position:relative; aspect-ratio:9/16; border-radius:12px; overflow:hidden; background:#000; display:flex; align-items:center; justify-content:center;">
+            <video id="reelModalVideo" controls autoplay loop playsinline style="width:100%; height:100%; object-fit:contain; background:#000;"></video>
+            <div id="reelNoVideoFallback" style="display:none; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:var(--color-neutral-400); font-size:13px; text-align:center; padding:20px;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+              <span>Video compiling in progress...</span>
+            </div>
+          </div>
+
+          <!-- Dual Stills Container -->
+          <div id="reelStillsContainer" style="display:none; grid-template-columns:1fr 1fr; gap:10px;">
+            <div style="position:relative; aspect-ratio:9/16; border-radius:12px; overflow:hidden; background:var(--color-neutral-900);">
+              <img id="reelModalBeforeImg" src="" alt="Before Room" style="width:100%; height:100%; object-fit:cover;"/>
+              <span style="position:absolute; top:8px; left:8px; font-size:10px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; padding:2px 8px; border-radius:5px; background:color-mix(in srgb, var(--color-bg) 70%, transparent); color:var(--color-neutral-100);">Before</span>
+            </div>
+            <div style="position:relative; aspect-ratio:9/16; border-radius:12px; overflow:hidden; background:var(--color-neutral-900);">
+              <img id="reelModalAfterImg" src="" alt="After Room" style="width:100%; height:100%; object-fit:cover;"/>
+              <span style="position:absolute; top:8px; left:8px; font-size:10px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; padding:2px 8px; border-radius:5px; background:color-mix(in srgb, var(--color-accent) 34%, transparent); color:var(--color-accent-100);">After</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right Column: Details & Reel Meta -->
+        <div style="padding:20px; display:flex; flex-direction:column; gap:14px;">
+          <div>
+            <div id="reelModalProductTitle" style="font-family:var(--font-heading); font-weight:600; font-size:17px;"></div>
+            <div id="reelModalCat" style="font-size:12.5px; color:var(--color-neutral-500); margin-top:2px;"></div>
+          </div>
+
+          <div class="hr" style="margin:0;"></div>
+
+          <div>
+            <div style="font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-500); margin-bottom:8px;">Reel details</div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <div style="display:flex; justify-content:space-between; font-size:13px;"><span style="color:var(--color-neutral-500);">Room</span><span id="reelModalRoom"></span></div>
+              <div style="display:flex; justify-content:space-between; font-size:13px;"><span style="color:var(--color-neutral-500);">Duration</span><span id="reelModalDuration"></span></div>
+              <div style="display:flex; justify-content:space-between; font-size:13px;"><span style="color:var(--color-neutral-500);">Format</span><span>9:16 · reel video</span></div>
+              <div style="display:flex; justify-content:space-between; font-size:13px;"><span style="color:var(--color-neutral-500);">Status</span><span id="reelModalStatusDetail"></span></div>
+              <div style="display:flex; justify-content:space-between; font-size:13px;"><span style="color:var(--color-neutral-500);">Created</span><span id="reelModalDate"></span></div>
+              <div style="display:flex; justify-content:space-between; font-size:13px;"><span style="color:var(--color-neutral-500);">Video File</span><span id="reelModalVideoFile" style="font-family:ui-monospace,monospace; font-size:11px; color:var(--color-accent-300);"></span></div>
+            </div>
+          </div>
+
+          <div style="margin-top:auto; display:flex; flex-wrap:wrap; gap:7px; padding-top:6px;">
+            <button id="reelModalDriveBtn" onclick="openActiveReelDrive()" class="btn btn-secondary" style="font-size:12.5px;">Open Drive folder</button>
+            <a id="reelModalDownloadBtn" href="#" class="btn btn-secondary" style="font-size:12.5px;">Download Video</a>
+            <button id="reelModalPostBtn" onclick="openActiveReelPostModal()" class="btn btn-primary" style="font-size:12.5px;">Post & Schedule</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Blending Prompts Modal -->
+  <div id="promptsModal" style="position:fixed; inset:0; z-index:50; background:rgba(8,9,15,0.72); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; padding:28px;" onclick="closePromptsModal()">
+    <div onclick="event.stopPropagation()" class="cc-scroll" style="width:min(680px, 96vw); max-height:88vh; overflow:auto; background:var(--color-surface); border:1px solid var(--color-neutral-700); border-radius:16px; box-shadow:var(--shadow-lg); animation:fadein .18s ease;">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--color-divider); position:sticky; top:0; background:var(--color-surface);">
+        <div>
+          <h3 style="font-size:16px; margin:0; font-family:var(--font-heading);">Blending prompts</h3>
+          <div style="font-size:12px; color:var(--color-neutral-500);" id="promptsSubTitle">Claude Sonnet 5 · per-slot</div>
+        </div>
+        <button onclick="closePromptsModal()" class="btn btn-icon btn-secondary" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div style="padding:18px 20px; display:flex; flex-direction:column; gap:12px;" id="promptsItemsContainer">
+        <!-- Injected via JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. New Collection Run Modal -->
+  <div id="newRunModal" style="position:fixed; inset:0; z-index:50; background:rgba(8,9,15,0.72); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; padding:28px;" onclick="closeNewRunModal()">
+    <div onclick="event.stopPropagation()" style="width:min(540px, 96vw); background:var(--color-surface); border:1px solid var(--color-neutral-700); border-radius:16px; box-shadow:var(--shadow-lg); animation:fadein .18s ease; overflow:hidden;">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--color-divider);">
+        <h3 style="font-size:16px; margin:0; font-family:var(--font-heading);">New Collection Run</h3>
+        <button onclick="closeNewRunModal()" class="btn btn-icon btn-secondary" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div style="padding:18px 20px; display:flex; flex-direction:column; gap:14px;">
+        <div>
+          <label style="display:block; font-size:12px; color:var(--color-neutral-400); margin-bottom:6px;">Content type</label>
+          <div style="display:flex; align-items:center; gap:8px; border:1px solid var(--color-divider); border-radius:8px; padding:9px 12px; font-size:13.5px; background:var(--color-bg); color:var(--color-neutral-300);">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-400)" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+            Collection Category Feed
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div>
+            <label style="display:block; font-size:12px; color:var(--color-neutral-400); margin-bottom:6px;">Style</label>
+            <div style="border:1px solid var(--color-divider); border-radius:8px; padding:9px 12px; font-size:13.5px; background:var(--color-bg);">modern</div>
+          </div>
+          <div>
+            <label style="display:block; font-size:12px; color:var(--color-neutral-400); margin-bottom:6px;">Rows to build</label>
+            <div style="display:flex; align-items:center; border:1px solid var(--color-divider); border-radius:8px; overflow:hidden; background:var(--color-bg);">
+              <button onclick="adjustRunRows(-1)" style="border:0; background:transparent; color:var(--color-text); cursor:pointer; padding:8px 12px; font-size:16px;">−</button>
+              <span id="runRowsCount" style="flex:1; text-align:center; font-size:14px; font-family:var(--font-heading);">1</span>
+              <button onclick="adjustRunRows(1)" style="border:0; background:transparent; color:var(--color-text); cursor:pointer; padding:8px 12px; font-size:16px;">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label style="display:block; font-size:12px; color:var(--color-neutral-400); margin-bottom:6px;">Mode</label>
+          <div style="display:inline-flex; padding:3px; gap:2px; border:1px solid var(--color-divider); border-radius:9px; background:var(--color-bg); width:100%;">
+            <button id="modeDryBtn" onclick="selectRunMode(false)" style="flex:1; border:0; cursor:pointer; font-family:var(--font-heading); font-size:13px; padding:8px 12px; border-radius:6px; background:transparent; color:var(--color-neutral-400);">Dry run</button>
+            <button id="modeExecBtn" onclick="selectRunMode(true)" style="flex:1; border:0; cursor:pointer; font-family:var(--font-heading); font-size:13px; padding:8px 12px; border-radius:6px; background:var(--color-accent-800); color:var(--color-accent-100);">Execute</button>
+          </div>
+          <p id="modeHintText" style="margin:8px 0 0; font-size:11.5px; color:var(--color-neutral-500);">Live run — scrapes Akeneo, generates Krea interiors, Claude prompts, and Fal blended outputs.</p>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--color-neutral-500); font-family:ui-monospace,monospace; border-top:1px solid var(--color-divider); padding-top:14px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-400)" stroke-width="1.6"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+          Output → G:\My Drive\Collection Category Feed\
+        </div>
+
+        <button id="startPipelineBtn" onclick="startPipelineRunAction()" class="btn btn-primary btn-block" style="padding:11px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 4v16l14-8z"/></svg>
+          <span id="startBtnLabel">Start run · 1 set</span>
+        </button>
+
+        <div id="terminalContainer" style="display:none; background:#030712; border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px; font-family:ui-monospace,monospace; font-size:11px; color:#38bdf8; max-height:180px; overflow-y:auto; white-space:pre-wrap;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Post to Meta Modal (Facebook & Instagram Direct Publishing & Scheduling) -->
+  <div id="postModal" style="position:fixed; inset:0; z-index:50; background:rgba(8,9,15,0.72); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; padding:28px;" onclick="closePostModal()">
+    <div onclick="event.stopPropagation()" class="cc-scroll" style="width:min(940px, 96vw); max-height:92vh; overflow:auto; background:var(--color-surface); border:1px solid var(--color-neutral-700); border-radius:16px; box-shadow:var(--shadow-lg); animation:fadein .18s ease;">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--color-divider); position:sticky; top:0; background:var(--color-surface); z-index:2;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#E4405F"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+          </div>
+          <h3 style="font-size:16.5px; margin:0; font-family:var(--font-heading);">Post & Schedule to Meta</h3>
+          <span style="font-family:ui-monospace,monospace; font-size:11px; color:var(--color-neutral-500);" id="postModalRecordId"></span>
+        </div>
+        <button onclick="closePostModal()" class="btn btn-icon btn-secondary" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div style="display:grid; grid-template-columns:0.92fr 1.08fr; gap:0;">
+        
+        <!-- Left Column: Previews (5 slides or 9:16 Reel) -->
+        <div style="padding:18px; border-right:1px solid var(--color-divider); background:color-mix(in srgb, var(--color-bg) 40%, transparent);">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:8px; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-400);">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+              <span id="postModalMediaTitle">Media Preview</span>
+            </div>
+            <span style="font-size:10px; color:var(--color-accent-300); font-weight:600;">Home Cartel Drop</span>
+          </div>
+          <div id="postModalThumbs" style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <!-- Injected via JS -->
+          </div>
+        </div>
+
+        <!-- Right Column: Controls, Caption & Meta Scheduler -->
+        <div style="padding:18px 20px; display:flex; flex-direction:column; gap:12px; min-height:480px;">
+          
+          <!-- 1. Platforms Controls Card -->
+          <div style="background:var(--color-bg); border:1px solid var(--color-divider); border-radius:10px; padding:11px 13px; display:flex; flex-direction:column; gap:9px;">
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+              <span style="font-size:10.5px; font-weight:600; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-400);">1. Target Platforms</span>
+              <span style="font-size:10.5px; color:#22c55e; display:flex; align-items:center; gap:4px; font-weight:500;">
+                <span style="width:6px; height:6px; border-radius:50%; background:#22c55e;"></span> Meta API Connected
+              </span>
+            </div>
+            <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+              <label style="display:flex; align-items:center; gap:7px; font-size:12.5px; cursor:pointer; color:var(--color-text);">
+                <input type="checkbox" id="postTargetFB" checked style="accent-color:var(--color-accent); cursor:pointer;">
+                <span style="display:flex; align-items:center; gap:5px; font-weight:500;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                  Facebook Page (Home Cartel)
+                </span>
+              </label>
+              <label style="display:flex; align-items:center; gap:7px; font-size:12.5px; cursor:pointer; color:var(--color-text);">
+                <input type="checkbox" id="postTargetIG" checked style="accent-color:var(--color-accent); cursor:pointer;">
+                <span style="display:flex; align-items:center; gap:5px; font-weight:500;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="#E4405F"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                  Instagram (@homecartel)
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 2. Publish Timing & Schedule Picker -->
+          <div style="background:var(--color-bg); border:1px solid var(--color-divider); border-radius:10px; padding:11px 13px; display:flex; flex-direction:column; gap:9px;">
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+              <span style="font-size:10.5px; font-weight:600; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-400);">2. Publish Timing</span>
+            </div>
+            
+            <div style="display:flex; align-items:center; gap:16px;">
+              <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; color:var(--color-text);">
+                <input type="radio" name="publishTimingRadio" value="now" checked onchange="togglePublishTiming(this.value)" style="accent-color:var(--color-accent); cursor:pointer;">
+                <span style="font-weight:500;">⚡ Post Now</span>
+              </label>
+              <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; color:var(--color-text);">
+                <input type="radio" name="publishTimingRadio" value="schedule" onchange="togglePublishTiming(this.value)" style="accent-color:var(--color-accent); cursor:pointer;">
+                <span style="font-weight:500;">📅 Schedule for Later</span>
+              </label>
+            </div>
+
+            <!-- Date & Time Picker Container -->
+            <div id="scheduleTimePickerBox" style="display:none; flex-direction:column; gap:8px; padding-top:8px; border-top:1px dashed var(--color-divider);">
+              <div style="display:grid; grid-template-columns:1.2fr 1fr; gap:10px;">
+                <div>
+                  <label style="display:block; font-size:11px; color:var(--color-neutral-400); margin-bottom:4px;">Date</label>
+                  <input type="date" id="scheduleDateInput" style="width:100%; background:var(--color-surface); color:var(--color-text); border:1px solid var(--color-divider); border-radius:6px; padding:7px 9px; font-family:var(--font-body); font-size:12.5px; outline:none;">
+                </div>
+                <div>
+                  <label style="display:block; font-size:11px; color:var(--color-neutral-400); margin-bottom:4px;">Time</label>
+                  <input type="time" id="scheduleTimeInput" style="width:100%; background:var(--color-surface); color:var(--color-text); border:1px solid var(--color-divider); border-radius:6px; padding:7px 9px; font-family:var(--font-body); font-size:12.5px; outline:none;">
+                </div>
+              </div>
+              <div style="font-size:11px; color:var(--color-accent-200); display:flex; align-items:flex-start; gap:5px; line-height:1.45;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="flex:0 0 auto; margin-top:2px;"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                Post will be queued in Meta Business Suite Planner and published on schedule.
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Caption Section -->
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-top:2px;">
+            <div style="font-size:10.5px; font-weight:600; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-400);">3. Caption</div>
+            <span id="captionCharCount" style="font-size:11px; color:var(--color-neutral-500); font-variant-numeric:tabular-nums;">0 chars</span>
+          </div>
+
+          <!-- Direct Caption Editor -->
+          <div id="captionReadyState" style="display:flex; flex-direction:column; gap:8px; flex:1;">
+            <textarea id="postCaptionInput" oninput="updateCaptionCount()" placeholder="Write or paste your caption here..." spellcheck="false" style="flex:1; min-height:160px; resize:vertical; width:100%; background:var(--color-bg); color:var(--color-text); border:1px solid var(--color-divider); border-radius:10px; padding:11px 12px; font-family:var(--font-body); font-size:13px; line-height:1.5; outline:none;"></textarea>
+            
+            <div style="display:flex; align-items:center; gap:7px; flex-wrap:wrap;">
+              <button onclick="pasteClipboardCaption()" class="btn btn-secondary" style="font-size:12px; padding:5px 10px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+                Paste Clipboard
+              </button>
+              <button onclick="copyGeneratedCaption()" class="btn btn-secondary" style="font-size:12px; padding:5px 10px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+                Copy
+              </button>
+              <button onclick="clearCaptionState()" class="btn btn-secondary" style="font-size:12px; padding:5px 10px; margin-left:auto; color:var(--color-neutral-400);">
+                Clear
+              </button>
+            </div>
+          </div>
+
+          <!-- Bottom Action Bar -->
+          <div style="margin-top:auto; display:flex; align-items:center; gap:9px; padding-top:8px; border-top:1px solid var(--color-divider);">
+            <button onclick="closePostModal()" class="btn btn-secondary" style="flex:0 0 auto;">Cancel</button>
+            <button id="postConfirmBtn" onclick="confirmPostAction()" disabled class="btn btn-primary" style="flex:1; justify-content:center;">
+              <span id="postConfirmSpinner" style="display:none; width:14px; height:14px; border:2px solid var(--color-accent-200); border-top-color:transparent; border-radius:50%; animation:spin .7s linear infinite; margin-right:6px;"></span>
+              <svg id="postConfirmIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+              <span id="postConfirmLabel">Post Now</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Toast Notification -->
+  <div id="toast" style="position:fixed; bottom:22px; left:50%; transform:translateX(-50%); z-index:60; background:var(--color-neutral-900); border:1px solid var(--color-neutral-700); color:var(--color-neutral-100); font-size:13px; padding:11px 18px; border-radius:10px; box-shadow:var(--shadow-md); animation:fadein .2s ease; display:none; align-items:center; gap:9px;">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-300)" stroke-width="1.8"><path d="M20 6 9 17l-5-5"/></svg>
+    <span id="toastMsg">Action completed</span>
+  </div>
+
+  <script>
+    let allCollections = [];
+    let allReels = [];
+    let currentView = "collection";
+    let currentFilter = "All";
+    let activeSet = null;
+    let activeReel = null;
+    let activePostSet = null;
+    let isReelPostMode = false;
+    let cachedCaptions = {};
+    let currentSlideIndex = 0;
+    let publicTunnelUrl = "";
+    let baseCollectionsDirectory = "G:\\My Drive\\Collection Category Feed\\";
+    let baseReelsDirectory = "G:\\My Drive\\Before & After Reels\\";
+    let runRows = 1;
+    let runExecute = true;
+    let pipelineInterval = null;
+    let toastTimeout = null;
+
+    function getStatusStyles(status) {
+      if (status === "Done") {
+        return {
+          badgeBg: "var(--color-accent-900)",
+          badgeColor: "var(--color-accent-200)",
+          dotColor: "var(--color-accent-400)"
+        };
+      }
+      if (status === "Processing") {
+        return {
+          badgeBg: "var(--color-accent-800)",
+          badgeColor: "var(--color-accent-100)",
+          dotColor: "var(--color-accent-300)"
+        };
+      }
+      return {
+        badgeBg: "var(--color-neutral-900)",
+        badgeColor: "var(--color-neutral-300)",
+        dotColor: "var(--color-neutral-500)"
+      };
+    }
+
+    function selectView(viewName) {
+      currentView = viewName;
+      currentFilter = "All";
+
+      const navColl = document.getElementById('navItemCollection');
+      const navBA = document.getElementById('navItemBeforeAfter');
+      const viewColl = document.getElementById('viewCollectionFeed');
+      const viewBA = document.getElementById('viewBeforeAfterReels');
+      const sidebarDrive = document.getElementById('sidebarDrivePath');
+
+      if (viewName === 'collection') {
+        navColl.style.background = "color-mix(in srgb, var(--color-accent) 14%, transparent)";
+        navColl.style.borderColor = "color-mix(in srgb, var(--color-accent) 45%, transparent)";
+        navColl.querySelector('span').style.color = "var(--color-accent-100)";
+        navColl.querySelector('svg').setAttribute("stroke", "var(--color-accent-300)");
+        document.getElementById('collCountBadge').style.color = "var(--color-accent-300)";
+
+        navBA.style.background = "transparent";
+        navBA.style.borderColor = "transparent";
+        navBA.querySelector('span').style.color = "var(--color-neutral-300)";
+        navBA.querySelector('svg').setAttribute("stroke", "var(--color-neutral-500)");
+        document.getElementById('reelsCountBadge').style.color = "var(--color-neutral-600)";
+
+        viewColl.style.display = 'flex';
+        viewBA.style.display = 'none';
+        sidebarDrive.innerText = baseCollectionsDirectory;
+        renderFilters();
+        renderSets();
+      } else {
+        navBA.style.background = "color-mix(in srgb, var(--color-accent) 14%, transparent)";
+        navBA.style.borderColor = "color-mix(in srgb, var(--color-accent) 45%, transparent)";
+        navBA.querySelector('span').style.color = "var(--color-accent-100)";
+        navBA.querySelector('svg').setAttribute("stroke", "var(--color-accent-300)");
+        document.getElementById('reelsCountBadge').style.color = "var(--color-accent-300)";
+
+        navColl.style.background = "transparent";
+        navColl.style.borderColor = "transparent";
+        navColl.querySelector('span').style.color = "var(--color-neutral-300)";
+        navColl.querySelector('svg').setAttribute("stroke", "var(--color-neutral-500)");
+        document.getElementById('collCountBadge').style.color = "var(--color-neutral-600)";
+
+        viewColl.style.display = 'none';
+        viewBA.style.display = 'flex';
+        sidebarDrive.innerText = baseReelsDirectory;
+        renderReelsFilters();
+        renderReels();
+      }
+    }
+
+    async function loadData() {
+      try {
+        const res = await fetch('/api/collections');
+        const data = await res.json();
+        allCollections = data.collections || [];
+        allReels = data.reels || [];
+        publicTunnelUrl = data.public_tunnel_url || "";
+        if (data.base_directory) baseCollectionsDirectory = data.base_directory;
+        if (data.reels_directory) baseReelsDirectory = data.reels_directory;
+
+        document.getElementById('collCountBadge').innerText = allCollections.length;
+        document.getElementById('reelsCountBadge').innerText = allReels.length;
+
+        document.getElementById('sidebarDrivePath').innerText = currentView === 'collection' ? baseCollectionsDirectory : baseReelsDirectory;
+        const mainDriveEl = document.getElementById('mainDrivePath');
+        if (mainDriveEl) mainDriveEl.innerText = baseCollectionsDirectory;
+        const reelsDriveEl = document.getElementById('reelsDrivePath');
+        if (reelsDriveEl) reelsDriveEl.innerText = baseReelsDirectory;
+
+        if (publicTunnelUrl) {
+          document.getElementById('copyShareBtn').style.display = 'inline-flex';
+        }
+
+        renderStats(data.stats || []);
+        renderPendingIgPosts(data.pending_ig_posts || []);
+        
+        if (currentView === 'collection') {
+          renderFilters();
+          renderSets();
+        } else {
+          renderReelsFilters();
+          renderReels();
+        }
+      } catch (err) {
+        console.error("Error fetching data:", err);
+      }
+    }
+
+    function renderStats(stats) {
+      const container = document.getElementById('statsContainer');
+      if (!stats || !stats.length) {
+        const doneCount = allCollections.filter(c => c.status === 'Done').length;
+        const inProg = allCollections.filter(c => c.status !== 'Done').length;
+        stats = [
+          { label: "Total sets", value: String(allCollections.length), sub: "in this table", dot: "var(--color-neutral-500)" },
+          { label: "Done", value: String(doneCount), sub: "ready to post", dot: "var(--color-accent-400)" },
+          { label: "In progress", value: String(inProg), sub: "processing / standby", dot: "var(--color-accent-200)" },
+          { label: "Provider cost", value: "$0.41", sub: "this batch, est.", dot: "var(--color-neutral-500)" }
+        ];
+      }
+
+      container.innerHTML = stats.map(s => `
+        <div style="border:1px solid var(--color-divider); border-radius:12px; padding:14px 16px; background:var(--color-surface); display:flex; flex-direction:column; gap:4px;">
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <span style="font-size:12px; color:var(--color-neutral-400);">${s.label}</span>
+            <span style="width:7px; height:7px; border-radius:50%; background:${s.dot || 'var(--color-neutral-500)'};"></span>
+          </div>
+          <div style="font-family:var(--font-heading); font-size:22px; font-weight:600; color:var(--color-neutral-100);">${s.value}</div>
+          <div style="font-size:11px; color:var(--color-neutral-500);">${s.sub}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderPendingIgPosts(jobs) {
+      const panel = document.getElementById('pendingIgPanel');
+      const list = document.getElementById('pendingIgList');
+      const count = document.getElementById('pendingIgCount');
+      if (!panel || !list) return;
+
+      if (!jobs.length) {
+        panel.style.display = 'none';
+        list.innerHTML = '';
+        return;
+      }
+
+      const failedCount = jobs.filter(j => j.status === 'failed').length;
+      const queuedCount = jobs.length - failedCount;
+      count.innerText = failedCount
+        ? `${queuedCount} queued • ${failedCount} failed`
+        : `${queuedCount} queued`;
+
+      list.innerHTML = jobs.map(j => {
+        const failed = j.status === 'failed';
+        const when = j.scheduled_time ? new Date(j.scheduled_time * 1000) : null;
+        const whenText = when ? when.toLocaleString([], {
+          weekday: 'short', month: 'short', day: 'numeric',
+          hour: 'numeric', minute: '2-digit'
+        }) : 'unknown time';
+        const overdue = !failed && when && when.getTime() < Date.now();
+        const caption = (j.caption || '').replace(/\s+/g, ' ').trim();
+        const preview = caption.length > 70 ? caption.slice(0, 70) + '…' : (caption || '(no caption)');
+
+        const secondLine = failed
+          ? `<span style="color:#e5766a;">Not posted — ${escapeHtml(j.last_error || 'failed')}</span>`
+          : escapeHtml(preview);
+
+        let timeColor = 'var(--color-accent-200)';
+        if (failed) timeColor = '#e5766a';
+        else if (overdue) timeColor = '#e5a06a';
+
+        let timeSuffix = '';
+        if (failed) timeSuffix = ` • failed after ${j.attempts} tries`;
+        else if (overdue) timeSuffix = ' • overdue';
+        else if (j.attempts > 0) timeSuffix = ` • retrying (${j.attempts})`;
+
+        return `<div style="display:flex; align-items:center; gap:12px; padding:10px 16px; border-top:1px solid var(--color-divider); ${failed ? 'background:color-mix(in srgb, #e5766a 7%, transparent);' : ''}">
+          <div style="flex:1; min-width:0;">
+            <div style="font-size:12.5px; color:var(--color-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(j.folder_name || '')}</div>
+            <div style="font-size:11.5px; color:var(--color-neutral-500); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${secondLine}</div>
+          </div>
+          <div style="flex:0 0 auto; text-align:right;">
+            <div style="font-size:12px; color:${timeColor}; font-variant-numeric:tabular-nums;">${whenText}${timeSuffix}</div>
+            <div style="font-size:11px; color:var(--color-neutral-500); margin-top:2px;">${j.slides} slides</div>
+          </div>
+          <button onclick="cancelIgPost('${j.id}')" class="btn btn-secondary" style="flex:0 0 auto; font-size:11.5px; padding:4px 10px;">${failed ? 'Dismiss' : 'Cancel'}</button>
+        </div>`;
+      }).join('');
+
+      panel.style.display = 'block';
+    }
+
+    async function cancelIgPost(jobId) {
+      try {
+        const res = await fetch(`/api/cancel-ig-post/${encodeURIComponent(jobId)}`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok && data.cancelled) {
+          flashToast("Removed from the Instagram queue");
+          loadData();
+        } else {
+          flashToast(`Could not cancel: ${data.error || 'unknown error'}`);
+        }
+      } catch (err) {
+        flashToast(`Network error: ${err.message}`);
+      }
+    }
+
+    function renderFilters() {
+      const filters = ["All", "Done", "Processing", "Standby"];
+      const container = document.getElementById('filterContainer');
+      container.innerHTML = filters.map(f => `
+        <button onclick="setFilter('${f}')" style="border:0; cursor:pointer; font-family:var(--font-heading); font-size:13px; padding:6px 14px; border-radius:6px; background:${currentFilter === f ? 'var(--color-accent-800)' : 'transparent'}; color:${currentFilter === f ? 'var(--color-accent-100)' : 'var(--color-neutral-400)'};">${f}</button>
+      `).join('');
+    }
+
+    function setFilter(f) {
+      currentFilter = f;
+      renderFilters();
+      renderSets();
+    }
+
+    function renderReelsFilters() {
+      const filters = ["All", "Done", "Processing", "Standby"];
+      const container = document.getElementById('reelsFilterContainer');
+      container.innerHTML = filters.map(f => `
+        <button onclick="setReelsFilter('${f}')" style="border:0; cursor:pointer; font-family:var(--font-heading); font-size:13px; padding:6px 14px; border-radius:6px; background:${currentFilter === f ? 'var(--color-accent-800)' : 'transparent'}; color:${currentFilter === f ? 'var(--color-accent-100)' : 'var(--color-neutral-400)'};">${f}</button>
+      `).join('');
+    }
+
+    function setReelsFilter(f) {
+      currentFilter = f;
+      renderReelsFilters();
+      renderReels();
+    }
+
+    function renderSets() {
+      const container = document.getElementById('setsGrid');
+      const filtered = currentFilter === "All" ? allCollections : allCollections.filter(c => c.status === currentFilter);
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div style="grid-column: 1 / -1; padding: 40px; text-align: center; color: var(--color-neutral-500);">
+            No collection sets found matching '${currentFilter}'. Click 'New Collection Run' to generate one!
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(set => {
+        const ss = getStatusStyles(set.status);
+        const postedTag = set.posted ? `<span style="font-size:11px; font-family:var(--font-heading); padding:3px 8px; border-radius:20px; border:1px solid var(--color-neutral-700); color:var(--color-neutral-300);">Posted</span>` : '';
+
+        const thumbsHtml = (set.items || []).map(it => `
+          <div class="cc-thumb" style="position:relative; aspect-ratio:4/5; border-radius:7px; overflow:hidden; background:var(--color-neutral-900); transition:filter .15s ease;">
+            <img src="${it.img || '/static/samples/set1_blended1.jpg'}" alt="${it.name}" style="width:100%; height:100%; object-fit:cover; opacity:${it.imgOpacity};"/>
+            <span style="position:absolute; top:4px; left:4px; font-size:8.5px; font-weight:600; letter-spacing:0.03em; text-transform:uppercase; padding:1px 4px; border-radius:3px; background:color-mix(in srgb, var(--color-bg) 68%, transparent); color:var(--color-neutral-200);">${it.short}</span>
+          </div>
+        `).join('');
+
+        const itemsListHtml = (set.items || []).map(it => `
+          <div style="display:flex; align-items:baseline; gap:8px; font-size:12.5px;">
+            <span style="flex:0 0 96px; color:var(--color-neutral-500); font-size:11px;">${it.cat}</span>
+            <span style="flex:1; min-width:0; color:var(--color-neutral-200); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${it.name}</span>
+            <span style="font-family:ui-monospace,monospace; font-size:10.5px; color:var(--color-neutral-600);">${it.sku}</span>
+          </div>
+        `).join('');
+
+        return `
+          <div class="cc-card" style="border:1px solid var(--color-divider); border-radius:14px; background:var(--color-surface); overflow:hidden; display:flex; flex-direction:column;">
+            
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px 10px;">
+              <div style="display:flex; align-items:center; gap:9px;">
+                <span style="display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-family:var(--font-heading); font-weight:600; padding:3px 9px; border-radius:20px; background:${ss.badgeBg}; color:${ss.badgeColor};">
+                  <span style="width:7px; height:7px; border-radius:50%; background:${ss.dotColor};"></span>${set.status}
+                </span>
+                ${postedTag}
+              </div>
+              <div style="text-align:right; line-height:1.25;">
+                <div style="font-size:12px; color:var(--color-neutral-300);">${set.date}</div>
+                <div style="font-size:10.5px; font-family:ui-monospace,monospace; color:var(--color-neutral-600);">${set.record_id}</div>
+              </div>
+            </div>
+
+            <div onclick="openDetailModal('${encodeURIComponent(set.id)}')" style="cursor:pointer; padding:0 16px; display:grid; grid-template-columns:repeat(5, 1fr); gap:6px;">
+              ${thumbsHtml}
+            </div>
+
+            <div onclick="openDetailModal('${encodeURIComponent(set.id)}')" style="cursor:pointer; padding:12px 16px 6px; display:flex; flex-direction:column; gap:4px;">
+              ${itemsListHtml}
+            </div>
+
+            <div style="padding:8px 16px 14px; margin-top:auto;">
+              <div style="display:flex; align-items:center; gap:8px; font-size:11px; color:var(--color-neutral-500); margin-bottom:11px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-400)" stroke-width="1.6"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                <span style="color:var(--color-neutral-300); font-family:var(--font-heading); font-weight:600;">${set.cost}</span>
+                <span>est · ${set.cost_breakdown || 'krea ×5 · qwen ×5'}</span>
+              </div>
+              <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                <button onclick="openDriveFolder('${encodeURIComponent(set.id)}')" class="btn btn-secondary" style="font-size:12px; padding:6px 10px;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+                  Drive folder
+                </button>
+                <a href="/api/download-all/${encodeURIComponent(set.id)}" class="btn btn-secondary" style="font-size:12px; padding:6px 10px;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16"/></svg>
+                  Download all
+                </a>
+                <button onclick="openPromptsModal('${encodeURIComponent(set.id)}')" class="btn btn-secondary" style="font-size:12px; padding:6px 10px;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5h16M4 12h10M4 19h7"/></svg>
+                  Prompts
+                </button>
+                <button onclick="handlePostClick('${encodeURIComponent(set.id)}')" class="btn btn-primary" style="font-size:12px; padding:6px 10px;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+                  ${set.posted ? 'Posted ✓' : 'Post'}
+                </button>
+              </div>
+            </div>
+
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderReels() {
+      const container = document.getElementById('reelsGrid');
+      const filtered = currentFilter === "All" ? allReels : allReels.filter(r => r.status === currentFilter);
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div style="grid-column: 1 / -1; padding: 40px; text-align: center; color: var(--color-neutral-500);">
+            No Before &amp; After reels found matching '${currentFilter}'.
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(reel => {
+        const ss = getStatusStyles(reel.status);
+        const done = reel.status === "Done";
+        const afterOpacity = done ? 1.0 : (reel.status === "Processing" ? 0.45 : 0.25);
+        const postedTag = reel.posted ? `<span style="font-size:11px; font-family:var(--font-heading); padding:3px 8px; border-radius:20px; border:1px solid var(--color-neutral-700); color:var(--color-neutral-300);">Posted</span>` : '';
+
+        return `
+          <div class="cc-card" style="border:1px solid var(--color-divider); border-radius:14px; background:var(--color-surface); overflow:hidden; display:flex; flex-direction:column;">
+            
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px 10px;">
+              <div style="display:flex; align-items:center; gap:9px;">
+                <span style="display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-family:var(--font-heading); font-weight:600; padding:3px 9px; border-radius:20px; background:${ss.badgeBg}; color:${ss.badgeColor};">
+                  <span style="width:7px; height:7px; border-radius:50%; background:${ss.dotColor};"></span>${reel.status}
+                </span>
+                ${postedTag}
+              </div>
+              <div style="text-align:right; line-height:1.25;">
+                <div style="font-size:12px; color:var(--color-neutral-300);">${reel.date}</div>
+                <div style="font-size:10.5px; font-family:ui-monospace,monospace; color:var(--color-neutral-600);">${reel.id}</div>
+              </div>
+            </div>
+
+            <!-- Dual 9:16 Preview (Before & After) -->
+            <div onclick="openReelModal('${encodeURIComponent(reel.id)}')" style="cursor:pointer; padding:0 16px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+              <div style="position:relative; aspect-ratio:9/16; border-radius:8px; overflow:hidden; background:var(--color-neutral-900);">
+                <img src="${reel.before}" alt="Before" style="width:100%; height:100%; object-fit:cover;"/>
+                <span style="position:absolute; top:6px; left:6px; font-size:9px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; padding:2px 7px; border-radius:5px; background:color-mix(in srgb, var(--color-bg) 70%, transparent); color:var(--color-neutral-100);">Before</span>
+              </div>
+              <div style="position:relative; aspect-ratio:9/16; border-radius:8px; overflow:hidden; background:var(--color-neutral-900);">
+                <img src="${reel.after}" alt="After" style="width:100%; height:100%; object-fit:cover; opacity:${afterOpacity};"/>
+                <span style="position:absolute; top:6px; left:6px; font-size:9px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; padding:2px 7px; border-radius:5px; background:color-mix(in srgb, var(--color-accent) 34%, transparent); color:var(--color-accent-100);">After</span>
+                <span style="position:absolute; bottom:6px; right:6px; display:inline-flex; align-items:center; gap:4px; font-size:9.5px; font-weight:600; padding:2px 7px; border-radius:12px; background:color-mix(in srgb, var(--color-bg) 70%, transparent); color:var(--color-neutral-100);">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>${reel.duration}
+                </span>
+              </div>
+            </div>
+
+            <!-- Product Specs -->
+            <div onclick="openReelModal('${encodeURIComponent(reel.id)}')" style="cursor:pointer; padding:12px 16px 4px;">
+              <div style="font-family:var(--font-heading); font-weight:600; font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${reel.product}</div>
+              <div style="font-size:12px; color:var(--color-neutral-500); margin-top:2px;">${reel.cat} · ${reel.room}</div>
+            </div>
+
+            <!-- Bottom Actions -->
+            <div style="padding:10px 16px 14px; margin-top:auto; display:flex; flex-wrap:wrap; gap:6px;">
+              <button onclick="openReelDriveFolder('${encodeURIComponent(reel.folder_name || reel.id)}')" class="btn btn-secondary" style="font-size:12px; padding:6px 10px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+                Drive folder
+              </button>
+              <a href="/api/download-reel/${encodeURIComponent(reel.folder_name || reel.id)}" class="btn btn-secondary" style="font-size:12px; padding:6px 10px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16"/></svg>
+                Download
+              </a>
+              <button onclick="openReelPostModal('${encodeURIComponent(reel.id)}')" class="btn btn-primary" style="font-size:12px; padding:6px 10px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+                ${reel.posted ? 'Posted ✓' : 'Post'}
+              </button>
+            </div>
+
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Detail Modal / Carousel
+    function openDetailModal(setId) {
+      const decodedId = decodeURIComponent(setId);
+      activeSet = allCollections.find(c => c.id === decodedId || c.record_id === decodedId) || null;
+      if (!activeSet) return;
+
+      currentSlideIndex = 0;
+      updateDetailModalView();
+      document.getElementById('detailModal').style.display = 'flex';
+    }
+
+    function closeDetailModal() {
+      document.getElementById('detailModal').style.display = 'none';
+    }
+
+    function updateDetailModalView() {
+      if (!activeSet) return;
+      const ss = getStatusStyles(activeSet.status);
+
+      document.getElementById('modalBadge').style.background = ss.badgeBg;
+      document.getElementById('modalBadge').style.color = ss.badgeColor;
+      document.getElementById('modalDot').style.background = ss.dotColor;
+      document.getElementById('modalStatusText').innerText = activeSet.status;
+      document.getElementById('modalRecordId').innerText = activeSet.record_id;
+
+      document.getElementById('modalDate').innerText = activeSet.date;
+      document.getElementById('modalStatusDetail').innerText = activeSet.status;
+      document.getElementById('modalCost').innerText = activeSet.cost;
+      document.getElementById('modalCostBreak').innerText = activeSet.cost_breakdown || 'krea ×5 · qwen ×5';
+      document.getElementById('modalPostBtn').innerText = activeSet.posted ? 'Posted ✓' : 'Post';
+      document.getElementById('modalDownloadBtn').href = `/api/download-all/${encodeURIComponent(activeSet.id)}`;
+
+      // Current slide
+      const items = activeSet.items || [];
+      const item = items[currentSlideIndex] || items[0] || {};
+
+      document.getElementById('modalSlideImg').src = item.img || '/static/samples/set1_blended1.jpg';
+      document.getElementById('modalSlideImg').style.opacity = item.imgOpacity || 1.0;
+
+      const overlay = document.getElementById('modalPendingOverlay');
+      if (item.pending) {
+        overlay.style.display = 'flex';
+        document.getElementById('modalPendingLabel').innerText = item.pendingLabel || 'Generating interior…';
+      } else {
+        overlay.style.display = 'none';
+      }
+
+      document.getElementById('modalSlotNumBadge').innerText = `Slot ${currentSlideIndex + 1} / ${items.length}`;
+      document.getElementById('modalSlotCatBadge').innerText = item.cat || '';
+      document.getElementById('modalItemName').innerText = item.name || '';
+      document.getElementById('modalItemSku').innerText = item.sku || '';
+
+      // Dots
+      const dotsContainer = document.getElementById('modalDotsContainer');
+      dotsContainer.innerHTML = items.map((it, idx) => `
+        <button onclick="goToModalSlide(${idx})" style="width:9px; height:9px; padding:0; border:0; border-radius:50%; cursor:pointer; background:${idx === currentSlideIndex ? 'var(--color-accent-400)' : 'var(--color-neutral-700)'};"></button>
+      `).join('');
+
+      // Items list
+      const itemsList = document.getElementById('modalItemsList');
+      itemsList.innerHTML = items.map((it, idx) => `
+        <button onclick="goToModalSlide(${idx})" style="text-align:left; border:0; cursor:pointer; background:${idx === currentSlideIndex ? 'color-mix(in srgb, var(--color-accent) 14%, transparent)' : 'transparent'}; border-radius:7px; padding:7px 9px; display:flex; align-items:baseline; gap:8px;">
+          <span style="flex:0 0 88px; color:var(--color-neutral-500); font-size:11px;">${it.cat}</span>
+          <span style="flex:1; min-width:0; color:var(--color-neutral-100); font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${it.name}</span>
+          <span style="font-family:ui-monospace,monospace; font-size:10.5px; color:var(--color-neutral-600);">${it.sku}</span>
+        </button>
+      `).join('');
+    }
+
+    function modalNextSlide() {
+      if (!activeSet || !activeSet.items) return;
+      currentSlideIndex = (currentSlideIndex + 1) % activeSet.items.length;
+      updateDetailModalView();
+    }
+
+    function modalPrevSlide() {
+      if (!activeSet || !activeSet.items) return;
+      currentSlideIndex = (currentSlideIndex - 1 + activeSet.items.length) % activeSet.items.length;
+      updateDetailModalView();
+    }
+
+    function goToModalSlide(idx) {
+      currentSlideIndex = idx;
+      updateDetailModalView();
+    }
+
+    // Reel Modal
+    function openReelModal(reelId) {
+      const decodedId = decodeURIComponent(reelId);
+      activeReel = allReels.find(r => r.id === decodedId || r.folder_name === decodedId) || null;
+      if (!activeReel) return;
+
+      const ss = getStatusStyles(activeReel.status);
+      document.getElementById('reelModalBadge').style.background = ss.badgeBg;
+      document.getElementById('reelModalBadge').style.color = ss.badgeColor;
+      document.getElementById('reelModalDot').style.background = ss.dotColor;
+      document.getElementById('reelModalStatusText').innerText = activeReel.status;
+      document.getElementById('reelModalRecordId').innerText = activeReel.id;
+
+      document.getElementById('reelModalProductTitle').innerText = activeReel.product;
+      document.getElementById('reelModalCat').innerText = activeReel.cat;
+      document.getElementById('reelModalRoom').innerText = activeReel.room;
+      document.getElementById('reelModalDuration').innerText = activeReel.duration;
+      document.getElementById('reelModalDurationBadge').innerText = activeReel.duration;
+      document.getElementById('reelModalStatusDetail').innerText = activeReel.status;
+      document.getElementById('reelModalDate').innerText = activeReel.date;
+      document.getElementById('reelModalVideoFile').innerText = activeReel.video_filename || (activeReel.video ? 'before_after_reel.mp4' : 'Awaiting video');
+      
+      document.getElementById('reelModalBeforeImg').src = activeReel.before;
+      document.getElementById('reelModalAfterImg').src = activeReel.after;
+      
+      document.getElementById('reelModalDownloadBtn').href = `/api/download-reel/${encodeURIComponent(activeReel.folder_name || activeReel.id)}`;
+
+      // Setup Video Player
+      const vidEl = document.getElementById('reelModalVideo');
+      const fallbackEl = document.getElementById('reelNoVideoFallback');
+      if (activeReel.video) {
+        vidEl.src = activeReel.video;
+        vidEl.style.display = 'block';
+        fallbackEl.style.display = 'none';
+        switchReelModalTab('video');
+      } else {
+        vidEl.src = '';
+        vidEl.style.display = 'none';
+        fallbackEl.style.display = 'flex';
+        switchReelModalTab('stills');
+      }
+
+      document.getElementById('reelModal').style.display = 'flex';
+    }
+
+    function closeReelModal() {
+      const vid = document.getElementById('reelModalVideo');
+      if (vid) {
+        vid.pause();
+        vid.src = '';
+      }
+      document.getElementById('reelModal').style.display = 'none';
+    }
+
+    function switchReelModalTab(tab) {
+      const videoTabBtn = document.getElementById('reelTabVideoBtn');
+      const stillsTabBtn = document.getElementById('reelTabStillsBtn');
+      const videoContainer = document.getElementById('reelVideoContainer');
+      const stillsContainer = document.getElementById('reelStillsContainer');
+
+      if (tab === 'video') {
+        videoTabBtn.style.background = 'var(--color-accent-800)';
+        videoTabBtn.style.color = 'var(--color-accent-100)';
+        stillsTabBtn.style.background = 'transparent';
+        stillsTabBtn.style.color = 'var(--color-neutral-400)';
+        videoContainer.style.display = 'flex';
+        stillsContainer.style.display = 'none';
+      } else {
+        stillsTabBtn.style.background = 'var(--color-accent-800)';
+        stillsTabBtn.style.color = 'var(--color-accent-100)';
+        videoTabBtn.style.background = 'transparent';
+        videoTabBtn.style.color = 'var(--color-neutral-400)';
+        videoContainer.style.display = 'none';
+        stillsContainer.style.display = 'grid';
+      }
+    }
+
+    function openActiveReelDrive() {
+      if (!activeReel) return;
+      openReelDriveFolder(activeReel.folder_name || activeReel.id);
+    }
+
+    function openActiveReelPostModal() {
+      if (!activeReel) return;
+      closeReelModal();
+      openReelPostModal(activeReel.id);
+    }
+
+    // Prompts Modal
+    function openPromptsModal(setId) {
+      const decodedId = decodeURIComponent(setId);
+      const set = allCollections.find(c => c.id === decodedId || c.record_id === decodedId);
+      if (!set) return;
+
+      document.getElementById('promptsSubTitle').innerText = `Claude Sonnet 5 · per-slot · ${set.record_id || set.id}`;
+      const container = document.getElementById('promptsItemsContainer');
+      container.innerHTML = (set.items || []).map(it => `
+        <div style="border:1px solid var(--color-divider); border-radius:10px; padding:12px 14px; background:var(--color-bg);">
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+            <span style="font-size:10.5px; font-weight:600; padding:2px 7px; border-radius:6px; background:color-mix(in srgb, var(--color-accent) 16%, transparent); color:var(--color-accent-200);">Slot ${it.n}</span>
+            <span style="font-size:12px; color:var(--color-neutral-400);">${it.cat} · ${it.name}</span>
+          </div>
+          <p style="margin:0; font-size:12.5px; line-height:1.55; color:var(--color-neutral-300);">${it.prompt}</p>
+        </div>
+      `).join('');
+
+      document.getElementById('promptsModal').style.display = 'flex';
+    }
+
+    function openPromptsModalForActive() {
+      if (activeSet) openPromptsModal(activeSet.id);
+    }
+
+    function closePromptsModal() {
+      document.getElementById('promptsModal').style.display = 'none';
+    }
+
+    // New Run Modal
+    function openNewRunModal() {
+      runRows = 1;
+      runExecute = true;
+      document.getElementById('runRowsCount').innerText = '1';
+      selectRunMode(true);
+      document.getElementById('newRunModal').style.display = 'flex';
+    }
+
+    function closeNewRunModal() {
+      document.getElementById('newRunModal').style.display = 'none';
+    }
+
+    function adjustRunRows(delta) {
+      runRows = Math.max(1, Math.min(10, runRows + delta));
+      document.getElementById('runRowsCount').innerText = runRows;
+      updateStartBtnLabel();
+    }
+
+    function selectRunMode(exec) {
+      runExecute = exec;
+      const dryBtn = document.getElementById('modeDryBtn');
+      const execBtn = document.getElementById('modeExecBtn');
+      const hint = document.getElementById('modeHintText');
+
+      if (exec) {
+        execBtn.style.background = 'var(--color-accent-800)';
+        execBtn.style.color = 'var(--color-accent-100)';
+        dryBtn.style.background = 'transparent';
+        dryBtn.style.color = 'var(--color-neutral-400)';
+        hint.innerText = "Live run — scrapes Akeneo, generates Krea interiors, Claude prompts, and Fal blended outputs.";
+      } else {
+        dryBtn.style.background = 'var(--color-accent-800)';
+        dryBtn.style.color = 'var(--color-accent-100)';
+        execBtn.style.background = 'transparent';
+        execBtn.style.color = 'var(--color-neutral-400)';
+        hint.innerText = "Dry run — simulates extraction and logs prompt output without billable provider calls.";
+      }
+      updateStartBtnLabel();
+    }
+
+    function updateStartBtnLabel() {
+      const label = document.getElementById('startBtnLabel');
+      label.innerText = runExecute
+        ? `Start run · ${runRows} set${runRows > 1 ? 's' : ''}`
+        : `Preview run (dry) · ${runRows} set${runRows > 1 ? 's' : ''}`;
+    }
+
+    async function startPipelineRunAction() {
+      try {
+        const res = await fetch('/api/run-pipeline', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rows: runRows, execute: runExecute })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          flashToast("Pipeline run started! Streaming logs...");
+          const term = document.getElementById('terminalContainer');
+          term.style.display = 'block';
+          term.innerText = "Initializing runner...\n";
+          
+          if (pipelineInterval) clearInterval(pipelineInterval);
+          pipelineInterval = setInterval(pollPipelineLogs, 1500);
+        } else {
+          flashToast(data.status === 'already_running' ? "A pipeline run is already in progress" : "Could not start run");
+        }
+      } catch (err) {
+        flashToast(`Run error: ${err.message}`);
+      }
+    }
+
+    async function pollPipelineLogs() {
+      try {
+        const res = await fetch('/api/pipeline-status');
+        const data = await res.json();
+        const term = document.getElementById('terminalContainer');
+        if (data.logs && data.logs.length) {
+          term.innerText = data.logs.join('\n');
+          term.scrollTop = term.scrollHeight;
+        }
+        if (!data.running) {
+          clearInterval(pipelineInterval);
+          pipelineInterval = null;
+          loadData();
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // Post to Meta Modal
+    function handlePostClick(setId) {
+      const decodedId = decodeURIComponent(setId);
+      const set = allCollections.find(c => c.id === decodedId || c.record_id === decodedId);
+      if (set) openPostModal(set);
+    }
+
+    function handlePostClickForActive() {
+      if (activeSet) {
+        closeDetailModal();
+        openPostModal(activeSet);
+      }
+    }
+
+    function openReelPostModal(reelId) {
+      const decodedId = decodeURIComponent(reelId);
+      const reel = allReels.find(r => r.id === decodedId || r.folder_name === decodedId);
+      if (reel) openPostModalForReel(reel);
+    }
+
+    function openPostModal(set) {
+      isReelPostMode = false;
+      activePostSet = set;
+      document.getElementById('postModalRecordId').innerText = set.record_id || set.id;
+      document.getElementById('postModalMediaTitle').innerText = "5 Carousel Slides";
+
+      // Render 5 thumbs preview on left
+      const thumbsContainer = document.getElementById('postModalThumbs');
+      thumbsContainer.style.gridTemplateColumns = '1fr 1fr';
+      thumbsContainer.innerHTML = (set.items || []).map((it) => `
+        <div style="position:relative; aspect-ratio:4/5; border-radius:9px; overflow:hidden; background:var(--color-neutral-900);">
+          <img src="${it.img || '/static/samples/set1_blended1.jpg'}" alt="${it.name}" style="width:100%; height:100%; object-fit:cover;"/>
+          <span style="position:absolute; top:5px; left:5px; font-size:8.5px; font-weight:600; letter-spacing:0.03em; text-transform:uppercase; padding:1px 5px; border-radius:4px; background:color-mix(in srgb, var(--color-bg) 68%, transparent); color:var(--color-neutral-100);">${it.short}</span>
+          <span style="position:absolute; bottom:5px; right:5px; font-size:9px; font-weight:600; padding:1px 5px; border-radius:10px; background:color-mix(in srgb, var(--color-bg) 68%, transparent); color:var(--color-neutral-200);">${it.n}/5</span>
+        </div>
+      `).join('');
+
+      setupPostModalTimingAndCaption(set.id);
+    }
+
+    function openPostModalForReel(reel) {
+      isReelPostMode = true;
+      activePostSet = reel;
+      document.getElementById('postModalRecordId').innerText = reel.id;
+      document.getElementById('postModalMediaTitle').innerText = "9:16 Video Reel";
+
+      // Render Before & After Reel thumbs preview on left
+      const thumbsContainer = document.getElementById('postModalThumbs');
+      thumbsContainer.style.gridTemplateColumns = '1fr 1fr';
+      thumbsContainer.innerHTML = `
+        <div style="position:relative; aspect-ratio:9/16; border-radius:9px; overflow:hidden; background:var(--color-neutral-900);">
+          <img src="${reel.before}" alt="Before" style="width:100%; height:100%; object-fit:cover;"/>
+          <span style="position:absolute; top:5px; left:5px; font-size:8.5px; font-weight:600; letter-spacing:0.03em; text-transform:uppercase; padding:1px 5px; border-radius:4px; background:color-mix(in srgb, var(--color-bg) 68%, transparent); color:var(--color-neutral-100);">Before</span>
+        </div>
+        <div style="position:relative; aspect-ratio:9/16; border-radius:9px; overflow:hidden; background:var(--color-neutral-900);">
+          <img src="${reel.after}" alt="After" style="width:100%; height:100%; object-fit:cover;"/>
+          <span style="position:absolute; top:5px; left:5px; font-size:8.5px; font-weight:600; letter-spacing:0.03em; text-transform:uppercase; padding:1px 5px; border-radius:4px; background:color-mix(in srgb, var(--color-accent) 34%, transparent); color:var(--color-accent-100);">After</span>
+          <span style="position:absolute; bottom:5px; right:5px; font-size:9px; font-weight:600; padding:1px 5px; border-radius:10px; background:color-mix(in srgb, var(--color-bg) 68%, transparent); color:var(--color-neutral-200);">${reel.duration}</span>
+        </div>
+      `;
+
+      setupPostModalTimingAndCaption(reel.id);
+    }
+
+    function setupPostModalTimingAndCaption(setId) {
+      const existingCaption = cachedCaptions[setId] || "";
+      const input = document.getElementById('postCaptionInput');
+      input.value = existingCaption;
+      updateCaptionCount();
+
+      initScheduleDefaults();
+      const nowRadio = document.querySelector('input[name="publishTimingRadio"][value="now"]');
+      if (nowRadio) nowRadio.checked = true;
+      togglePublishTiming('now');
+
+      document.getElementById('postConfirmLabel').innerText = activePostSet.posted ? 'Posted ✓' : 'Post Now';
+      document.getElementById('postModal').style.display = 'flex';
+      setTimeout(() => input.focus(), 60);
+    }
+
+    function closePostModal() {
+      document.getElementById('postModal').style.display = 'none';
+      const btn = document.getElementById('postConfirmBtn');
+      btn.disabled = false;
+      document.getElementById('postConfirmSpinner').style.display = 'none';
+      document.getElementById('postConfirmIcon').style.display = 'inline-block';
+    }
+
+    function togglePublishTiming(mode) {
+      const picker = document.getElementById('scheduleTimePickerBox');
+      const label = document.getElementById('postConfirmLabel');
+      const isPosted = activePostSet && activePostSet.posted;
+
+      if (mode === 'schedule') {
+        picker.style.display = 'flex';
+        if (!isPosted) label.innerText = 'Schedule Post';
+      } else {
+        picker.style.display = 'none';
+        if (!isPosted) label.innerText = 'Post Now';
+      }
+    }
+
+    function initScheduleDefaults() {
+      const now = new Date();
+      const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      const yyyy = tomorrow.getFullYear();
+      const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
+      const dd = String(tomorrow.getDate()).padStart(2, '0');
+      
+      const dateInput = document.getElementById('scheduleDateInput');
+      const timeInput = document.getElementById('scheduleTimeInput');
+      
+      if (dateInput) {
+        dateInput.value = `${yyyy}-${mm}-${dd}`;
+        dateInput.min = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      }
+      if (timeInput) {
+        timeInput.value = '18:00';
+      }
+    }
+
+    function updateCaptionCount() {
+      const text = document.getElementById('postCaptionInput').value || "";
+      document.getElementById('captionCharCount').innerText = `${text.length} chars`;
+      if (activePostSet) {
+        cachedCaptions[activePostSet.id] = text;
+      }
+      document.getElementById('postConfirmBtn').disabled = text.trim().length === 0;
+    }
+
+    async function pasteClipboardCaption() {
+      const input = document.getElementById('postCaptionInput');
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          input.value = text;
+          updateCaptionCount();
+          flashToast("Pasted from clipboard!");
+        } else {
+          input.focus();
+        }
+      } catch (err) {
+        input.focus();
+        flashToast("Please press Ctrl+V to paste your caption");
+      }
+    }
+
+    function copyGeneratedCaption() {
+      const text = document.getElementById('postCaptionInput').value || "";
+      if (!text) return;
+      navigator.clipboard.writeText(text);
+      flashToast("Caption copied to clipboard!");
+    }
+
+    function clearCaptionState() {
+      const input = document.getElementById('postCaptionInput');
+      input.value = "";
+      if (activePostSet) {
+        delete cachedCaptions[activePostSet.id];
+      }
+      updateCaptionCount();
+      input.focus();
+    }
+
+    async function confirmPostAction() {
+      if (!activePostSet) return;
+      const text = (document.getElementById('postCaptionInput').value || "").trim();
+      if (!text) {
+        flashToast("Please enter a caption first");
+        return;
+      }
+
+      const fbChecked = document.getElementById('postTargetFB').checked;
+      const igChecked = document.getElementById('postTargetIG').checked;
+      const platforms = [];
+      if (fbChecked) platforms.push("facebook");
+      if (igChecked) platforms.push("instagram");
+
+      if (platforms.length === 0) {
+        flashToast("Please select at least one platform (Facebook / Instagram)");
+        return;
+      }
+
+      const publishMode = document.querySelector('input[name="publishTimingRadio"]:checked')?.value || "now";
+      let scheduledUnixTime = null;
+
+      if (publishMode === "schedule") {
+        const dateVal = document.getElementById('scheduleDateInput').value;
+        const timeVal = document.getElementById('scheduleTimeInput').value;
+        if (!dateVal || !timeVal) {
+          flashToast("Please select both a schedule date and time");
+          return;
+        }
+        const schedDate = new Date(`${dateVal}T${timeVal}:00`);
+        const now = new Date();
+        const diffMinutes = (schedDate.getTime() - now.getTime()) / (60 * 1000);
+        
+        if (diffMinutes < 10) {
+          flashToast("Meta schedule must be at least 10 minutes in the future");
+          return;
+        }
+        if (diffMinutes > 75 * 24 * 60) {
+          flashToast("Meta schedule cannot be more than 75 days in advance");
+          return;
+        }
+        scheduledUnixTime = Math.floor(schedDate.getTime() / 1000);
+      }
+
+      const btn = document.getElementById('postConfirmBtn');
+      const label = document.getElementById('postConfirmLabel');
+      const spinner = document.getElementById('postConfirmSpinner');
+      const icon = document.getElementById('postConfirmIcon');
+
+      btn.disabled = true;
+      spinner.style.display = 'inline-block';
+      icon.style.display = 'none';
+      label.innerText = publishMode === "schedule" ? "Scheduling in Meta Planner..." : "Publishing to Meta...";
+
+      try {
+        const res = await fetch('/api/post-meta', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            folder_name: activePostSet.folder_name || activePostSet.id,
+            caption: text,
+            platforms: platforms,
+            publish_mode: publishMode,
+            scheduled_time: scheduledUnixTime
+          })
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.status === "success") {
+          activePostSet.posted = true;
+          closePostModal();
+          flashToast(data.message || (publishMode === "schedule" ? "Post scheduled on Meta Planner! ✓" : "Published to Meta successfully! ✓"));
+          loadData();
+        } else {
+          flashToast(`Error: ${data.error || "Failed to post to Meta"}`);
+          btn.disabled = false;
+          spinner.style.display = 'none';
+          icon.style.display = 'inline-block';
+          label.innerText = publishMode === "schedule" ? "Schedule Post" : "Post Now";
+        }
+      } catch (err) {
+        console.error("Meta publish error:", err);
+        flashToast(`Network error: ${err.message}`);
+        btn.disabled = false;
+        spinner.style.display = 'none';
+        icon.style.display = 'inline-block';
+        label.innerText = publishMode === "schedule" ? "Schedule Post" : "Post Now";
+      }
+    }
+
+    async function openDriveFolder(setId) {
+      try {
+        const res = await fetch(`/api/open-drive/${setId}`, { method: 'POST' });
+        const data = await res.json();
+        if (data.status === 'opened') {
+          flashToast("Opened Google Drive folder in Explorer");
+        } else {
+          flashToast("Opening Google Drive folder...");
+        }
+      } catch (err) {
+        flashToast("Opening Google Drive folder...");
+      }
+    }
+
+    async function openReelDriveFolder(reelId) {
+      try {
+        const res = await fetch(`/api/open-drive-reels/${reelId}`, { method: 'POST' });
+        const data = await res.json();
+        if (data.status === 'opened') {
+          flashToast("Opened Reels folder in Explorer");
+        } else {
+          flashToast("Opening Reels Google Drive folder...");
+        }
+      } catch (err) {
+        flashToast("Opening Reels Google Drive folder...");
+      }
+    }
+
+    function openDriveFolderAction() {
+      if (activeSet) openDriveFolder(encodeURIComponent(activeSet.id));
+    }
+
+    function copyPublicLink() {
+      if (publicTunnelUrl) {
+        navigator.clipboard.writeText(publicTunnelUrl);
+        flashToast("Public share URL copied to clipboard!");
+      }
+    }
+
+    function flashToast(msg) {
+      const t = document.getElementById('toast');
+      const tm = document.getElementById('toastMsg');
+      tm.innerText = msg;
+      t.style.display = 'flex';
+
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        t.style.display = 'none';
+      }, 3000);
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // Initial load
+    window.addEventListener('DOMContentLoaded', () => {
+      loadData();
+    });
+  </script>
+</body>
+</html>

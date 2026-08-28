@@ -1,0 +1,64 @@
+{
+  "task": "Generate one polished 9:16 HomeCartel Collection Category Story from the four uploaded images.",
+  "critical_input_roles": {
+    "instruction": "Use the uploads strictly in this order and never swap their roles.",
+    "image_1": "Content photo for the top section.",
+    "image_2": "Content photo for the middle section.",
+    "image_3": "Content photo for the bottom section.",
+    "image_4": "REFERENCE ONLY for the three-section structure, HomeCartel logo, typography, placement, and safe area. Do not use its solid placeholder colors as final content.",
+    "highest_priority_safe_area_rule": [
+      "The red rectangle visible in image 4 is an INVISIBLE placement guide only. It is not artwork.",
+      "Never draw, copy, trace, recolor, reinterpret, or reproduce that rectangle as a red, white, black, or any other colored border, frame, outline, stroke, margin, or box.",
+      "Only the HomeCartel logo and the three product-text blocks must remain inside the red guide's interior with comfortable padding.",
+      "The three content photos must ignore the guide as a crop boundary and extend full bleed to every outer canvas edge.",
+      "The final image must contain no visible safe-area guide, outer border, inset frame, section border, margin, gap, or temporary placement marker."
+    ]
+  },
+  "composition": {
+    "canvas": "Vertical 9:16.",
+    "sections": "Three equal-height horizontal photo sections stacked top, middle, and bottom in that order.",
+    "coverage": "Every photo fills its complete one-third section edge to edge using proportional cropping. Adjacent sections touch directly with no divider, border, gap, or blank strip.",
+    "focal_points": "Keep each main product or interior focal point visible and undistorted. Do not cover it with text.",
+    "layout_reference": "Match image 4's clean editorial balance, logo position, text hierarchy, and safe placement while excluding every guide line and placeholder color."
+  },
+  "exact_product_text": {
+    "instruction": "Render only these exact supplied values. Preserve spelling, capitalization, spacing, and wording. Do not infer text from any uploaded image.",
+    "top": {
+      "item_name": "[Item Name]",
+      "product_type": "[Product Type]"
+    },
+    "middle": {
+      "item_name": "[Item Name2]",
+      "product_type": "[Product Type2]"
+    },
+    "bottom": {
+      "item_name": "[Item Name3]",
+      "product_type": "[Product Type3]"
+    },
+    "format": "In each section, show item_name on the first line in bold and product_type directly below in regular weight."
+  },
+  "branding_and_typography": {
+    "logo": "Preserve the exact white HomeCartel wordmark from image 4 at the top-right position. It is a text wordmark 'HomeCartel®'. ABSOLUTELY DO NOT add any house icon, roof symbol, graphic, or emblem next to the logo.",
+    "text": "Use clean minimalist white typography matching image 4. Item name is larger and bolder than product type.",
+    "placement": "Place each two-line text block in readable negative space inside the invisible safe area. Keep it away from products, bright lights, busy details, section joins, and canvas edges.",
+    "contrast": "If essential, use only nearly invisible localized darkening behind text; never create a visible text box or band."
+  },
+  "source_fidelity": [
+    "Keep all three source photos photorealistic, sharp, and high resolution.",
+    "Do not stretch, warp, redesign, recolor, replace, or remove products, furniture, lighting fixtures, architecture, or important decor.",
+    "Do not add people, unrelated objects, decorative graphics, captions, descriptions, prices, contact details, hashtags, buttons, icons, or extra logos."
+  ],
+  "strict_prohibitions": [
+    "CRITICAL: ABSOLUTELY NO HOUSE ICON, ROOF ICON, OR GRAPHIC EMBLEM NEXT TO THE LOGO. The logo must remain the pure text wordmark 'HomeCartel®' matching image 4.",
+    "CRITICAL: ABSOLUTELY NO WHITE BORDER, NO FRAME, NO RECTANGLE OUTLINE, NO STROKE, AND NO MARGINS.",
+    "Do not copy, draw, trace, or reproduce the guide rectangle line from image 4 as a white border or frame.",
+    "The final image must be 100% full-bleed edge-to-edge photos with ZERO visible border lines or outlines."
+  ],
+  "final_validation": [
+    "Exactly three equal full-bleed stacked photo sections appear in image order 1, 2, 3.",
+    "No visible outer or section border, frame, outline, guide, margin, divider, gap, or placeholder color appears anywhere.",
+    "The guide rectangle from image 4 is completely absent and is not converted into a white or differently colored frame.",
+    "The logo and all product text remain inside the safe area, while the photos extend beyond it to the canvas edges.",
+    "All six product-text values match exact_product_text and no other text is added."
+  ]
+}

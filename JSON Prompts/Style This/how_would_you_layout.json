@@ -1,0 +1,130 @@
+{
+  "task": "social_media_template_image_compositing",
+  "operation": "replace_template_background_with_user_supplied_photo_while_preserving_brand_layout",
+  "template_purpose": "Create a reusable branded HomeCartel social media cover where any user-supplied interior, furniture, lighting, or product lifestyle photo becomes the full-frame background while the existing HomeCartel logo and headline typography remain consistent with the reference layout.",
+  "output_settings": {
+    "aspect_ratio": "9:16",
+    "orientation": "portrait",
+    "target_dimensions": "1080x1920",
+    "resolution_preference": "high-resolution vertical social media story or reel cover",
+    "strict_aspect_ratio_requirement": "The final output must remain exactly 9:16 portrait orientation. Do not convert to square, landscape, 4:5, 3:4, or any other aspect ratio.",
+    "image_quality": "sharp, clean, polished, professional branded social media graphic"
+  },
+  "input_images": {
+    "background_photo": {
+      "role": "primary replaceable background image",
+      "instruction": "Use whichever photo is supplied by the user as the new full-frame background. The supplied photo may feature an interior space, furniture, lighting fixture, decor item, or styled product scene.",
+      "framing": "Scale and crop the supplied photo proportionally to completely fill the 9:16 canvas without stretching or distorting it. Preserve the main subject and important product or interior details whenever possible.",
+      "priority": "Keep the most visually important subject clearly visible and avoid placing headline text directly over critical product details when reasonable."
+    },
+    "layout_reference": {
+      "role": "branding and typography reference only",
+      "instruction": "Use the provided red HomeCartel template strictly as the reference for logo placement, headline positioning, font style, font weight, sizing hierarchy, alignment, spacing, and overall composition. Do not retain the solid red background in the final output."
+    }
+  },
+  "background_replacement": {
+    "instruction": "Completely remove or replace the original solid red template background with the user-supplied photo.",
+    "coverage": "The background photo must extend edge-to-edge across the entire 1080x1920 canvas with no red borders, blank margins, or letterboxing.",
+    "preserve_photo_quality": true,
+    "do_not": [
+      "Do not blur the entire background unnecessarily.",
+      "Do not alter the architecture or products shown in the supplied photo.",
+      "Do not add unrelated furniture, decor, lighting fixtures, or objects.",
+      "Do not apply heavy filters that significantly change the original colors of the supplied photo."
+    ]
+  },
+  "homecartel_logo": {
+    "instruction": "Maintain the HomeCartel logo exactly as shown in the reference template.",
+    "text": "HomeCartel",
+    "preserve_original_branding": true,
+    "position": "upper-right area of the 9:16 canvas, matching the reference template",
+    "approximate_coordinates": {
+      "x": "84% of canvas width",
+      "y": "7% of canvas height"
+    },
+    "alignment": "right aligned",
+    "color": "white",
+    "scale": "match the same relative size and visual prominence as the reference",
+    "font_style": "preserve the original HomeCartel logo typography and letter styling",
+    "safe_margin": "Keep sufficient spacing from the top and right edges exactly like the reference.",
+    "protection": "Do not redesign, retype in a different font, distort, recolor, rotate, crop, or modify the HomeCartel logo."
+  },
+  "headline": {
+    "content": {
+      "line_1": "How would you style this?",
+      "line_2": "ft. [Item Name & Item Type]"
+    },
+    "editable_placeholder_instruction": "Keep '[Item Name & Item Type]' as editable placeholder text unless a specific item name and item type are supplied. The user will manually replace this text later.",
+    "position": "centered horizontally in approximately the same middle-upper to central region as the reference template",
+    "approximate_vertical_center": "around 49% to 53% of canvas height",
+    "alignment": "center",
+    "line_break": "Keep the headline as two distinct centered lines, following the reference layout.",
+    "font": {
+      "instruction": "Match the exact or closest possible font family used in the supplied reference template.",
+      "style": "clean modern geometric sans-serif",
+      "weight": "bold or semi-bold, matching the reference",
+      "color": "white",
+      "case": "preserve capitalization exactly as written",
+      "tracking": "match reference spacing",
+      "line_height": "tight but clearly readable, matching the reference"
+    },
+    "size": {
+      "line_1": "match the relative font size used for 'How would you style this?' in the reference",
+      "line_2": "match the relative font size and hierarchy used for 'ft. [Item Name & Item Type]' in the reference"
+    },
+    "text_effect": {
+      "instruction": "Preserve the subtle dark drop shadow or soft dark outline visible behind the white text in the reference so the headline remains readable on photographic backgrounds.",
+      "appearance": "soft, understated, natural",
+      "do_not": "Do not use a thick stroke, glow, exaggerated shadow, colored text box, or heavy graphic effect."
+    }
+  },
+  "adaptive_readability": {
+    "instruction": "Because the background will change for every supplied photo, ensure the white HomeCartel logo and white headline remain legible while preserving the original visual style.",
+    "preferred_method": "Use the same subtle text shadow treatment as the reference.",
+    "optional_method": "When the supplied background is extremely bright or visually busy behind the text, apply only a very subtle localized darkening or transparent gradient behind the headline area.",
+    "restriction": "Any readability treatment must be nearly invisible and must not substantially darken or recolor the entire photo."
+  },
+  "layout_preservation": {
+    "instruction": "Treat the reference template as a locked master layout.",
+    "preserve": [
+      "exact 9:16 vertical format",
+      "HomeCartel logo position",
+      "HomeCartel logo scale",
+      "HomeCartel logo white color",
+      "headline wording structure",
+      "two-line headline arrangement",
+      "headline center alignment",
+      "headline approximate vertical position",
+      "font family or closest visual match",
+      "font weight",
+      "font size hierarchy",
+      "white typography",
+      "subtle text shadow",
+      "overall clean minimalist composition"
+    ],
+    "variable_elements": [
+      "background photo",
+      "Item Name & Item Type placeholder text"
+    ]
+  },
+  "composition_rules": {
+    "background_layer": "user-supplied photo filling the entire frame",
+    "foreground_layer_1": "HomeCartel logo in the upper-right",
+    "foreground_layer_2": "centered two-line headline",
+    "visual_priority": "The background photo should remain the visual hero while the branding and headline remain clearly readable.",
+    "clean_design": "Do not add extra borders, frames, icons, stickers, shapes, decorative graphics, watermarks, captions, or additional text."
+  },
+  "strict_preservation_rules": [
+    "Do not change the HomeCartel logo.",
+    "Do not remove the HomeCartel logo.",
+    "Do not change the logo's approximate upper-right placement.",
+    "Do not substitute a different logo font or brand treatment.",
+    "Do not change the headline font style from the reference unless an exact font match is technically unavailable; in that case use the closest possible visual match.",
+    "Do not change the headline to a different layout.",
+    "Do not retain the original red background once a new photo is supplied.",
+    "Do not generate additional text beyond the specified headline and logo.",
+    "Do not automatically invent or replace the 'Item Name & Item Type' placeholder unless specific wording is provided.",
+    "Do not distort, stretch, or unnaturally modify the supplied background photo."
+  ],
+  "final_result": "A polished 9:16 HomeCartel branded social media visual using the newly supplied photograph as a full-screen background, while faithfully retaining the original HomeCartel logo, its upper-right placement, the same white typography style, the centered 'How would you style this?' headline, and the editable 'ft. [Item Name & Item Type]' second line."
+}

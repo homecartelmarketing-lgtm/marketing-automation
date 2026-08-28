@@ -1,0 +1,154 @@
+{
+  "task": "convert_any_product_photo_into_reference_style_product_poster",
+
+  "main_instruction": "Convert the uploaded product photo into a luxury minimalist product poster using the provided reference poster as the exact layout and style guide. The final output must look like the reference poster in composition, spacing, background, logo placement, product placement, typography, and overall catalog presentation. Only replace the product images and the editable product information text.",
+
+  "USER_TEXT_INPUT": {
+    "item_name": "Astrid Deux",
+    "product_type": "Round Glass Fringe Chandelier",
+    "spec_1": "Materials: Electroplated Metal with Frosted Round Fringe Details (Glass)",
+    "spec_2": "Light Source: E14 x 4",
+    "spec_3": "Wattage: 32W"
+  },
+
+  "reference_usage": {
+    "instruction": "Use the uploaded reference poster as the exact layout guide.",
+    "use_reference_for": [
+      "left-side oversized close-up crop",
+      "right-side smaller full product photo",
+      "HomeCartel logo placement",
+      "lower-right product text placement",
+      "clean white and soft gray background",
+      "premium minimalist catalog spacing",
+      "same overall luxury editorial style"
+    ],
+    "important_rule": "Follow the reference poster as closely as possible. Replace only the product and editable text."
+  },
+
+  "replacement_rules": {
+    "left_side": {
+      "instruction": "Replace the large close-up product image on the left side with a close-up crop of the newly uploaded product.",
+      "style": "oversized editorial close-up crop",
+      "placement": "same left-side position as the reference poster"
+    },
+    "right_side": {
+      "instruction": "Replace the smaller full product/model photo on the right side with a full view of the newly uploaded product.",
+      "style": "clean full product studio photo",
+      "placement": "same right-side position as the reference poster"
+    },
+    "text_area": {
+      "instruction": "Replace the item name, product type, and specs with the exact values from USER_TEXT_INPUT.",
+      "placement": "same lower-right text placement as the reference poster",
+      "alignment": "left aligned",
+      "font": "match the same clean bold modern sans-serif font style used in the reference",
+      "text_color": "black",
+      "item_name": "bold, largest text, with underline",
+      "product_type": "semibold, smaller than item name",
+      "specs": "regular small text, stacked vertically"
+    },
+    "logo": {
+      "instruction": "Maintain the HomeCartel logo exactly as shown in the reference poster.",
+      "do_not_move": true,
+      "do_not_resize": true,
+      "do_not_recolor": true,
+      "do_not_blur": true,
+      "do_not_crop": true,
+      "do_not_distort": true,
+      "do_not_replace": true
+    }
+  },
+
+  "composition": {
+    "aspect_ratio": "9:16 vertical portrait",
+    "layout": "same as the reference poster",
+    "background": "clean white studio background with soft light gray vertical panel division, matching the reference",
+    "left_panel": "large close-up product crop filling most of the left side",
+    "right_panel": "smaller full product image with generous white space",
+    "logo_position": "upper right area, exactly like the reference",
+    "text_position": "below the smaller product image on the right side, exactly like the reference",
+    "mood": "luxury, minimalist, clean, editorial, premium product catalog"
+  },
+
+  "product_preservation": {
+    "instruction": "Preserve the actual design of the uploaded product.",
+    "preserve": [
+      "original product shape",
+      "original color",
+      "original material",
+      "original texture",
+      "original finish",
+      "important design details",
+      "lighting elements if the product is a lamp or chandelier"
+    ],
+    "do_not": [
+      "do not redesign the product",
+      "do not invent a different product",
+      "do not change the product category",
+      "do not add extra parts",
+      "do not remove important product details"
+    ]
+  },
+
+  "text_rules": {
+    "render_only": "Render only the final values typed inside USER_TEXT_INPUT.",
+    "do_not_render": [
+      "TYPE ITEM NAME HERE",
+      "TYPE PRODUCT TYPE HERE",
+      "TYPE SPEC 1 HERE",
+      "TYPE SPEC 2 HERE",
+      "TYPE SPEC 3 HERE",
+      "USER_TEXT_INPUT",
+      "item_name",
+      "product_type",
+      "spec_1",
+      "spec_2",
+      "spec_3",
+      "brackets",
+      "placeholder text"
+    ],
+    "do_not_invent_text": true,
+    "do_not_add_extra_captions": true,
+    "do_not_add_price": true
+  },
+
+  "lighting_and_quality": {
+    "style": "photorealistic high-end studio product photography",
+    "lighting": "soft diffused luxury studio lighting",
+    "shadows": "soft realistic product shadows",
+    "background_quality": "clean, bright, uncluttered",
+    "image_quality": "high-resolution, sharp, polished, premium catalog image"
+  },
+
+  "negative_prompt": [
+    "do not change the reference layout",
+    "do not change the HomeCartel logo",
+    "do not remove the HomeCartel logo",
+    "do not move the HomeCartel logo",
+    "do not resize the HomeCartel logo",
+    "do not recolor the HomeCartel logo",
+    "do not distort the HomeCartel logo",
+    "do not keep the original reference product",
+    "do not keep the original reference item name",
+    "do not keep the original reference product type",
+    "do not keep the original reference specs",
+    "do not render placeholder text",
+    "do not render brackets",
+    "do not invent random specs",
+    "do not invent random product name",
+    "do not add price",
+    "do not add watermark",
+    "do not add extra branding",
+    "do not add social media handle",
+    "do not add furniture",
+    "do not add room interior",
+    "do not create a busy background",
+    "do not use a dark background",
+    "do not distort the product",
+    "do not crop the right-side full product incorrectly"
+  ],
+
+  "final_output": {
+    "description": "A vertical 9:16 luxury minimalist product poster that looks like the provided reference poster. The left side shows a large close-up crop of the uploaded product, the right side shows a smaller full product image, the HomeCartel logo stays exactly in place, and the lower-right text area uses only the user-provided item name, product type, and specs.",
+    "aspect_ratio": "9:16"
+  }
+}

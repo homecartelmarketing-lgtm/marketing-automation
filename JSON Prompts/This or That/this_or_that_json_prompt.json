@@ -1,0 +1,73 @@
+{
+  "CRITICAL_ERASE_RULE": "MUST COMPLETELY ERASE AND DELETE THE BLUE AND GREEN RECTANGLES FROM IMAGE 1. THE AREA BEHIND THE PRODUCTS MUST BE THE EXACT SAME PLAIN CREAM OFF-WHITE BACKGROUND AS THE REST OF THE CANVAS. NO BLUE BOX, NO GREEN BOX, NO RECTANGULAR CARDS, NO SOURCE BACKGROUNDS.",
+  "task": "dynamic_homecartel_item_comparison",
+  "operation": "Edit the supplied HomeCartel layout into one finished 9:16 comparison. Remove the blue and green placeholder shapes and composite only background-free product cutouts inside their former bounds.",
+  "manual_inputs": {
+    "instruction": "Use these four runtime values exactly. Do not infer, rewrite, translate, shorten, correct, or surround them with square brackets.",
+    "top_item": {
+      "item_name": "Vainthra C ",
+      "item_type": "Table Lamp"
+    },
+    "bottom_item": {
+      "item_name": "Vainthra B",
+      "item_type": "Table Lamp"
+    }
+  },
+  "input_order": {
+    "image_1": "This or That Layout: locked design reference.",
+    "image_2": "Furniture Item: upper product source.",
+    "image_3": "Furniture Item2: lower product source."
+  },
+  "critical_background_removal_override": {
+    "priority": "HIGHEST. Override any interpretation that pastes a complete rectangular source photo.",
+    "instruction": "Isolate only each actual product from images 2 and 3 and remove its entire source background. Delete both colored shapes. Composite only the clean cutouts over the layout's continuous light-neutral background.",
+    "remove_source_photo_background": true,
+    "remove_blue_and_green_shapes": true,
+    "preserve_template_background_behind_products": true,
+    "forbid_rectangular_photo_panel": true,
+    "forbid_solid_or_generated_background": true,
+    "forbid_room_scene": true,
+    "forbid_box_card_frame_border_or_backdrop": true,
+    "forbid_visible_cutout_edge": true,
+    "fit_mode": "contain",
+    "never_crop_product": true
+  },
+  "top_product": {
+    "source": "image_2",
+    "placement": "former blue placeholder bounds",
+    "instruction": "Erase the blue shape and place only the isolated product. Keep its complete canopy, cords, body, shades, crystals, and extremities visible. Use proportional contain-fit. Never crop, stretch, redesign, regenerate, or change its construction, materials, colors, proportions, or details."
+  },
+  "bottom_product": {
+    "source": "image_3",
+    "placement": "former green placeholder bounds",
+    "instruction": "Erase the green shape and place only the isolated product. Keep its complete canopy, cords, body, shades, crystals, and extremities visible. Use proportional contain-fit. Never crop, stretch, redesign, regenerate, or change its construction, materials, colors, proportions, or details."
+  },
+  "text_mapping": {
+    "upper_name": "manual_inputs.top_item.item_name",
+    "upper_type": "manual_inputs.top_item.item_type",
+    "lower_name": "manual_inputs.bottom_item.item_name",
+    "lower_type": "manual_inputs.bottom_item.item_type",
+    "instruction": "Replace only the four text placeholders with the exact runtime strings, without '[' or ']'. Keep the original upper-left and lower-right positions."
+  },
+  "typography_lock": {
+    "instruction": "Preserve each name/type font family, size, weight, color, tracking, line height, scale, alignment, and position exactly. Names stay bold; types stay regular. Never substitute or resize fonts; minimally wrap if required."
+  },
+  "locked_layout": {
+    "instruction": "Lock image 1. Preserve its 1080x1920 canvas, HomeCartel logo, neutral background, margins, spacing, alignment, placement bounds, arrows, and centered '- OR -'. Keep the logo, arrows, and separator's exact appearance, spelling, size, stroke, direction, typography, spacing, and positions."
+  },
+  "forbidden": [
+    "No visible blue or green placeholder.",
+    "No source-photo background behind either product.",
+    "No gray, white, colored, textured, photographic, checkerboard, or room-scene rectangle.",
+    "No image panel, card, frame, box, border, backdrop, shadow panel, halo, or cutout edge.",
+    "No cropped, stretched, distorted, redesigned, regenerated, recolored, or substituted product.",
+    "No extra text, brackets, labels, captions, icons, logos, borders, decoration, furniture, or objects.",
+    "Do not alter the background, logo, arrows, separator, typography, spacing, or composition."
+  ],
+  "output": {
+    "aspect_ratio": "9:16",
+    "dimensions": "1080x1920",
+    "quality": "sharp high-resolution polished professional social story"
+  },
+  "final_instruction": "Produce one 9:16 HomeCartel comparison. Remove both shapes and source backgrounds. Show only two complete, uncropped product cutouts contained in the former bounds over one continuous neutral layout background. No rectangular photo background or panel. Insert the four exact texts without brackets. Preserve all other layout, logo, arrow, '- OR -', typography, spacing, and branding details."
+}

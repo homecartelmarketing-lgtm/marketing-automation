@@ -1,0 +1,29 @@
+{
+  "task": "carousel_macro_detail_closeup",
+  "input_order": {
+    "image_1": "fixed photography style and layout reference",
+    "image_2": "exact Airtable Furniture Item to preserve"
+  },
+  "objective": "Create a premium luxury macro product photograph of the exact product from image 2 using only the macro photography language of image 1.",
+  "product_preservation": [
+    "Preserve the exact product identity, geometry, proportions, construction, finish, colors, materials, crystals, glass, metalwork, suspension parts, joints, and visible design details from image 2.",
+    "Do not copy, substitute, or blend in the product design shown in image 1.",
+    "Do not duplicate parts, create floating components, distort geometry, or invent construction details."
+  ],
+  "photography": {
+    "framing": "Extreme close crop focused on one distinctive product detail, with additional recognizable parts layered behind it.",
+    "focus": "Sharp foreground detail with shallow depth of field and softly blurred secondary components.",
+    "lighting": "Soft diffused commercial studio lighting, realistic highlights, controlled reflections, and premium catalog realism.",
+    "background": "One seamless solid pure-white #FFFFFF background edge to edge, without gradients, scenery, walls, furniture, textures, borders, or decorative elements."
+  },
+  "strict_rules": [
+    "Image 1 controls only macro style, crop, framing, depth of field, lighting, and white-background treatment.",
+    "Image 2 controls the actual product.",
+    "Keep a lighting product naturally switched on when supported by the source while preventing its glow from tinting the white background.",
+    "Do not add text, logos, watermarks, or unrelated objects."
+  ],
+  "output": {
+    "aspect_ratio": "3:4",
+    "quality": "photorealistic premium high-resolution product advertising image"
+  }
+}

@@ -1,0 +1,129 @@
+{
+  "assistant_instruction": {
+    "generate_image": false,
+    "instruction": "Do not generate an image. Use this JSON only as a reusable image-editing prompt."
+  },
+
+  "task": "replace_black_background_with_dynamic_uploaded_photo_and_preserve_homecartel_logo",
+
+  "objective": "Use the first uploaded reference image as the fixed layout and logo reference. Replace ONLY the solid black background from the first reference image with the second uploaded reference photo. The second reference photo is dynamic and may be different every time this prompt is used, so always use whatever image is uploaded as Reference Image 2 as the new full-background photo. Preserve the HomeCartel® logo from Reference Image 1 exactly as it appears. Do not change, regenerate, redesign, move, resize, recolor, crop, distort, or recreate the logo. Only the black background must be replaced.",
+
+  "reference_images": {
+    "reference_image_1": {
+      "role": "FIXED LAYOUT AND LOGO REFERENCE",
+      "instruction": "Use the first uploaded image as the exact layout reference. It contains a black background and the original white HomeCartel® logo. The HomeCartel® logo must remain completely intact and locked in its exact original location.",
+      "preserve": [
+        "HomeCartel® logo artwork",
+        "logo typography",
+        "logo font appearance",
+        "registered trademark symbol",
+        "white logo color",
+        "logo size",
+        "logo width and height",
+        "logo scale",
+        "logo proportions",
+        "logo spacing",
+        "logo alignment",
+        "exact horizontal position",
+        "exact vertical position",
+        "exact distance from the left edge",
+        "exact distance from the bottom edge"
+      ],
+      "change": "Replace only the solid black background."
+    },
+
+    "reference_image_2": {
+      "role": "DYNAMIC REPLACEMENT BACKGROUND",
+      "instruction": "The second uploaded image can be any photo and will change between uses. Always treat the currently uploaded second reference image as the new background source. It may contain an interior, bedroom, living room, dining room, kitchen, furniture scene, architectural scene, product setting, or another photographic composition. Do not assume it will match any previously uploaded image.",
+      "dynamic_rule": "Automatically use the latest image supplied as Reference Image 2. Never depend on a specific bedroom, furniture item, lamp, chandelier, wall color, room design, or previous image content.",
+      "preservation_rule": "Preserve the current second reference photo as accurately as possible, including its existing subjects, furniture, architecture, objects, colors, lighting, shadows, reflections, materials, textures, perspective, depth, and overall photographic appearance."
+    }
+  },
+
+  "editing_instruction": {
+    "background_replacement": "Completely remove the solid black background from Reference Image 1 and replace it with the entire current Reference Image 2. The new photo must fill the complete canvas from edge to edge.",
+    "layer_order": {
+      "bottom_layer": "Current Reference Image 2 used as the full-background photograph.",
+      "top_layer": "Original HomeCartel® logo preserved from Reference Image 1."
+    },
+    "black_removal_rule": "No portion of the original black background should remain visible unless black naturally exists inside the newly uploaded Reference Image 2 itself.",
+    "background_fill": "The second reference photo must extend behind the logo and cover the full width and height of the canvas."
+  },
+
+  "image_fitting": {
+    "instruction": "Fit the current Reference Image 2 into the exact aspect ratio and dimensions of Reference Image 1.",
+    "method": "Use proportional scaling and intelligent composition-aware cropping only when necessary.",
+    "priority": "Keep the main visual subject or important content of the current Reference Image 2 clearly visible while filling the entire frame.",
+    "do_not": [
+      "Do not stretch the photo",
+      "Do not squeeze the photo",
+      "Do not warp the photo",
+      "Do not distort perspective",
+      "Do not create empty spaces",
+      "Do not add black bars",
+      "Do not add colored borders"
+    ]
+  },
+
+  "logo_lock": {
+    "element": "Original HomeCartel® logo from Reference Image 1",
+    "instruction": "Treat the logo as a locked overlay layer. Preserve the actual logo from the first image rather than generating a new approximation.",
+    "position": "Keep the logo at the exact same X and Y coordinates relative to the canvas.",
+    "size": "Maintain the exact original logo dimensions and scale.",
+    "appearance": "Maintain the exact original typography, letter spacing, proportions, white color, and registered trademark symbol.",
+    "strict_rule": "The logo must not move, shift, resize, rotate, recolor, become transparent, disappear, or be recreated using a substitute font."
+  },
+
+  "dynamic_photo_preservation": {
+    "instruction": "Because Reference Image 2 changes every time, analyze the currently uploaded photo and preserve what actually exists in that specific image.",
+    "preserve_current_content": [
+      "main subjects",
+      "furniture",
+      "products",
+      "decor",
+      "architecture",
+      "walls",
+      "floors",
+      "ceilings",
+      "windows",
+      "lighting fixtures",
+      "objects",
+      "colors",
+      "materials",
+      "textures",
+      "natural lighting",
+      "shadows",
+      "reflections",
+      "camera perspective"
+    ],
+    "rule": "Do not add, remove, replace, or redesign visible elements from the second reference photo unless minimal cropping is necessary to fit the first reference canvas."
+  },
+
+  "strict_rules": [
+    "Change only the black background from Reference Image 1.",
+    "Always use the currently uploaded Reference Image 2 as the replacement background.",
+    "Never assume Reference Image 2 contains the same scene as a previous use.",
+    "Preserve the HomeCartel® logo exactly.",
+    "Do not move or resize the logo.",
+    "Do not recreate the logo as typed text.",
+    "Do not change the logo font.",
+    "Do not remove the registered trademark symbol.",
+    "Do not add product names.",
+    "Do not add captions.",
+    "Do not add extra logos.",
+    "Do not add graphic shapes.",
+    "Do not add frames or borders.",
+    "Do not add gradients or overlays.",
+    "Do not leave any empty canvas areas.",
+    "Do not modify the new background unnecessarily."
+  ],
+
+  "output": {
+    "aspect_ratio": "Match Reference Image 1 exactly.",
+    "canvas": "Match the original first reference canvas dimensions whenever possible.",
+    "background": "Current Reference Image 2 filling the entire canvas.",
+    "foreground": "Original unchanged HomeCartel® logo from Reference Image 1.",
+    "quality": "High-resolution, clean, sharp, natural, and photorealistic.",
+    "final_result": "The final image must appear as the current uploaded Reference Image 2 placed as the complete full-frame background while the original HomeCartel® logo remains perfectly intact in the exact same position and size from Reference Image 1."
+  }
+}
