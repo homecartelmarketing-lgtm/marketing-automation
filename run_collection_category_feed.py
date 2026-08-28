@@ -21,11 +21,11 @@ Phases:
    - Interior5: Luxury Open Living/Dining (Refs: Interior1..4, strength 1.0 each) -> Interior5
    Sets Status -> 'Processing'.
 
-3. Qwen 3.7 Flash Prompt Analysis:
+3. Fal AI Claude Sonnet Vision Prompt Analysis:
    Generates 5 tailored JSON blending prompts for each (Interior[i], Furniture Item[i]) pair
    into Blending Prompt1, Blending Prompt2, Blending Prompt3, Blending Prompt4, Blending Prompt5.
 
-4. Qwen Image 3.0 Pro Blending (4:5 Ratio):
+4. Fal AI Nano Banana Pro Blending (4:5 Ratio):
    Blends the 5 products into their respective interiors at 1728x2368 (4:5)
    and uploads them to Blended Image1 through Blended Image5.
    Sets Status -> 'Done'.
@@ -57,9 +57,9 @@ import requests
 from content_automation.akeneo_client import AkeneoClient
 from content_automation.config import load_settings
 from content_automation.errors import AssetValidationError, AutomationError, ProviderError
+from content_automation.fal_client import FalClient
 from content_automation.krea_client import KreaClient
 from content_automation.media import attachment_filename, download_to_temp_file
-from content_automation.qwen_client import QwenClient
 from content_automation.scraping.airtable import ScrapeAirtableClient
 from content_automation.scraping.categories import akeneo_category_code
 from content_automation.scraping.products import (
@@ -98,9 +98,15 @@ KREA_RESOLUTION = "1K"
 KREA_MOODBOARD_STRENGTH = 0.23
 KREA_STYLE_REF_STRENGTH = 0.5
 
-QWEN_PROMPT_MODEL = "qwen3.7-flash"
-QWEN_IMAGE_MODEL = "qwen-image-3.0-pro"
-QWEN_IMAGE_SIZE = "1728*2368"
+# ── Fal AI Models (Nano Banana Pro + Claude Sonnet vision) ───────────────
+FAL_VISION_MODEL = (
+    os.getenv("CLAUDE_VISION_MODEL", "").strip() or "anthropic/claude-sonnet-5"
+)
+FAL_BLENDING_MODEL = (
+    os.getenv("FAL_BLENDING_MODEL", "").strip() or "fal-ai/nano-banana-pro/edit"
+)
+FAL_BLEND_ASPECT_RATIO = "4:5"
+FAL_BLEND_RESOLUTION = "1K"
 
 # ── Slot Definitions ─────────────────────────────────────────────────────
 
@@ -722,18 +728,18 @@ def run_phase_2_krea(
 
 
 # ══════════════════════════════════════════════════════════════════════════
-# PHASE 3: Qwen 3.7 Flash Prompt Analysis
+# PHASE 3: Fal AI (Claude Sonnet Vision) Prompt Analysis
 # ══════════════════════════════════════════════════════════════════════════
 
 def run_phase_3_for_record(
-    qwen: QwenClient,
+    fal: FalClient,
     airtable: ScrapeAirtableClient,
     record_id: str,
     *,
     execute: bool = True,
 ) -> bool:
-    """Analyze Interior and Furniture Item pairs and generate 5 JSON blending prompts for a specific record."""
-    print(f"\n[PHASE 3] Qwen 3.7 Flash Prompts for Record: {record_id}")
+    """Analyze Interior and Furniture Item pairs and generate 5 blending prompts for a specific record."""
+    print(f"\n[PHASE 3] Fal AI Claude Sonnet Vision Prompts for Record: {record_id}")
     record = airtable.get_record(record_id)
     fields = record.get("fields", {})
 
@@ -765,30 +771,29 @@ def run_phase_3_for_record(
             continue
 
         instruction = (
-            f"Analyze Image 1 as the interior room photo from 'Interior{slot.slot_index}' "
-            f"and Image 2 as the product photo for '{item_name}' from '{slot.label}'. "
-            f"Create a detailed, clean, and photorealistic commercial interior photography prompt "
-            f"for blending the lighting fixture from Image 2 naturally and elegantly into Image 1.\n\n"
+            f"You are an expert interior design AI prompt engineer. Analyze Image 1 as the interior room "
+            f"photo from 'Interior{slot.slot_index}' and Image 2 as the product photo for '{item_name}' "
+            f"from '{slot.label}'.\n"
+            f"Generate a detailed, highly specific, photorealistic image-blending prompt for Nano Banana Pro "
+            f"(4:5 portrait aspect ratio). The prompt must describe naturally and elegantly integrating the "
+            f"lighting fixture from Image 2 into the room interior from Image 1.\n"
             f"CRITICAL PRODUCT ISOLATION RULES:\n"
             f"1. The product shown in Image 2 MUST BE THE ONLY LIGHTING FIXTURE / LAMP of its kind in the final scene.\n"
-            f"2. If Image 1 contains ANY pre-existing competing light fixtures or lamps, EXPLICITLY INSTRUCT TO REMOVE AND REPLACE THEM so that ONLY the product from Image 2 is installed.\n"
+            f"2. If Image 1 contains ANY pre-existing competing light fixtures or lamps, explicitly instruct to remove and replace them so that ONLY the product from Image 2 is installed.\n"
             f"3. Strictly exclude unnecessary, extra, competing furniture items, duplicate fixtures, or clutter.\n"
             f"4. Ensure realistic lighting direction, soft cast shadows, reflections on surfaces, and architectural harmony.\n\n"
-            f"Return valid JSON only with keys: room_setting, product_integration, unnecessary_items_exclusion, "
-            f"materials_and_textures, lighting_and_shadows, camera_perspective, and final_blending_prompt."
+            f"Output ONLY the prompt text, with no preamble, markdown formatting, or quotes."
         )
 
-        result, _ = qwen.structured_prompt_with_usage(
-            instruction,
-            [interior_url, furniture_url],
-            schema_name="blending_prompt",
-            model_override=QWEN_PROMPT_MODEL,
-        )
+        generated_prompt = fal.generate_vision_prompt(
+            image_urls=[interior_url, furniture_url],
+            prompt=instruction,
+            model=FAL_VISION_MODEL,
+        ).strip().strip('"').strip("'")
 
-        prompt_json_str = json.dumps(result, indent=2, ensure_ascii=False)
-        prompt_updates[slot.blending_prompt_field] = prompt_json_str
-        log_updates[slot.blending_prompt_field] = prompt_json_str
-        print(f"    [OK] Prompt generated successfully ({len(prompt_json_str)} chars).")
+        prompt_updates[slot.blending_prompt_field] = generated_prompt
+        log_updates[slot.blending_prompt_field] = generated_prompt
+        print(f"    [OK] Prompt generated successfully ({len(generated_prompt)} chars).")
 
     if execute and prompt_updates:
         airtable.update_records([(record_id, prompt_updates)])
@@ -797,7 +802,8 @@ def run_phase_3_for_record(
             {
                 "timestamp": pht_timestamp(),
                 "record_id": record_id,
-                "phase": "Phase 3: Qwen 3.7 Flash Prompt Analysis",
+                "phase": "Phase 3: Fal AI Claude Sonnet Vision Prompt Analysis",
+                "model": FAL_VISION_MODEL,
                 "updates": log_updates,
             },
             AUDIT_LOG_QWEN_FLASH,
@@ -808,16 +814,16 @@ def run_phase_3_for_record(
 
 
 def run_phase_3_prompts(
-    qwen: QwenClient,
+    fal: FalClient,
     airtable: ScrapeAirtableClient,
     *,
     max_rows: int | None = None,
     execute: bool = False,
 ) -> bool:
-    """Analyze Interior and Furniture Item pairs and generate 5 JSON blending prompts across records."""
+    """Analyze Interior and Furniture Item pairs and generate 5 blending prompts across records."""
     print("\n" + "=" * 70)
-    print("PHASE 3: Qwen 3.7 Flash Blending Prompt Analysis")
-    print(f"Model: {QWEN_PROMPT_MODEL}")
+    print("PHASE 3: Fal AI Claude Sonnet Vision Blending Prompt Analysis")
+    print(f"Model: {FAL_VISION_MODEL}")
     print(f"Mode: {'EXECUTE' if execute else 'DRY RUN'}")
     print("=" * 70)
 
@@ -849,25 +855,25 @@ def run_phase_3_prompts(
     for idx, record in enumerate(targets, start=1):
         record_id = record["id"]
         print(f"\n--- [{idx}/{len(targets)}] Processing Record {record_id} ---")
-        run_phase_3_for_record(qwen, airtable, record_id, execute=execute)
+        run_phase_3_for_record(fal, airtable, record_id, execute=execute)
 
     print("\n[OK] Phase 3 batch completed successfully.")
     return True
 
 
 # ══════════════════════════════════════════════════════════════════════════
-# PHASE 4: Qwen Image 3.0 Pro Blending (4:5 Ratio)
+# PHASE 4: Fal AI Nano Banana Pro Blending (4:5 Ratio)
 # ══════════════════════════════════════════════════════════════════════════
 
 def run_phase_4_for_record(
-    qwen: QwenClient,
+    fal: FalClient,
     airtable: ScrapeAirtableClient,
     record_id: str,
     *,
     execute: bool = True,
 ) -> bool:
-    """Blend products into interior scenes using Qwen Image 3.0 Pro at 4:5 ratio for a specific record."""
-    print(f"\n[PHASE 4] Qwen Image 3.0 Pro Blending (1728*2368, 4:5) for Record: {record_id}")
+    """Blend products into interior scenes using Fal AI Nano Banana Pro at 4:5 ratio for a specific record."""
+    print(f"\n[PHASE 4] Fal AI Nano Banana Pro Blending (4:5) for Record: {record_id}")
 
     if execute:
         required_fields = {
@@ -919,22 +925,22 @@ def run_phase_4_for_record(
         print(f"    Target Field: {blended_field_name}")
 
         if not execute:
-            print(f"    [DRY RUN] Would blend image using {QWEN_IMAGE_MODEL} at {QWEN_IMAGE_SIZE}")
+            print(f"    [DRY RUN] Would blend image using {FAL_BLENDING_MODEL} at {FAL_BLEND_ASPECT_RATIO}")
             continue
 
         try:
-            print(f"    Sending image blending request to DashScope Qwen Image 3.0 Pro...")
-            blended_url, raw_resp = qwen.generate_image_3_pro_with_response(
-                blending_prompt,
-                [interior_url, furniture_url],
-                aspect_ratio="4:5",
-                size=QWEN_IMAGE_SIZE,
-                model=QWEN_IMAGE_MODEL,
-                image_labels=["Interior Room", f"{slot.label} Product"],
-                custom_prefix=(
-                    f"STRICT INSTRUCTION: Replace and remove any competing light fixtures from the interior room photo. "
-                    f"Place ONLY the target {slot.label} product ('{item_name}') into the room naturally.\n\n"
-                ),
+            print(f"    Sending image blending request to Fal AI Nano Banana Pro...")
+            blend_prompt_text = (
+                f"STRICT INSTRUCTION: Replace and remove any competing light fixtures from the interior room photo. "
+                f"Place ONLY the target {slot.label} product ('{item_name}') into the room naturally.\n\n"
+                f"{blending_prompt}"
+            )
+            blended_url = fal.generate(
+                prompt=blend_prompt_text,
+                image_urls=[interior_url, furniture_url],
+                aspect_ratio=FAL_BLEND_ASPECT_RATIO,
+                resolution=FAL_BLEND_RESOLUTION,
+                model=FAL_BLENDING_MODEL,
             )
             print(f"    [OK] Blended image generated: {blended_url}")
 
@@ -960,7 +966,7 @@ def run_phase_4_for_record(
                 "label": slot.label,
                 "target_field": blended_field_name,
                 "image_url": blended_url,
-                "size": QWEN_IMAGE_SIZE,
+                "aspect_ratio": FAL_BLEND_ASPECT_RATIO,
             })
         except Exception as err:
             print(f"    [ERROR] Failed blending Slot {slot.slot_index}: {err}")
@@ -971,9 +977,9 @@ def run_phase_4_for_record(
             {
                 "timestamp": pht_timestamp(),
                 "record_id": record_id,
-                "phase": "Phase 4: Qwen Image 3.0 Pro Blending (4:5 Ratio)",
-                "model": QWEN_IMAGE_MODEL,
-                "size": QWEN_IMAGE_SIZE,
+                "phase": "Phase 4: Fal AI Nano Banana Pro Blending (4:5 Ratio)",
+                "model": FAL_BLENDING_MODEL,
+                "aspect_ratio": FAL_BLEND_ASPECT_RATIO,
                 "slots": blended_log_entries,
             },
             AUDIT_LOG_QWEN_IMAGE,
@@ -988,16 +994,16 @@ def run_phase_4_for_record(
 
 
 def run_phase_4_blend(
-    qwen: QwenClient,
+    fal: FalClient,
     airtable: ScrapeAirtableClient,
     *,
     max_rows: int | None = None,
     execute: bool = False,
 ) -> bool:
-    """Blend products into interior scenes across records using Qwen Image 3.0 Pro at 4:5 ratio."""
+    """Blend products into interior scenes across records using Fal AI Nano Banana Pro at 4:5 ratio."""
     print("\n" + "=" * 70)
-    print("PHASE 4: Qwen Image 3.0 Pro Blending (4:5 Ratio)")
-    print(f"Model: {QWEN_IMAGE_MODEL} | Resolution: {QWEN_IMAGE_SIZE}")
+    print("PHASE 4: Fal AI Nano Banana Pro Blending (4:5 Ratio)")
+    print(f"Model: {FAL_BLENDING_MODEL} | Aspect Ratio: {FAL_BLEND_ASPECT_RATIO}")
     print(f"Mode: {'EXECUTE' if execute else 'DRY RUN'}")
     print("=" * 70)
 
@@ -1029,7 +1035,7 @@ def run_phase_4_blend(
     for idx, record in enumerate(targets, start=1):
         record_id = record["id"]
         print(f"\n--- [{idx}/{len(targets)}] Blending Record {record_id} ---")
-        run_phase_4_for_record(qwen, airtable, record_id, execute=execute)
+        run_phase_4_for_record(fal, airtable, record_id, execute=execute)
 
     print("\n[OK] Phase 4 batch completed successfully.")
     return True
@@ -1043,7 +1049,7 @@ def run_continuous_row_pipeline(
     akeneo: AkeneoClient,
     airtable: ScrapeAirtableClient,
     krea: KreaClient,
-    qwen: QwenClient,
+    fal: FalClient,
     *,
     moodboard_id: str = DEFAULT_MOODBOARD_ID,
     style: str = "modern",
@@ -1084,11 +1090,11 @@ def run_continuous_row_pipeline(
             # Phase 2: Krea Interiors
             run_phase_2_for_record(krea, airtable, rec_id, moodboard_id=moodboard_id, execute=execute)
 
-            # Phase 3: Qwen Prompts
-            run_phase_3_for_record(qwen, airtable, rec_id, execute=execute)
+            # Phase 3: Fal AI Vision Prompts
+            run_phase_3_for_record(fal, airtable, rec_id, execute=execute)
 
-            # Phase 4: Qwen Blending (Blends all 5 slots -> sets Status = 'Done')
-            run_phase_4_for_record(qwen, airtable, rec_id, execute=execute)
+            # Phase 4: Fal AI Nano Banana Pro Blending (Blends all 5 slots -> sets Status = 'Done')
+            run_phase_4_for_record(fal, airtable, rec_id, execute=execute)
 
             processed_rows += 1
             print(f"\n[DONE] Row {processed_rows} ({rec_id}) is completely finished and marked 'Done'!")
@@ -1120,10 +1126,10 @@ def run_continuous_row_pipeline(
         run_phase_2_for_record(krea, airtable, new_rec_id, moodboard_id=moodboard_id, execute=execute)
 
         # Step 4: Phase 3 for this new row
-        run_phase_3_for_record(qwen, airtable, new_rec_id, execute=execute)
+        run_phase_3_for_record(fal, airtable, new_rec_id, execute=execute)
 
         # Step 5: Phase 4 for this new row
-        run_phase_4_for_record(qwen, airtable, new_rec_id, execute=execute)
+        run_phase_4_for_record(fal, airtable, new_rec_id, execute=execute)
 
         processed_rows += 1
         print(f"\n[DONE] Row {processed_rows} ({new_rec_id}) is completely finished and marked 'Done'!")
@@ -1145,7 +1151,7 @@ def parse_args(argv=None):
         "-p",
         choices=["1", "2", "3", "4", "all"],
         default="all",
-        help="Phase to execute (1: Scrape, 2: Krea, 3: Qwen Prompts, 4: Qwen Blend, all: Continuous Row-by-Row Pipeline). Default: all",
+        help="Phase to execute (1: Scrape, 2: Krea, 3: Fal Vision Prompts, 4: Fal Blend, all: Continuous Row-by-Row Pipeline). Default: all",
     )
     parser.add_argument(
         "--table-id",
@@ -1196,8 +1202,8 @@ def interactive_menu() -> tuple[str, bool]:
     print("Select a phase to run:")
     print("  [1] Phase 1: Akeneo Multi-Category Scrape (Newest to Oldest)")
     print("  [2] Phase 2: Krea AI Sequential Interior Generation (4:5)")
-    print("  [3] Phase 3: Qwen 3.7 Flash Blending Prompt Analysis")
-    print("  [4] Phase 4: Qwen Image 3.0 Pro Blending (4:5)")
+    print("  [3] Phase 3: Fal AI Claude Sonnet Vision Blending Prompt Analysis")
+    print("  [4] Phase 4: Fal AI Nano Banana Pro Blending (4:5)")
     print("  [5] Run Complete Continuous Row Pipeline (Phase 1 -> 2 -> 3 -> 4 -> Next Row)")
     print("  [Q] Quit")
     print("-" * 70)
@@ -1256,11 +1262,7 @@ def main(argv=None) -> int:
         token=settings.krea_token,
         base_url=settings.krea_base_url,
     )
-    qwen = QwenClient(
-        api_key=settings.qwen_api_key,
-        base_url=settings.qwen_base_url,
-        model=QWEN_PROMPT_MODEL,
-    )
+    fal = FalClient(api_key=settings.fal_key)
 
     print(f"\n[START] Collection Category Feed Pipeline | Phase: {phase.upper()} | Execute: {execute}")
 
@@ -1270,7 +1272,7 @@ def main(argv=None) -> int:
             akeneo,
             airtable,
             krea,
-            qwen,
+            fal,
             moodboard_id=moodboard_id,
             style=args.style,
             max_rows=args.max_rows,
@@ -1294,14 +1296,14 @@ def main(argv=None) -> int:
         )
     elif phase == "3":
         run_phase_3_prompts(
-            qwen,
+            fal,
             airtable,
             max_rows=args.max_rows,
             execute=execute,
         )
     elif phase == "4":
         run_phase_4_blend(
-            qwen,
+            fal,
             airtable,
             max_rows=args.max_rows,
             execute=execute,
