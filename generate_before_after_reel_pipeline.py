@@ -1587,6 +1587,12 @@ def parse_args(argv=None):
         default=None,
         help="Krea Moodboard ID override",
     )
+    parser.add_argument(
+        "--skip-gpt-regen",
+        action="store_true",
+        default=False,
+        help="Skip the GPT Image 2 multiple-angle regeneration phase (runs by default)",
+    )
     return parser.parse_args(argv)
 
 
@@ -1633,8 +1639,11 @@ def main(argv=None) -> int:
 
     overall_success = True
 
+    run_gpt_regen = not args.skip_gpt_regen
+    total_phases = 6 if run_gpt_regen else 5
+
     # Phase 1: Krea AI Room Interior Generation (9:16 Ratio - Before Image)
-    print(f"\n[PHASE 1/5] Krea AI Room Interior Photo Generation (Prompt: '{interior_prompt}')...")
+    print(f"\n[PHASE 1/{total_phases}] Krea AI Room Interior Photo Generation (Prompt: '{interior_prompt}')...")
     if not generate_krea_interiors_pipeline(
         krea,
         airtable,
@@ -1645,7 +1654,7 @@ def main(argv=None) -> int:
         overall_success = False
 
     # Phase 2: Fal AI Claude Sonnet 5 Blending Prompt Generation
-    print("\n[PHASE 2/5] Fal AI Claude Sonnet 5 Blending Prompt Generation...")
+    print(f"\n[PHASE 2/{total_phases}] Fal AI Claude Sonnet 5 Blending Prompt Generation...")
     if not generate_claude_blending_prompts(
         fal,
         airtable,
@@ -1655,7 +1664,7 @@ def main(argv=None) -> int:
         overall_success = False
 
     # Phase 3: Fal AI Nano Banana Pro Day Image Blending (9:16 Ratio - After Image)
-    print("\n[PHASE 3/5] Fal AI Nano Banana Pro Image Blending (9:16 Ratio)...")
+    print(f"\n[PHASE 3/{total_phases}] Fal AI Nano Banana Pro Image Blending (9:16 Ratio)...")
     if not generate_nano_banana_pro_blends(
         fal,
         airtable,
@@ -1664,7 +1673,7 @@ def main(argv=None) -> int:
         overall_success = False
 
     # Phase 4: Fal AI Multiple Angle Generation (fal-ai/qwen-image-edit-2511-multiple-angles, 9:16 Ratio)
-    print("\n[PHASE 4/5] Fal AI Multiple Angle Generation (fal-ai/qwen-image-edit-2511-multiple-angles)...")
+    print(f"\n[PHASE 4/{total_phases}] Fal AI Multiple Angle Generation (fal-ai/qwen-image-edit-2511-multiple-angles)...")
     if not generate_multiple_angles_pipeline(
         fal,
         airtable,
@@ -1672,8 +1681,22 @@ def main(argv=None) -> int:
     ):
         overall_success = False
 
-    # Phase 5: Slideshow Reel Video Generation (Slide Show Before and After Reel)
-    print("\n[PHASE 5/5] Slideshow Reel Video Generation (Slide Show Before and After Reel)...")
+    # Phase 5: GPT Image 2 Multiple Angle Regeneration (enhance the 4 angle photos, 9:16 Ratio)
+    slideshow_phase = 5
+    if run_gpt_regen:
+        slideshow_phase = 6
+        print(f"\n[PHASE 5/{total_phases}] GPT Image 2 Multiple Angle Regeneration (9:16 Ratio)...")
+        if not regenerate_multiple_angles_with_gpt_image_pipeline(
+            fal,
+            airtable,
+            limit_records=args.max_items,
+        ):
+            overall_success = False
+    else:
+        print("\n[SKIP] GPT Image 2 Multiple Angle Regeneration (disabled via --skip-gpt-regen).")
+
+    # Final Phase: Slideshow Reel Video Generation (Slide Show Before and After Reel)
+    print(f"\n[PHASE {slideshow_phase}/{total_phases}] Slideshow Reel Video Generation (Slide Show Before and After Reel)...")
     if not generate_slideshow_reels_pipeline(
         fal,
         airtable,

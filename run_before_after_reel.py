@@ -106,6 +106,12 @@ def parse_args(argv=None):
         default=50,
         help="Number of newest products to consider in price ranking pool (default: 50)",
     )
+    parser.add_argument(
+        "--skip-gpt-regen",
+        action="store_true",
+        default=False,
+        help="Skip the GPT Image 2 multiple-angle regeneration phase (runs by default)",
+    )
     return parser.parse_args(argv)
 
 
@@ -117,26 +123,38 @@ def run_pipeline_for_table(
     interior_prompt: str,
     placement_rule: str = "",
     max_items: int | None = None,
+    run_gpt_regen: bool = True,
 ) -> bool:
-    """Run all 5 AI pipeline phases (Interior -> Claude Sonnet 5 Prompt -> Nano Banana Pro Blend -> Multiple Angles -> Slideshow Video) on Airtable records."""
+    """Run all AI pipeline phases (Interior -> Claude Sonnet 5 Prompt -> Nano Banana Pro Blend -> Multiple Angles -> GPT Image 2 Regen -> Slideshow Video) on Airtable records."""
     success = True
-    print("\n[AI PIPELINE PHASE 1/5] Krea AI Room Interior Generation (Before Image)...")
+    total_phases = 6 if run_gpt_regen else 5
+
+    print(f"\n[AI PIPELINE PHASE 1/{total_phases}] Krea AI Room Interior Generation (Before Image)...")
     if not generate_krea_interiors_pipeline(krea, airtable, moodboard_id=moodboard_id, prompt=interior_prompt, limit_records=max_items):
         success = False
 
-    print("\n[AI PIPELINE PHASE 2/5] Fal AI Claude Sonnet 5 Blending Prompt Generation...")
+    print(f"\n[AI PIPELINE PHASE 2/{total_phases}] Fal AI Claude Sonnet 5 Blending Prompt Generation...")
     if not generate_claude_blending_prompts(fal, airtable, placement_rule=placement_rule, limit_records=max_items):
         success = False
 
-    print("\n[AI PIPELINE PHASE 3/5] Fal AI Nano Banana Pro Image Blending (After Image)...")
+    print(f"\n[AI PIPELINE PHASE 3/{total_phases}] Fal AI Nano Banana Pro Image Blending (After Image)...")
     if not generate_nano_banana_pro_blends(fal, airtable, limit_records=max_items):
         success = False
 
-    print("\n[AI PIPELINE PHASE 4/5] Fal AI Multiple Angle Generation (4 Angles)...")
+    print(f"\n[AI PIPELINE PHASE 4/{total_phases}] Fal AI Multiple Angle Generation (4 Angles)...")
     if not generate_multiple_angles_pipeline(fal, airtable, limit_records=max_items):
         success = False
 
-    print("\n[AI PIPELINE PHASE 5/5] Slideshow Reel Video Generation & Google Drive Export...")
+    slideshow_phase = 5
+    if run_gpt_regen:
+        slideshow_phase = 6
+        print(f"\n[AI PIPELINE PHASE 5/{total_phases}] GPT Image 2 Multiple Angle Regeneration (Enhance 4 Angles, 9:16)...")
+        if not regenerate_multiple_angles_with_gpt_image_pipeline(fal, airtable, limit_records=max_items):
+            success = False
+    else:
+        print("\n[SKIP] GPT Image 2 Multiple Angle Regeneration (disabled via --skip-gpt-regen).")
+
+    print(f"\n[AI PIPELINE PHASE {slideshow_phase}/{total_phases}] Slideshow Reel Video Generation & Google Drive Export...")
     if not generate_slideshow_reels_pipeline(fal, airtable, limit_records=max_items):
         success = False
 
@@ -237,6 +255,7 @@ def main(argv=None) -> int:
             interior_prompt,
             placement_rule=placement_rule,
             max_items=args.max_items,
+            run_gpt_regen=not args.skip_gpt_regen,
         ):
             overall_success = False
         print(f"\n[INFO] Finished processing existing incomplete row(s). Skipping new Akeneo scrape to save API credits.")
@@ -268,6 +287,7 @@ def main(argv=None) -> int:
                 interior_prompt,
                 placement_rule=placement_rule,
                 max_items=args.max_items,
+                run_gpt_regen=not args.skip_gpt_regen,
             ):
                 overall_success = False
         else:
