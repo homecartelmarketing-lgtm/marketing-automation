@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import csv
+from datetime import datetime, timezone, timedelta
 import json
 import mimetypes
 import time
@@ -15,6 +16,32 @@ from .config import CONTROL_FIELDS
 from .errors import AutomationError
 from .http import request_with_retry, response_error
 from .models import Attachment, LocalImage, ProductRecord, TableConfig
+
+PHT_TIMEZONE = timezone(timedelta(hours=8))
+
+
+def current_pht_timestamp() -> str:
+    """Return current Philippine Time (PHT, UTC+8) in ISO 8601 format."""
+    return datetime.now(PHT_TIMEZONE).isoformat()
+
+
+COMPLETION_STATUSES = {
+    "complete",
+    "completed",
+    "done",
+    "already attached a room interior",
+}
+
+
+def inject_generated_timestamp(fields: dict[str, Any]) -> dict[str, Any]:
+    """Ensure 'Date and Time Generated' is stamped with current PHT time on completion."""
+    updated = dict(fields)
+    status_str = str(updated.get("Status") or "").strip().lower()
+    if status_str in COMPLETION_STATUSES:
+        updated["Date and Time Generated"] = current_pht_timestamp()
+    elif "Date and Time" in updated and "Date and Time Generated" not in updated:
+        updated["Date and Time Generated"] = updated.pop("Date and Time")
+    return updated
 
 
 class AirtableClient:
@@ -180,10 +207,37 @@ class AirtableClient:
 
     def update_record(self, record_id: str, fields: dict[str, Any]) -> dict[str, Any]:
         url = f"{self.API_BASE}/{self.base_id}/{self.table_id}/{record_id}"
-        response = self._request("PATCH", url, json={"fields": fields})
+        req_fields = inject_generated_timestamp(fields)
+        response = self._request("PATCH", url, json={"fields": req_fields})
+        if not response.ok and ("Date and Time Generated" in response.text or "Date and Time" in response.text):
+            # Fallback attempt 1: Try "Date and Time" if "Date and Time Generated" was rejected
+            fallback_fields = dict(req_fields)
+            if "Date and Time Generated" in fallback_fields:
+                fallback_fields["Date and Time"] = fallback_fields.pop("Date and Time Generated")
+                response = self._request("PATCH", url, json={"fields": fallback_fields})
+            # Fallback attempt 2: Strip date fields if table does not support either
+            if not response.ok and ("Date and Time Generated" in response.text or "Date and Time" in response.text):
+                clean_fields = {
+                    k: v for k, v in req_fields.items()
+                    if k not in ("Date and Time Generated", "Date and Time")
+                }
+                response = self._request("PATCH", url, json={"fields": clean_fields})
         if not response.ok:
             raise response_error(response, f"Update Airtable record {record_id}")
-        return response.json()
+        
+        ret = response.json()
+        try:
+            f = ret.get("fields", {})
+            if not f.get("Foreign Key ID") and f.get("ID") is not None:
+                from .foreign_key import generate_foreign_key
+                fk = generate_foreign_key(self.table_id, f["ID"])
+                patch_resp = self._request("PATCH", url, json={"fields": {"Foreign Key ID": fk}, "typecast": True})
+                if patch_resp.ok:
+                    ret = patch_resp.json()
+        except Exception:
+            pass
+
+        return ret
 
     def update_records(
         self,
@@ -198,17 +252,74 @@ class AirtableClient:
         results: list[dict[str, Any]] = []
         url = f"{self.API_BASE}/{self.base_id}/{self.table_id}"
         for start in range(0, len(records), 10):
+            batch = records[start : start + 10]
+            prepared_batch = [
+                {"id": item["id"], "fields": inject_generated_timestamp(item.get("fields", {}))}
+                for item in batch
+            ]
+
             response = self._request(
                 "PATCH",
                 url,
-                json={"records": records[start : start + 10]},
+                json={"records": prepared_batch},
             )
+            if not response.ok and ("Date and Time Generated" in response.text or "Date and Time" in response.text):
+                # Fallback attempt 1: Try "Date and Time" instead of "Date and Time Generated"
+                fallback_batch = []
+                for item in prepared_batch:
+                    f_fields = dict(item.get("fields", {}))
+                    if "Date and Time Generated" in f_fields:
+                        f_fields["Date and Time"] = f_fields.pop("Date and Time Generated")
+                    fallback_batch.append({"id": item["id"], "fields": f_fields})
+                response = self._request(
+                    "PATCH",
+                    url,
+                    json={"records": fallback_batch},
+                )
+                # Fallback attempt 2: Strip date fields completely so batch succeeds
+                if not response.ok and ("Date and Time Generated" in response.text or "Date and Time" in response.text):
+                    clean_batch = [
+                        {
+                            "id": item["id"],
+                            "fields": {
+                                k: v for k, v in item.get("fields", {}).items()
+                                if k not in ("Date and Time Generated", "Date and Time")
+                            },
+                        }
+                        for item in prepared_batch
+                    ]
+                    response = self._request(
+                        "PATCH",
+                        url,
+                        json={"records": clean_batch},
+                    )
             if not response.ok:
                 raise response_error(
                     response,
                     f"Batch update Airtable records in {self.table.label}",
                 )
-            results.extend(response.json().get("records", []))
+            
+            batch_result = response.json().get("records", [])
+            try:
+                records_to_patch = []
+                for rec in batch_result:
+                    f = rec.get("fields", {})
+                    if not f.get("Foreign Key ID") and f.get("ID") is not None:
+                        from .foreign_key import generate_foreign_key
+                        fk = generate_foreign_key(self.table_id, f["ID"])
+                        records_to_patch.append({"id": rec["id"], "fields": {"Foreign Key ID": fk}})
+                if records_to_patch:
+                    patch_resp = self._request("PATCH", url, json={"records": records_to_patch, "typecast": True})
+                    if patch_resp.ok:
+                        patch_data = patch_resp.json().get("records", [])
+                        patched_map = {r["id"]: r for r in patch_data}
+                        for i, rec in enumerate(batch_result):
+                            if rec["id"] in patched_map:
+                                batch_result[i] = patched_map[rec["id"]]
+            except Exception:
+                pass
+
+            results.extend(batch_result)
         return results
 
     def create_record(self, fields: dict[str, Any]) -> dict[str, Any]:
@@ -216,7 +327,21 @@ class AirtableClient:
         response = self._request("POST", url, json={"fields": fields})
         if not response.ok:
             raise response_error(response, f"Create Airtable record in {self.table.label}")
-        return response.json()
+        
+        ret = response.json()
+        try:
+            f = ret.get("fields", {})
+            if not f.get("Foreign Key ID") and f.get("ID") is not None:
+                from .foreign_key import generate_foreign_key
+                fk = generate_foreign_key(self.table_id, f["ID"])
+                patch_url = f"{url}/{ret['id']}"
+                patch_resp = self._request("PATCH", patch_url, json={"fields": {"Foreign Key ID": fk}, "typecast": True})
+                if patch_resp.ok:
+                    ret = patch_resp.json()
+        except Exception:
+            pass
+
+        return ret
 
     def upload_attachment(
         self,
@@ -389,6 +514,9 @@ class AirtableClient:
             "Outro Thumbnail",
             "Outro",
             "Logo",
+            "Overlay Logo",
+            "Interior Generated Photo",
+            "Interior Generated",
             "Layout Tips and Edu Stories",
             "Tips and Edu Stories Blended",
             "Tips Edu layout",
@@ -473,3 +601,88 @@ class AirtableClient:
                     }
                 )
         return json_path, csv_path, records
+
+
+def fetch_status_breakdown(
+    token: str = "", base_id: str = "", table_id: str = "", timeout: float = 6.0
+) -> dict[str, int]:
+    """Fetch live counts of P (Posted), S (Scheduled), C (Complete), D (Discard), and FM (For Manual) from Airtable."""
+    import os
+    # Smart detection: if first argument is a table_id (e.g. starts with "tbl")
+    if token and token.startswith("tbl") and not table_id:
+        table_id = token
+        token = ""
+
+    if not token or not base_id:
+        try:
+            from .config import load_settings
+            settings = load_settings()
+            token = token or settings.airtable_token
+            base_id = base_id or settings.airtable_base_id
+        except Exception:
+            token = token or os.getenv("AIRTABLE_API_KEY") or os.getenv("AIRTABLE_PERSONAL_ACCESS_TOKEN") or ""
+            base_id = base_id or os.getenv("AIRTABLE_BASE_ID") or "appDM0jUDsaiThtR3"
+
+    counts = {"P": 0, "S": 0, "C": 0, "D": 0, "FM": 0}
+    if not token or not base_id or not table_id:
+        return counts
+
+    url = f"https://api.airtable.com/v0/{base_id}/{table_id}"
+    headers = {"Authorization": f"Bearer {token}"}
+    params = {
+        "fields[]": "Status",
+        "pageSize": 100,
+    }
+    offset = None
+    try:
+        while True:
+            req_params = dict(params)
+            if offset:
+                req_params["offset"] = offset
+            resp = requests.get(url, headers=headers, params=req_params, timeout=timeout)
+            if not resp.ok:
+                break
+            data = resp.json()
+            for rec in data.get("records", []):
+                raw = str(rec.get("fields", {}).get("Status") or "").strip().lower()
+                norm = " ".join(raw.split())
+                if norm in ("posted", "processing", "pending", "in progress"):
+                    counts["P"] += 1
+                elif norm in ("scheduled", "schedule"):
+                    counts["S"] += 1
+                elif norm in ("complete", "completed", "done", "already attached a room interior"):
+                    counts["C"] += 1
+                elif norm in ("discard", "discarded"):
+                    counts["D"] += 1
+                elif norm in ("for manual", "for  manual", "minor revision", "minor revisions", "fm"):
+                    counts["FM"] += 1
+            offset = data.get("offset")
+            if not offset:
+                break
+    except Exception:
+        pass
+    return counts
+
+
+def fetch_multiple_tables_status_breakdown(
+    token: str, base_id: str, table_ids: list[str], max_workers: int = 8
+) -> dict[str, dict[str, int]]:
+    """Fetch status breakdown in parallel across multiple Airtable tables."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    results: dict[str, dict[str, int]] = {}
+    if not table_ids:
+        return results
+
+    with ThreadPoolExecutor(max_workers=min(len(table_ids), max_workers)) as pool:
+        future_map = {
+            pool.submit(fetch_status_breakdown, token, base_id, tid): tid
+            for tid in table_ids
+        }
+        for future in future_map:
+            tid = future_map[future]
+            try:
+                results[tid] = future.result()
+            except Exception:
+                results[tid] = {"P": 0, "C": 0, "D": 0, "FM": 0}
+    return results
