@@ -1,5 +1,8 @@
 # Studio New-Record Run Scope Design
 
+> [!WARNING]
+> **STATUS (as of 2026-09-19): NOT IMPLEMENTED.** This spec describes a run-scope feature that was never built (`studio_run_scope.py` / `routes/studio_runs.py` do not exist). See the matching plan in `../plans/`.
+
 **Date:** 2026-09-16  
 **Status:** Approved design, pending implementation plan  
 **Scope:** All 23 Story, Feed, and Reel pipelines launched from Control UI
