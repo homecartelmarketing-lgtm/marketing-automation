@@ -381,3 +381,63 @@ Root scripts that migrate/backfill Airtable data, tag furniture in room photos, 
 
 - **Before debugging a pipeline failure** (especially a Shopify/Akeneo cross-check failure or anything resembling a past incident), check `docs/memory/incidents/` first — it may already be root-caused.
 - **After resolving anything non-trivial** — a failure that took real investigation, or a design decision made without an obvious paper trail — add a short note under `docs/memory/incidents/` or `docs/memory/decisions/`. A few sentences is enough. This applies to AI agents working in this repo, not just humans.
+
+---
+
+## 11. Git, Deployment & Push Protocol for AI Agents
+
+Every AI agent (and developer) working on this repository MUST strictly follow this Git & CI/CD deployment protocol before staging, committing, or pushing code:
+
+### 1. Working Directory & Remote Verification
+- Always verify the current working directory and remote origin before running any git commands:
+  ```bash
+  git remote -v
+  ```
+  Expected remote: `https://github.com/homecartelmarketing-lgtm/marketing-automation.git`. Never run git commands from sibling directories (e.g., `Downloads/Marketing Output UI`).
+
+### 2. Zero Secret Leak Policy
+- **NEVER** stage or commit `.env`, `.env.*`, API keys, private tokens, or customer data.
+- Always inspect `git status` before committing to confirm that `.env` is ignored.
+- Model weights (`*.pt`, `*.onnx`), node caches (`node_modules/`), and temp files (`output/`, `tmp/`) must remain shielded by `.gitignore`.
+
+### 3. Pre-Push Static Compilation Check
+- **Zero-syntax-error guarantee**: Never push code that has not been statically compiled. Always run:
+  ```bash
+  python -m py_compile <modified_file_1>.py <modified_file_2>.py
+  ```
+  Fix all syntax or import errors before staging.
+
+### 4. Frontend Build Sync for Railway Deployment
+- Railway builds the production Docker container from `Dockerfile`, which copies `UI Control/dist/` directly into the image.
+- If any changes are made to the React frontend (`UI Control/src/`), the frontend **MUST be recompiled** before committing:
+  ```bash
+  cd "UI Control" && npm run build && cd ..
+  ```
+- `UI Control/dist/` is explicitly whitelisted in `.gitignore` so that Railway's Docker build immediately serves the fresh React UI.
+
+### 5. Conventional Commits Standard
+- Format all commit messages with conventional prefixes:
+  - `feat: <description>` — New pipelines, features, or prompt templates.
+  - `fix: <description>` — Bug fixes, layout adjustments, or API repairs.
+  - `refactor: <description>` — Architecture improvements without behavior change.
+  - `docs: <description>` — Updates to documentation, guides, or memory files.
+  - `chore: <description>` — Dependency bumps, gitignore updates, or build configs.
+
+### 6. Dual-Branch Push & Railway Deployment (`genspark_ai_developer` $\rightarrow$ `main`)
+- Active development occurs on branch **`genspark_ai_developer`**.
+- Because Railway automatically builds and deploys the **`main`** branch by default:
+  1. Commit and push to `genspark_ai_developer`:
+     ```bash
+     git add .
+     git commit -m "feat: ..."
+     git push origin genspark_ai_developer
+     ```
+  2. Fast-forward `main` and push to trigger the automatic Railway CI/CD deployment:
+     ```bash
+     git checkout main
+     git merge --ff-only genspark_ai_developer
+     git push origin main
+     git checkout genspark_ai_developer
+     ```
+  3. Return the active local branch to `genspark_ai_developer`.
+
