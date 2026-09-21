@@ -10,6 +10,32 @@ from .errors import AutomationError
 from .models import LocalImage
 
 
+def resolve_slide_intervals(
+    slide_count: int,
+    *,
+    slide_seconds: float = 2.0,
+    slideshow_seconds: float | None = None,
+    per_slide_seconds: tuple[float, ...] | None = None,
+) -> list[float]:
+    """Choose exact per-photo holds or the legacy repeated slideshow timing."""
+    if per_slide_seconds is not None:
+        if len(per_slide_seconds) != slide_count or any(seconds <= 0 for seconds in per_slide_seconds):
+            raise AutomationError("Provide one positive duration for each slideshow photo")
+        if slideshow_seconds is not None:
+            raise AutomationError("Use either per-slide durations or a slideshow section duration")
+        return list(per_slide_seconds)
+    if slideshow_seconds is None:
+        return [slide_seconds] * slide_count
+    full_slides = int(slideshow_seconds // slide_seconds)
+    remainder = slideshow_seconds - (full_slides * slide_seconds)
+    if math.isclose(remainder, 0.0, abs_tol=1e-9):
+        remainder = 0.0
+    intervals = [slide_seconds] * full_slides
+    if remainder:
+        intervals.append(remainder)
+    return intervals or [slideshow_seconds]
+
+
 def slideshow_with_fade_out(
     slides: list[LocalImage],
     outro: LocalImage,
@@ -17,6 +43,7 @@ def slideshow_with_fade_out(
     *,
     slide_seconds: float = 2.0,
     slideshow_seconds: float | None = None,
+    per_slide_seconds: tuple[float, ...] | None = None,
     outro_seconds: float = 2.0,
     transition_to_outro_seconds: float = 0.5,
     fade_out_seconds: float = 1.0,
@@ -45,18 +72,10 @@ def slideshow_with_fade_out(
             "Outro transition duration must be greater than zero"
         )
 
-    if slideshow_seconds is None:
-        slide_durations = [slide_seconds] * len(slides)
-    else:
-        full_slides = int(slideshow_seconds // slide_seconds)
-        remainder = slideshow_seconds - (full_slides * slide_seconds)
-        if math.isclose(remainder, 0.0, abs_tol=1e-9):
-            remainder = 0.0
-        slide_durations = [slide_seconds] * full_slides
-        if remainder:
-            slide_durations.append(remainder)
-        if not slide_durations:
-            slide_durations.append(slideshow_seconds)
+    slide_durations = resolve_slide_intervals(
+        len(slides), slide_seconds=slide_seconds,
+        slideshow_seconds=slideshow_seconds, per_slide_seconds=per_slide_seconds,
+    )
 
     if transition_to_outro_seconds > slide_durations[-1]:
         raise AutomationError(
@@ -154,8 +173,8 @@ def slideshow_with_fade_out(
 def merge_video_with_outro_and_audio(
     video_path: Path,
     outro_image_path: Path | None,
-    audio_path: Path,
-    output_path: Path,
+    audio_path: Path | None = None,
+    output_path: Path | None = None,
     *,
     video_duration: float = 15.0,
     outro_duration: float = 3.0,
@@ -165,15 +184,18 @@ def merge_video_with_outro_and_audio(
     height: int = 1920,
     fps: int = 30,
 ) -> Path:
-    """Merge a main reel video (15s), optional outro slide (3s), and background jazz music.
+    """Merge a main reel video (15s), optional outro slide (3s), and optional background jazz music.
 
     Applies a 1.0s fade-to-black at the end of the main video, a 0.5s fade-in on the outro
     image, concatenates both into a seamless 18s 9:16 vertical MP4, and mixes in the audio
-    with a smooth fade-out on the outro.
+    with a smooth fade-out on the outro (if audio_path is provided).
     """
+    if output_path is None:
+        raise ValueError("output_path is required")
     if not video_path.is_file():
         raise FileNotFoundError(f"Main video not found: {video_path}")
-    if not audio_path.is_file():
+    has_audio = audio_path is not None
+    if has_audio and not Path(audio_path).is_file():
         raise FileNotFoundError(f"Audio file not found: {audio_path}")
 
     has_outro = outro_image_path is not None and Path(outro_image_path).is_file()
@@ -188,44 +210,76 @@ def merge_video_with_outro_and_audio(
             f"[0:v]scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps={fps},format=yuv420p,trim=duration={video_duration:g},setpts=PTS-STARTPTS,fade=t=out:st={fade_start:g}:d={fade_duration:g}[mainv]",
             f"[1:v]scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps={fps},format=yuv420p,trim=duration={outro_duration:g},setpts=PTS-STARTPTS,fade=t=in:st=0:d=0.5[outrov]",
             "[mainv][outrov]concat=n=2:v=1:a=0[v]",
-            f"[2:a]atrim=duration={total_duration:g},asetpts=PTS-STARTPTS,afade=t=out:st={total_duration - audio_fade_duration:g}:d={audio_fade_duration:g}[a]",
         ]
         cmd = [
             ffmpeg_exe, "-y",
             "-i", str(video_path),
             "-loop", "1", "-i", str(outro_image_path),
-            "-stream_loop", "-1", "-i", str(audio_path),
-            "-filter_complex", ";".join(filters),
-            "-map", "[v]",
-            "-map", "[a]",
-            "-c:v", "libx264",
-            "-preset", "medium",
-            "-crf", "18",
-            "-c:a", "aac",
-            "-b:a", "192k",
-            "-movflags", "+faststart",
-            str(output_path),
         ]
+        if has_audio:
+            filters.append(
+                f"[2:a]atrim=duration={total_duration:g},asetpts=PTS-STARTPTS,afade=t=out:st={total_duration - audio_fade_duration:g}:d={audio_fade_duration:g}[a]"
+            )
+            cmd.extend([
+                "-stream_loop", "-1", "-i", str(audio_path),
+                "-filter_complex", ";".join(filters),
+                "-map", "[v]",
+                "-map", "[a]",
+                "-c:v", "libx264",
+                "-preset", "medium",
+                "-crf", "18",
+                "-c:a", "aac",
+                "-b:a", "192k",
+                "-movflags", "+faststart",
+                str(output_path),
+            ])
+        else:
+            cmd.extend([
+                "-filter_complex", ";".join(filters),
+                "-map", "[v]",
+                "-an",
+                "-c:v", "libx264",
+                "-preset", "medium",
+                "-crf", "18",
+                "-movflags", "+faststart",
+                str(output_path),
+            ])
     else:
         filters = [
             f"[0:v]scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps={fps},format=yuv420p,trim=duration={total_duration:g},setpts=PTS-STARTPTS[v]",
-            f"[1:a]atrim=duration={total_duration:g},asetpts=PTS-STARTPTS,afade=t=out:st={total_duration - audio_fade_duration:g}:d={audio_fade_duration:g}[a]",
         ]
         cmd = [
             ffmpeg_exe, "-y",
             "-i", str(video_path),
-            "-stream_loop", "-1", "-i", str(audio_path),
-            "-filter_complex", ";".join(filters),
-            "-map", "[v]",
-            "-map", "[a]",
-            "-c:v", "libx264",
-            "-preset", "medium",
-            "-crf", "18",
-            "-c:a", "aac",
-            "-b:a", "192k",
-            "-movflags", "+faststart",
-            str(output_path),
         ]
+        if has_audio:
+            filters.append(
+                f"[1:a]atrim=duration={total_duration:g},asetpts=PTS-STARTPTS,afade=t=out:st={total_duration - audio_fade_duration:g}:d={audio_fade_duration:g}[a]"
+            )
+            cmd.extend([
+                "-stream_loop", "-1", "-i", str(audio_path),
+                "-filter_complex", ";".join(filters),
+                "-map", "[v]",
+                "-map", "[a]",
+                "-c:v", "libx264",
+                "-preset", "medium",
+                "-crf", "18",
+                "-c:a", "aac",
+                "-b:a", "192k",
+                "-movflags", "+faststart",
+                str(output_path),
+            ])
+        else:
+            cmd.extend([
+                "-filter_complex", ";".join(filters),
+                "-map", "[v]",
+                "-an",
+                "-c:v", "libx264",
+                "-preset", "medium",
+                "-crf", "18",
+                "-movflags", "+faststart",
+                str(output_path),
+            ])
 
     completed = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if completed.returncode != 0:

@@ -7,7 +7,9 @@ only worth creating when its SKU, its photo and its name are all new.
 
 from __future__ import annotations
 
+import random
 import re
+import string
 from dataclasses import dataclass, field
 
 from ..akeneo_client import first_attribute, metadata_from_product
@@ -216,6 +218,38 @@ def _newest_first(products: list[dict]) -> list[dict]:
     )
 
 
+def extract_sort_letter(name: str) -> str:
+    """Strip leading digits, spaces, and punctuation to find the first alphabetic character."""
+    for char in name:
+        if char.isalpha():
+            return char.upper()
+    return '~'
+
+
+def sort_cyclic_alphabet(
+    items: list[ProductItem], starting_letter: str | None = None
+) -> tuple[list[ProductItem], str]:
+    """Sort items by a cyclic alphabet starting from `starting_letter`.
+    Returns the sorted list and the chosen starting letter.
+    """
+    if not starting_letter or not starting_letter.isalpha():
+        starting_letter = random.choice(string.ascii_uppercase)
+    starting_letter = starting_letter.upper()
+
+    start_idx = string.ascii_uppercase.index(starting_letter)
+    alphabet_cycle = string.ascii_uppercase[start_idx:] + string.ascii_uppercase[:start_idx]
+
+    def sort_key(item: ProductItem) -> tuple[int, str]:
+        letter = extract_sort_letter(item.item_name)
+        try:
+            rank = alphabet_cycle.index(letter)
+        except ValueError:
+            rank = len(alphabet_cycle)
+        return (rank, item.item_name.lower())
+
+    return sorted(items, key=sort_key), starting_letter
+
+
 def select_new_products(
     products: list[dict],
     existing_skus: set[str],
@@ -224,6 +258,7 @@ def select_new_products(
     category_code: str | None = None,
     sort_by_price_in_newest_pool: bool = False,
     price_pool_size: int = 50,
+    starting_letter: str | None = None,
 ) -> tuple[list[ProductItem], dict[str, int]]:
     """Pick the products that deserve a new Airtable row.
 
@@ -244,7 +279,8 @@ def select_new_products(
         if not product.get("enabled", False):
             stats.ineligible += 1
             continue
-        sku_key = identity_key(normalize_sku(product.get("identifier")))
+        raw_identifier = normalize_sku(product.get("identifier"))
+        sku_key = identity_key(raw_identifier)
         if sku_key and sku_key in stored_skus:
             stats.existing_sku += 1
             continue
@@ -290,6 +326,12 @@ def select_new_products(
             reverse=True,
         )
         selected = pool_sorted + remainder
+
+    if selected:
+        selected, actual_starting_letter = sort_cyclic_alphabet(selected, starting_letter)
+        idx = string.ascii_uppercase.index(actual_starting_letter)
+        prev_letter = string.ascii_uppercase[idx - 1] if idx > 0 else 'Z'
+        print(f"[INFO] Alphabet Cycle Sorting: starting letter '{actual_starting_letter}' (Cycle: {actual_starting_letter} -> Z -> A -> {prev_letter})")
 
     return selected, stats.as_dict()
 

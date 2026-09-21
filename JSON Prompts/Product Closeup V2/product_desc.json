@@ -14,7 +14,7 @@
     "reference_preservation": "Treat the first image as an existing poster to be carefully edited, not as inspiration for a completely new design.",
     "remove_original_item": "Completely remove the Sode Chandelier, including its chain, canopy, gold branch structure, crystal strands, reflections, shadows, and every product-specific component.",
     "insert_replacement_item": "Insert one accurate representation of the item from the second uploaded image. Do not create duplicates or add accessories that are absent from the product reference.",
-    "product_accuracy": "Preserve the replacement item's recognizable silhouette, proportions, construction, number and arrangement of components, finish, colors, textures, decorative details, suspension system, and material appearance. Do not merge it with any part of the original Sode Chandelier.",
+    "product_accuracy": "Preserve the replacement item's recognizable silhouette, proportions, construction, number and arrangement of components, finish, colors, decorative details, suspension system, and material appearance. Do not merge it with any part of the original Sode Chandelier.",
     "editorial_treatment": "Present the replacement item as a premium oversized editorial product close-up, using the bold scale and intentional cropping seen in the reference poster.",
     "product_placement": "Place the product mainly across the left and lower areas of the canvas. It may extend naturally beyond the left or bottom edge when this creates the same intentional close-up feeling as the reference.",
     "adaptive_fit": "Adjust only the product's proportional scale, natural rotation, and crop to suit its real shape. Preserve enough clean space on the right for two readable description paragraphs.",
@@ -27,8 +27,8 @@
     "item_name": {
       "source": "Use the exact value entered in required_inputs.item_name.",
       "replace": "Replace the word SODE completely.",
-      "display_case": "Display the supplied item name in uppercase without adding brackets, quotation marks, labels, or extra words.",
-      "font_style": "Match the bold modern geometric sans-serif appearance, heavy weight, tight spacing, and strong editorial character of SODE.",
+      "display_case": "Display the supplied item name in uppercase without adding brackets, quotation marks, labels, or extra words, vertical bar.",
+      "font_style": "Preserve and maintain the exact font and typography from the SODE headline in the uploaded reference layout. Do not change, replace, or alter the font.",
       "hierarchy": "Keep the item name as the largest and most visually dominant text element.",
       "placement": "Maintain the same large upper-middle position and layered relationship with the product as the SODE headline.",
       "maximum_lines": 2,
@@ -38,19 +38,19 @@
       "source": "Use the exact value entered in required_inputs.product_type.",
       "replace": "Replace the word chandelier completely.",
       "display_case": "Use lowercase or title case according to the supplied wording. Do not add brackets, quotation marks, labels, or extra wording.",
-      "font_style": "Match the thin rounded geometric sans-serif appearance and weight used for the original word chandelier.",
+      "font_style": "Preserve and maintain the exact font and typography used for the original word chandelier in the uploaded reference layout. Do not change, replace, or alter the font.",
       "hierarchy": "Keep the product type clearly subordinate to the item name but larger than the description text.",
       "placement": "Position it directly below and aligned with the item-name headline, following the reference poster's typographic relationship.",
       "maximum_lines": 1,
       "fit_rule": "Scale the complete phrase proportionally when needed so it remains fully visible and does not extend beyond the right edge."
     },
-    "relationship_rule": "Preserve the original contrast between the oversized bold item name and the thinner product type. Their size relationship, alignment, spacing, and typography must remain consistent with the reference even when the words change."
+    "relationship_rule": "Preserve the original contrast between the oversized bold item name and the thinner product type. Their size relationship, alignment, spacing, and typography must remain strictly identical to the reference layout without changing the font."
   },
   "automatic_two_paragraph_description": {
     "main_instruction": "Replace all lorem ipsum with exactly two original English paragraphs based on the replacement item's visible characteristics, the supplied item name and product type, and any optional confirmed details.",
     "paragraph_1": {
       "purpose": "Design and Material Story",
-      "content": "Describe the item's visible silhouette, form, finish, material appearance, texture, construction details, and overall design character.",
+      "content": "Describe the item's visible silhouette, form, finish, material appearance, construction details, and overall design character.",
       "tone": "Refined, descriptive, premium, concise, and appropriate for a luxury furniture or lighting catalogue.",
       "length": "35 to 50 words",
       "placement": "Place it in the open right-middle area using approximately the same text-block position and width as the first reference paragraph."
@@ -75,8 +75,8 @@
       "Avoid repetitive adjectives and exaggerated claims such as perfect, ultimate, revolutionary, finest, or best."
     ],
     "typography": {
-      "font_style": "Match the clean, light, rounded sans-serif appearance of the original description.",
-      "font_weight": "Light to regular.",
+      "font_style": "Preserve and maintain the exact font and typography from the description text in the uploaded reference layout. Do not change, replace, or alter the font.",
+      "font_weight": "Exact same font weight as the reference layout description.",
       "alignment": "Follow the original centered-right or right-aligned text-block treatment.",
       "line_spacing": "Maintain the reference poster's airy but controlled line spacing.",
       "paragraph_spacing": "Keep a clearly visible and intentional gap between the two paragraphs.",
@@ -106,14 +106,14 @@
     "element_assignments": {
       "item_name": "Use the selected primary product-derived color. It should feel rich, refined, and visually dominant.",
       "product_type": "Use the selected darker secondary product-derived color.",
-      "paragraph_1": "Use exactly the same secondary color as the product type.",
-      "paragraph_2": "Use exactly the same secondary color as the product type and Paragraph 1.",
-      "homecartel_logo": "Preserve the logo in its original solid black. Never recolor it based on the product."
+      "paragraph_1": "All black font color",
+      "paragraph_2": "All black font color",
+      "homecartel_logo": "Preserve the logo."
     },
     "color_restrictions": [
       "Avoid neon, fluorescent, excessively saturated, muddy, dull gray, or low-contrast shades.",
       "Do not add gradients, outlines, strokes, glows, heavy shadows, or colored boxes behind the text.",
-      "Do not alter the established font style, font weight, scale hierarchy, alignment, or spacing when adapting color.",
+      "Do not alter or change the font, font weight, scale hierarchy, alignment, or spacing from the reference layout when adapting color.",
       "Do not use more than two non-logo text colors."
     ]
   },
@@ -154,6 +154,9 @@
     "Do not add furniture, people, architecture, plants, decorations, borders, graphic shapes, textures, or unrelated accessories.",
     "Do not replace the supplied item name or product type with AI-generated wording.",
     "Do not add brackets or quotation marks around the item name, product type, or paragraphs.",
+    "Do not change or alter the font from the uploaded reference layout.",
+    "Do not use a different font, substitute font, or new typeface.",
+    "Keep and maintain the exact font, weight, and letter appearance directly from the layout reference image.",
     "Do not add extra logos or branding.",
     "Do not allow any text or logo element to touch or extend beyond the canvas edges."
   ],
@@ -161,7 +164,7 @@
     "The replacement item accurately matches the second uploaded product image.",
     "The original Sode Chandelier and all of its components are completely removed.",
     "The supplied item name and product type are reproduced exactly and spelled correctly.",
-    "The item name retains the bold SODE-style typography and the product type retains the thinner chandelier-style typography.",
+    "All text elements (item name, product type, and description paragraphs) maintain the exact font and typography directly from the reference layout without any font changes.",
     "Exactly two original product-description paragraphs are present.",
     "The description is grounded in visible or confirmed product information and contains no invented technical claims.",
     "The non-logo text colors coordinate with the replacement item and remain clearly visible against white.",

@@ -58,17 +58,35 @@ class FalClient:
             )
 
         model_code = model.strip()
-        if not model_code.startswith("fal-ai/"):
-            model_code = f"fal-ai/{model_code}"
+        if not (model_code.startswith("fal-ai/") or model_code.startswith("openai/")):
+            model_code = f"openai/{model_code}" if "gpt-image" in model_code else f"fal-ai/{model_code}"
 
         payload: dict[str, Any] = {
             "prompt": prompt,
-            "image_urls": image_urls,
-            "images": [{"url": url} for url in image_urls],
             "aspect_ratio": aspect_ratio,
             **kwargs,
         }
-        if resolution:
+
+        if len(image_urls) == 1:
+            single_url = str(image_urls[0]).strip()
+            payload["image_url"] = single_url
+            payload["image_urls"] = [single_url]
+            payload["images"] = [{"url": single_url}]
+        elif len(image_urls) > 1:
+            clean_urls = [str(u).strip() for u in image_urls if str(u).strip()]
+            payload["image_urls"] = clean_urls
+            payload["images"] = [{"url": u} for u in clean_urls]
+
+        if "gpt-image" in model_code:
+            if aspect_ratio == "9:16":
+                payload["image_size"] = "portrait_16_9"
+            elif aspect_ratio in ("4:5", "3:4"):
+                payload["image_size"] = "portrait_4_3"
+            elif aspect_ratio in ("16:9", "1.91:1"):
+                payload["image_size"] = "landscape_16_9"
+            if "quality" not in payload:
+                payload["quality"] = "high"
+        elif resolution:
             res_str = str(resolution).strip().upper()
             if res_str in ("1K", "2K", "4K"):
                 payload["resolution"] = res_str
@@ -312,6 +330,72 @@ class FalClient:
             on_task_created(request_id)
         return self.poll_queue(model_code, request_id)
 
+    def generate_grok_video(
+        self,
+        prompt: str,
+        image_url: str,
+        *,
+        duration: int | str = 15,
+        resolution: str = "720p",
+        model: str = "xai/grok-imagine-video/v1.5/image-to-video",
+        on_task_created: Callable[[str], None] | None = None,
+    ) -> str:
+        """Generate an xAI Grok Imagine Video 1.5 image-to-video result on fal.ai."""
+        if not self.api_key:
+            raise ProviderError("FAL_KEY (or FAL_API_KEY) is not set in environment or .env file")
+        dur_int = int(duration)
+        if dur_int < 1 or dur_int > 15:
+            raise ValueError("Grok Imagine Video duration must be between 1 and 15 seconds")
+        model_code = model.strip()
+        payload: dict[str, Any] = {
+            "prompt": prompt,
+            "image_url": image_url,
+            "duration": dur_int,
+            "resolution": resolution,
+        }
+
+        # 0. Try official fal_client Python SDK if available
+        try:
+            import fal_client
+            previous = os.environ.get("FAL_KEY")
+            os.environ["FAL_KEY"] = self.api_key
+            try:
+                sdk_result = fal_client.subscribe(
+                    model_code,
+                    arguments=payload,
+                    with_logs=True,
+                )
+                if isinstance(sdk_result, dict):
+                    video_url = self._extract_result_url(sdk_result)
+                    if video_url:
+                        return video_url
+            finally:
+                if previous is None:
+                    os.environ.pop("FAL_KEY", None)
+                else:
+                    os.environ["FAL_KEY"] = previous
+        except Exception:
+            pass
+
+        # 1. Fallback to direct Fal AI queue REST API
+        queue_response = request_with_retry(
+            self.session,
+            "POST",
+            f"{self.queue_base}/{model_code}",
+            headers=self._headers(),
+            json=payload,
+            retry_server_errors=True,
+            timeout=60,
+        )
+        if not queue_response.ok:
+            raise response_error(queue_response, f"fal.ai Grok video ({model_code})")
+        request_id = str(queue_response.json().get("request_id") or "")
+        if not request_id:
+            raise ProviderError("fal.ai Grok video submission returned no request_id")
+        if on_task_created:
+            on_task_created(request_id)
+        return self.poll_queue(model_code, request_id)
+
     def generate_multiple_angles(
         self,
         image_url: str,
@@ -549,9 +633,11 @@ class FalClient:
         if not model_code.startswith("fal-ai/"):
             model_code = f"fal-ai/{model_code}"
 
+        dur_secs = int(duration)
         arguments: dict[str, Any] = {
             "prompt": prompt,
-            "duration": int(duration),
+            "duration": dur_secs,
+            "music_length_ms": dur_secs * 1000,
         }
 
         # 0. Try official fal_client Python SDK if available
@@ -638,19 +724,28 @@ class FalClient:
         if not (model_code.startswith("fal-ai/") or model_code.startswith("openai/")):
             model_code = f"openai/{model_code}" if "gpt-image" in model_code else f"fal-ai/{model_code}"
 
-        img_url = str(image_urls[0]).strip() if image_urls else ""
         payload: dict[str, Any] = {
             "prompt": prompt,
-            "image_url": img_url,
-            "image": {"url": img_url} if img_url else {},
-            "image_urls": image_urls,
-            "images": [{"url": url} for url in image_urls],
             "aspect_ratio": aspect_ratio,
             "quality": quality,
             **kwargs,
         }
+        if len(image_urls) == 1:
+            single_url = str(image_urls[0]).strip()
+            payload["image_url"] = single_url
+            payload["image_urls"] = [single_url]
+            payload["images"] = [{"url": single_url}]
+        elif len(image_urls) > 1:
+            clean_urls = [str(u).strip() for u in image_urls if str(u).strip()]
+            payload["image_urls"] = clean_urls
+            payload["images"] = [{"url": u} for u in clean_urls]
+
         if aspect_ratio == "9:16":
             payload["image_size"] = "portrait_16_9"
+        elif aspect_ratio in ("4:5", "3:4"):
+            payload["image_size"] = "portrait_4_3"
+        elif aspect_ratio in ("16:9", "1.91:1"):
+            payload["image_size"] = "landscape_16_9"
 
         # 0. Try official fal_client SDK
         try:
@@ -870,6 +965,33 @@ class FalClient:
             if not urls and isinstance(data.get("video"), dict) and data["video"].get("url"):
                 urls.append(str(data["video"]["url"]).strip())
         return [u for u in urls if u]
+
+    def analyze_image(
+        self,
+        prompt: str | list[str] = "",
+        image_urls: list[str] | None = None,
+        *,
+        model: str = "anthropic/claude-sonnet-5",
+        endpoint: str = "openrouter/router/vision",
+        on_task_created: Callable[[str], None] | None = None,
+        **kwargs: Any,
+    ) -> str:
+        """Analyze one or more images using Claude Vision via openrouter/router/vision."""
+        if isinstance(prompt, list):
+            actual_urls = prompt
+            actual_prompt = str(image_urls or "") if isinstance(image_urls, str) else str(kwargs.get("prompt") or "")
+        else:
+            actual_prompt = str(prompt or "")
+            actual_urls = image_urls or []
+
+        clean_urls = [str(u).strip() for u in actual_urls if str(u).strip()]
+        return self.generate_vision_prompt(
+            clean_urls,
+            actual_prompt,
+            model=model,
+            endpoint=endpoint,
+            on_task_created=on_task_created,
+        )
 
     def generate_vision_prompt(
         self,

@@ -36,19 +36,31 @@ from typing import Any
 import requests
 from PIL import Image, UnidentifiedImageError
 
-from content_automation.akeneo_client import AkeneoClient
+from content_automation.akeneo_client import AkeneoClient, split_item_name
 from content_automation.config import load_settings
 from content_automation.errors import AssetValidationError, AutomationError, ProviderError
 from content_automation.fal_client import FalClient
+from content_automation.prompts import build_vision_blending_instruction
 from content_automation.krea_client import KreaClient
+from content_automation.item_tagger import (
+    TARGET_BLENDED_FIELD,
+    tag_blended_image,
+)
 from content_automation.overlay import HOMECARTEL_LOGO_BOX, stamp_logo
 from content_automation.scraping.airtable import ScrapeAirtableClient
 from content_automation.scraping.categories import akeneo_category_code
+from content_automation.scraping.furniture_item import (
+    fetch_all_base_existing_identities,
+    format_item_name_with_product_type,
+)
 from content_automation.scraping.products import (
     ProductItem,
     existing_product_identities,
+    identity_key,
     select_new_products,
 )
+from content_automation.media import attachment_filename
+from content_automation.shopify_client import ShopifyClient
 
 PHT = timezone(timedelta(hours=8))  # Philippine Standard Time (UTC+8)
 
@@ -57,7 +69,7 @@ def pht_timestamp() -> str:
     return datetime.now(PHT).strftime("%Y-%m-%d %I:%M:%S %p PHT")
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True) 
 class RoomStyleSpec:
     slot: int
     name: str
@@ -78,11 +90,49 @@ class PipelinePreset:
 
 
 PRESETS: dict[str, PipelinePreset] = {
+    "chandeliers": PipelinePreset(
+        key="chandeliers",
+        name="Chandeliers",
+        category_code="chandeliers",
+        table_id=os.getenv("AIRTABLE_TABLE_ID_CHANDELIER_1_PRODUCT_3_STYLES", "").strip()
+        or os.getenv("AIRTABLE_TABLE_ID_CHANDELIERS_ONE_PRODUCT_THREE_STYLES", "").strip()
+        or os.getenv("AIRTABLE_TABLE_ID_CHANDELIERS", "").strip()
+        or "tblrlfqBGe5EjS5PI",
+        moodboard_id=os.getenv("KREA_MOODBOARD_ID_CHANDELIER_ONE_PRODUCT_THREE_STYLES", "").strip()
+        or "de6ad512-870d-4ab7-a48c-3f3ca85faf24",
+        room_styles=(
+            RoomStyleSpec(
+                slot=1,
+                name="Grand Living Room",
+                prompt="Generate me a luxury modern grand living room with hanging chandelier",
+                target_interior_field="Interior1",
+                target_prompt_field="Prompt1",
+                output_filename="1_product_3_styles_blended1.jpg",
+            ),
+            RoomStyleSpec(
+                slot=2,
+                name="Luxury Dining Room",
+                prompt="Generate me a luxury modern dining room with hanging chandelier",
+                target_interior_field="Interior2",
+                target_prompt_field="Prompt2",
+                output_filename="1_product_3_styles_blended2.jpg",
+            ),
+            RoomStyleSpec(
+                slot=3,
+                name="High Ceiling Foyer",
+                prompt="Generate me a luxury modern high ceiling entryway foyer with hanging chandelier",
+                target_interior_field="Interior3",
+                target_prompt_field="Prompt3",
+                output_filename="1_product_3_styles_blended3.jpg",
+            ),
+        ),
+    ),
     "pendant_lights": PipelinePreset(
         key="pendant_lights",
         name="Pendant Lights",
         category_code="pendant_lights",
-        table_id=os.getenv("AIRTABLE_TABLE_ID_PENDANT_LIGHTS_ONE_PRODUCT_THREE_STYLES", "").strip()
+        table_id=os.getenv("AIRTABLE_TABLE_ID_PENDANT_LIGHTS_1_PRODUCT_3_STYLES", "").strip()
+        or os.getenv("AIRTABLE_TABLE_ID_PENDANT_LIGHTS_ONE_PRODUCT_THREE_STYLES", "").strip()
         or os.getenv("AIRTABLE_TABLE_ID_PENDANT_LIGHTS_3_PRODUCT_1_STYLE", "").strip()
         or "tblRy52kCasisCWzd",
         moodboard_id=os.getenv("KREA_MOODBOARD_ID_PENDANT_LIGHTS", "").strip()
@@ -114,71 +164,37 @@ PRESETS: dict[str, PipelinePreset] = {
             ),
         ),
     ),
-    "table_lamps": PipelinePreset(
-        key="table_lamps",
-        name="Table Lamps",
-        category_code="table_lamps",
-        table_id=os.getenv("AIRTABLE_TABLE_ID_TABLE_LAMPS_ONE_PRODUCT_THREE_STYLES", "").strip()
-        or "tblCHrWkJ3KImcKoq",
-        moodboard_id=os.getenv("KREA_MOODBOARD_ID_TABLE_LAMPS", "").strip()
-        or "257569e1-7be8-4412-a90f-acbc347e4646",
+    "floor_lamps": PipelinePreset(
+        key="floor_lamps",
+        name="Floor Lamps",
+        category_code="floor_lamps",
+        table_id=os.getenv("AIRTABLE_TABLE_ID_FLOOR_LAMPS_1_PRODUCT_3_STYLES", "").strip()
+        or os.getenv("AIRTABLE_TABLE_ID_FLOOR_LAMPS_ONE_PRODUCT_THREE_STYLES", "").strip()
+        or "tbl9GIq2QeYCwMhWU",
+        moodboard_id=os.getenv("KREA_MOODBOARD_ID_FLOOR_LAMPS", "").strip()
+        or os.getenv("KREA_MOODBOARD_ID_STYLE_THIS_FLOOR_LAMPS", "").strip()
+        or "b1641228-beec-4823-8d01-1de3eec8410d",
         room_styles=(
             RoomStyleSpec(
                 slot=1,
-                name="Bedroom Beside Table",
-                prompt="Generate me a luxury modern bedroom with beside table lamp",
+                name="Living Room Lounge",
+                prompt="Generate me a luxury modern living room lounge with standing floor lamp",
                 target_interior_field="Interior1",
                 target_prompt_field="Prompt1",
                 output_filename="1_product_3_styles_blended1.jpg",
             ),
             RoomStyleSpec(
                 slot=2,
-                name="Living Room Side Table",
-                prompt="Generate me a luxury modern living room with side end table lamp",
+                name="Bedroom Corner",
+                prompt="Generate me a luxury modern bedroom corner with standing floor lamp",
                 target_interior_field="Interior2",
                 target_prompt_field="Prompt2",
                 output_filename="1_product_3_styles_blended2.jpg",
             ),
             RoomStyleSpec(
                 slot=3,
-                name="Study Desk",
-                prompt="Generate me a luxury modern home office study desk with table lamp",
-                target_interior_field="Interior3",
-                target_prompt_field="Prompt3",
-                output_filename="1_product_3_styles_blended3.jpg",
-            ),
-        ),
-    ),
-    "chandeliers": PipelinePreset(
-        key="chandeliers",
-        name="Chandeliers",
-        category_code="chandeliers",
-        table_id=os.getenv("AIRTABLE_TABLE_ID_CHANDELIERS_ONE_PRODUCT_THREE_STYLES", "").strip()
-        or os.getenv("AIRTABLE_TABLE_ID_CHANDELIERS", "").strip()
-        or "tblM1ODMxdP9sAfdS",
-        moodboard_id=os.getenv("KREA_MOODBOARD_ID_CHANDELIERS", "").strip()
-        or "b5ffdcbb-192e-4528-8d86-d1a4cf496887",
-        room_styles=(
-            RoomStyleSpec(
-                slot=1,
-                name="Grand Living Room",
-                prompt="Generate me a luxury modern grand living room with hanging chandelier",
-                target_interior_field="Interior1",
-                target_prompt_field="Prompt1",
-                output_filename="1_product_3_styles_blended1.jpg",
-            ),
-            RoomStyleSpec(
-                slot=2,
-                name="Luxury Dining Room",
-                prompt="Generate me a luxury modern dining room with hanging chandelier",
-                target_interior_field="Interior2",
-                target_prompt_field="Prompt2",
-                output_filename="1_product_3_styles_blended2.jpg",
-            ),
-            RoomStyleSpec(
-                slot=3,
-                name="High Ceiling Foyer",
-                prompt="Generate me a luxury modern high ceiling entryway foyer with hanging chandelier",
+                name="Study Reading Nook",
+                prompt="Generate me a luxury modern study reading nook with standing floor lamp",
                 target_interior_field="Interior3",
                 target_prompt_field="Prompt3",
                 output_filename="1_product_3_styles_blended3.jpg",
@@ -281,6 +297,7 @@ class OneProductThreeStylesRunner:
         *,
         table_id_override: str | None = None,
         moodboard_id_override: str | None = None,
+        prompt_override: str | None = None,
         style_code: str | None = None,
         settings: Any = None,
         airtable: ScrapeAirtableClient | None = None,
@@ -296,6 +313,18 @@ class OneProductThreeStylesRunner:
             style_code or os.getenv("AKENEO_STYLE", "modern").strip() or "modern"
         )
         self.moodboard_id = moodboard_id_override or preset.moodboard_id
+
+        # Resolve prompt override for Style 1 from argument or environment
+        env_prompt_key = {
+            "chandeliers": "ONE_PRODUCT_3_STYLES_PROMPT_CHANDELIER",
+            "pendant_lights": "ONE_PRODUCT_3_STYLES_PROMPT_PENDANT",
+            "floor_lamps": "ONE_PRODUCT_3_STYLES_PROMPT_FLOOR_LAMP",
+        }.get(preset.key, "")
+        self.prompt_override = (
+            (prompt_override or "").strip()
+            or (os.getenv(env_prompt_key, "").strip() if env_prompt_key else "")
+            or None
+        )
 
         self.settings = settings or load_settings()
         self.airtable = airtable or ScrapeAirtableClient(
@@ -370,6 +399,10 @@ class OneProductThreeStylesRunner:
             "Phase 4 - Processing",
             "Phase 4 - Failed",
             "Complete",
+            "Posted",
+            "Discard",
+            "Minor Revision",
+            "For Manual",
             "Error",
         ]
 
@@ -494,10 +527,25 @@ class OneProductThreeStylesRunner:
 
     def _phase_for_record(self, record: dict[str, Any]) -> int | None:
         fields = record.get("fields", {})
-        status = str(fields.get(STATUS_FIELD) or "").strip()
+        status = str(fields.get(STATUS_FIELD) or "").strip().lower()
         if (
-            status.casefold() in ("error", "skip", "skipped", "ignore", "disabled")
-            or "error" in status.casefold()
+            status in (
+                "error",
+                "skip",
+                "skipped",
+                "ignore",
+                "disabled",
+                "posted",
+                "complete",
+                "completed",
+                "discard",
+                "discarded",
+                "minor revision",
+                "minor revisions",
+                "for manual",
+                "fm",
+            )
+            or "error" in status
         ):
             return None
 
@@ -543,6 +591,7 @@ class OneProductThreeStylesRunner:
         phase: int | str = "all",
         target_record_id: str | None = None,
         max_rows: int = 1,
+        scrape_first: bool = False,
     ) -> None:
         self.preflight()
         if phase == "all":
@@ -554,10 +603,21 @@ class OneProductThreeStylesRunner:
                 return
 
             for _ in range(max_rows):
-                record, start_phase = self._next_incomplete()
+                record = None
+                start_phase = 2
+                if scrape_first:
+                    scraped_records = self.phase_1(max_items=1)
+                    if scraped_records:
+                        record = scraped_records[0]
+                        start_phase = 2
                 if record is None:
-                    record = self.phase_1()
-                    start_phase = 2
+                    record, start_phase = self._next_incomplete()
+                    if record is None:
+                        scraped_records = self.phase_1(max_items=1)
+                        if not scraped_records:
+                            break
+                        record = scraped_records[0]
+                        start_phase = 2
 
                 for phase_num in range(start_phase, 5):
                     self._run_phase(phase_num, record["id"])
@@ -565,8 +625,7 @@ class OneProductThreeStylesRunner:
 
         phase_number = int(phase)
         if phase_number == 1:
-            for _ in range(max_rows):
-                self.phase_1()
+            self.phase_1(max_items=max_rows)
             return
 
         if target_record_id:
@@ -627,11 +686,16 @@ class OneProductThreeStylesRunner:
             raise
 
     # -------------------------------------------------------------------------
-    # PHASE 1: AKENEO 1-ITEM SCRAPE
+    # PHASE 1: AKENEO PRODUCT SCRAPE (WITH CROSS-TABLE DEDUPLICATION)
     # -------------------------------------------------------------------------
-    def phase_1(self) -> dict[str, Any]:
+    def phase_1(
+        self,
+        max_items: int = 1,
+        cross_table_dedup: bool = True,
+        shopify_cross_check: bool = True,
+    ) -> list[dict[str, Any]]:
         print(
-            f"\n[INFO] >>> Starting Phase 1: Akeneo 1-Product Ingestion ({self.category_code}, style={self.style_code})...",
+            f"\n[INFO] >>> Starting Phase 1: Akeneo Product Ingestion ({self.category_code}, style={self.style_code})...",
             flush=True,
         )
         self.logger.event(
@@ -642,90 +706,174 @@ class OneProductThreeStylesRunner:
         )
         self.akeneo.authenticate()
 
-        # Gather all existing SKUs from Airtable to avoid duplicate products
-        records = self.airtable.list_records([SKU_FIELD, FURNITURE_FIELD])
+        # 1. Gather all existing SKUs, Item Names, and attachment filenames from the current table
+        records = self.airtable.list_records([SKU_FIELD, FURNITURE_FIELD, ITEM_NAME_FIELD])
         existing_skus: set[str] = set()
+        existing_names: set[str] = set()
+        existing_filenames: set[str] = set()
+
         for r in records:
             f = r.get("fields", {})
             val = str(f.get(SKU_FIELD) or "").strip()
             if val:
                 existing_skus.add(val)
+                existing_skus.add(identity_key(val))
+            name_val = str(f.get(ITEM_NAME_FIELD) or "").strip()
+            if name_val:
+                existing_names.add(identity_key(name_val))
+                if " | " in name_val:
+                    base_part = name_val.split(" | ")[0].strip()
+                    if base_part:
+                        existing_names.add(identity_key(base_part))
+            for att in f.get(FURNITURE_FIELD) or []:
+                if isinstance(att, dict) and att.get("filename"):
+                    existing_filenames.add(identity_key(att["filename"]))
 
-        products = self.akeneo.fetch_products(
-            {
-                "categories": [
-                    {
-                        "operator": "IN",
-                        "value": [akeneo_category_code(self.category_code)],
-                    }
-                ],
-                "Style2": [{"operator": "IN", "value": [self.style_code]}],
-            }
+        # 2. Cross-table deduplication scan across all tables in the Airtable base
+        if cross_table_dedup and getattr(self.airtable, "base_id", None):
+            try:
+                print("[INFO] Performing cross-table deduplication scan across all Airtable tables...")
+                base_skus, base_names, base_files = fetch_all_base_existing_identities(self.airtable)
+                existing_skus.update(base_skus)
+                existing_names.update(base_names)
+                existing_filenames.update(base_files)
+                print(
+                    f"[INFO] Cross-table deduplication active: Found {len(base_skus)} existing SKU(s), "
+                    f"{len(base_names)} item name(s), and {len(base_files)} attachment filename(s) across all base tables."
+                )
+            except Exception as dedup_err:
+                print(f"[WARN] Cross-table deduplication scan note: {dedup_err}")
+
+        # 3. Shopify Cross-check (only scrape products that actually exist/are published on Shopify)
+        shopify_index = None
+        if shopify_cross_check:
+            try:
+                shopify = ShopifyClient()
+                shopify_index = shopify.load_published_identities()
+            except Exception as s_err:
+                print(f"[WARN] Shopify cross-check initialization note: {s_err}")
+
+        # 4. Query Akeneo for active/enabled items
+        akeneo_cat = akeneo_category_code(self.category_code)
+        query: dict[str, Any] = {
+            "categories": [{"operator": "IN", "value": [akeneo_cat]}],
+            "enabled": [{"operator": "=", "value": True}],
+        }
+        if self.style_code and self.style_code.lower() != "all":
+            query["Style2"] = [{"operator": "IN", "value": [self.style_code]}]
+
+        print(
+            f"[INFO] Fetching active {self.style_code or 'all'} {self.category_code} products from Akeneo..."
         )
-        existing_names, existing_media = existing_product_identities(
+        products = self.akeneo.fetch_products(query)
+
+        derived_names, derived_media = existing_product_identities(
             products, existing_skus
         )
-        candidates, _ = select_new_products(
+        existing_names.update(derived_names)
+        existing_filenames.update(derived_media)
+
+        candidates, stats = select_new_products(
             products,
             existing_skus,
             existing_item_names=existing_names,
-            existing_media_codes=existing_media,
+            existing_media_codes=existing_filenames,
             category_code=self.category_code,
         )
-        if not candidates:
+
+        filtered_items: list[ProductItem] = []
+        for item in candidates:
+            filename = attachment_filename(item.item_name, item.media_code)
+            if identity_key(filename) in existing_filenames:
+                print(f"[DEDUP SKIP] Existing item: '{item.item_name}' (SKU: {item.sku}) already exists in Airtable")
+                continue
+            if shopify_index and not shopify_index.contains(item.sku, item.item_name):
+                print(f"[SHOPIFY SKIP] Item '{item.item_name}' (SKU: {item.sku}) is Enabled in Akeneo but Draft/Inactive in Shopify -> skipping")
+                continue
+
+            # Strict category and title keyword matching ("kung ano name ng table ids yan lang sscrape")
+            searchable_title = f"{item.item_name} {item.product_type}".lower()
+            if self.category_code == "chandeliers":
+                if "chandelier" not in searchable_title:
+                    print(f"[NAME FILTER SKIP] Item '{item.item_name}' does not contain 'chandelier' -> skipping")
+                    continue
+                if any(kw in searchable_title for kw in ("cluster", "linear")):
+                    print(f"[NAME FILTER SKIP] Item '{item.item_name}' contains cluster/linear -> skipping for Chandeliers table")
+                    continue
+            elif self.category_code == "pendant_lights":
+                if "pendant" not in searchable_title:
+                    print(f"[NAME FILTER SKIP] Item '{item.item_name}' does not contain 'pendant' -> skipping")
+                    continue
+            elif self.category_code == "floor_lamps":
+                if "floor" not in searchable_title:
+                    print(f"[NAME FILTER SKIP] Item '{item.item_name}' does not contain 'floor' -> skipping")
+                    continue
+
+            print(f"[MATCH PASS] Valid candidate passed all checks: '{item.item_name}' (SKU: {item.sku})")
+            filtered_items.append(item)
+
+        if not filtered_items:
             raise AutomationError(
                 f"Akeneo returned 0 new products for category '{self.category_code}' and style '{self.style_code}'."
             )
 
-        selected_item: ProductItem = candidates[0]
-        record_payload = {
-            SKU_FIELD: selected_item.sku,
-            ITEM_NAME_FIELD: selected_item.item_name,
-            STATUS_FIELD: "Standby",
-        }
-        record_id = self.airtable.create_record(record_payload)
-        print(
-            f"[OK] Created row {record_id} for Product: {selected_item.sku} ({selected_item.item_name})"
-        )
+        items_to_create = filtered_items[:max_items]
+        created_records: list[dict[str, Any]] = []
 
-        # Download and upload media for the 1 product
-        download = None
-        try:
-            download = self.akeneo.download_media(selected_item.media_code)
-            filename = (
-                Path(selected_item.media_code).name or f"{selected_item.sku}.jpg"
+        for selected_item in items_to_create:
+            display_name = format_item_name_with_product_type(
+                selected_item.item_name,
+                selected_item.product_type,
+                category_code=self.category_code,
             )
-            self.airtable.upload_attachment(
-                record_id, FURNITURE_FIELD, download, filename
+            record_payload = {
+                SKU_FIELD: selected_item.sku,
+                ITEM_NAME_FIELD: display_name,
+                STATUS_FIELD: "Standby",
+            }
+            record_id = self.airtable.create_record(record_payload)
+            print(
+                f"[OK] Created row {record_id} for Product: {selected_item.sku} ({display_name})"
             )
-            print(f"  [+] Uploaded {selected_item.sku} to '{FURNITURE_FIELD}'")
-        finally:
-            if download:
-                download.cleanup()
 
-        self._update_status(record_id, "Standby")
-        self.logger.event(
-            "phase_completed",
-            phase=1,
-            record_id=record_id,
-            sku=selected_item.sku,
-        )
-        append_audit_log(
-            {
-                "timestamp": pht_timestamp(),
-                "record_id": record_id,
-                "sku": selected_item.sku,
-                "item_name": selected_item.item_name,
-                "media_code": selected_item.media_code,
-                "category": self.category_code,
-                "style": self.style_code,
-                "table_id": self.table_id,
-                "status": "Standby",
-            },
-            self.audit_log_dir
-            / f"1_product_3_styles_{self.preset.key}_akeneo_logs.json",
-        )
-        return self.airtable.get_record(record_id)
+            # Download and upload media for the product
+            download = None
+            try:
+                download = self.akeneo.download_media(selected_item.media_code)
+                filename = attachment_filename(selected_item.item_name, selected_item.media_code)
+                self.airtable.upload_attachment(
+                    record_id, FURNITURE_FIELD, download, filename
+                )
+                print(f"  [+] Uploaded {selected_item.sku} to '{FURNITURE_FIELD}' ({filename})")
+            finally:
+                if download:
+                    download.cleanup()
+
+            self._update_status(record_id, "Standby")
+            self.logger.event(
+                "phase_completed",
+                phase=1,
+                record_id=record_id,
+                sku=selected_item.sku,
+            )
+            append_audit_log(
+                {
+                    "timestamp": pht_timestamp(),
+                    "record_id": record_id,
+                    "sku": selected_item.sku,
+                    "item_name": display_name,
+                    "media_code": selected_item.media_code,
+                    "category": self.category_code,
+                    "style": self.style_code,
+                    "table_id": self.table_id,
+                    "status": "Standby",
+                },
+                self.audit_log_dir
+                / f"1_product_3_styles_{self.preset.key}_akeneo_logs.json",
+            )
+            created_records.append(self.airtable.get_record(record_id))
+
+        return created_records
 
     # -------------------------------------------------------------------------
     # PHASE 2: KREA AI ROOM INTERIORS (3 STYLES @ 4:5 1K)
@@ -743,12 +891,20 @@ class OneProductThreeStylesRunner:
         downloaded_interiors: list[Path] = []
 
         for spec in self.preset.room_styles:
-            print(
-                f"  [{spec.slot}/3] Style '{spec.name}' -> Prompt: \"{spec.prompt}\"",
-                flush=True,
-            )
+            active_prompt = spec.prompt
+            if spec.slot == 1 and self.prompt_override:
+                active_prompt = self.prompt_override
+                print(
+                    f"  [{spec.slot}/3] Style '{spec.name}' (Custom Prompt) -> \"{active_prompt}\"",
+                    flush=True,
+                )
+            else:
+                print(
+                    f"  [{spec.slot}/3] Style '{spec.name}' -> Prompt: \"{active_prompt}\"",
+                    flush=True,
+                )
             url = self.krea.generate(
-                spec.prompt,
+                active_prompt,
                 aspect_ratio=KREA_ASPECT_RATIO,
                 resolution=KREA_RESOLUTION,
                 moodboard_id=self.moodboard_id,
@@ -756,13 +912,9 @@ class OneProductThreeStylesRunner:
             dest = self._artifact_path(
                 record_id, f"interior_style{spec.slot}_{record_id}.jpg"
             )
-            downloaded = self.krea.download_image(url)
-            try:
-                dest.write_bytes(downloaded.path.read_bytes())
-                self._validate_image_file(dest, f"Interior Style {spec.slot}")
-                downloaded_interiors.append(dest)
-            finally:
-                downloaded.cleanup()
+            self._download(url, dest)
+            self._validate_image_file(dest, f"Interior Style {spec.slot}")
+            downloaded_interiors.append(dest)
 
             # Upload to slot field (e.g. Interior1) and also support shared 'Interior'
             print(
@@ -776,7 +928,7 @@ class OneProductThreeStylesRunner:
                 {
                     "slot": spec.slot,
                     "style_name": spec.name,
-                    "prompt": spec.prompt,
+                    "prompt": active_prompt,
                     "output_url": url,
                     "local_path": str(dest),
                     "target_field": spec.target_interior_field,
@@ -823,22 +975,17 @@ class OneProductThreeStylesRunner:
 
         updates: dict[str, str] = {}
         claude_audit_logs: list[dict[str, Any]] = []
-
-        system_instruction = (
-            "You are an expert interior design photographer and photorealistic AI prompting specialist.\n"
-            "Analyze image 1 as a modern room interior and image 2 as the exact featured lighting/furniture product.\n"
-            "Write a concise, highly descriptive, photorealistic blending prompt for Fal AI Nano Banana Pro to seamlessly integrate the product from image 2 into the room scene in image 1.\n"
-            "Requirements:\n"
-            "- Specify the exact product design, materials, metallic textures, and silhouette from image 2.\n"
-            "- Define the accurate placement, height, orientation, perspective, and scale matching the architecture of image 1.\n"
-            "- Describe realistic ambient lighting, casting natural shadows, soft highlights, and reflections onto nearby surfaces.\n"
-            "- Keep the room geometry, background decor, and original interior structure fully intact.\n"
-            "- Return ONLY the clean prompt string without conversational intro, markdown formatting, or quotes."
-        )
+        raw_item_name = str(fields.get(ITEM_NAME_FIELD) or "").strip()
 
         for idx, spec in enumerate(self.preset.room_styles):
             interior_url = interior_urls[idx]
             prompt_field = spec.target_prompt_field
+
+            system_instruction = build_vision_blending_instruction(
+                interior_label=f"Modern Room Interior ({spec.name})",
+                item_name=raw_item_name,
+                aspect_ratio="4:5",
+            )
 
             print(
                 f"  [{idx + 1}/3] Analyzing Interior Style {idx + 1} ({spec.name}) + Furniture Item with Fal Claude Sonnet 5...",
@@ -954,6 +1101,35 @@ class OneProductThreeStylesRunner:
                 }
             )
 
+        # Auto-tag furniture item name onto all 3 blended slides IN PLACE (zero-cost local YOLO-World)
+        category_defaults = {
+            "chandeliers": "Chandelier",
+            "pendant_lights": "Pendant Light",
+            "floor_lamps": "Floor Lamp",
+        }
+        default_ptype = category_defaults.get(self.preset.key, "Chandelier")
+        raw_item_name = str(fields.get(ITEM_NAME_FIELD) or fields.get(SKU_FIELD) or record_id).strip()
+        item_title, product_type = split_item_name(
+            raw_item_name, fallback_product_type=str(fields.get("Product Type") or default_ptype)
+        )
+        if not product_type:
+            product_type = default_ptype
+
+        print(f"  [+] Tagging item name ('{item_title}') onto all {len(blended_paths)} blended slides via YOLO-World...")
+        for slide_idx, slide_path in enumerate(blended_paths, start=1):
+            try:
+                tag_blended_image(
+                    image_input=slide_path,
+                    item_name=item_title,
+                    product_type=product_type,
+                    category=self.preset.key,
+                    destination=slide_path,
+                    fallback_if_undetected=True,
+                )
+                print(f"    [ITEM TAGGING] Stamped '{item_title}' ({product_type}) onto Slide {slide_idx}")
+            except Exception as tag_err:
+                print(f"    [WARN] YOLO tagging notice on Slide {slide_idx}: {tag_err}")
+
         # Stamp HomeCartel Logo onto Slide 1 (First Blended Image)
         logo_url = self._get_logo_url(fields)
         if logo_url:
@@ -992,6 +1168,20 @@ class OneProductThreeStylesRunner:
             self.airtable.upload_attachment(
                 record_id, target_blended_field, path, path.name
             )
+
+        # Mirror the name-stamped, logo-stamped deliverable slides to 'Blended Image with Name text'
+        try:
+            try:
+                self.airtable.clear_attachment_field(record_id, TARGET_BLENDED_FIELD)
+            except Exception:
+                pass
+            print(f"  [+] Uploading stamped slides -> '{TARGET_BLENDED_FIELD}'...")
+            for path in blended_paths:
+                self.airtable.upload_attachment(
+                    record_id, TARGET_BLENDED_FIELD, path, f"tagged_{path.name}"
+                )
+        except Exception as tag_err:
+            print(f"  [WARN] Failed mirroring stamped slides to '{TARGET_BLENDED_FIELD}' for record {record_id}: {tag_err}")
 
         self.logger.event(
             "provider_completed",
@@ -1034,31 +1224,31 @@ def show_menu() -> PipelinePreset:
     print("        1 PRODUCT, 3 STYLES FEED AUTOMATION MENU        ")
     print("=" * 68)
     print(" Select Destination Category Preset:\n")
-    print(" [1] Pendant Lights")
-    print(f"     Table ID : {PRESETS['pendant_lights'].table_id}")
-    print(f"     Moodboard: {PRESETS['pendant_lights'].moodboard_id}\n")
-    print(" [2] Table Lamps")
-    print(f"     Table ID : {PRESETS['table_lamps'].table_id}")
-    print(f"     Moodboard: {PRESETS['table_lamps'].moodboard_id}\n")
-    print(" [3] Chandeliers")
+    print(" [1] Chandeliers")
     print(f"     Table ID : {PRESETS['chandeliers'].table_id}")
     print(f"     Moodboard: {PRESETS['chandeliers'].moodboard_id}\n")
-    print(" [4] Exit\n")
+    print(" [2] Pendant Lights")
+    print(f"     Table ID : {PRESETS['pendant_lights'].table_id}")
+    print(f"     Moodboard: {PRESETS['pendant_lights'].moodboard_id}\n")
+    print(" [3] Floor Lamps")
+    print(f"     Table ID : {PRESETS['floor_lamps'].table_id}")
+    print(f"     Moodboard: {PRESETS['floor_lamps'].moodboard_id}\n")
+    print(" [0] Exit\n")
     print("=" * 68)
 
     while True:
         try:
-            choice = input(" Enter choice [1-4]: ").strip()
-            if choice in ("1", "pendant", "pendant_lights", "pendants"):
-                return PRESETS["pendant_lights"]
-            elif choice in ("2", "table_lamp", "table_lamps", "lamps"):
-                return PRESETS["table_lamps"]
-            elif choice in ("3", "chandelier", "chandeliers"):
+            choice = input(" Enter choice [0-3]: ").strip()
+            if choice in ("1", "chandelier", "chandeliers", "tblrlfqbge5ejs5pi"):
                 return PRESETS["chandeliers"]
-            elif choice in ("4", "exit", "quit", "q"):
+            elif choice in ("2", "pendant", "pendant_lights", "pendants", "tblry52kcasiscwzd"):
+                return PRESETS["pendant_lights"]
+            elif choice in ("3", "floor", "floor_lamp", "floor_lamps", "tbl9giq2qeycwmhwu"):
+                return PRESETS["floor_lamps"]
+            elif choice in ("0", "exit", "quit", "q"):
                 print("[INFO] Exiting.")
                 sys.exit(0)
-            print("[WARN] Invalid option. Please enter 1, 2, 3, or 4.")
+            print("[WARN] Invalid option. Please enter 1, 2, 3, or 0.")
         except (KeyboardInterrupt, EOFError):
             print("\n[INFO] Exiting.")
             sys.exit(0)
@@ -1068,27 +1258,20 @@ def resolve_preset(target_arg: str | None) -> PipelinePreset:
     if not target_arg:
         if sys.stdin.isatty():
             return show_menu()
-        return PRESETS["pendant_lights"]
+        return PRESETS["chandeliers"]
 
     key = target_arg.lower().strip()
-    if key in ("1", "pendant", "pendant_lights", "pendants", "tblry52kcasiscwzd"):
-        return PRESETS["pendant_lights"]
-    if key in (
-        "2",
-        "table_lamp",
-        "table_lamps",
-        "lamps",
-        "tblchrwk_j3kimckoq",
-        "tblchrwkj3kimckoq",
-    ):
-        return PRESETS["table_lamps"]
-    if key in ("3", "chandelier", "chandeliers", "tblm1odmxdp9safds"):
+    if key in ("1", "chandelier", "chandeliers", "tblrlfqbge5ejs5pi", "tblm1odmxdp9safds"):
         return PRESETS["chandeliers"]
+    if key in ("2", "pendant", "pendant_lights", "pendants", "tblry52kcasiscwzd"):
+        return PRESETS["pendant_lights"]
+    if key in ("3", "floor", "floor_lamp", "floor_lamps", "tbl9giq2qeycwmhwu"):
+        return PRESETS["floor_lamps"]
     if key in PRESETS:
         return PRESETS[key]
 
     print(f"[WARN] Unknown target '{target_arg}'. Defaulting to menu...")
-    return show_menu() if sys.stdin.isatty() else PRESETS["pendant_lights"]
+    return show_menu() if sys.stdin.isatty() else PRESETS["chandeliers"]
 
 
 def parse_args(argv=None):
@@ -1099,19 +1282,21 @@ def parse_args(argv=None):
         "--target",
         "-t",
         choices=(
-            "pendant_lights",
-            "table_lamps",
             "chandeliers",
-            "pendant",
-            "table_lamp",
             "chandelier",
+            "pendant_lights",
+            "pendant_light",
+            "pendant",
+            "floor_lamps",
+            "floor_lamp",
+            "floor",
             "1",
             "2",
             "3",
             "menu",
         ),
         default=None,
-        help="Target category preset: pendant_lights (1), table_lamps (2), or chandeliers (3).",
+        help="Target category preset: chandeliers (1), pendant_lights (2), or floor_lamps (3).",
     )
     parser.add_argument(
         "--phase",
@@ -1135,11 +1320,22 @@ def parse_args(argv=None):
         help="Krea Moodboard ID override.",
     )
     parser.add_argument(
+        "--prompt",
+        default=None,
+        help="Krea Room Style 1 interior prompt override.",
+    )
+    parser.add_argument(
         "--max-rows",
+        "--max-items",
         "-n",
         type=int,
         default=1,
         help="Maximum rows to process in batch mode (default: 1).",
+    )
+    parser.add_argument(
+        "--scrape-first",
+        action="store_true",
+        help="Force scraping a new unique product first before processing Phase 2-4.",
     )
     return parser.parse_args(argv)
 
@@ -1155,17 +1351,24 @@ def main(argv=None) -> int:
         preset=preset,
         table_id_override=args.table_id,
         moodboard_id_override=args.moodboard_id,
+        prompt_override=args.prompt,
     )
     print("=" * 68)
     print(f"1 Product, 3 Styles Feed Pipeline | {preset.name}")
     print(f"Destination Table: {runner.table_id}")
     print(f"Akeneo Category  : {runner.category_code}")
     print(f"Krea Moodboard ID: {runner.moodboard_id}")
+    if runner.prompt_override:
+        print(f"Custom Style 1 Pr: {runner.prompt_override}")
     print(f"Target Phase     : {args.phase}")
     print(f"Max Rows         : {args.max_rows}")
+    print(f"Scrape First     : {args.scrape_first}")
     print("=" * 68)
     runner.run(
-        phase=args.phase, target_record_id=args.record_id, max_rows=args.max_rows
+        phase=args.phase,
+        target_record_id=args.record_id,
+        max_rows=args.max_rows,
+        scrape_first=args.scrape_first,
     )
     return 0
 

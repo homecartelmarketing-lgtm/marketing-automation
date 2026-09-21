@@ -2,17 +2,19 @@
 
 Row-by-Row Execution Flow:
   1. Phase 1 (Auto Scrape): Scrapes 1 row (4 products) from Akeneo (Newest to Oldest, Modern style) -> Airtable (Status: 'Standby')
-  2. Phase 2 (Interior Generation): Generates 4 room interiors via Krea AI (9:16, moodboard b5ffdcbb-192e-4528-8d86-d1a4cf496887) -> (Status: 'Already attached a room Interior')
+  2. Phase 2 (Interior Generation): Generates 4 room interiors via Krea AI (9:16, moodboard de6ad512-870d-4ab7-a48c-3f3ca85faf24) -> (Status: 'Already attached a room Interior')
   3. Phase 2.5 (Vision Prompting): Generates 4 detailed prompts via Claude Sonnet 5 on Fal AI OpenRouter -> (Status: 'Processing')
   4. Phase 3 (Image Blending): Blends 4 pairs via Fal AI nano-banana-pro/edit -> Moodboard Blended
   5. Phase 4 (Moodboard Conversion): Re-blends against template via Fal AI nano-banana-pro/edit -> Converted Moodboard
-  6. Phase 5 (Reel Assembly): FFmpeg 2x2 Collage + 8 Slide Sequence + Outro + Audio Mix -> REEL - Moodboard Reel -> (Status: 'Complete')
+  6. Phase 4.5 (Music Generation): Generates 20s 120 BPM luxury lounge background music via Fal AI ElevenLabs -> Music Generated
+  7. Phase 5 (Reel Assembly): FFmpeg 2x2 Collage + 8 Slide Sequence + Outro + Audio Mix -> REEL - Moodboard Reel -> (Status: 'Complete')
 
 Usage::
     python run_moodboard_reel.py --dry-run
     python run_moodboard_reel.py --category chandelier_modern
     python run_moodboard_reel.py --category pendant_lights_reel --limit 1
-    python generate_moodboard_reel_pipeline.py --phase 2.5 --execute
+    python run_moodboard_reel.py --phase music --limit 1
+    python generate_moodboard_reel_pipeline.py --phase music --execute
 """
 
 from __future__ import annotations
@@ -35,6 +37,7 @@ from urllib.parse import quote
 import requests
 
 from content_automation.akeneo_client import AkeneoClient
+from content_automation.airtable_client import inject_generated_timestamp
 from content_automation.assets import MAX_PROMPT_LENGTH, AssetCatalog
 from content_automation.config import (
     MOODBOARD_REEL_CATEGORIES,
@@ -43,23 +46,35 @@ from content_automation.config import (
 )
 from content_automation.errors import AutomationError
 from content_automation.fal_client import FalClient
+from content_automation.prompts import build_vision_blending_instruction
 from content_automation.fields import (
     furniture_field,
     interior_field,
     item_name_field,
     sku_field,
 )
+from content_automation.foreign_key import generate_foreign_key
 from content_automation.http import request_with_retry, response_error
 from content_automation.krea_client import KreaClient
+from content_automation.media import attachment_filename
 from content_automation.models import LocalImage
+from content_automation.item_tagger import TARGET_BLENDED_FIELD, tag_blended_image
+from content_automation.shopify_client import ShopifyCatalogIndex, ShopifyClient
 from content_automation.scraping import (
     ScrapeAirtableClient,
-    ScrapeRunner,
+    categories,
     load_scrape_settings,
+)
+from content_automation.scraping.furniture_item import fetch_all_base_existing_identities
+from content_automation.scraping.products import (
+    ProductItem,
+    existing_product_identities,
+    identity_key,
+    select_new_products,
 )
 
 DEFAULT_TABLE_CODE = "chandelier_modern"
-DEFAULT_MOODBOARD_ID = "b5ffdcbb-192e-4528-8d86-d1a4cf496887"
+DEFAULT_MOODBOARD_ID = "de6ad512-870d-4ab7-a48c-3f3ca85faf24"
 SLOT_COUNT = 4
 
 # Exact status options matching Airtable single select field:
@@ -71,6 +86,7 @@ STATUS_COMPLETE = "Complete"
 
 BLENDED_FIELD = "Moodboard Blended"
 CONVERTED_FIELD = "Converted Moodboard"
+TEXTURE_FIELDS = [f"Texture{i}" for i in range(1, 13)]
 REFERENCE_FIELD = "Moodboard Reference Photo"
 MOODBOARD_PROMPT_FIELD = "Moodboard Prompt"
 REEL_FIELD = "REEL - Moodboard Reel"
@@ -81,6 +97,12 @@ COLLAGE_FILENAME = "collage_mb.jpg"
 REEL_FILENAME = "moodboard_reel.mp4"
 COLLAGE_COLS, COLLAGE_ROWS = 2, 2
 COLLAGE_CELLS = COLLAGE_COLS * COLLAGE_ROWS
+
+class BlendedSlotMap(dict):
+    """Mapping of slot indices to LocalImages, with a tagged_map attribute for YOLO tagged blends."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.tagged_map: dict[int, LocalImage] = {}
 
 VIDEO_WIDTH, VIDEO_HEIGHT = 1080, 1920
 VIDEO_FPS = 30
@@ -221,17 +243,42 @@ def _update_record_fields(
     table_id: str,
     record_id: str,
     patch_fields: dict[str, Any],
-) -> None:
+) -> dict[str, Any]:
     url = f"{API_BASE}/{base_id}/{table_id}/{record_id}"
+    req_fields = inject_generated_timestamp(patch_fields)
     resp = request_with_retry(
         session,
         "PATCH",
         url,
         headers=_airtable_headers(token),
-        json={"fields": patch_fields},
+        json={"fields": req_fields},
     )
+    if not resp.ok and ("Date and Time Generated" in resp.text or "Date and Time" in resp.text):
+        fallback_fields = dict(req_fields)
+        if "Date and Time Generated" in fallback_fields:
+            fallback_fields["Date and Time"] = fallback_fields.pop("Date and Time Generated")
+            resp = request_with_retry(
+                session, "PATCH", url, headers=_airtable_headers(token), json={"fields": fallback_fields}
+            )
+        if not resp.ok and ("Date and Time Generated" in resp.text or "Date and Time" in resp.text):
+            clean_fields = {k: v for k, v in req_fields.items() if k not in ("Date and Time Generated", "Date and Time")}
+            resp = request_with_retry(
+                session, "PATCH", url, headers=_airtable_headers(token), json={"fields": clean_fields}
+            )
     if not resp.ok:
         raise response_error(resp, f"Update record {record_id}")
+
+    ret = resp.json()
+    try:
+        f = ret.get("fields", {})
+        if not f.get("Foreign Key ID") and f.get("ID") is not None:
+            fk = generate_foreign_key(table_id, f["ID"])
+            request_with_retry(
+                session, "PATCH", url, headers=_airtable_headers(token), json={"fields": {"Foreign Key ID": fk}}
+            )
+    except Exception:
+        pass
+    return ret
 
 
 def _clear_attachment_field(
@@ -314,59 +361,62 @@ def images_from_field(
 # Dynamic Prompts for Krea & Claude Vision
 # ---------------------------------------------------------------------------
 
-def krea_interior_prompt(category_code: str) -> str:
-    cat = category_code.lower()
-    if any(k in cat for k in ("chandelier", "pendant", "cluster", "linear")):
-        focus = (
-            "clean empty high ceiling with ample vertical headroom, "
-            "NO pre-existing chandeliers, NO pendant lights, NO ceiling light fixtures, "
-            "ready for lighting fixture hanging"
-        )
-    elif "floor" in cat:
-        focus = (
-            "clean empty open floor space in corner or beside seating, "
-            "NO pre-existing floor lamps, NO standing lamps, ready for floor lamp placement"
-        )
-    elif "table" in cat:
-        focus = (
-            "clean empty side table, nightstand or credenza surface, "
-            "NO pre-existing table lamps, ready for table lamp styling"
-        )
-    elif "wall" in cat or "sconce" in cat:
-        focus = (
-            "clean accent wall with open vertical wall space, "
-            "NO pre-existing wall sconces, NO wall lamps, ready for wall sconce installation"
-        )
-    else:
-        focus = "balanced empty space ready for product integration, NO competing fixtures"
+def krea_interior_prompt(category_code: str, override_prompt: str = "") -> str:
+    """Resolve interior prompt for Krea room generation."""
+    if override_prompt.strip():
+        return override_prompt.strip()
 
-    return (
-        f"Modern luxury room interior, curvilinear contemporary furniture, warm neutral palette, "
-        f"tactile boucle textures, organic minimalist architectural design, soft ambient natural daylight, "
-        f"sculptural decor, clean uncluttered background, {focus}, photorealistic 8k"
+    cat = category_code.lower()
+    # Check environment variable overrides
+    env_prompt = (
+        os.getenv(f"MOODBOARD_REEL_PROMPT_{cat.upper()}", "").strip()
+        or os.getenv(f"KREA_INTERIOR_PROMPT_{cat.upper()}", "").strip()
+        or (os.getenv("MOODBOARD_REEL_PROMPT_CHANDELIER", "").strip() if "chandelier" in cat else "")
     )
+    if env_prompt:
+        return env_prompt
 
-
-def claude_vision_instruction(category_code: str, item_name: str = "") -> str:
-    cat = category_code.lower()
-    item_desc = item_name.strip() or "lighting fixture"
-    if any(k in cat for k in ("chandelier", "pendant", "cluster", "linear")):
-        action = f"mount this {item_desc} from the ceiling"
+    if "chandelier" in cat:
+        return "Generate me a modern living room"
+    elif "pendant" in cat:
+        return "Generate me a modern dining room"
     elif "floor" in cat:
-        action = f"place this {item_desc} naturally standing on the floor"
-    elif "table" in cat:
-        action = f"place this {item_desc} on top of a table or credenza surface"
+        return "Generate me a modern living room with empty floor space for a standing floor lamp"
     elif "wall" in cat or "sconce" in cat:
-        action = f"mount this {item_desc} naturally on the wall"
+        return "Generate me a modern living room with a wall light"
+    elif "table" in cat:
+        return "Generate me a modern bedroom with a bedside table for a table lamp"
     else:
-        action = f"seamlessly integrate this {item_desc} into the interior"
+        return "Generate me a modern living room"
 
-    return (
-        f"You are an expert interior design AI prompt engineer. Analyze the provided Room Interior image and Furniture Item image.\n"
-        f"Generate a detailed, concise image-to-image blending prompt that will {action} in this room interior.\n"
-        f"Describe: (1) realistic position, scale, and angle, (2) realistic warm illumination and light casting onto surrounding surfaces, "
-        f"(3) soft contact shadows, and (4) perfect architectural integration preserving the product's original shape, material, and color.\n"
-        f"Output ONLY the prompt text, with no preamble or markdown quotes."
+
+def claude_vision_instruction(
+    category_code: str,
+    item_name: str = "",
+    materials: dict[str, str] | None = None,
+) -> str:
+    item_desc = item_name.strip() or "lighting fixture"
+    material_line = ""
+    if materials:
+        words = ", ".join(
+            w for w in (
+                materials.get("top", "").lower(),
+                materials.get("middle", "").lower(),
+                materials.get("bottom", "").lower(),
+            ) if w
+        )
+        if words:
+            material_line = (
+                f"The fixture's three signature materials are {words}: convey them purely visually with clearly "
+                f"readable texture, reflectivity and finish on the product in the blended scene. "
+                f"Never render words, labels or typography anywhere in the image."
+            )
+
+    return build_vision_blending_instruction(
+        interior_label="Room Interior",
+        item_name=item_desc,
+        aspect_ratio="9:16",
+        extra_instructions=material_line,
     )
 
 
@@ -379,46 +429,187 @@ def run_phase_1_scrape_one_row(
     *,
     style_code: str = "modern",
     execute: bool = True,
-) -> bool:
-    """Scrape 1 row (4 items) from Akeneo into Airtable with Status: 'Standby'."""
+) -> str | None:
+    """Scrape 4 fresh active products from Akeneo into 1 brand-new Airtable row (Status: 'Standby').
+
+    Enforces:
+      1. Cross-table deduplication across all 60+ tables in Airtable base.
+      2. Strict Shopify Active & Published cross-check (draft/archived skipped).
+      3. Creating a brand-new Airtable record (Status: Standby, Foreign Key ID).
+      4. Attaching the 4 product photos into Furniture Item 1..4 slots.
+
+    Returns the newly created record ID (or 'dry_run_record_id' if dry run).
+    """
     print("\n" + "=" * 64)
     print(f"[PHASE 1] Auto Scrape (1 Row / 4 Items: Akeneo PIM -> Airtable)")
     print(f"  Category: {category_code} | Style: {style_code} | Items: 4")
     print("=" * 64)
 
-    if not execute:
-        print("  [DRY RUN] Would scrape newest 4 modern products from Akeneo into 1 new Airtable row (Status: 'Standby').")
-        return True
-
     settings = load_scrape_settings(
         category_code=category_code,
         style_code=style_code,
     )
-    runner = ScrapeRunner(
-        AkeneoClient(
-            settings.akeneo_host,
-            settings.akeneo_client_id,
-            settings.akeneo_secret,
-            settings.akeneo_username,
-            settings.akeneo_password,
-            channel_name=settings.channel_name,
-        ),
-        ScrapeAirtableClient(
-            settings.airtable_token,
-            settings.airtable_base_id,
-            settings.airtable_table_id,
-        ),
-        category_code=settings.category_code,
-        style_code=settings.style_code,
-        items_per_row=4,
-        max_items=4,
+    airtable = ScrapeAirtableClient(
+        settings.airtable_token,
+        settings.airtable_base_id,
+        settings.airtable_table_id,
     )
-    return runner.run()
+    akeneo = AkeneoClient(
+        settings.akeneo_host,
+        settings.akeneo_client_id,
+        settings.akeneo_secret,
+        settings.akeneo_username,
+        settings.akeneo_password,
+        channel_name=settings.channel_name,
+    )
+
+    # 1. Stored identities in current table
+    stored_names: set[str] = set()
+    stored_filenames: set[str] = set()
+    stored_skus: set[str] = set()
+    try:
+        current_records = airtable.inventory_records()
+        for r in current_records:
+            fields = r.get("fields", {})
+            for slot in range(SLOT_COUNT):
+                n_val = str(fields.get(airtable.resolve_slot_field("Item Name", slot)) or fields.get(f"Item Name{slot+1}") or "").strip()
+                if n_val:
+                    stored_names.add(n_val.lower())
+                s_val = str(fields.get(airtable.resolve_slot_field("SKU", slot)) or fields.get(f"SKU{slot+1}") or "").strip()
+                if s_val:
+                    stored_skus.add(s_val)
+                att_list = fields.get(airtable.resolve_slot_field("Furniture Item", slot)) or fields.get(f"Furniture Item{slot+1}")
+                if isinstance(att_list, list):
+                    for a in att_list:
+                        if isinstance(a, dict) and a.get("filename"):
+                            stored_filenames.add(identity_key(a["filename"]))
+    except Exception as err:
+        print(f"[WARN] Stored table identities lookup notice: {err}")
+
+    # 2. Base-wide cross-table deduplication across all 60+ tables
+    base_filenames: set[str] = set()
+    base_names: set[str] = set()
+    base_skus: set[str] = set()
+    try:
+        base_filenames, base_names, base_skus = fetch_all_base_existing_identities(airtable)
+        print(
+            f"[INFO] Cross-table deduplication active: Found {len(base_skus)} existing SKU(s), "
+            f"{len(base_names)} item name(s), and {len(base_filenames)} attachment filename(s) across all base tables."
+        )
+    except Exception as e:
+        print(f"[WARN] Base deduplication fetch notice: {e}")
+
+    all_existing_filenames = stored_filenames | base_filenames
+    all_existing_names = stored_names | base_names
+    all_existing_skus = stored_skus | base_skus
+
+    # 3. Shopify published catalog cross-check
+    shopify_index = None
+    try:
+        print("[INFO] Fetching published catalog from Shopify (homecartel.net)...")
+        shopify = ShopifyClient()
+        prods = shopify.fetch_all_products()
+        shopify_index = ShopifyCatalogIndex.build(prods)
+        print(f"[OK] Shopify Index Ready: {shopify_index.product_count} published products indexed.")
+    except Exception as s_err:
+        print(f"[WARN] Shopify index check notice: {s_err}")
+
+    # 4. Fetch candidates from Akeneo
+    akeneo.authenticate()
+    akeneo_cat = categories.akeneo_category_code(category_code)
+    query: dict[str, Any] = {
+        "categories": [{"operator": "IN", "value": [akeneo_cat]}],
+        "enabled": [{"operator": "=", "value": True}],
+    }
+    if style_code and style_code.lower() != "all":
+        query["Style2"] = [{"operator": "IN", "value": [style_code]}]
+
+    print(f"[INFO] Fetching active {style_code} {category_code} products from Akeneo...")
+    products = akeneo.fetch_products(query)
+
+    existing_names_query, existing_media_query = existing_product_identities(products, all_existing_skus)
+    combined_names = all_existing_names | existing_names_query
+
+    selected, stats = select_new_products(
+        products,
+        all_existing_skus,
+        existing_item_names=combined_names,
+        existing_media_codes=existing_media_query,
+        category_code=category_code,
+    )
+
+    filtered_candidates: list[ProductItem] = []
+    for item in selected:
+        fn = attachment_filename(item.item_name, item.media_code)
+        if identity_key(fn) in all_existing_filenames:
+            print(f"[DEDUP SKIP] Existing photo: '{item.item_name}' (SKU: {item.sku}) already exists in Airtable")
+            continue
+        if item.sku and item.sku.strip() in all_existing_skus:
+            print(f"[DEDUP SKIP] Existing SKU: '{item.item_name}' (SKU: {item.sku}) already exists in Airtable")
+            continue
+        if (item.item_name or "").strip().lower() in all_existing_names:
+            print(f"[DEDUP SKIP] Existing Name: '{item.item_name}' already exists in Airtable")
+            continue
+        if shopify_index and not shopify_index.contains(item.sku, item.item_name):
+            print(
+                f"[SHOPIFY DRAFT/INACTIVE SKIP] Item '{item.item_name}' (SKU: {item.sku}) is Enabled in Akeneo "
+                "but Draft/Inactive in Shopify -> skipping"
+            )
+            continue
+
+        print(f"[DEDUP PASS] New unique product selected: '{item.item_name}' (SKU: {item.sku})")
+        filtered_candidates.append(item)
+
+    print(f"[PLAN] {len(filtered_candidates)} new unique candidate(s) passed deduplication.")
+
+    if len(filtered_candidates) < SLOT_COUNT:
+        print(f"[WARN] Needed {SLOT_COUNT} products for a new Moodboard Reel row, but only found {len(filtered_candidates)}.")
+        return None
+
+    chunk = filtered_candidates[:SLOT_COUNT]
+    skus_str = ", ".join(it.sku for it in chunk)
+    print(f"[INFO] Selected 4 products for brand-new row: {skus_str}")
+
+    if not execute:
+        print(f"  [DRY RUN] Would create brand-new Airtable row with {skus_str} (Status: 'Standby').")
+        return "dry_run_record_id"
+
+    # Create brand-new record
+    airtable.ensure_product_fields(items_per_row=SLOT_COUNT)
+    record_id = airtable.create_product_record(chunk)
+    print(f"[OK] Created brand-new row {record_id} with Status: 'Standby'")
+
+    # Upload product attachments
+    for slot, item in enumerate(chunk):
+        f_field = airtable.resolve_slot_field("Furniture Item", slot)
+        downloaded = None
+        try:
+            downloaded = akeneo.download_media(item.media_code)
+            fn = attachment_filename(item.item_name, item.media_code)
+            airtable.upload_attachment(record_id, f_field, downloaded, fn)
+            print(f"  [OK] Uploaded slot {slot + 1} ({item.sku}) -> '{f_field}'")
+        except Exception as up_err:
+            print(f"  [ERROR] Upload slot {slot + 1} ({item.sku}) failed: {up_err}")
+        finally:
+            if downloaded:
+                downloaded.cleanup()
+
+    return record_id
 
 
 # ---------------------------------------------------------------------------
 # Phase 2: Krea Room Interior Generation
 # ---------------------------------------------------------------------------
+
+def resolve_moodboard_id(category_code: str, override_id: str = "") -> str:
+    """Resolve Krea moodboard ID from CLI override, env var, or defaults."""
+    if override_id.strip():
+        return override_id.strip()
+    table = TABLES.get(category_code)
+    env_key = table.moodboard_env if table else "KREA_MOODBOARD_ID_CHANDELIER_MODERN"
+    env_val = os.getenv(env_key, "").strip() if env_key else ""
+    return env_val or DEFAULT_MOODBOARD_ID
+
 
 def run_phase_2_interior(
     record: dict[str, Any],
@@ -430,12 +621,16 @@ def run_phase_2_interior(
     base_id: str,
     table_id: str,
     workdir: Path,
+    moodboard_id: str = "",
+    interior_prompt: str = "",
+    force: bool = False,
     execute: bool = True,
 ) -> int:
     """Generate room interiors for empty slots using Krea AI."""
     record_id = record["id"]
     fields = record.get("fields", {})
-    prompt = krea_interior_prompt(category_code)
+    prompt = krea_interior_prompt(category_code, override_prompt=interior_prompt)
+    effective_moodboard_id = resolve_moodboard_id(category_code, moodboard_id)
 
     generated_count = 0
     for slot in range(SLOT_COUNT):
@@ -443,14 +638,15 @@ def run_phase_2_interior(
         if not fur_attachments:
             continue
         int_attachments = get_attachment_field(fields, "Interior", slot)
-        if int_attachments:
+        if int_attachments and not force:
             continue  # Already has interior
 
         target_field = "Interior" if slot == 0 else f"Interior{slot + 1}"
-        print(f"  [PHASE 2] Record {record_id} Slot {slot + 1}: Generating Krea interior for '{target_field}'...")
+        print(f"  [PHASE 2] Record {record_id} Slot {slot + 1}: Generating Krea interior for '{target_field}' (Moodboard: {effective_moodboard_id})...")
 
         if not execute:
             print(f"    [DRY] Prompt: {prompt[:70]}...")
+            print(f"    [DRY] Moodboard ID: {effective_moodboard_id}")
             generated_count += 1
             continue
 
@@ -459,7 +655,7 @@ def run_phase_2_interior(
                 prompt,
                 aspect_ratio="9:16",
                 resolution="1K",
-                moodboard_id=DEFAULT_MOODBOARD_ID,
+                moodboard_id=effective_moodboard_id,
             )
             download_dest = workdir / f"krea_interior_{slot + 1}_{record_id}.jpg"
             resp = request_with_retry(session, "GET", image_url)
@@ -503,13 +699,11 @@ def run_phase_2_5_vision(
     vision_model: str = CLAUDE_VISION_MODEL,
     execute: bool = True,
 ) -> int:
-    """Generate detailed blending prompts using Claude Vision on Fal AI OpenRouter."""
+    """Generate detailed blending prompts (with unique per-slot materials) using Claude Vision on Fal AI OpenRouter."""
     record_id = record["id"]
     fields = record.get("fields", {})
 
-    prompt_count = 0
-    updates: dict[str, Any] = {}
-
+    slot_targets: dict[int, tuple[str, str, str]] = {}
     for slot in range(SLOT_COUNT):
         existing_prompt = get_prompt_value(fields, slot)
         if existing_prompt:
@@ -526,7 +720,37 @@ def run_phase_2_5_vision(
             continue
 
         item_name = str(fields.get(item_name_field(slot)) or "").strip()
-        instruction = claude_vision_instruction(category_code, item_name)
+        slot_targets[slot] = (fur_url, int_url, item_name)
+
+    if not slot_targets:
+        return 0
+
+    prompt_count = 0
+    updates: dict[str, Any] = {}
+
+    ordered_slots = sorted(slot_targets)
+    material_words: dict[int, dict[str, str]] = {}
+    if execute:
+        print(f"  [PHASE 2.5] Record {record_id}: Generating {len(ordered_slots) * 3} unique material words via {vision_model}...")
+        material_words = generate_unique_material_words(
+            fal,
+            [slot_targets[s][0] for s in ordered_slots],
+            [slot_targets[s][2] or f"Slot {s + 1}" for s in ordered_slots],
+            model=vision_model,
+        )
+        for slot in ordered_slots:
+            words = material_words[slot]
+            updates[f"Texture{slot * 3 + 1}"] = words["top"]
+            updates[f"Texture{slot * 3 + 2}"] = words["middle"]
+            updates[f"Texture{slot * 3 + 3}"] = words["bottom"]
+            print(f"    [OK] Slot {slot + 1} unique materials: {words['top']}, {words['middle']}, {words['bottom']}")
+    else:
+        for slot in ordered_slots:
+            print(f"    [DRY] Slot {slot + 1}: would generate unique material words -> Texture{slot * 3 + 1}..{slot * 3 + 3}, then vision prompt -> Prompt{slot + 1}")
+
+    for slot in ordered_slots:
+        fur_url, int_url, item_name = slot_targets[slot]
+        instruction = claude_vision_instruction(category_code, item_name, material_words.get(slot))
         target_prompt_field = f"Prompt{slot + 1}"
 
         print(f"  [PHASE 2.5] Record {record_id} Slot {slot + 1}: Crafting vision prompt via {vision_model}...")
@@ -553,7 +777,7 @@ def run_phase_2_5_vision(
         try:
             updates[STATUS_FIELD] = STATUS_PROCESSING
             _update_record_fields(session, token, base_id, table_id, record_id, updates)
-            print(f"    [OK] Saved {len(updates) - 1} prompt field(s) to Airtable ({', '.join(k for k in updates if k != STATUS_FIELD)}), Status -> '{STATUS_PROCESSING}'")
+            print(f"    [OK] Saved {len([k for k in updates if k != STATUS_FIELD])} field(s) to Airtable ({', '.join(k for k in updates if k != STATUS_FIELD)}), Status -> '{STATUS_PROCESSING}'")
         except Exception as err:
             print(f"    [ERROR] Could not save prompts to Airtable: {err}")
 
@@ -630,11 +854,17 @@ def run_phase_3_blend(
     if skip_existing and isinstance(existing_blended, list) and len(existing_blended) >= SLOT_COUNT:
         print(f"\n  [PHASE 3] Record {record_id}: Found {len(existing_blended)} existing '{BLENDED_FIELD}' image(s) in Airtable.")
         if not execute:
-            return {s: LocalImage(workdir / f"blended_mb{s + 1}.jpg", f"blended_mb{s + 1}.jpg", "image/jpeg") for s in range(len(existing_blended))}
+            return BlendedSlotMap({s: LocalImage(workdir / f"blended_mb{s + 1}.jpg", f"blended_mb{s + 1}.jpg", "image/jpeg") for s in range(len(existing_blended))})
         cached = images_from_field(existing_blended, session, workdir, "blended_mb")
         if cached and len(cached) >= SLOT_COUNT:
             print(f"    [OK] Reusing {len(cached)} existing blended image(s) from Airtable (Skipped Fal AI Blending).")
-            return cached
+            res = BlendedSlotMap(cached)
+            existing_tagged = fields.get(TARGET_BLENDED_FIELD) or []
+            if existing_tagged and isinstance(existing_tagged, list):
+                cached_tagged = images_from_field(existing_tagged, session, workdir, "blended_tagged_mb")
+                if cached_tagged:
+                    res.tagged_map = cached_tagged
+            return res
 
     pairs = extract_slot_pairs(fields)
 
@@ -646,9 +876,9 @@ def run_phase_3_blend(
     if not execute:
         for p in pairs:
             print(f"    [DRY] Slot {p.slot + 1}: Interior + Furniture + Prompt -> {p.output_filename}")
-        return {p.slot: LocalImage(workdir / p.output_filename, p.output_filename, "image/jpeg") for p in pairs}
+        return BlendedSlotMap({p.slot: LocalImage(workdir / p.output_filename, p.output_filename, "image/jpeg") for p in pairs})
 
-    results: dict[int, LocalImage] = {}
+    results = BlendedSlotMap()
     with ThreadPoolExecutor(max_workers=SLOT_COUNT) as pool:
         futures = {pool.submit(blend_slot, p, fal, workdir): p for p in pairs}
         for future in as_completed(futures):
@@ -668,9 +898,41 @@ def run_phase_3_blend(
     except Exception:
         pass
 
+    try:
+        _ensure_field(session, token, base_id, table_id, TARGET_BLENDED_FIELD, "multipleAttachments")
+    except Exception:
+        pass
+
     for slot in sorted(results):
         _upload_attachment(session, token, base_id, record_id, BLENDED_FIELD, results[slot])
         print(f"    [OK] Uploaded {results[slot].filename} -> '{BLENDED_FIELD}'")
+
+        # Auto-tag furniture item name onto Moodboard Reel blended photo using YOLO-World
+        try:
+            from content_automation.akeneo_client import split_item_name
+            raw_name = str(fields.get(f"Item Name{slot}") or fields.get(f"SKU{slot}") or f"Furniture Item {slot}").strip()
+            item_title, product_type = split_item_name(raw_name, fallback_product_type="Lighting")
+            tagged_dir = workdir / "tagged_blends"
+            tagged_dir.mkdir(parents=True, exist_ok=True)
+            tagged_path = tagged_dir / f"tagged_slot{slot}.jpg"
+            tag_blended_image(
+                image_input=results[slot].path,
+                item_name=item_title,
+                product_type=product_type,
+                category="chandeliers",
+                destination=tagged_path,
+                fallback_if_undetected=True,
+            )
+            tagged_img = LocalImage(tagged_path, f"blended_tagged_slot{slot}.jpg")
+            results.tagged_map[slot] = tagged_img
+            # Upload to Airtable TARGET_BLENDED_FIELD
+            try:
+                _upload_attachment(session, token, base_id, record_id, TARGET_BLENDED_FIELD, tagged_img)
+                print(f"    [ITEM TAGGING] Uploaded tagged blend -> '{TARGET_BLENDED_FIELD}'")
+            except Exception as up_err:
+                print(f"    [WARN] Failed uploading tagged blend: {up_err}")
+        except Exception as tag_err:
+            print(f"    [WARN] YOLO tagging notice on slot {slot}: {tag_err}")
 
     return results
 
@@ -825,6 +1087,73 @@ def run_phase_4_convert(
 
 
 # ---------------------------------------------------------------------------
+# Row-level Unique Material Words (Claude Sonnet 5) — injected into blend prompts
+# ---------------------------------------------------------------------------
+
+MATERIAL_FALLBACK_POOL = [
+    "BRASS", "MARBLE", "BOUCLE", "VELVET", "OAK", "LINEN",
+    "TRAVERTINE", "CERAMIC", "CHROME", "STONE", "GLASS", "PLASTER",
+]
+
+
+def generate_unique_material_words(
+    fal: FalClient,
+    furniture_urls: list[str],
+    item_names: list[str],
+    *,
+    model: str = CLAUDE_VISION_MODEL,
+) -> dict[int, dict[str, str]]:
+    """One Claude Vision call per row: 3 single uppercase material words per slot.
+
+    Words are guaranteed globally unique across the row so the same material
+    (e.g. BRASS) never repeats in two slots."""
+    instruction = (
+        "You are an expert luxury interior designer. You will receive one furniture product image per slot "
+        f"({len(furniture_urls)} images total: {', '.join(item_names)}).\n"
+        "For EACH image, identify the 3 primary materials/textures/finishes visible on that product.\n"
+        "STRICT REQUIREMENTS:\n"
+        "- Every word MUST be a SINGLE UPPERCASE word (e.g. BRASS, GLASS, VELVET, MARBLE, OAK, LINEN, BOUCLE, CHROME, TRAVERTINE, LEATHER, WOOD, CERAMIC, METAL, STONE, FABRIC, PLASTER).\n"
+        "- All words across ALL images must be GLOBALLY UNIQUE: no word may repeat anywhere in your output.\n"
+        '- Return ONLY a valid JSON object with no extra text or markdown formatting: '
+        '{"slots": [{"top": "WORD", "middle": "WORD", "bottom": "WORD"}, ...]} '
+        "with exactly one object per image, in the same order as the images."
+    )
+
+    raw_slots: list[Any] = []
+    try:
+        raw = fal.generate_vision_prompt(furniture_urls, instruction, model=model)
+        cleaned = raw.strip()
+        if "```" in cleaned:
+            cleaned = re.sub(r"```(?:json)?", "", cleaned).strip()
+        raw_slots = list(json.loads(cleaned).get("slots") or [])
+    except Exception as err:
+        print(f"    [WARN] Row material word generation failed: {err}. Using unique fallback words.")
+
+    results: dict[int, dict[str, str]] = {}
+    seen: set[str] = set()
+    pool_index = 0
+    for slot in range(len(furniture_urls)):
+        entry = raw_slots[slot] if slot < len(raw_slots) and isinstance(raw_slots[slot], dict) else {}
+        words: dict[str, str] = {}
+        for key in ("top", "middle", "bottom"):
+            raw_word = str(entry.get(key) or "").strip().upper()
+            word = raw_word.split()[0] if raw_word else ""
+            if not word or word in seen:
+                while pool_index < len(MATERIAL_FALLBACK_POOL) and MATERIAL_FALLBACK_POOL[pool_index] in seen:
+                    pool_index += 1
+                word = (
+                    MATERIAL_FALLBACK_POOL[pool_index]
+                    if pool_index < len(MATERIAL_FALLBACK_POOL)
+                    else f"MATERIAL{len(seen) + 1}"
+                )
+                pool_index += 1
+            seen.add(word)
+            words[key] = word
+        results[slot] = words
+    return results
+
+
+# ---------------------------------------------------------------------------
 # Phase 5: Reel Video Assembly & Upload (FFmpeg)
 # ---------------------------------------------------------------------------
 
@@ -944,12 +1273,13 @@ def build_reel_mp4(
     return LocalImage(destination, REEL_FILENAME, "video/mp4")
 
 
-FAL_STABLE_AUDIO_MODEL = "fal-ai/stable-audio-3/small/music/base/text-to-audio"
-MUSIC_PROMPT_120BPM = (
+FAL_ELEVENLABS_MUSIC_MODEL = "fal-ai/elevenlabs/music"
+DEFAULT_ELEVENLABS_MUSIC_PROMPT = (
     "Modern luxury fashion lounge house music, 120 BPM, rhythmic upbeat kick drum, "
     "crisp percussion on the beat, warm deep synth chords, elegant sophisticated mood, "
     "seamless 4/4 loop timing, clean professional studio mix"
 )
+MUSIC_DURATION = 20  # seconds (covers 16s slideshow + 3s outro + 1s fade)
 
 
 def generate_jazz_prompt_via_claude(
@@ -958,7 +1288,7 @@ def generate_jazz_prompt_via_claude(
     *,
     vision_model: str = CLAUDE_VISION_MODEL,
 ) -> str:
-    """Prompt Claude Sonnet 5 to generate a random upbeat luxury jazz prompt for Stable Audio 3."""
+    """Prompt Claude Sonnet 5 to generate a random upbeat luxury jazz prompt."""
     instruction = (
         "You are an expert music curator and AI prompt engineer for high-end luxury interior design reels. "
         "Create a vivid, atmospheric, single-paragraph text-to-audio music prompt for a modern upbeat jazz track. "
@@ -982,7 +1312,7 @@ def generate_jazz_prompt_via_claude(
     except Exception as err:
         print(f"    [WARN] Claude jazz prompt generation failed: {err}")
 
-    return MUSIC_PROMPT_120BPM
+    return DEFAULT_ELEVENLABS_MUSIC_PROMPT
 
 
 def run_phase_music(
@@ -995,15 +1325,16 @@ def run_phase_music(
     base_id: str,
     table_id: str,
     workdir: Path,
-    vision_model: str = CLAUDE_VISION_MODEL,
+    music_prompt: str = "",
+    force: bool = False,
     execute: bool = True,
 ) -> LocalImage | None:
-    """Generate Claude-prompted 120 BPM on-beat jazz music via Fal AI Stable Audio 3."""
+    """Generate 20s 120 BPM luxury background music via Fal AI ElevenLabs Music."""
     record_id = record["id"]
     fields = record.get("fields", {})
 
     music_att = fields.get(MUSIC_FIELD) or []
-    if music_att:
+    if music_att and not force:
         music_url = str(music_att[0].get("url") or "")
         if music_url:
             print(f"  [PHASE 4.5] Record {record_id}: Using existing '{MUSIC_FIELD}' audio...")
@@ -1014,30 +1345,24 @@ def run_phase_music(
             except Exception as err:
                 print(f"    [WARN] Could not download existing music: {err}")
 
-    print(f"\n  [PHASE 4.5] Record {record_id}: Asking {vision_model} to craft random upbeat jazz prompt...")
-
-    # Pick visual reference from blended or interior if available
-    ref_image_url = ""
-    for field_key in (BLENDED_FIELD, CONVERTED_FIELD, "Interior"):
-        att = fields.get(field_key) or []
-        if att and isinstance(att, list) and att[0].get("url"):
-            ref_image_url = str(att[0]["url"])
-            break
+    prompt = (music_prompt or "").strip() or DEFAULT_ELEVENLABS_MUSIC_PROMPT
 
     if not execute:
-        print(f"    [DRY] Prompt Claude Sonnet 5 for jazz prompt -> Fal AI Stable Audio 3 (21s) -> '{MUSIC_FIELD}'")
+        print(f"\n  [PHASE 4.5] Record {record_id}: [DRY RUN] Fal AI ElevenLabs Music ({MUSIC_DURATION}s) -> '{MUSIC_FIELD}'")
+        print(f"    [PROMPT] {prompt}")
         return LocalImage(workdir / "music.mp3", "music.mp3", "audio/mpeg")
 
-    jazz_prompt = generate_jazz_prompt_via_claude(fal, ref_image_url, vision_model=vision_model)
-    print(f"    [OK] Claude Jazz Prompt ({len(jazz_prompt)} chars): {jazz_prompt[:75]}...")
-
     try:
-        print(f"    [INFO] Generating 21s on-beat audio via Fal AI Stable Audio 3...")
-        audio_url = fal.generate_stable_audio_music(
-            jazz_prompt,
-            duration=21.0,
-            model=FAL_STABLE_AUDIO_MODEL,
+        print(f"\n  [PHASE 4.5] Record {record_id}: Generating {MUSIC_DURATION}s luxury music via Fal AI ElevenLabs ({FAL_ELEVENLABS_MUSIC_MODEL})...")
+        print(f"    [PROMPT] {prompt}")
+        audio_url = fal.generate_elevenlabs_music(
+            prompt=prompt,
+            duration=MUSIC_DURATION,
+            model=FAL_ELEVENLABS_MUSIC_MODEL,
         )
+        if not audio_url:
+            raise AutomationError("Fal AI ElevenLabs music returned empty audio URL")
+
         music_dest = workdir / "music.mp3"
         resp = request_with_retry(session, "GET", audio_url)
         if not resp.ok:
@@ -1046,10 +1371,10 @@ def run_phase_music(
         local_music = LocalImage(music_dest, "music.mp3", "audio/mpeg")
 
         _upload_attachment(session, token, base_id, record_id, MUSIC_FIELD, local_music)
-        print(f"    [OK] Generated and uploaded Claude-prompted jazz music -> '{MUSIC_FIELD}'")
+        print(f"    [OK] Generated and uploaded ElevenLabs music -> '{MUSIC_FIELD}'")
         return local_music
     except Exception as err:
-        print(f"    [ERROR] Music generation failed: {err}")
+        print(f"    [ERROR] ElevenLabs music generation failed: {err}")
         return None
 
 
@@ -1115,24 +1440,30 @@ def run_phase_5_reel(
     """Build MP4 vertical on-beat reel and upload to REEL - Moodboard Reel field."""
     record_id = record["id"]
 
+    audio_desc = "with 120 BPM audio" if music else "silent (no audio)"
+    if not execute:
+        seq_count = (1 if len(converted) == COLLAGE_CELLS else 0) + len(set(blended) & set(converted)) * 2
+        print(f"\n  [PHASE 5] Record {record_id}: Assembling MP4 Slideshow ({seq_count} slides + Outro, {audio_desc})...")
+        print(f"    [DRY] FFmpeg -> {REEL_FILENAME} (1080x1920 @ 30fps, {audio_desc}) -> '{REEL_FIELD}' (Status: '{STATUS_COMPLETE}')")
+        return True
+
     collage = build_collage(converted, workdir) if len(converted) == COLLAGE_CELLS else None
     sequence = [collage] if collage else []
+    tagged_map = getattr(blended, "tagged_map", {}) or {}
     for slot in sorted(set(blended) & set(converted)):
         sequence.append(converted[slot])
-        sequence.append(blended[slot])
+        slide_blend = tagged_map.get(slot) or blended[slot]
+        sequence.append(slide_blend)
 
     if not sequence:
         print(f"  [ERROR] Record {record_id}: No valid image sequence for reel.")
         return False
 
-    print(f"\n  [PHASE 5] Record {record_id}: Assembling On-Beat MP4 Slideshow (120 BPM, {len(sequence)} slides + Outro)...")
-    if not execute:
-        print(f"    [DRY] FFmpeg -> {REEL_FILENAME} (1080x1920 @ 30fps) with on-beat audio -> '{REEL_FIELD}' (Status: '{STATUS_COMPLETE}')")
-        return True
+    print(f"\n  [PHASE 5] Record {record_id}: Assembling MP4 Slideshow ({len(sequence)} slides + Outro, {audio_desc})...")
 
     reel = build_reel_mp4(sequence, workdir, outro=outro, music=music)
     size_mb = reel.path.stat().st_size / (1024 * 1024)
-    print(f"    [OK] Built on-beat {reel.filename} ({size_mb:.2f} MB)")
+    print(f"    [OK] Built {audio_desc} {reel.filename} ({size_mb:.2f} MB)")
 
     try:
         _clear_attachment_field(session, token, base_id, table_id, record_id, REEL_FIELD)
@@ -1140,6 +1471,7 @@ def run_phase_5_reel(
         pass
 
     _upload_attachment(session, token, base_id, record_id, REEL_FIELD, reel)
+
     _update_record_fields(session, token, base_id, table_id, record_id, {STATUS_FIELD: STATUS_COMPLETE})
     print(f"    [OK] Uploaded {reel.filename} -> '{REEL_FIELD}', Status -> '{STATUS_COMPLETE}'")
     return True
@@ -1162,6 +1494,11 @@ def process_one_record_end_to_end(
     table_id: str,
     workdir_root: Path,
     vision_model: str,
+    moodboard_id: str = "",
+    interior_prompt: str = "",
+    music_prompt: str = "",
+    force_music: bool = False,
+    enable_music: bool = False,
     execute: bool = True,
     skip_existing: bool = True,
 ) -> bool:
@@ -1178,7 +1515,9 @@ def process_one_record_end_to_end(
     run_phase_2_interior(
         record, category_code, krea=krea, session=session,
         token=token, base_id=base_id, table_id=table_id,
-        workdir=workdir, execute=execute,
+        workdir=workdir, moodboard_id=moodboard_id,
+        interior_prompt=interior_prompt,
+        force=not skip_existing, execute=execute,
     )
 
     # Refresh record fields
@@ -1234,12 +1573,17 @@ def process_one_record_end_to_end(
         except Exception:
             pass
 
-    # 4.5. Music Generation (Claude-prompted Fal AI Stable Audio 3 @ 120 BPM) & Outro
-    music_img = run_phase_music(
-        record, category_code, fal=fal, session=session,
-        token=token, base_id=base_id, table_id=table_id,
-        workdir=workdir, vision_model=vision_model, execute=execute,
-    )
+    # 4.5. Music Generation (Fal AI ElevenLabs Music @ 120 BPM, 20s) & Outro
+    if enable_music:
+        music_img = run_phase_music(
+            record, category_code, fal=fal, session=session,
+            token=token, base_id=base_id, table_id=table_id,
+            workdir=workdir, music_prompt=music_prompt, force=force_music, execute=execute,
+        )
+    else:
+        music_img = None
+        print(f"  [PHASE 4.5] Record {record_id}: Music generation disabled by default (silent video). Pass --enable-music to enable.")
+
     outro_img = run_phase_outro(
         record, assets.workspace, session=session,
         token=token, base_id=base_id, table_id=table_id,
@@ -1274,7 +1618,7 @@ def parse_args(argv=None):
     parser.add_argument(
         "--phase",
         "-p",
-        choices=["all", "1", "2", "2.5", "3", "4", "5", "scrape", "interior", "vision", "blend", "convert", "reel"],
+        choices=["all", "1", "2", "2.5", "3", "4", "4.5", "5", "scrape", "interior", "vision", "blend", "convert", "music", "audio", "reel"],
         default="all",
         help="Specific phase to execute, or 'all' for row-by-row full pipeline (default: all)",
     )
@@ -1309,6 +1653,33 @@ def parse_args(argv=None):
         help="Force re-generation of all phases even if output fields are populated",
     )
     parser.add_argument(
+        "--moodboard-id",
+        default="",
+        help=f"Krea AI moodboard ID override (default: {DEFAULT_MOODBOARD_ID})",
+    )
+    parser.add_argument(
+        "--interior-prompt",
+        default="",
+        help="Custom prompt for Krea room interior generation (default: 'Generate me a modern living room' for chandeliers)",
+    )
+    parser.add_argument(
+        "--music-prompt",
+        default="",
+        help="Custom prompt for Fal AI ElevenLabs music (default: luxury lounge house music)",
+    )
+    parser.add_argument(
+        "--force-music",
+        action="store_true",
+        help="Force re-generation of background music even if 'Music Generated' is already populated",
+    )
+    enable_music_env = os.getenv("MOODBOARD_REEL_ENABLE_MUSIC", "false").strip().lower() in ("true", "1", "yes")
+    parser.add_argument(
+        "--enable-music",
+        action="store_true",
+        default=enable_music_env,
+        help="Enable background music generation via Fal AI ElevenLabs and mix audio into reel (default: False)",
+    )
+    parser.add_argument(
         "--vision-model",
         default=CLAUDE_VISION_MODEL,
         help=f"Claude Vision model on Fal AI OpenRouter (default: {CLAUDE_VISION_MODEL})",
@@ -1340,8 +1711,10 @@ def main(argv=None) -> int:
     assets = AssetCatalog(settings.workspace)
 
     if args.execute:
-        for f in (BLENDED_FIELD, CONVERTED_FIELD, REEL_FIELD):
+        for f in (BLENDED_FIELD, CONVERTED_FIELD, REEL_FIELD, MUSIC_FIELD, TARGET_BLENDED_FIELD):
             _ensure_field(session, token, base_id, table_id, f, "multipleAttachments")
+        for tf in TEXTURE_FIELDS:
+            _ensure_field(session, token, base_id, table_id, tf, "multilineText")
         for slot in range(SLOT_COUNT):
             _ensure_field(session, token, base_id, table_id, f"Prompt{slot + 1}", "multilineText")
             _ensure_field(session, token, base_id, table_id, f"Interior{slot + 1}" if slot > 0 else "Interior", "multipleAttachments")
@@ -1371,7 +1744,13 @@ def main(argv=None) -> int:
             workdir.mkdir(parents=True, exist_ok=True)
 
             if phase_target in ("2", "interior"):
-                run_phase_2_interior(record, args.category, krea=krea, session=session, token=token, base_id=base_id, table_id=table_id, workdir=workdir, execute=args.execute)
+                run_phase_2_interior(
+                    record, args.category, krea=krea, session=session,
+                    token=token, base_id=base_id, table_id=table_id,
+                    workdir=workdir, moodboard_id=args.moodboard_id,
+                    interior_prompt=args.interior_prompt,
+                    force=not args.skip_existing, execute=args.execute,
+                )
             elif phase_target in ("2.5", "vision"):
                 run_phase_2_5_vision(record, args.category, fal=fal, session=session, token=token, base_id=base_id, table_id=table_id, vision_model=args.vision_model, execute=args.execute)
             elif phase_target in ("3", "blend"):
@@ -1381,6 +1760,13 @@ def main(argv=None) -> int:
                 if not blended_map:
                     blended_map = {s: LocalImage(workdir / f"blended_mb{s + 1}.jpg", f"blended_mb{s + 1}.jpg", "image/jpeg") for s in range(SLOT_COUNT) if (workdir / f"blended_mb{s + 1}.jpg").is_file()}
                 run_phase_4_convert(record, blended_map, fal=fal, assets=assets, session=session, token=token, base_id=base_id, table_id=table_id, workdir=workdir, execute=args.execute, skip_existing=args.skip_existing)
+            elif phase_target in ("4.5", "music", "audio"):
+                run_phase_music(
+                    record, args.category, fal=fal, session=session,
+                    token=token, base_id=base_id, table_id=table_id,
+                    workdir=workdir, music_prompt=args.music_prompt,
+                    force=args.force_music, execute=args.execute,
+                )
             elif phase_target in ("5", "reel"):
                 blended_map = images_from_field(record.get("fields", {}).get(BLENDED_FIELD) or [], session, workdir, "blended_mb") if args.execute else {}
                 if not blended_map:
@@ -1388,7 +1774,16 @@ def main(argv=None) -> int:
                 converted_map = images_from_field(record.get("fields", {}).get(CONVERTED_FIELD) or [], session, workdir, "converted_mb") if args.execute else {}
                 if not converted_map:
                     converted_map = {s: LocalImage(workdir / f"converted_mb{s + 1}.jpg", f"converted_mb{s + 1}.jpg", "image/jpeg") for s in range(SLOT_COUNT) if (workdir / f"converted_mb{s + 1}.jpg").is_file()}
-                music_img = run_phase_music(record, args.category, fal=fal, session=session, token=token, base_id=base_id, table_id=table_id, workdir=workdir, vision_model=args.vision_model, execute=args.execute)
+                if args.enable_music:
+                    music_img = run_phase_music(
+                        record, args.category, fal=fal, session=session,
+                        token=token, base_id=base_id, table_id=table_id,
+                        workdir=workdir, music_prompt=args.music_prompt,
+                        force=args.force_music, execute=args.execute,
+                    )
+                else:
+                    music_img = None
+                    print(f"  [PHASE 4.5] Record {record_id}: Music generation disabled for reel (silent video). Pass --enable-music to enable.")
                 outro_img = run_phase_outro(record, assets.workspace, session=session, token=token, base_id=base_id, table_id=table_id, workdir=workdir, execute=args.execute)
                 run_phase_5_reel(record, blended_map, converted_map, music=music_img, outro=outro_img, session=session, token=token, base_id=base_id, table_id=table_id, workdir=workdir, execute=args.execute)
         return 0
@@ -1399,22 +1794,13 @@ def main(argv=None) -> int:
     max_rows = args.limit or 1
     rows_completed = 0
 
-    # 1. First, check if there are existing uncompleted rows in Airtable
-    existing_records = _list_records(session, token, base_id, table_id)
+    # If developer explicitly passed --record-id, process only those specified records
     if args.record_id:
         req_set = set(args.record_id)
-        incomplete_records = [r for r in existing_records if r["id"] in req_set]
-    else:
-        # Rows that are not yet Complete OR don't have REEL video
-        incomplete_records = [
-            r for r in existing_records
-            if not r.get("fields", {}).get(REEL_FIELD)
-            or str(r.get("fields", {}).get(STATUS_FIELD) or "") != STATUS_COMPLETE
-        ]
-
-    if incomplete_records:
-        print(f"[INFO] Found {len(incomplete_records)} existing incomplete row(s) in Airtable. Finishing them first...")
-        for record in incomplete_records:
+        existing_records = _list_records(session, token, base_id, table_id)
+        target_records = [r for r in existing_records if r["id"] in req_set]
+        print(f"[INFO] Targeted {len(target_records)} specific record(s) via --record-id...")
+        for record in target_records:
             if rows_completed >= max_rows:
                 break
             ok = process_one_record_end_to_end(
@@ -1422,18 +1808,27 @@ def main(argv=None) -> int:
                 assets=assets, session=session, token=token,
                 base_id=base_id, table_id=table_id,
                 workdir_root=workdir_root, vision_model=args.vision_model,
+                moodboard_id=args.moodboard_id,
+                interior_prompt=args.interior_prompt,
+                music_prompt=args.music_prompt,
+                force_music=args.force_music,
+                enable_music=args.enable_music,
                 execute=args.execute,
                 skip_existing=args.skip_existing,
             )
             if ok or not args.execute:
                 rows_completed += 1
+        return 0
 
-    # 2. If we still need to process more rows, scrape 1 row from Akeneo and process it end-to-end
+    # Default Execution: ALWAYS scrape 4 fresh active Shopify products into a brand-new row and process end-to-end
     while rows_completed < max_rows:
-        print(f"\n[INFO] Starting Row {rows_completed + 1}/{max_rows}: Scraping 1 row (4 items) from Akeneo...")
-        scraped_ok = run_phase_1_scrape_one_row(args.category, execute=args.execute)
-        if not scraped_ok and args.execute:
-            print("[INFO] No new items available to scrape from Akeneo.")
+        print(f"\n[INFO] Starting Row {rows_completed + 1}/{max_rows}: Scraping 4 fresh active products into brand-new Airtable row...")
+        new_record_id = run_phase_1_scrape_one_row(
+            args.category,
+            execute=args.execute,
+        )
+        if not new_record_id and args.execute:
+            print("[INFO] No new items available to scrape from Akeneo/Shopify.")
             break
 
         if not args.execute:
@@ -1441,23 +1836,18 @@ def main(argv=None) -> int:
             rows_completed += 1
             continue
 
-        # Fetch the newly created record with Status: 'Standby'
-        fresh_records = _list_records(session, token, base_id, table_id)
-        standby_records = [
-            r for r in fresh_records
-            if str(r.get("fields", {}).get(STATUS_FIELD) or "") == STATUS_STANDBY
-        ]
-
-        if not standby_records:
-            print("[INFO] No newly created Standby records found to process.")
-            break
-
-        new_record = standby_records[0]
+        # Fetch the exact newly created record by its ID
+        new_record = _get_record(session, token, base_id, table_id, new_record_id)
         ok = process_one_record_end_to_end(
             new_record, args.category, fal=fal, krea=krea,
             assets=assets, session=session, token=token,
             base_id=base_id, table_id=table_id,
             workdir_root=workdir_root, vision_model=args.vision_model,
+            moodboard_id=args.moodboard_id,
+            interior_prompt=args.interior_prompt,
+            music_prompt=args.music_prompt,
+            force_music=args.force_music,
+            enable_music=args.enable_music,
             execute=args.execute,
             skip_existing=args.skip_existing,
         )

@@ -45,11 +45,22 @@ SKU_FIELD = "SKU"
 STATUS_FIELD = "Status"
 SELECT_STATUS = "Standby"
 
+MOODBOARD_LAYOUT_FIELD = "Moodboard Layout"
+CLOSEUP_LAYOUT_FIELD = "Closeup Photo Layout"
+LOGO_FIELD = "Logo"
+
+DEFAULT_LAYOUT_FIELDS = {
+    MOODBOARD_LAYOUT_FIELD: "multipleAttachments",
+    CLOSEUP_LAYOUT_FIELD: "multipleAttachments",
+    LOGO_FIELD: "multipleAttachments",
+}
+
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(
         description=(
             "Scrape Akeneo product images, item names with product type, SKUs, "
+            "auto-fill Moodboard Layout, Closeup Photo Layout, Logo attachments, "
             "and set Status to Standby for Moodboard #1 Feed (tbl9u5vjgx8kuE44R)."
         )
     )
@@ -74,9 +85,24 @@ def parse_args(argv=None):
         help="Upload at most N new product images in total",
     )
     parser.add_argument(
+        "--starting-letter",
+        default=None,
+        help="Starting letter for A-Z sorting cycle",
+    )
+    parser.add_argument(
         "--table-id",
         default=DEFAULT_TABLE_ID,
         help=f"Airtable destination table ID (default: {DEFAULT_TABLE_ID})",
+    )
+    parser.add_argument(
+        "--no-backfill",
+        action="store_true",
+        help="Skip backfilling missing layout attachments on existing records",
+    )
+    parser.add_argument(
+        "--no-shopify-check",
+        action="store_true",
+        help="Skip Shopify published status cross-check",
     )
     return parser.parse_args(argv)
 
@@ -97,13 +123,16 @@ def main(argv=None) -> int:
     )
 
     print("=" * 64)
-    print("Moodboard #1 Feed Akeneo Scraper | Furniture Item + Item Name + SKU + Status")
+    print("Moodboard #1 Feed Akeneo Scraper")
+    print("Fields: Furniture Item + Item Name + SKU + Moodboard Layout + Closeup Photo Layout + Logo -> Status: Standby")
     print(
         f"Airtable destination: "
         f"{settings.airtable_base_id} / {settings.airtable_table_id}"
     )
     print(f"Categories: {', '.join(categories)}")
     print(f"Style filter: {args.style}")
+    print(f"Layout auto-backfill: {'Enabled' if not args.no_backfill else 'Disabled'}")
+    print(f"Shopify cross-check : {'Enabled' if not args.no_shopify_check else 'Disabled'}")
     print("=" * 64)
 
     akeneo = AkeneoClient(
@@ -134,6 +163,9 @@ def main(argv=None) -> int:
             sku_field=SKU_FIELD,
             status_field=STATUS_FIELD,
             default_status=SELECT_STATUS,
+            layout_fields=DEFAULT_LAYOUT_FIELDS,
+            backfill_layouts=not args.no_backfill,
+            shopify_cross_check=not args.no_shopify_check,
             include_product_type_in_name=True,
             max_items=items_remaining,
         )

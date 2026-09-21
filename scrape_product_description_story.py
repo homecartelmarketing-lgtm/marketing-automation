@@ -172,9 +172,19 @@ def parse_args(argv=None):
         help="Upload at most N new products per category",
     )
     parser.add_argument(
+        "--starting-letter",
+        default=None,
+        help="Starting letter for A-Z sorting cycle",
+    )
+    parser.add_argument(
         "--table-id",
         default=None,
         help="Airtable destination table ID override",
+    )
+    parser.add_argument(
+        "--no-cross-dedup",
+        action="store_true",
+        help="Disable base-wide cross-table deduplication (check current table only)",
     )
     return parser.parse_args(argv)
 
@@ -247,6 +257,7 @@ def main(argv=None) -> int:
             default_status=SELECT_STATUS,
             include_product_type_in_name=True,
             max_items=args.max_items,
+            cross_table_dedup=not args.no_cross_dedup,
         )
         if not runner.run():
             overall_success = False

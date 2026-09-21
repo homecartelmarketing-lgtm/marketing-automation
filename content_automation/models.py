@@ -45,6 +45,10 @@ class ProductRecord:
     fields: dict[str, Any] = field(default_factory=dict)
 
     @property
+    def id(self) -> str:
+        return self.record_id
+
+    @property
     def display_label(self) -> str:
         if self.product_type:
             return f"{self.item_name} | {self.product_type}"
@@ -95,6 +99,7 @@ class Reservation:
     run_id: str
     anchor: ProductRecord
     partners: list[ProductRecord] = field(default_factory=list)
+    force: bool = False
 
 
 @dataclass

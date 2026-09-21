@@ -1,10 +1,10 @@
-"""Product Closeup w/ Description Generation & Logging Pipeline using Fal AI Nano Banana Pro.
+"""Product Closeup w/ Description Generation & Logging Pipeline using Fal AI GPT Image 2.
 
 Runs the AI image generation pipeline for Product Closeup w/ Description on Airtable:
 1. Selects records with 'Furniture Item' attached where 'Product Closeup Description Converted' is missing.
 2. Updates Airtable status to 'Processing'.
-3. Calls Fal AI Nano Banana Pro API for Image-to-Image conversion.
-4. Appends a detailed execution log to output/logs/fal_nano_product_description_logs.json.
+3. Calls Fal AI GPT Image 2 (openai/gpt-image-2) API for Image-to-Image conversion.
+4. Appends a detailed execution log to output/logs/fal_gpt_image2_product_description_logs.json.
 5. Uploads the generated image to 'Product Closeup Description Converted' attachment field.
 6. Updates Airtable status to 'Complete'.
 
@@ -31,6 +31,7 @@ import requests
 from content_automation.config import TABLES, load_settings
 from content_automation.errors import AutomationError
 from content_automation.fal_client import FalClient
+from content_automation.item_tagger import tag_and_upload_blended_image
 from content_automation.media import download_to_temp_file
 from content_automation.scraping import (
     ScrapeAirtableClient,
@@ -128,13 +129,20 @@ STATUS_PROCESSING = "Processing"
 STATUS_COMPLETE = "Complete"
 STATUS_ERROR_NO_COMBINATION = "Error no Combination No Generation Request"
 
+TERMINAL_AND_PROTECTED_STATUSES = {
+    "complete", "completed", "done", "finished",
+    "posted", "scheduled", "schedule",
+    "discard", "discarded",
+    "for manual", "minor revision", "minor revisions", "fm",
+}
+
 LOG_DIR = Path("output") / "logs"
-LOG_FILE = LOG_DIR / "fal_nano_product_description_logs.json"
+LOG_FILE = LOG_DIR / "fal_gpt_image2_product_description_logs.json"
 
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(
-        description="Run Fal AI Nano Banana Pro generation pipeline for Product Closeup w/ Description."
+        description="Run Fal AI GPT Image 2 generation pipeline for Product Closeup w/ Description."
     )
     parser.add_argument(
         "--target",
@@ -217,7 +225,7 @@ def run_pipeline_for_table(
     fal: FalClient,
     airtable: ScrapeAirtableClient,
     label: str,
-    model: str = "fal-ai/nano-banana-pro/edit",
+    model: str = "openai/gpt-image-2",
     max_items: int | None = None,
     record_id: str | None = None,
 ) -> bool:
@@ -244,6 +252,9 @@ def run_pipeline_for_table(
         converted = fields.get(FIELD_OUTPUT_CONVERTED)
         if not furniture:
             continue
+        status_cf = str(fields.get(FIELD_STATUS) or "").strip().casefold()
+        if status_cf in TERMINAL_AND_PROTECTED_STATUSES and not record_id:
+            continue
         if converted and not record_id:
             continue
         eligible.append(r)
@@ -256,7 +267,7 @@ def run_pipeline_for_table(
         eligible = eligible[:max_items]
 
     print("=" * 64)
-    print(f"Running Fal AI Nano Banana Pro Pipeline for {label}")
+    print(f"Running Fal AI Generation Pipeline for {label}")
     print(f"Targeting {len(eligible)} eligible record(s) with model: {model}")
     print("=" * 64)
 
@@ -274,6 +285,27 @@ def run_pipeline_for_table(
 
         layout_url = extract_attachment_url(layout_val)
         source_url = extract_attachment_url(furniture_val)
+
+        if not layout_url:
+            candidate_layouts = [
+                Path("assets/layout_product_v2.jpg"),
+                Path("JSON Prompts/Product Closeup V2/layout_product_v2.jpg"),
+                Path("layout_product_v2.jpg"),
+            ]
+            for cl in candidate_layouts:
+                if cl.is_file():
+                    try:
+                        print(f"[AUTO-ATTACH] Attaching layout '{cl}' to '{FIELD_LAYOUT}' for record {rec_id}...")
+                        airtable.upload_attachment(rec_id, FIELD_LAYOUT, cl, "layout_product_v2.jpg")
+                        refreshed_resp = airtable._request("GET", f"{airtable.records_url}/{rec_id}")
+                        if refreshed_resp.ok:
+                            refreshed_data = refreshed_resp.json()
+                            layout_url = extract_attachment_url(refreshed_data.get("fields", {}).get(FIELD_LAYOUT))
+                            if layout_url:
+                                print(f"[AUTO-ATTACH OK] Attached layout URL: {layout_url}")
+                                break
+                    except Exception as att_err:
+                        print(f"[AUTO-ATTACH WARN] Failed to auto-attach layout '{cl}': {att_err}")
 
         if not layout_url or not source_url:
             print(f"[SKIP/ERROR] Record {rec_id} ({item_name}) missing mandatory attachment combination.")
@@ -298,11 +330,14 @@ def run_pipeline_for_table(
             print(f"[WARN] Failed to set status to '{STATUS_PROCESSING}': {st_err}")
 
         # 2. Format prompt
+        product_type = str(fields.get("Product Type") or label.replace("Product Closeup w/ Description", "").strip() or "Chandelier").strip()
         if prompt_path.is_file():
             try:
                 prompt_data = json.loads(prompt_path.read_text(encoding="utf-8-sig"))
                 if "required_inputs" in prompt_data:
                     prompt_data["required_inputs"]["item_name"] = item_name
+                    if "product_type" in prompt_data["required_inputs"]:
+                        prompt_data["required_inputs"]["product_type"] = product_type
                 prompt_text = json.dumps(prompt_data, ensure_ascii=False)
             except Exception:
                 prompt_text = prompt_path.read_text(encoding="utf-8-sig")
@@ -315,7 +350,7 @@ def run_pipeline_for_table(
         timestamp_str = datetime.datetime.now(datetime.timezone.utc).isoformat()
         downloaded = None
         try:
-            print(f"    Sending image blending request to Fal AI Nano Banana Pro ({model})...")
+            print(f"    Sending image blending request to Fal AI ({model})...")
             gen_url = fal.generate(
                 prompt_text,
                 input_urls,
@@ -356,6 +391,20 @@ def run_pipeline_for_table(
                 filename,
             )
             print(f"[OK] Attached generated image to '{FIELD_OUTPUT_CONVERTED}' for record {rec_id}")
+
+            # 4b. Tag and upload to 'Blended Image with Name text'
+            try:
+                tag_and_upload_blended_image(
+                    airtable=airtable,
+                    record_id=rec_id,
+                    blended_source=downloaded.path,
+                    item_name=item_name,
+                    category=pipeline_table_config.get("category_code", ""),
+                    target_field="Blended Image with Name text",
+                    fallback_if_undetected=True,
+                )
+            except Exception as tag_err:
+                print(f"[WARN] Tagging for 'Blended Image with Name text' skipped: {tag_err}")
 
             # 5. Update status to 'Complete'
             airtable.update_records([(rec_id, {FIELD_STATUS: STATUS_COMPLETE})])

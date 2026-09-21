@@ -78,6 +78,7 @@ from content_automation.akeneo_client import AkeneoClient, first_attribute
 from content_automation.config import load_settings
 from content_automation.errors import AssetValidationError, AutomationError, ProviderError
 from content_automation.fal_client import FalClient
+from content_automation.prompts import build_vision_blending_instruction
 from content_automation.krea_client import KreaClient
 from content_automation.media import attachment_filename, download_to_temp_file
 from content_automation.models import LocalImage
@@ -88,8 +89,29 @@ from content_automation.scraping.products import (
     existing_product_identities,
     product_item,
 )
+from content_automation.shopify_client import ShopifyCatalogIndex, ShopifyClient
 
 print = functools.partial(print, flush=True)
+
+# ── Shopify Catalog Index Cache ──────────────────────────────────────────
+
+SHOPIFY_CLIENT: ShopifyClient | None = None
+SHOPIFY_CATALOG_INDEX: ShopifyCatalogIndex | None = None
+
+
+def get_shopify_catalog_index() -> ShopifyCatalogIndex | None:
+    """Fetch or return cached Shopify published catalog index."""
+    global SHOPIFY_CLIENT, SHOPIFY_CATALOG_INDEX
+    if SHOPIFY_CATALOG_INDEX is not None:
+        return SHOPIFY_CATALOG_INDEX
+    try:
+        if SHOPIFY_CLIENT is None:
+            SHOPIFY_CLIENT = ShopifyClient()
+        SHOPIFY_CATALOG_INDEX = SHOPIFY_CLIENT.load_published_identities()
+        return SHOPIFY_CATALOG_INDEX
+    except Exception as s_err:
+        print(f"  [SHOPIFY WARN] Could not initialize Shopify catalog index: {s_err}")
+        return None
 
 # ── Timezone & Configuration ─────────────────────────────────────────────
 
@@ -309,7 +331,7 @@ def resolve_field_name(existing_fields: dict[str, Any] | list[str] | set[str], c
     for candidate in candidates:
         if candidate in existing_set:
             return candidate
-    return candidates[0]
+    return candidates[0] if candidates else ""
 
 
 def update_record_status(airtable: ScrapeAirtableClient, record_id: str, desired_status: str) -> None:
@@ -337,6 +359,133 @@ def update_record_status(airtable: ScrapeAirtableClient, record_id: str, desired
         airtable.update_records([(record_id, {STATUS_FIELD: choices[0]})])
     except Exception as err:
         print(f"  [WARN] Failed updating status for record {record_id}: {err}")
+
+
+def retry_api_call(
+    call_fn,
+    *args,
+    max_retries: int = 2,
+    delay_seconds: float = 5.0,
+    description: str = "API call",
+    **kwargs,
+):
+    """Execute call_fn with automatic retries on transient errors."""
+    last_exc = None
+    for attempt in range(1, max_retries + 2):
+        try:
+            return call_fn(*args, **kwargs)
+        except Exception as exc:
+            last_exc = exc
+            if attempt <= max_retries:
+                print(f"    [RETRY] {description} failed (attempt {attempt}/{max_retries + 1}): {exc}. Retrying in {delay_seconds}s...")
+                time.sleep(delay_seconds)
+            else:
+                print(f"    [FATAL] {description} failed after {max_retries + 1} attempts: {exc}")
+                raise last_exc
+
+
+def auto_heal_furniture_items(
+    akeneo: AkeneoClient,
+    airtable: ScrapeAirtableClient,
+    record_id: str,
+    *,
+    execute: bool = True,
+) -> bool:
+    """Check if any Furniture Item (Slots 2..5) photo is missing in Airtable; auto-fetch from Akeneo and attach."""
+    record = airtable.get_record(record_id)
+    fields = record.get("fields", {})
+    known_fields = airtable.table_fields()
+
+    all_healed_or_present = True
+
+    for slot in SLOTS:
+        if not slot.furniture_field_candidates:
+            continue
+
+        furniture_val = get_field_val(fields, slot.furniture_field_candidates)
+        furniture_url = extract_attachment_url(furniture_val)
+        if furniture_url:
+            continue
+
+        item_name = str(fields.get(slot.item_name_field) or "").strip()
+        if not item_name:
+            print(f"  [AUTO-HEAL WARN] Slot {slot.slot_index} ({slot.label}) has no Item Name. Cannot auto-heal.")
+            all_healed_or_present = False
+            continue
+
+        print(f"  [AUTO-HEAL] Slot {slot.slot_index} ({slot.label}) missing photo. Querying Akeneo for active '{item_name}'...")
+        search_term = item_name.split("|")[0].strip()
+        query = {
+            "name": [{"operator": "CONTAINS", "value": search_term}],
+            "enabled": [{"operator": "=", "value": True}],
+        }
+        prods = akeneo.fetch_products(query)
+        shopify_index = get_shopify_catalog_index()
+
+        matched_item = None
+        for p in prods:
+            if p.get("enabled") is False:
+                continue
+            item = product_item(p)
+            if not item or not item.media_code:
+                continue
+            if shopify_index and not shopify_index.contains(item.sku, item.item_name):
+                print(f"  [AUTO-HEAL SKIP] {item.sku} is active in Akeneo but Draft/Inactive in Shopify.")
+                continue
+            matched_item = item
+            break
+
+        if not matched_item:
+            print(f"  [AUTO-HEAL WARN] Could not find published media for '{item_name}' in Akeneo/Shopify.")
+            all_healed_or_present = False
+            continue
+
+        print(f"  [AUTO-HEAL OK] Found active product {matched_item.sku} (media_code: {matched_item.media_code}).")
+        if not execute:
+            print(f"    [DRY RUN] Would download and upload {slot.label} photo to Airtable.")
+            continue
+
+        furniture_field_name = resolve_field_name(known_fields, slot.furniture_field_candidates)
+        media_download = akeneo.download_media(matched_item.media_code)
+        try:
+            print(f"    Uploading to Airtable record {record_id} field '{furniture_field_name}'...")
+            airtable.upload_attachment(
+                record_id,
+                furniture_field_name,
+                media_download.path,
+                filename=f"{matched_item.sku}_{Path(media_download.path).name}",
+            )
+            print(f"    [AUTO-HEAL SUCCESS] Attached photo for Slot {slot.slot_index} ({slot.label})!")
+        except Exception as up_err:
+            print(f"    [AUTO-HEAL ERROR] Failed uploading to Airtable: {up_err}")
+            all_healed_or_present = False
+        finally:
+            if hasattr(media_download, "cleanup"):
+                media_download.cleanup()
+            elif Path(media_download.path).exists():
+                Path(media_download.path).unlink(missing_ok=True)
+
+    return all_healed_or_present
+
+
+def verify_record_completed(
+    airtable: ScrapeAirtableClient,
+    record_id: str,
+) -> bool:
+    """Verify that the Airtable record is marked 'Done' and has the final MP4 video attached."""
+    try:
+        rec = airtable.get_record(record_id)
+        fields = rec.get("fields", {})
+        status = str(fields.get(STATUS_FIELD) or "").strip().casefold()
+        has_video = bool(extract_attachment_url(get_field_val(fields, SLIDESHOW_FIELD_CANDIDATES)))
+
+        if status in ("done", "complete") and has_video:
+            return True
+        print(f"  [VERIFY FAIL] Record {record_id} has Status='{fields.get(STATUS_FIELD)}', VideoAttached={has_video}")
+        return False
+    except Exception as err:
+        print(f"  [VERIFY ERROR] Could not verify record {record_id}: {err}")
+        return False
 
 
 # ── Poppins Text Overlay Helpers ─────────────────────────────────────────
@@ -486,19 +635,35 @@ def scrape_single_new_row(
     *,
     style: str = "modern",
     execute: bool = True,
+    shopify_check: bool = True,
 ) -> str | None:
-    """Scrape 1 new row across categories (newest with random variety) into Airtable."""
+    """Scrape 1 new row across categories (newest with random variety, active/Shopify-verified) into Airtable."""
+    if execute:
+        airtable.ensure_fields({
+            "Furniture Item1": "multipleAttachments",
+            "Furniture Item2": "multipleAttachments",
+            "Furniture Item4": "multipleAttachments",
+            "Furniture Item5": "multipleAttachments",
+        })
+
     records = airtable.list_records()
     existing_identities = collect_existing_identities(records)
     known_fields = airtable.table_fields()
+
+    shopify_index = get_shopify_catalog_index() if shopify_check else None
+    if shopify_check and shopify_index:
+        print(f"  [SHOPIFY] Cross-check active: {len(shopify_index.skus)} SKUs indexed.")
 
     slot_picked: dict[int, tuple[dict[str, Any], ProductItem]] = {}
 
     for slot in SLOTS:
         query = {
             "categories": [{"operator": "IN", "value": [slot.akeneo_category]}],
-            "Style2": [{"operator": "IN", "value": [style]}],
+            "enabled": [{"operator": "=", "value": True}],
         }
+        if style and style.lower() != "all":
+            query["Style2"] = [{"operator": "IN", "value": [style]}]
+
         raw_items = akeneo.fetch_products(query)
         raw_items.sort(
             key=lambda x: str(x.get("updated") or x.get("created") or ""),
@@ -507,6 +672,9 @@ def scrape_single_new_row(
 
         valid_items: list[tuple[dict[str, Any], ProductItem]] = []
         for raw in raw_items:
+            if raw.get("enabled") is False:
+                continue
+
             item = product_item(raw)
             if not item:
                 continue
@@ -525,12 +693,16 @@ def scrape_single_new_row(
             if item.media_code.casefold() in existing_identities.photos:
                 continue
 
+            if shopify_index and not shopify_index.contains(item.sku, item.item_name):
+                # Product is in Akeneo but Draft/Inactive in Shopify -> skip
+                continue
+
             valid_items.append((raw, item))
 
         if not valid_items:
             if slot.skip_blending:
                 continue
-            print(f"  [WARN] No eligible new product found for Slot {slot.slot_index}: {slot.label}")
+            print(f"  [WARN] No eligible new active product found for Slot {slot.slot_index}: {slot.label}")
             return None
 
         # Sample randomly from top newest pool (up to top 20 items) for variety
@@ -603,16 +775,30 @@ def run_phase_1_scrape(
     style: str = "modern",
     max_rows: int | None = None,
     execute: bool = False,
+    shopify_check: bool = True,
 ) -> bool:
     """Scrape products newest to oldest with random pool diversity into Airtable rows."""
     print("\n" + "=" * 70)
     print("PHASE 1: Akeneo Multi-Category Scrape (Newest to Oldest, Randomized Pool)")
     print(f"Target Table: {airtable.table_id} | Style: {style}")
+    print(f"Shopify Check: {'ENABLED' if shopify_check else 'DISABLED'}")
     print(f"Mode: {'EXECUTE' if execute else 'DRY RUN'}")
     print("=" * 70)
 
+    # Load published catalog from Shopify for cross-check
+    shopify_index = get_shopify_catalog_index() if shopify_check else None
+    if shopify_check and shopify_index:
+        print(f"[SHOPIFY] Cross-check active: {len(shopify_index.skus)} published SKUs indexed.")
+
     # 1. Inspect existing Airtable records for deduplication
     print("[INFO] Fetching existing Airtable records for deduplication...")
+    if execute:
+        airtable.ensure_fields({
+            "Furniture Item1": "multipleAttachments",
+            "Furniture Item2": "multipleAttachments",
+            "Furniture Item4": "multipleAttachments",
+            "Furniture Item5": "multipleAttachments",
+        })
     records = airtable.list_records()
     existing_identities = collect_existing_identities(records)
     print(f"[OK] Found {len(records)} existing record(s) with {len(existing_identities.names)} Name(s) / {len(existing_identities.photos)} Photo(s).")
@@ -623,8 +809,11 @@ def run_phase_1_scrape(
         print(f"\n[INFO] Fetching candidates for Slot {slot.slot_index}: {slot.label} ({slot.akeneo_category})...")
         query = {
             "categories": [{"operator": "IN", "value": [slot.akeneo_category]}],
-            "Style2": [{"operator": "IN", "value": [style]}],
+            "enabled": [{"operator": "=", "value": True}],
         }
+        if style and style.lower() != "all":
+            query["Style2"] = [{"operator": "IN", "value": [style]}]
+
         raw_items = akeneo.fetch_products(query)
         print(f"  Total raw products found in Akeneo: {len(raw_items)}")
 
@@ -635,6 +824,9 @@ def run_phase_1_scrape(
 
         valid_items: list[tuple[dict[str, Any], ProductItem]] = []
         for raw in raw_items:
+            if raw.get("enabled") is False:
+                continue
+
             item = product_item(raw)
             if not item:
                 continue
@@ -651,6 +843,10 @@ def run_phase_1_scrape(
             if item.item_name.casefold() in existing_identities.names:
                 continue
             if item.media_code.casefold() in existing_identities.photos:
+                continue
+
+            if shopify_index and not shopify_index.contains(item.sku, item.item_name):
+                # Product is not published/active in Shopify
                 continue
 
             valid_items.append((raw, item))
@@ -810,29 +1006,35 @@ def run_phase_2_for_record(
             continue
 
         print(f"    Generating image via Krea AI (9:16)...")
-        image_url = krea.generate(
-            slot.interior_prompt,
-            aspect_ratio=KREA_ASPECT_RATIO,
-            resolution=KREA_RESOLUTION,
-            moodboard_id=slot.moodboard_id,
-            moodboard_strength=KREA_MOODBOARD_STRENGTH,
-            style_references=style_refs,
-        )
-        print(f"    [OK] Generated image URL: {image_url}")
-        generated_urls[slot.slot_index] = image_url
+        try:
+            image_url = retry_api_call(
+                krea.generate,
+                slot.interior_prompt,
+                aspect_ratio=KREA_ASPECT_RATIO,
+                resolution=KREA_RESOLUTION,
+                moodboard_id=slot.moodboard_id,
+                moodboard_strength=KREA_MOODBOARD_STRENGTH,
+                style_references=style_refs,
+                description=f"Krea AI Interior generation for Slot {slot.slot_index} ({slot.label})",
+            )
+            print(f"    [OK] Generated image URL: {image_url}")
+            generated_urls[slot.slot_index] = image_url
 
-        print(f"    Uploading to Airtable field '{interior_field_name}'...")
-        downloaded = krea.download_image(image_url)
-        airtable.upload_attachment(
-            record_id,
-            interior_field_name,
-            downloaded.path,
-            filename=f"Interior{slot.slot_index}_{record_id}.jpg",
-        )
-        if hasattr(downloaded, "cleanup"):
-            downloaded.cleanup()
-        elif Path(downloaded.path).exists():
-            Path(downloaded.path).unlink(missing_ok=True)
+            print(f"    Uploading to Airtable field '{interior_field_name}'...")
+            downloaded = krea.download_image(image_url)
+            airtable.upload_attachment(
+                record_id,
+                interior_field_name,
+                downloaded.path,
+                filename=f"Interior{slot.slot_index}_{record_id}.jpg",
+            )
+            if hasattr(downloaded, "cleanup"):
+                downloaded.cleanup()
+            elif Path(downloaded.path).exists():
+                Path(downloaded.path).unlink(missing_ok=True)
+        except Exception as krea_err:
+            print(f"    [ERROR] Krea generation failed for Slot {slot.slot_index}: {krea_err}")
+            return False
 
         log_slots.append({
             "slot": slot.slot_index,
@@ -933,6 +1135,7 @@ def run_phase_3_for_record(
     phase_start = time.monotonic()
     prompt_updates: dict[str, str] = {}
     log_updates: dict[str, Any] = {}
+    all_prompts_ready = True
 
     for slot in SLOTS:
         if slot.skip_blending:
@@ -954,6 +1157,7 @@ def run_phase_3_for_record(
 
         if not interior_url or not furniture_url:
             print(f"  [WARN] Slot {slot.slot_index} ({slot.label}): Missing interior or furniture image. Skipping slot.")
+            all_prompts_ready = False
             continue
 
         print(f"\n  [{slot.slot_index}/5] Analyzing Interior{slot.slot_index} + {slot.label} ('{item_name}') via {FAL_VISION_MODEL}...")
@@ -962,27 +1166,20 @@ def run_phase_3_for_record(
             print(f"    [DRY RUN] Would generate prompt for {slot.blending_prompt_field}")
             continue
 
-        instruction = (
-            f"You are an expert interior design AI prompt engineer. Analyze Image 1 as the Room Interior photo "
-            f"and Image 2 as the product photo for '{item_name}' ({slot.label}).\n\n"
-            f"Create a highly detailed, clean, photorealistic image blending prompt that places, mounts, and seamlessly "
-            f"integrates the exact {slot.label} '{item_name}' from Image 2 naturally into Image 1 in a vertical 9:16 composition.\n\n"
-            f"CRITICAL PRODUCT ISOLATION & INTEGRATION RULES:\n"
-            f"1. The product shown in Image 2 MUST BE THE ONLY LIGHTING FIXTURE of its type in the designated spot in the final scene.\n"
-            f"2. If Image 1 contains ANY pre-existing competing light fixtures or placeholder lamps, "
-            f"EXPLICITLY INSTRUCT TO REMOVE AND REPLACE THEM so that ONLY the product from Image 2 is installed.\n"
-            f"3. Strictly exclude unnecessary, extra, competing furniture items, duplicate fixtures, or clutter.\n"
-            f"4. Ensure realistic positioning, accurate mounting/standing height, authentic warm illumination, "
-            f"soft downward/ambient glow, natural contact shadows, and architectural surface reflections.\n\n"
-            f"Output ONLY the final image generation prompt text, with no preamble or markdown quotes."
+        instruction = build_vision_blending_instruction(
+            interior_label=f"Room Interior ('{slot.interior_field}')",
+            item_name=item_name,
+            aspect_ratio="9:16",
         )
 
         slot_start = time.monotonic()
         try:
-            raw_prompt = fal.generate_vision_prompt(
+            raw_prompt = retry_api_call(
+                fal.generate_vision_prompt,
                 [interior_url, furniture_url],
                 instruction,
                 model=FAL_VISION_MODEL,
+                description=f"Claude Vision prompt generation for Slot {slot.slot_index} ({slot.label})",
             )
             clean_prompt = raw_prompt.strip().strip('"').strip("'")
             slot_duration = round(time.monotonic() - slot_start, 2)
@@ -1016,8 +1213,11 @@ def run_phase_3_for_record(
             AUDIT_LOG_CLAUDE,
         )
 
-    print(f"[OK] Phase 3 completed for {record_id}.")
-    return True
+    if all_prompts_ready:
+        print(f"[OK] Phase 3 completed for {record_id}.")
+    else:
+        print(f"[WARN] Phase 3 incomplete for {record_id} due to missing input images.")
+    return all_prompts_ready
 
 
 def run_phase_3_prompts(
@@ -1148,12 +1348,14 @@ def run_phase_4_for_record(
         slot_start = time.monotonic()
         try:
             print(f"    Sending image blending request to Fal AI Nano Banana Pro...")
-            blended_url = fal.generate(
+            blended_url = retry_api_call(
+                fal.generate,
                 blending_prompt,
                 [interior_url, furniture_url],
                 aspect_ratio=BLENDING_ASPECT_RATIO,
                 resolution=BLENDING_RESOLUTION,
                 model=FAL_BLENDING_MODEL,
+                description=f"Fal AI blending for Slot {slot.slot_index} ({slot.label})",
             )
             print(f"    [OK] Blended image generated: {blended_url}")
 
@@ -1169,6 +1371,27 @@ def run_phase_4_for_record(
                 str(downloaded.path),
                 filename=f"Blended_Image{slot.slot_index}_{record_id}.jpg",
             )
+
+            # Auto-tag furniture item name onto Blended Image using YOLO-World
+            try:
+                from content_automation.akeneo_client import split_item_name
+                from content_automation.item_tagger import TARGET_BLENDED_FIELD, tag_and_upload_blended_image
+                raw_name = str(fields.get(f"Item Name{slot.slot_index}") or fields.get(f"SKU{slot.slot_index}") or slot.label).strip()
+                item_title, product_type = split_item_name(raw_name, fallback_product_type=slot.label)
+                tagged_target_field = f"Blended Image{slot.slot_index} with Name text"
+                tag_and_upload_blended_image(
+                    airtable=airtable,
+                    record_id=record_id,
+                    blended_source=downloaded.path,
+                    item_name=item_title,
+                    product_type=product_type,
+                    category=slot.category,
+                    target_field=tagged_target_field,
+                    output_filename_prefix=f"style_reel_tagged_slot{slot.slot_index}",
+                    fallback_if_undetected=True,
+                )
+            except Exception as tag_err:
+                print(f"    [WARN] YOLO tagging notice on Slot {slot.slot_index}: {tag_err}")
             if hasattr(downloaded, "cleanup"):
                 downloaded.cleanup()
             elif Path(downloaded.path).exists():
@@ -1406,7 +1629,7 @@ def run_phase_5_for_record(
 
     # Slides 2..5 (Blended Images)
     for slot in SLOTS[1:]:
-        blended_val = get_field_val(fields, slot.blended_image_field_candidates)
+        blended_val = get_field_val(fields, (f"Blended Image{slot.slot_index} with Name text",) + slot.blended_image_field_candidates)
         blended_url = extract_attachment_url(blended_val)
         if not blended_url:
             print(f"  [ERROR] Missing Blended Image for Slot {slot.slot_index} ({slot.label}) on record {record_id}.")
@@ -1666,11 +1889,13 @@ def run_continuous_row_pipeline(
     style: str = "modern",
     max_rows: int | None = None,
     execute: bool = True,
+    shopify_check: bool = True,
 ) -> bool:
     """Execute complete end-to-end pipeline (Phases 1 to 5) row by row continuously."""
     print("\n" + "=" * 70)
     print(" CONTINUOUS STYLE REEL SLIDESHOW PIPELINE (ROW-BY-ROW)")
     print(f" Target Table   : {airtable.table_id}")
+    print(f" Shopify Check  : {'ENABLED' if shopify_check else 'DISABLED'}")
     print(f" Krea Ratio     : {KREA_ASPECT_RATIO} ({KREA_RESOLUTION})")
     print(f" Vision Model   : {FAL_VISION_MODEL} (via Fal AI)")
     print(f" Blend Model    : {FAL_BLENDING_MODEL} ({BLENDING_ASPECT_RATIO}, {BLENDING_RESOLUTION})")
@@ -1702,21 +1927,46 @@ def run_continuous_row_pipeline(
             print(f"[ROW {processed_rows + 1}] Resuming existing unfinished record: {rec_id}")
             print(f"{'=' * 70}")
 
+            # Auto-heal missing furniture photos from Akeneo if needed
+            auto_heal_furniture_items(akeneo, airtable, rec_id, execute=execute)
+
             # Phase 2: Krea Interiors (9:16 dedicated moodboards & cumulative style refs)
-            run_phase_2_for_record(krea, airtable, rec_id, execute=execute)
+            p2_ok = run_phase_2_for_record(krea, airtable, rec_id, execute=execute)
+            if not p2_ok:
+                print(f"\n[FATAL] Phase 2 failed for {rec_id}. Stopping pipeline to prevent infinite retry.")
+                return False
 
             # Phase 3: Claude Sonnet 5 Prompts via Fal AI (Slots 2..5)
-            run_phase_3_for_record(fal, airtable, rec_id, execute=execute)
+            p3_ok = run_phase_3_for_record(fal, airtable, rec_id, execute=execute)
+            if not p3_ok:
+                print(f"\n[FATAL] Phase 3 failed for {rec_id}. Stopping pipeline to prevent infinite retry.")
+                return False
 
             # Phase 4: Fal AI Nano Banana Pro Blending (9:16 Ratio, 1K Quality, Slots 2..5)
-            run_phase_4_for_record(fal, airtable, rec_id, execute=execute)
+            p4_ok = run_phase_4_for_record(fal, airtable, rec_id, execute=execute)
+            if not p4_ok:
+                print(f"\n[FATAL] Phase 4 failed for {rec_id}. Stopping pipeline to prevent infinite retry.")
+                return False
 
             # Phase 5: Style Reel Slideshow Video Generation (3s Slide 1 + 2s Slides 2..5 -> sets Status = 'Done')
-            run_phase_5_for_record(airtable, rec_id, fal=fal, execute=execute)
+            p5_ok = run_phase_5_for_record(airtable, rec_id, fal=fal, execute=execute)
+            if not p5_ok:
+                print(f"\n[FATAL] Phase 5 failed for {rec_id}. Stopping pipeline to prevent infinite retry.")
+                return False
+
+            if execute:
+                verified = verify_record_completed(airtable, rec_id)
+                if not verified:
+                    print(f"\n[FATAL] Verification failed for {rec_id}. Status is not Done or video is missing.")
+                    return False
 
             processed_rows += 1
-            print(f"\n[DONE] Row {processed_rows} ({rec_id}) is completely finished and marked 'Done'!")
-            print("Resetting and proceeding to next row...\n")
+            print(f"\n{'=' * 70}")
+            print(f" [ROW {processed_rows} COMPLETE] Record {rec_id} verified DONE with video attached!")
+            print(f" Cooling down 5 seconds before checking next row...")
+            print(f"{'=' * 70}\n")
+            if execute:
+                time.sleep(5)
             continue
 
         # Step 2: If no unfinished row exists, scrape 1 new row from Akeneo (Newest with random pool selection)
@@ -1729,6 +1979,7 @@ def run_continuous_row_pipeline(
             airtable,
             style=style,
             execute=execute,
+            shopify_check=shopify_check,
         )
 
         if not new_rec_id:
@@ -1740,21 +1991,44 @@ def run_continuous_row_pipeline(
             processed_rows += 1
             continue
 
+        # Ensure all photos are intact
+        auto_heal_furniture_items(akeneo, airtable, new_rec_id, execute=execute)
+
         # Step 3: Phase 2 for this new row
-        run_phase_2_for_record(krea, airtable, new_rec_id, execute=execute)
+        p2_ok = run_phase_2_for_record(krea, airtable, new_rec_id, execute=execute)
+        if not p2_ok:
+            print(f"\n[FATAL] Phase 2 failed for new row {new_rec_id}. Stopping pipeline.")
+            return False
 
         # Step 4: Phase 3 for this new row
-        run_phase_3_for_record(fal, airtable, new_rec_id, execute=execute)
+        p3_ok = run_phase_3_for_record(fal, airtable, new_rec_id, execute=execute)
+        if not p3_ok:
+            print(f"\n[FATAL] Phase 3 failed for new row {new_rec_id}. Stopping pipeline.")
+            return False
 
         # Step 5: Phase 4 for this new row
-        run_phase_4_for_record(fal, airtable, new_rec_id, execute=execute)
+        p4_ok = run_phase_4_for_record(fal, airtable, new_rec_id, execute=execute)
+        if not p4_ok:
+            print(f"\n[FATAL] Phase 4 failed for new row {new_rec_id}. Stopping pipeline.")
+            return False
 
         # Step 6: Phase 5 for this new row
-        run_phase_5_for_record(airtable, new_rec_id, fal=fal, execute=execute)
+        p5_ok = run_phase_5_for_record(airtable, new_rec_id, fal=fal, execute=execute)
+        if not p5_ok:
+            print(f"\n[FATAL] Phase 5 failed for new row {new_rec_id}. Stopping pipeline.")
+            return False
+
+        verified = verify_record_completed(airtable, new_rec_id)
+        if not verified:
+            print(f"\n[FATAL] Verification failed for new row {new_rec_id}. Status is not Done or video is missing.")
+            return False
 
         processed_rows += 1
-        print(f"\n[DONE] Row {processed_rows} ({new_rec_id}) is completely finished and marked 'Done'!")
-        print("Resetting and proceeding to next row...\n")
+        print(f"\n{'=' * 70}")
+        print(f" [ROW {processed_rows} COMPLETE] Record {new_rec_id} verified DONE with video attached!")
+        print(f" Cooling down 5 seconds before scraping next row...")
+        print(f"{'=' * 70}\n")
+        time.sleep(5)
 
     return True
 
@@ -1806,6 +2080,11 @@ def parse_args(argv=None):
         "--menu",
         action="store_true",
         help="Display interactive phase selection menu",
+    )
+    parser.add_argument(
+        "--no-shopify-check",
+        action="store_true",
+        help="Disable Shopify published products cross-check (default: check enabled)",
     )
     return parser.parse_args(argv)
 
@@ -1860,6 +2139,7 @@ def main(argv=None) -> int:
 
     channel_name = os.getenv("CHANNEL_NAME") or "home_cartel"
     table_id = args.table_id or DEFAULT_TABLE_ID
+    shopify_check = not getattr(args, "no_shopify_check", False)
 
     fal_key = settings.fal_key or os.getenv("FAL_KEY", "").strip() or os.getenv("FAL_API_KEY", "").strip()
 
@@ -1885,7 +2165,7 @@ def main(argv=None) -> int:
         api_key=fal_key,
     )
 
-    print(f"\n[START] Style Reel Slideshow Pipeline | Table: {table_id} | Phase: {phase.upper()} | Execute: {execute}")
+    print(f"\n[START] Style Reel Slideshow Pipeline | Table: {table_id} | Phase: {phase.upper()} | Execute: {execute} | Shopify Check: {'ENABLED' if shopify_check else 'DISABLED'}")
 
     # Continuous row-by-row pipeline
     if phase == "all":
@@ -1897,6 +2177,7 @@ def main(argv=None) -> int:
             style=args.style,
             max_rows=args.max_rows,
             execute=execute,
+            shopify_check=shopify_check,
         )
     elif phase == "1":
         run_phase_1_scrape(
@@ -1905,6 +2186,7 @@ def main(argv=None) -> int:
             style=args.style,
             max_rows=args.max_rows,
             execute=execute,
+            shopify_check=shopify_check,
         )
     elif phase == "2":
         run_phase_2_krea(

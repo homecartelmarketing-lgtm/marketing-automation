@@ -1,0 +1,14 @@
+{
+  "name": "homecartel-marketing-studio",
+  "command": "python -u \"UI Control/api_server.py\"",
+  "build_type": "docker",
+  "dockerfile": "Dockerfile",
+  "stack": "python",
+  "env_variables": {
+    "PYTHONUNBUFFERED": "1",
+    "PORT": "5200"
+  },
+  "memory": 2048,
+  "min_instances": 1,
+  "max_instances": 1
+}

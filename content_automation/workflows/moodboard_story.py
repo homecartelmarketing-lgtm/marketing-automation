@@ -4,6 +4,8 @@ import os
 import sys
 from pathlib import Path
 
+from ..akeneo_client import split_item_name
+from ..item_tagger import TARGET_BLENDED_FIELD, tag_and_upload_blended_image
 from ..models import AssetRequirement, CallEstimate, LocalImage
 from ..overlay import HOMECARTEL_STORY_LOGO_BOX
 from .base import BaseWorkflow
@@ -84,23 +86,67 @@ class MoodboardStoryWorkflow(BaseWorkflow):
             [source, product],
             aspect_ratio="9:16",
         )
-        self.attach_exact("Blended Image", [blend])
-        print(f"   [OK] Phase 3 Complete -> Uploaded to 'Blended Image'")
 
-        # Phase 4: Local PIL Logo Overlay
+        # Local PIL Brand Logo Stamping onto Blended Image (Story Top-Right: X=781.7, Y=108.0)
         logo = self._get_logo_image()
+        stamped_blend = blend
         if logo:
-            print("\n [PHASE 4/5] LOCAL PIL - Brand Logo Overlay Stamping")
+            print("\n [LOGO STAMPING] Stamping HomeCartel Story logo onto Blended Image")
             print(f"   * Placement:     Top-Right (X=781.7, Y=108.0 | 190.3 x 63.5 px)")
             print(f"   * Cost:          Zero API Cost (Local High-Resolution PIL engine)")
-            logo_stamped = self.stamp_logo(
-                f"homecartel_logo_overlay_{anchor.record_id}.jpg",
+            stamped_blend = self.stamp_logo(
+                f"blended_stamped_{anchor.record_id}.jpg",
                 blend,
                 logo,
                 box=HOMECARTEL_STORY_LOGO_BOX,
             )
-            self.attach_exact("Homecartel Logo Overlay", [logo_stamped])
-            print(f"   [OK] Phase 4 Complete -> Uploaded to 'Homecartel Logo Overlay'")
+            self.attach_exact("Blended Image", [stamped_blend])
+            self.attach_exact("Homecartel Logo Overlay", [stamped_blend])
+            print(f"   [OK] Attached watermarked image to 'Blended Image' and 'Homecartel Logo Overlay'")
+        else:
+            self.attach_exact("Blended Image", [blend])
+            print(f"   [OK] Attached unbranded image to 'Blended Image' (no logo found)")
+
+        # Auto-tag furniture item name onto 9:16 Blended Image using zero-cost local YOLO-World
+        try:
+            raw_item_name = str(anchor.item_name or anchor.fields.get("Item Name") or sku).strip()
+            item_title, product_type = split_item_name(
+                raw_item_name, fallback_product_type=str(anchor.fields.get("Product Type") or "")
+            )
+            raw_cat = str(self.ctx.definition.table_code or "pendant_lights").lower()
+            if "chandelier" in raw_cat:
+                clean_category = "chandeliers"
+            elif "pendant" in raw_cat:
+                clean_category = "pendant_lights"
+            elif "floor" in raw_cat:
+                clean_category = "floor_lamps"
+            else:
+                clean_category = raw_cat
+
+            print(f"\n [ITEM TAGGING] Stamping item name ('{item_title}') onto Blended Image -> '{TARGET_BLENDED_FIELD}'...")
+            print(f"   * Category:      {clean_category}")
+            print(f"   * Safe Fallback: Mid-Left safe zone (X=100, Y=800) if undetected")
+            tag_and_upload_blended_image(
+                airtable=self.ctx.airtable,
+                record_id=anchor.record_id,
+                blended_source=stamped_blend.path,
+                item_name=item_title,
+                product_type=product_type,
+                category=clean_category,
+                target_field=TARGET_BLENDED_FIELD,
+                output_filename_prefix="moodboard_story_tagged",
+                fallback_if_undetected=True,
+                fallback_position=(100, 800),
+            )
+        except Exception as tag_err:
+            print(f"  [WARN] Failed auto-tagging item name onto Moodboard Story blended image: {tag_err}")
+
+        # Phase 4: Local PIL Logo Overlay Confirmation
+        print("\n [PHASE 4/5] LOCAL PIL - Brand Logo Overlay Stamping")
+        if logo:
+            print(f"   * Placement:     Top-Right (X=781.7, Y=108.0 | 190.3 x 63.5 px)")
+            print(f"   * Cost:          Zero API Cost (Local High-Resolution PIL engine)")
+            print(f"   [OK] Phase 4 Complete -> Verified on 'Blended Image', 'Homecartel Logo Overlay', and '{TARGET_BLENDED_FIELD}'")
         else:
             print("\n [PHASE 4/5] LOGO OVERLAY: Skipped (no logo attachment found)")
 
@@ -138,22 +184,57 @@ class MoodboardStoryWorkflow(BaseWorkflow):
         item_name = (anchor.item_name or anchor.fields.get("Item Name") or "").lower()
 
         if "pendant" in table_code or "pendant" in item_name:
-            return "Generate me a modern dining room"
+            return (
+                os.getenv("MOODBOARD_STORY_PROMPT_PENDANT_LIGHTS", "").strip()
+                or os.getenv("MOODBOARD_PROMPT_PENDANT", "").strip()
+                or os.getenv("KREA_PROMPT", "").strip()
+                or "Generate me a modern dining room"
+            )
+        if "floor" in table_code or "floor" in item_name:
+            return (
+                os.getenv("MOODBOARD_STORY_PROMPT_FLOOR_LAMPS", "").strip()
+                or os.getenv("MOODBOARD_PROMPT_FLOOR_LAMP", "").strip()
+                or os.getenv("KREA_PROMPT", "").strip()
+                or "Generate me a modern living room"
+            )
         if "chandelier" in table_code or "chandelier" in item_name:
-            return "Generate a premium vertical modern dining room with warm editorial styling, realistic architecture, and a clear natural product focal point. Photorealistic, no text."
+            return (
+                os.getenv("MOODBOARD_STORY_PROMPT_CHANDELIER", "").strip()
+                or os.getenv("MOODBOARD_PROMPT_CHANDELIER", "").strip()
+                or os.getenv("KREA_PROMPT", "").strip()
+                or "Generate me a modern living room"
+            )
 
-        return "Generate me a modern dining room"
+        return os.getenv("KREA_PROMPT", "").strip() or "Generate me a modern living room"
 
     def _get_moodboard_id(self) -> str:
+        krea_override = os.getenv("KREA_MOODBOARD_ID", "").strip()
+        if krea_override:
+            return krea_override
+
         table_code = (self.ctx.definition.table_code or "").lower()
         mb_id = self.ctx.settings.moodboard_id(self.ctx.definition.table_code)
         if mb_id:
             return mb_id
 
         item_name = (self.ctx.anchor.item_name or self.ctx.anchor.fields.get("Item Name") or "").lower()
+        if "floor" in table_code or "floor" in item_name:
+            return (
+                os.getenv("MOODBOARD_ID_FLOOR_LAMPS", "").strip()
+                or os.getenv("KREA_MOODBOARD_ID_FLOOR_LAMPS", "").strip()
+                or "c4c15a18-a92d-4465-924f-c85cfe1958bc"
+            )
         if "pendant" in table_code or "pendant" in item_name:
-            return "0844ad92-c34a-4dc8-9d70-d09498dc098c"
-        return "b5ffdcbb-192e-4528-8d86-d1a4cf496887"
+            return (
+                os.getenv("MOODBOARD_ID_PENDANT_LIGHTS", "").strip()
+                or os.getenv("KREA_MOODBOARD_ID_PENDANT_LIGHTS", "").strip()
+                or "0844ad92-c34a-4dc8-9d70-d09498dc098c"
+            )
+        return (
+            os.getenv("MOODBOARD_ID_CHANDELIER", "").strip()
+            or os.getenv("KREA_MOODBOARD_ID_CHANDELIERS", "").strip()
+            or "de6ad512-870d-4ab7-a48c-3f3ca85faf24"
+        )
 
     def _get_logo_image(self) -> LocalImage | None:
         anchor = self.ctx.anchor

@@ -1,14 +1,11 @@
 """Run Full End-to-End Product Closeup w/ Description Story Automation.
 
 Workflow:
-1. Scrapes active modern lighting products from Akeneo into Airtable.
+1. Scrapes active modern lighting products from Akeneo into Airtable (with comprehensive deduplication).
 2. Automatically attaches 'layout_product_v2.jpg' into 'Product Closeup Description Layout'.
 3. Formats prompt with item names using 'JSON Prompts/Product Closeup V2/product_desc.json'.
-4. Blends product with description layout via Fal AI Nano Banana Pro (9:16 vertical 1080x1920).
-5. Appends log to 'output/logs/fal_nano_product_description_logs.json'.
-6. Uploads resulting story card directly to Airtable:
-   - Field: 'Product Closeup Description Converted'
-   - Sets Status = 'Complete'
+4. Blends product with description layout via Fal AI Nano Banana Pro (9:16 vertical 1080x1920) -> 'Product Closeup Description Converted'.
+5. Appends logs and updates Status = 'Complete'.
 
 Usage:
     # Run 1 item for Chandeliers (default):

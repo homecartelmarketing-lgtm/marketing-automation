@@ -36,11 +36,11 @@ def resolve_day_night_pipeline(
     # 2. Check target_arg
     if target_arg:
         raw = target_arg.strip().lower()
-        if raw in ("1", "pendant_lights", "pendant_light", "pendant", "tblktum627s2f0ftn", "tbl35jyslnuwh61tl"):
+        if raw in ("1", "pendant_lights", "pendant_light", "pendant", DAY_NIGHT_REEL_PENDANT.table_id.lower()):
             return DAY_NIGHT_REEL_PENDANT
-        if raw in ("2", "chandeliers", "chandelier", "tblodnfanvp6sxn0a"):
+        if raw in ("2", "chandeliers", "chandelier", DAY_NIGHT_REEL_CHANDELIER.table_id.lower()):
             return DAY_NIGHT_REEL_CHANDELIER
-        if raw in ("3", "floor_lamps", "floor_lamp", "floor", "tbl2vowot7ssut4e2"):
+        if raw in ("3", "floor_lamps", "floor_lamp", "floor", DAY_NIGHT_REEL_FLOOR_LAMP.table_id.lower()):
             return DAY_NIGHT_REEL_FLOOR_LAMP
         if raw in DAY_NIGHT_REEL_PIPELINES:
             return DAY_NIGHT_REEL_PIPELINES[raw]
@@ -51,26 +51,35 @@ def resolve_day_night_pipeline(
         print("Select Day & Night Reel Destination Table:")
         print("=" * 64)
         print("  [1] Pendant Light Day & Night Reel")
-        print("      Table ID: tblkTuM627s2f0FTN | Category: pendant_lights")
-        print("      Moodboard: de5f4ff8-518c-4d6b-b606-ce1d5dac51f3")
+        print(f"      Table ID: {DAY_NIGHT_REEL_PENDANT.table_id} | Category: {DAY_NIGHT_REEL_PENDANT.category_code}")
+        print(f"      Moodboard: {DAY_NIGHT_REEL_PENDANT.moodboard_id}")
         print("  [2] Chandelier Day & Night Reel")
-        print("      Table ID: tblODnfaNVP6SXn0A | Category: chandeliers")
-        print("      Moodboard: b5ffdcbb-192e-4528-8d86-d1a4cf496887")
+        print(f"      Table ID: {DAY_NIGHT_REEL_CHANDELIER.table_id} | Category: {DAY_NIGHT_REEL_CHANDELIER.category_code}")
+        print(f"      Moodboard: {DAY_NIGHT_REEL_CHANDELIER.moodboard_id}")
         print("  [3] Floor Lamp Day & Night Reel")
-        print("      Table ID: tbl2VoWOt7sSut4E2 | Category: floor_lamps")
-        print("      Moodboard: b1641228-beec-4823-8d01-1de3eec8410d")
+        print(f"      Table ID: {DAY_NIGHT_REEL_FLOOR_LAMP.table_id} | Category: {DAY_NIGHT_REEL_FLOOR_LAMP.category_code}")
+        print(f"      Moodboard: {DAY_NIGHT_REEL_FLOOR_LAMP.moodboard_id}")
         print("=" * 64)
         try:
             choice = input("Enter choice [1, 2, or 3] (default: 1): ").strip().lower()
-            if choice in ("2", "chandelier", "chandeliers", "tblodnfanvp6sxn0a"):
+            if choice in ("2", "chandelier", "chandeliers", DAY_NIGHT_REEL_CHANDELIER.table_id.lower()):
                 return DAY_NIGHT_REEL_CHANDELIER
-            if choice in ("3", "floor", "floor_lamp", "floor_lamps", "tbl2vowot7ssut4e2"):
+            if choice in ("3", "floor", "floor_lamp", "floor_lamps", DAY_NIGHT_REEL_FLOOR_LAMP.table_id.lower()):
                 return DAY_NIGHT_REEL_FLOOR_LAMP
             return DAY_NIGHT_REEL_PENDANT
         except (EOFError, KeyboardInterrupt):
             pass
 
     return DAY_NIGHT_REEL_PENDANT
+
+
+def apply_interior_overrides(pipeline: PipelineDefinition, args: argparse.Namespace) -> PipelineDefinition:
+    """Apply fixture editor values to the selected reel definition."""
+    return dataclasses.replace(
+        pipeline,
+        moodboard_id=(args.moodboard_id or "").strip() or pipeline.moodboard_id,
+        interior_prompt=(args.interior_prompt or "").strip() or pipeline.interior_prompt,
+    )
 
 
 def parse_args(argv=None):
@@ -105,6 +114,20 @@ def parse_args(argv=None):
         default=None,
         help="Airtable destination table ID override.",
     )
+    parser.add_argument("--moodboard-id", default=None, help="Krea moodboard ID override.")
+    parser.add_argument("--interior-prompt", default=None, help="Krea interior prompt override.")
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume the latest unfinished/interrupted row instead of scraping a new one.",
+    )
+    parser.add_argument(
+        "--max-items",
+        type=int,
+        default=1,
+        metavar="N",
+        help="Number of products to process per run (default: 1)",
+    )
     parser.add_argument(
         "--env",
         type=Path,
@@ -121,13 +144,15 @@ def main(argv=None) -> int:
         table_id_arg=args.table_id,
         prompt_if_interactive=True,
     )
+    pipeline = apply_interior_overrides(pipeline, args)
     print("=" * 64)
     print(f"Starting Day & Night Reel: {pipeline.category_code}")
     print(f"Destination Table: {settings.airtable_base_id} / {pipeline.table_id}")
     print(f"Krea Moodboard ID: {pipeline.moodboard_id}")
     print(f"Interior Prompt: {pipeline.interior_prompt}")
+    print(f"Max Items: {args.max_items}")
     print("=" * 64)
-    PhasedContentRunner(pipeline, settings).run(args.phase)
+    PhasedContentRunner(pipeline, settings).run(args.phase, resume=args.resume, max_items=args.max_items)
     return 0
 
 

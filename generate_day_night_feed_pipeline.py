@@ -55,11 +55,18 @@ import requests
 
 from PIL import Image
 
-from content_automation.akeneo_client import AkeneoClient
+from content_automation.akeneo_client import AkeneoClient, split_item_name
 from content_automation.config import load_settings
 from content_automation.errors import AutomationError, ProviderError
 from content_automation.fal_client import FalClient
+from content_automation.prompts import build_vision_blending_instruction
+from content_automation.item_tagger import (
+    TARGET_BLENDED_FIELD,
+    tag_and_upload_blended_image,
+    tag_blended_image,
+)
 from content_automation.krea_client import KreaClient
+from content_automation.overlay import HOMECARTEL_LOGO_BOX, stamp_logo
 from content_automation.media import attachment_filename, download_to_temp_file
 from content_automation.scraping import ScrapeAirtableClient, load_scrape_settings
 from content_automation.scraping.categories import (
@@ -81,14 +88,14 @@ DEFAULT_TABLE_ID = (
 )
 DEFAULT_MOODBOARD_ID = (
     os.getenv("KREA_MOODBOARD_ID_CHANDELIERS", "").strip()
-    or "b5ffdcbb-192e-4528-8d86-d1a4cf496887"
+    or "de6ad512-870d-4ab7-a48c-3f3ca85faf24"
 )
 DEFAULT_CATEGORY = "chandeliers"
 DEFAULT_STYLE = os.getenv("AKENEO_STYLE", "").strip() or "modern"
 ASPECT_RATIO_4_5 = "4:5"
 
 DEFAULT_INTERIOR_PROMPT = (
-    "Generate me a modern living room the ceiling and plain and hanging chandelier"
+    "Generate me a modern living room"
 )
 
 NIGHT_PROMPT = """
@@ -124,7 +131,6 @@ DAY_IMAGE_FALLBACKS = ["Day Image", "Day Photo", "Blended Image"]
 
 NIGHT_IMAGE_FIELD = "Night Image"
 NIGHT_IMAGE_FALLBACKS = ["Night Image", "Night Photo"]
-
 STORY_FINAL_FIELD = "STORY - Day & Night (2)"
 
 FAL_VISION_MODEL = os.getenv("CLAUDE_VISION_MODEL", "").strip() or "anthropic/claude-sonnet-5"
@@ -174,6 +180,71 @@ def extract_attachment_url(attachments: Any) -> str:
     return ""
 
 
+REQUIRED_DAY_NIGHT_FIELDS = {
+    "Status": "singleSelect",
+    "Furniture Item": "multipleAttachments",
+    "Item Name": "multilineText",
+    "SKU": "multilineText",
+    "Interior Generated Photo": "multipleAttachments",
+    "Blending Prompt": "multilineText",
+    "Day Image": "multipleAttachments",
+    "Night Image": "multipleAttachments",
+    "Blended Image with Name text": "multipleAttachments",
+    "Foreign Key ID": "singleLineText",
+    "Date and Time Generated": "dateTime",
+}
+
+
+def ensure_day_night_feed_fields(airtable: ScrapeAirtableClient) -> None:
+    """Verify all mandatory Day & Night Feed columns exist in Airtable, creating any missing ones."""
+    try:
+        existing = airtable.known_field_names(refresh=True)
+        missing = {name: ftype for name, ftype in REQUIRED_DAY_NIGHT_FIELDS.items() if name not in existing}
+        if missing:
+            print(f"[SCHEMA] Table {airtable.table_id} is missing {len(missing)} field(s): {list(missing.keys())}. Creating...")
+            for fname, ftype in missing.items():
+                try:
+                    resp = airtable._request("POST", airtable.fields_url, json={"name": fname, "type": ftype})
+                    if resp.ok:
+                        print(f"  [OK] Created field '{fname}' ({ftype})")
+                    else:
+                        print(f"  [WARN] Failed to create field '{fname}': {resp.text}")
+                except Exception as cerr:
+                    print(f"  [WARN] Error creating field '{fname}': {cerr}")
+            airtable.known_field_names(refresh=True)
+    except Exception as err:
+        print(f"[WARN] Failed checking table schema for {airtable.table_id}: {err}")
+
+
+def resolve_logo_path(fields: dict[str, Any] | None = None) -> tuple[Path, Any]:
+    """Resolve HomeCartel logo path, checking table attachment first, then local disk fallback."""
+    if fields:
+        for fname in ("Logo", "Logo Watermark", "Brand Logo"):
+            logo_field = fields.get(fname)
+            url = extract_attachment_url(logo_field)
+            if url:
+                try:
+                    resp = requests.get(url, stream=True, timeout=20)
+                    downloaded = download_to_temp_file(
+                        resp, prefix="feed_logo_", suffix=".png", context="Download table logo"
+                    )
+                    return downloaded.path, downloaded
+                except Exception as err:
+                    print(f"  [WARN] Failed downloading logo attachment ({err}), using local asset.")
+                break
+
+    candidates = [
+        Path("assets/homecartel_logo.png"),
+        Path(__file__).parent / "assets" / "homecartel_logo.png",
+        Path("assets/Logo.png"),
+        Path(__file__).parent / "assets" / "Logo.png",
+    ]
+    for p in candidates:
+        if p.is_file():
+            return p, None
+    return Path("assets/homecartel_logo.png"), None
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Phase 0: Akeneo Scraping for Feed Table
 # ─────────────────────────────────────────────────────────────────────────────
@@ -183,9 +254,10 @@ def scrape_feed_products(
     airtable: ScrapeAirtableClient,
     count: int = 1,
     style: str = DEFAULT_STYLE,
-) -> bool:
-    """Scrape unique chandelier products from Akeneo into Feed table tblSceuLVvLMQ6wWp."""
-    print(f"\n[PHASE 0: SCRAPE] Scraping {count} new chandelier item(s) from Akeneo (style={style})...")
+    category: str = DEFAULT_CATEGORY,
+) -> list[str]:
+    """Scrape unique products from Akeneo into Feed table and return created record IDs."""
+    print(f"\n[PHASE 0: SCRAPE] Scraping {count} new {category} item(s) from Akeneo (style={style})...")
     akeneo = AkeneoClient(
         settings.akeneo_host,
         settings.akeneo_client_id,
@@ -196,7 +268,7 @@ def scrape_feed_products(
     runner = FurnitureItemScrapeRunner(
         akeneo,
         airtable,
-        category_code=DEFAULT_CATEGORY,
+        category_code=category,
         style_code=style,
         field_name=FIELD_NAME,
         item_name_field=ITEM_NAME_FIELD,
@@ -206,7 +278,8 @@ def scrape_feed_products(
         include_product_type_in_name=True,
         max_items=count,
     )
-    return runner.run()
+    runner.run()
+    return runner.created_record_ids
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -289,25 +362,21 @@ def generate_blending_prompt_for_feed(
         print("  [DRY-RUN] Would generate Claude Sonnet 5 vision blending prompt.")
         return f"A modern living room featuring the {item_name} chandelier mounted at ceiling center with warm ambient glow."
 
-    instruction = (
-        f"You are an expert interior design photographer and image blending director.\n"
-        f"Treat Image 1 as the background room interior ('Interior Generated Photo') "
-        f"and Image 2 as the product photo for '{item_name}' ('Furniture Item').\n"
-        f"Generate a detailed, highly specific image-blending prompt for Nano Banana Pro (4:5 aspect ratio). "
-        f"The prompt must describe naturally integrating and mounting the {item_name} from Image 2 into the room interior from Image 1.\n"
-        f"CRITICAL ISOLATION & MOUNTING RULES:\n"
-        f"1. The {item_name} shown in Image 2 MUST BE THE ONLY CEILING/MAIN LIGHTING FIXTURE in the entire final blended scene.\n"
-        f"2. If Image 1 contains ANY pre-existing lighting fixtures, explicitly instruct to remove and replace them with the exact {item_name} from Image 2.\n"
-        f"3. Strictly exclude unnecessary, competing furniture items, duplicate fixtures, or clutter.\n"
-        f"4. Ensure natural hanging/placement height, realistic chain/rod/cord mounting, ceiling canopy, realistic daylight illumination, soft ambient glow, natural contact shadows on surrounding walls/floors, and authentic materials.\n\n"
-        f"Output ONLY the prompt text, with no preamble, markdown formatting, or quotes."
+    instruction = build_vision_blending_instruction(
+        interior_label="Room Interior ('Interior Generated Photo')",
+        item_name=item_name,
+        aspect_ratio="4:5",
     )
 
-    prompt_text = fal.generate_vision_prompt(
-        image_urls=[interior_url, furniture_url],
-        prompt=instruction,
-        model=FAL_VISION_MODEL,
-    )
+    prompt_text = ""
+    try:
+        prompt_text = fal.generate_vision_prompt(
+            image_urls=[interior_url, furniture_url],
+            prompt=instruction,
+            model=FAL_VISION_MODEL,
+        )
+    except Exception as fal_err:
+        raise AutomationError(f"Fal Claude prompt generation failed: {fal_err}")
 
     prompt_text = prompt_text.strip().strip('"').strip("'")
     target_prompt_field = PROMPT_FIELD
@@ -445,30 +514,104 @@ def finalize_feed_record(
     day_url: str,
     night_url: str,
     *,
+    category: str = DEFAULT_CATEGORY,
     dry_run: bool = False,
 ) -> bool:
     """Upload both photos to multi-attachment field if present and set Status to Complete."""
     if dry_run:
+        print(f"  [DRY-RUN] Would stamp HomeCartel logo on Slide 1 (Day) using Feed box (W={HOMECARTEL_LOGO_BOX.width}, H={HOMECARTEL_LOGO_BOX.height}, X={HOMECARTEL_LOGO_BOX.x}, Y={HOMECARTEL_LOGO_BOX.y})")
+        print(f"  [DRY-RUN] Would upload stamped Day photo to '{DAY_IMAGE_FIELD}'")
+        print(f"  [DRY-RUN] Would upload stamped Day + Night to '{STORY_FINAL_FIELD}'")
+        print(f"  [DRY-RUN] Would tag item name and upload Day & Night photos to '{TARGET_BLENDED_FIELD}'")
         print(f"  [DRY-RUN] Would set Status='{STATUS_COMPLETE}' on record {record_id}")
         return True
 
     print(f"\n  [UPLOAD] Finalizing Day & Night Feed record {record_id}...")
     downloaded_day = None
     downloaded_night = None
+    tagged_day_file = None
+    stamped_day_file = None
+    logo_temp = None
     try:
         resp_day = requests.get(day_url, stream=True)
-        downloaded_day = download_to_temp_file(resp_day, prefix="final_day_", suffix=".jpg")
+        downloaded_day = download_to_temp_file(resp_day, prefix="final_day_", suffix=".jpg", context="Download daytime photo")
 
         resp_night = requests.get(night_url, stream=True)
-        downloaded_night = download_to_temp_file(resp_night, prefix="final_night_", suffix=".jpg")
+        downloaded_night = download_to_temp_file(resp_night, prefix="final_night_", suffix=".jpg", context="Download night photo")
 
-        # Upload both images to the final multi-attachment field if present in schema
+        fields = airtable.get_record(record_id).get("fields", {})
+
+        # Step A: Auto-tag furniture item name onto Slide 1 (Day photo) using zero-cost local YOLO-World
+        tagged_day_path = downloaded_day.path
         try:
-            airtable.upload_attachment(record_id, STORY_FINAL_FIELD, downloaded_day, "day_photo.jpg")
-            airtable.upload_attachment(record_id, STORY_FINAL_FIELD, downloaded_night, "night_photo.jpg")
+            raw_item_name = str(fields.get(ITEM_NAME_FIELD) or fields.get(SKU_FIELD) or record_id).strip()
+            item_title, product_type = split_item_name(
+                raw_item_name, fallback_product_type=str(fields.get("Product Type") or "")
+            )
+            temp_tagged = Path(tempfile.gettempdir()) / f"tagged_day_{record_id}.jpg"
+            tag_blended_image(
+                image_input=downloaded_day.path,
+                item_name=item_title,
+                product_type=product_type,
+                category=category or DEFAULT_CATEGORY,
+                destination=temp_tagged,
+                fallback_if_undetected=True,
+            )
+            if temp_tagged.is_file():
+                tagged_day_file = temp_tagged
+                tagged_day_path = temp_tagged
+                print(f"  [+] Tagged item name ('{item_title}') onto Slide 1 (Day photo) via YOLO-World")
+        except Exception as tag_err:
+            print(f"  [WARN] Failed auto-tagging item name onto Day photo: {tag_err}")
+
+        # Step B: Stamp HomeCartel logo onto Slide 1 (Day photo) using Feed coordinates (X=108.0, Y=1178.5)
+        stamped_day_path = tagged_day_path
+        try:
+            logo_path, logo_temp = resolve_logo_path(fields)
+            if logo_path and logo_path.is_file():
+                temp_stamped = Path(tempfile.gettempdir()) / f"stamped_day_{record_id}.jpg"
+                stamp_logo(
+                    base_path=tagged_day_path,
+                    logo_path=logo_path,
+                    destination=temp_stamped,
+                    box=HOMECARTEL_LOGO_BOX,
+                )
+                if temp_stamped.is_file():
+                    stamped_day_file = temp_stamped
+                    stamped_day_path = temp_stamped
+                    print(
+                        f"  [+] Stamped HomeCartel Feed logo onto Slide 1 "
+                        f"(Canva Box: W={HOMECARTEL_LOGO_BOX.width}, H={HOMECARTEL_LOGO_BOX.height}, "
+                        f"X={HOMECARTEL_LOGO_BOX.x}, Y={HOMECARTEL_LOGO_BOX.y})"
+                    )
+        except Exception as logo_err:
+            print(f"  [WARN] Failed stamping HomeCartel logo onto Day photo: {logo_err}")
+
+        # Step C: Upload tagged + stamped Day photo over Day Image
+        try:
+            airtable.clear_attachment_field(record_id, DAY_IMAGE_FIELD)
+            airtable.upload_attachment(record_id, DAY_IMAGE_FIELD, stamped_day_path, "day_photo.jpg")
+            print(f"  [OK] Uploaded stamped & tagged Day photo to '{DAY_IMAGE_FIELD}'")
+        except Exception as day_upload_err:
+            print(f"  [WARN] Failed uploading stamped Day photo to '{DAY_IMAGE_FIELD}': {day_upload_err}")
+
+        # Step D: Upload stamped Day + Night photos to final multi-attachment field STORY - Day & Night (2)
+        try:
+            airtable.clear_attachment_field(record_id, STORY_FINAL_FIELD)
+            airtable.upload_attachment(record_id, STORY_FINAL_FIELD, stamped_day_path, "day_photo.jpg")
+            airtable.upload_attachment(record_id, STORY_FINAL_FIELD, downloaded_night.path, "night_photo.jpg")
             print(f"  [OK] Uploaded [day_photo.jpg, night_photo.jpg] to '{STORY_FINAL_FIELD}'")
-        except Exception:
-            pass
+        except Exception as story_upload_err:
+            print(f"  [WARN] Failed uploading to '{STORY_FINAL_FIELD}': {story_upload_err}")
+
+        # Step E: Mirror tagged/stamped Day photo + Night photo to 'Blended Image with Name text'
+        try:
+            airtable.clear_attachment_field(record_id, TARGET_BLENDED_FIELD)
+            airtable.upload_attachment(record_id, TARGET_BLENDED_FIELD, stamped_day_path, "day_photo_tagged.jpg")
+            airtable.upload_attachment(record_id, TARGET_BLENDED_FIELD, downloaded_night.path, "night_photo.jpg")
+            print(f"  [OK] Mirrored [day_photo_tagged.jpg, night_photo.jpg] to '{TARGET_BLENDED_FIELD}'")
+        except Exception as mirror_err:
+            print(f"  [WARN] Failed mirroring to '{TARGET_BLENDED_FIELD}': {mirror_err}")
 
         # Update status to Complete
         airtable.update_records([(record_id, {STATUS_FIELD: STATUS_COMPLETE})])
@@ -492,6 +635,21 @@ def finalize_feed_record(
                 downloaded_night.cleanup()
             except Exception:
                 pass
+        if logo_temp:
+            try:
+                logo_temp.cleanup()
+            except Exception:
+                pass
+        if tagged_day_file and tagged_day_file.is_file():
+            try:
+                tagged_day_file.unlink(missing_ok=True)
+            except Exception:
+                pass
+        if stamped_day_file and stamped_day_file.is_file():
+            try:
+                stamped_day_file.unlink(missing_ok=True)
+            except Exception:
+                pass
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -505,6 +663,8 @@ def process_single_feed_row(
     record: dict[str, Any],
     *,
     moodboard_id: str = DEFAULT_MOODBOARD_ID,
+    prompt: str = DEFAULT_INTERIOR_PROMPT,
+    category: str = DEFAULT_CATEGORY,
     dry_run: bool = False,
     force: bool = False,
 ) -> bool:
@@ -538,7 +698,7 @@ def process_single_feed_row(
         record_id,
         fields,
         moodboard_id=moodboard_id,
-        prompt=DEFAULT_INTERIOR_PROMPT,
+        prompt=prompt,
         aspect_ratio=ASPECT_RATIO_4_5,
         dry_run=dry_run,
     )
@@ -584,6 +744,7 @@ def process_single_feed_row(
         record_id,
         day_image_url,
         night_image_url,
+        category=category,
         dry_run=dry_run,
     )
 
@@ -659,9 +820,20 @@ def parse_args(argv=None):
         help=f"Airtable destination table ID (default: {DEFAULT_TABLE_ID})",
     )
     parser.add_argument(
+        "--category",
+        choices=("chandeliers", "pendant_lights", "floor_lamps", "table_lamps"),
+        default=DEFAULT_CATEGORY,
+        help=f"Akeneo product category (default: {DEFAULT_CATEGORY})",
+    )
+    parser.add_argument(
         "--moodboard-id",
         default=DEFAULT_MOODBOARD_ID,
         help=f"Krea Moodboard ID override (default: {DEFAULT_MOODBOARD_ID})",
+    )
+    parser.add_argument(
+        "--prompt",
+        default=None,
+        help="Krea Room Interior prompt override.",
     )
     parser.add_argument(
         "--style",
@@ -736,12 +908,14 @@ def main(argv=None) -> int:
     base_settings = load_settings()
     table_id = args.table_id or DEFAULT_TABLE_ID
     moodboard_id = args.moodboard_id or DEFAULT_MOODBOARD_ID
+    active_prompt = args.prompt or DEFAULT_INTERIOR_PROMPT
 
     print("\n" + "=" * 64)
     print(" HomeCartel - Day & Night Feed AI Pipeline (4:5 Ratio)")
-    print(f" Target Table: {table_id} (Chandelier Feed)")
+    print(f" Target Table: {table_id} (Category: {args.category})")
     print(f" Aspect Ratio: {ASPECT_RATIO_4_5} (Feed)")
     print(f" Krea Moodboard ID: {moodboard_id}")
+    print(f" Room Prompt: \"{active_prompt}\"")
     print(f" Mode: {'DRY RUN' if args.dry_run else 'LIVE EXECUTION'}")
     print(f" Batch Size: {args.max_items} row(s)")
     if args.record_id:
@@ -753,29 +927,15 @@ def main(argv=None) -> int:
         base_settings.airtable_base_id,
         table_id,
     )
+    ensure_day_night_feed_fields(airtable)
     krea = KreaClient(base_settings.krea_token, base_settings.krea_base_url)
     fal = FalClient(base_settings.fal_key)
 
     # Handle Scrape Mode
     if args.mode == "scrape" or args.scrape_only:
-        success = scrape_feed_products(base_settings, airtable, count=args.max_items, style=args.style)
-        print(f"\n[SCRAPE RESULT] {'Success' if success else 'Completed with warnings/no new items'}.")
-        return 0 if success else 1
-
-    # Check Standby rows or Auto-Scrape if needed
-    if not args.dry_run and not args.record_id and not args.no_scrape:
-        records = airtable.list_records([STATUS_FIELD, FIELD_NAME, SKU_FIELD])
-        standby_records = [
-            r for r in records
-            if str(r.get("fields", {}).get(STATUS_FIELD) or "").strip().casefold() == STATUS_STANDBY.casefold()
-            and r.get("fields", {}).get(FIELD_NAME)
-        ]
-        if len(standby_records) < args.max_items:
-            needed = args.max_items - len(standby_records)
-            print(f"[INFO] Found {len(standby_records)} 'Standby' row(s). Auto-scraping {needed} new chandelier item(s) from Akeneo...")
-            scrape_feed_products(base_settings, airtable, count=needed, style=args.style)
-        else:
-            print(f"[INFO] Found {len(standby_records)} existing 'Standby' row(s) ready for generation.")
+        created_ids = scrape_feed_products(base_settings, airtable, count=args.max_items, style=args.style, category=args.category)
+        print(f"\n[SCRAPE RESULT] Created {len(created_ids)} new row(s).")
+        return 0 if created_ids else 1
 
     # Fetch rows to process
     records_to_process = []
@@ -787,7 +947,7 @@ def main(argv=None) -> int:
                     records_to_process.append(rec)
             except Exception as e:
                 print(f"[ERROR] Could not fetch record {rid}: {e}")
-    else:
+    elif args.dry_run:
         all_records = airtable.list_records()
         for r in all_records:
             fields = r.get("fields", {})
@@ -797,6 +957,19 @@ def main(argv=None) -> int:
                 records_to_process.append(r)
         if args.max_items:
             records_to_process = records_to_process[:args.max_items]
+    else:
+        # Per Master Rule 2: Always scrape fresh products into brand-new rows and process end-to-end
+        created_ids = scrape_feed_products(base_settings, airtable, count=args.max_items or 1, style=args.style, category=args.category)
+        if not created_ids:
+            print(f"\n[WARN] No new eligible products could be scraped for {args.category}.")
+            return 0
+        for cid in created_ids:
+            try:
+                rec = airtable.get_record(cid)
+                if rec:
+                    records_to_process.append(rec)
+            except Exception as e:
+                print(f"[ERROR] Could not fetch newly created record {cid}: {e}")
 
     if not records_to_process:
         print("\n[OK] No pending rows to process. Table is up to date!")
@@ -815,6 +988,8 @@ def main(argv=None) -> int:
                 airtable,
                 rec,
                 moodboard_id=moodboard_id,
+                prompt=active_prompt,
+                category=args.category,
                 dry_run=args.dry_run,
                 force=args.force,
             )

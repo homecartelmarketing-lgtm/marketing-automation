@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 from ..akeneo_client import AkeneoClient
 from ..fields import furniture_field
 from ..media import attachment_filename
@@ -28,13 +30,18 @@ class ScrapeRunner:
         style_code: str,
         items_per_row: int | None = None,
         max_items: int | None = None,
+        shopify_cross_check: bool = True,
+        starting_letter: str | None = None,
     ):
         self.akeneo = akeneo
         self.airtable = airtable
+        self.starting_letter = starting_letter or os.getenv("SCRAPE_STARTING_LETTER")
         self.category_code = category_code
         self.style_code = style_code
         self.items_per_row = items_per_row
         self.max_items = max_items
+        self.shopify_cross_check = shopify_cross_check
+        self._shopify_index = None
 
     def _items_per_row(self) -> int:
         return self.items_per_row or categories.items_per_row(self.category_code)
@@ -85,6 +92,7 @@ class ScrapeRunner:
 
         from pathlib import Path
         layout_candidates = [
+            Path("assets/thisorthatlayout.jpg"),
             Path("JSON Prompts/This or That/thisorthatlayout.jpg"),
             Path("JSON Prompts/thisorthatlayout.jpg"),
             Path("thisorthatlayout.jpg"),
@@ -160,7 +168,7 @@ class ScrapeRunner:
         """Upload HomeCartel logo to Logo attachment field."""
         has_field = getattr(self.airtable, "has_field", lambda _n: False)
         logo_field = None
-        for candidate in ("Logo", "Brand Logo", "Watermark", "Logo Image"):
+        for candidate in ("Overlay Logo", "Logo", "Brand Logo", "Watermark", "Logo Image"):
             if has_field(candidate) or "cta" in self.category_code:
                 logo_field = candidate
                 break
@@ -207,13 +215,26 @@ class ScrapeRunner:
         if "this_or_that" not in self.category_code and not getattr(self.airtable, "has_field", lambda _n: False)("This or That Layout"):
             return 0
         try:
-            records = self.airtable.list_records(["This or That Layout", "Furniture Item", "Furniture Item1"])
+            records = self.airtable.list_records([
+                "This or That Layout",
+                "Furniture Item",
+                "Furniture Item1",
+                "Status",
+                "Story This or That (1)",
+                "This or That Converted",
+            ])
         except Exception:
             return 0
         fixed = 0
         for r in records:
             rec_id = r.get("id")
             fields = r.get("fields", {})
+            status_cf = str(fields.get("Status") or "").strip().casefold()
+            if status_cf in ("complete", "completed", "done", "finished") or "complete" in status_cf:
+                continue
+            has_final = bool(fields.get("Story This or That (1)") or fields.get("This or That Converted"))
+            if has_final:
+                continue
             has_prod = bool(fields.get("Furniture Item") or fields.get("Furniture Item1"))
             has_layout = bool(fields.get("This or That Layout"))
             if has_prod and not has_layout:
@@ -406,7 +427,30 @@ class ScrapeRunner:
             existing_item_names=existing_names,
             existing_media_codes=existing_media,
             category_code=self.category_code,
+            starting_letter=self.starting_letter,
         )
+
+        if self.shopify_cross_check:
+            try:
+                from ..shopify_client import ShopifyClient
+                if self._shopify_index is None:
+                    print("[INFO] Cross-checking candidate products against Shopify published catalog...")
+                    shopify = ShopifyClient()
+                    self._shopify_index = shopify.load_published_identities()
+                shopify_matched = [
+                    it for it in all_new_items
+                    if self._shopify_index.contains(it.sku, it.item_name)
+                ]
+                excluded_shopify = len(all_new_items) - len(shopify_matched)
+                stats["excluded_not_on_shopify"] = excluded_shopify
+                print(
+                    f"[INFO] Shopify deduplication: {len(shopify_matched)} live on Shopify, "
+                    f"{excluded_shopify} excluded (not published on Shopify)."
+                )
+                all_new_items = shopify_matched
+            except Exception as err:
+                print(f"[WARN] Shopify cross-check failed ({err}), continuing with Akeneo candidates.")
+
         new_items = (
             all_new_items[: self.max_items]
             if self.max_items is not None

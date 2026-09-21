@@ -38,7 +38,7 @@ from content_automation.scraping.airtable import ScrapeAirtableClient
 from content_automation.scraping.furniture_item import FurnitureItemScrapeRunner
 
 
-DEFAULT_TABLE_ID = os.getenv("AIRTABLE_TABLE_ID_STYLE_THIS_WALL_LIGHTS", "").strip() or "tblXJrvSBkJNhRHLa"
+DEFAULT_TABLE_ID = os.getenv("AIRTABLE_TABLE_ID_STYLE_THIS_WALL_LIGHTS", "").strip()
 DEFAULT_CATEGORY = "wall_lights"
 DEFAULT_STYLE = os.getenv("AKENEO_STYLE", "").strip() or "modern"
 
@@ -58,12 +58,17 @@ def parse_args(argv=None):
         "-n",
         type=int,
         default=1,
-        help="Maximum number of new wall light products to scrape (default: 1)",
+        help="Maximum number of new wall light products to scrape (default: 1)
+    parser.add_argument(
+        "--starting-letter",
+        default=None,
+        help="Starting letter for A-Z sorting cycle",
+    )",
     )
     parser.add_argument(
         "--table-id",
         default=DEFAULT_TABLE_ID,
-        help=f"Target Airtable Table ID (default: {DEFAULT_TABLE_ID})",
+        help=f"Target Airtable Table ID (default: {DEFAULT_TABLE_ID or 'from .env'})",
     )
     parser.add_argument(
         "--style",
@@ -79,6 +84,13 @@ def scrape_wall_lights_for_style_this(
     style_code: str = DEFAULT_STYLE,
     execute: bool = False,
 ) -> bool:
+    if not table_id:
+        raise AutomationError(
+            "Missing Airtable Table ID for Wall Lights Style This.\n"
+            "Please create the table in Airtable and set AIRTABLE_TABLE_ID_STYLE_THIS_WALL_LIGHTS in .env, "
+            "or pass --table-id <tblID>."
+        )
+
     settings = load_settings()
     settings.require({"airtable", "akeneo"})
 

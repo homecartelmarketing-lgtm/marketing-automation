@@ -86,6 +86,27 @@ class CollectionCategoryStoryWorkflow(BaseWorkflow):
                 )
                 self.attach_exact(blended_field, blends)
 
+            # Auto-tag furniture item name onto Blended Images using YOLO-World
+            for idx, blend_img in enumerate(blends, start=1):
+                try:
+                    from ..akeneo_client import split_item_name
+                    from ..item_tagger import tag_and_upload_blended_image
+                    raw_name = self._get_slot_item_name(idx)
+                    item_title, product_type = split_item_name(raw_name, fallback_product_type="Lighting")
+                    tagged_target_field = f"Blended Image{idx} with Name text"
+                    tag_and_upload_blended_image(
+                        airtable=self.ctx.airtable,
+                        record_id=self.ctx.anchor.record_id,
+                        blended_source=blend_img.path,
+                        item_name=item_title,
+                        product_type=product_type,
+                        target_field=tagged_target_field,
+                        output_filename_prefix=f"collec_story_tagged_slot{idx}",
+                        fallback_if_undetected=True,
+                    )
+                except Exception:
+                    pass
+
         # 4. Step 2: Generate the final 9:16 auto-grid story from Collection Category Blended Image 1, 2, 3 + Logo + Poppins Bold Item Names
         # (Local PIL generation, no Fal API call)
         item_names = [self._get_slot_item_name(i) for i in range(1, 4)]

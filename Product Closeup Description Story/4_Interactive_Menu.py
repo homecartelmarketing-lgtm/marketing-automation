@@ -39,8 +39,8 @@ def run_interactive_menu():
 
     while True:
         print_banner()
-        print(" [1] 🚀 Run Full Automation (Scrape Item -> Generate Story Card)")
-        print(" [2] 🎨 Generate Stories Only (Process Pending Records in Airtable)")
+        print(" [1] 🚀 Run Full Automation (Scrape -> Story Card Image)")
+        print(" [2] 🎨 Generate Story Cards Only (Process Pending Records in Airtable)")
         print(" [3] 🔍 Scrape Products Only from Akeneo (Pick Category)")
         print(" [4] ⚡ Run 1 Item for All 6 Categories (End-to-End)")
         print(" [0] 🚪 Exit")
@@ -85,7 +85,7 @@ def run_interactive_menu():
             subprocess.run(cmd)
 
         elif choice == "2":
-            print("\nPiliin ang target category para sa Generate Only:")
+            print("\nPiliin ang target category para sa Generate Story Cards Only:")
             for num, name, key, _ in CATEGORIES:
                 print(f" [{num}] {name}")
             print(" [7] ALL Categories")

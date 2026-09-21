@@ -1,7 +1,7 @@
 """Moodboard #1 Feed AI Generation, Blending & Local Logo Overlay Pipeline.
 
 Runs the complete AI & local composite pipeline for Moodboard #1 Feed on Airtable (tbl9u5vjgx8kuE44R):
-1. [Phase 1/6] Krea AI Interior Generation (4:5, Moodboard ID: b5ffdcbb-192e-4528-8d86-d1a4cf496887) -> 'Interior Generated', Status -> 'Interior Generated'
+1. [Phase 1/6] Krea AI Interior Generation (4:5, Moodboard ID: de6ad512-870d-4ab7-a48c-3f3ca85faf24) -> 'Interior Generated', Status -> 'Interior Generated'
 2. [Phase 2/6] Fal AI Claude Sonnet 5 Prompt Generation -> 'Prompt for Blending', Status -> 'Generating Prompt for Blending'
 3. [Phase 3/6] Fal AI Nano Banana Pro Image-to-Image Blending (4:5, 1k) -> 'Moodboard V1 Blended', Status -> 'Blended Image Generated'
 4. [Phase 4/6] Local Python PIL Logo Overlay (Zero API / Exact Canva Position: 190.3x63.5 @ x=108, y=1178.5) -> 'Moodboard Added Watermark', Status -> 'Added Watermark Layout'
@@ -31,8 +31,13 @@ import requests
 from content_automation.config import load_settings
 from content_automation.errors import AutomationError
 from content_automation.fal_client import FalClient
+from content_automation.prompts import build_vision_blending_instruction
 from content_automation.krea_client import KreaClient
 from content_automation.media import download_to_temp_file
+from content_automation.item_tagger import (
+    TARGET_BLENDED_FIELD,
+    tag_and_upload_blended_image,
+)
 from content_automation.overlay import HOMECARTEL_LOGO_BOX, stamp_logo
 from content_automation.scraping import (
     ScrapeAirtableClient,
@@ -47,9 +52,9 @@ DEFAULT_TABLE_ID = (
 )
 DEFAULT_MOODBOARD_ID = (
     os.getenv("KREA_MOODBOARD_ID_MOODBOARD_1_FEED", "").strip()
-    or "b5ffdcbb-192e-4528-8d86-d1a4cf496887"
+    or "de6ad512-870d-4ab7-a48c-3f3ca85faf24"
 )
-DEFAULT_PROMPT = "Generate me a modern living room with hanging chandelier from the ceiling"
+DEFAULT_PROMPT = "Generate me a modern living room"
 DEFAULT_CATEGORY = "chandeliers"
 DEFAULT_STYLE = os.getenv("AKENEO_STYLE", "").strip() or "modern"
 
@@ -328,17 +333,10 @@ def generate_moodboard_v1_prompts(
             f"record {record_id} ({item_label}) with Claude Sonnet 5..."
         )
 
-        instruction = (
-            f"You are an expert interior design AI prompt engineer. Analyze Image 1 as the Room Interior photo "
-            f"and Image 2 as the product photo for '{item_label}' ('Furniture Item').\n"
-            f"Generate a detailed, photorealistic image-blending prompt for Nano Banana Pro (4:5 portrait aspect ratio). "
-            f"The prompt must describe naturally mounting and integrating the '{item_label}' from Image 2 into the room interior from Image 1.\n"
-            f"CRITICAL ISOLATION & MOUNTING RULES:\n"
-            f"1. The '{item_label}' shown in Image 2 MUST BE THE PRIMARY/ONLY CEILING OR STATEMENT FIXTURE in the scene.\n"
-            f"2. Remove and replace any placeholder or pre-existing conflicting fixtures from Image 1.\n"
-            f"3. Ensure authentic materials, realistic chain/rod/cord hanging mounting, ceiling canopy, natural warm illumination, soft ambient glow, and accurate contact shadows on surrounding ceiling, walls, and floors.\n"
-            f"4. Maintain a luxury editorial 4:5 vertical portrait composition.\n\n"
-            f"Output ONLY the prompt text, with no preamble, markdown formatting, or quotes."
+        instruction = build_vision_blending_instruction(
+            interior_label="Room Interior",
+            item_name=item_label,
+            aspect_ratio="4:5",
         )
 
         try:
@@ -460,13 +458,49 @@ def generate_moodboard_v1_blends(
                 suffix=".jpg",
                 context=f"Download blended image from {image_url}",
             )
+            # Auto-tag furniture item name beside detected object using local zero-cost YOLO-World
+            from content_automation.akeneo_client import split_item_name
+            category_inferred = "chandeliers"
+            if getattr(airtable, "table_id", "") == "tblOvvYdgsNTXh2zK" or "pendant" in str(item_label).lower():
+                category_inferred = "pendant_lights"
+            elif getattr(airtable, "table_id", "") == "tbl6uTmwM23KK9ocO" or "floor" in str(item_label).lower():
+                category_inferred = "floor_lamps"
+
+            item_title, prod_type = split_item_name(str(item_label), fallback_product_type="Lighting")
+            tagged_paths: list[Path] = []
+            try:
+                tag_and_upload_blended_image(
+                    airtable=airtable,
+                    record_id=record_id,
+                    blended_source=downloaded.path,
+                    item_name=item_title,
+                    product_type=prod_type,
+                    category=category_inferred,
+                    target_field=TARGET_BLENDED_FIELD,
+                    fallback_if_undetected=True,
+                    output_tagged_paths=tagged_paths,
+                )
+            except Exception as tag_err:
+                print(f"[WARN] Failed auto-tagging item name onto blended image for record {record_id}: {tag_err}")
+
+            # Upload the tagged image (or fallback to raw blend) directly to BLENDED_FIELD ('Moodboard V1 Blended')
+            upload_source = tagged_paths[0] if tagged_paths and tagged_paths[0].is_file() else downloaded.path
             filename = f"blended_{record_id}.jpg"
-            airtable.upload_attachment(record_id, BLENDED_FIELD, downloaded, filename)
+            class TempWrap:
+                def __init__(self, p: Path):
+                    self.path = p
+                    self.filename = filename
+                    self.content_type = "image/jpeg"
+                def cleanup(self):
+                    pass
+
+            airtable.upload_attachment(record_id, BLENDED_FIELD, TempWrap(upload_source), filename)
             airtable.update_records([(record_id, {STATUS_FIELD: STATUS_BLENDED_IMAGE})])
             print(
-                f"[OK] Attached blended image to '{BLENDED_FIELD}' and updated "
+                f"[OK] Attached tagged blended image to '{BLENDED_FIELD}' and updated "
                 f"{STATUS_FIELD} to '{STATUS_BLENDED_IMAGE}' on record {record_id}"
             )
+
             succeeded += 1
         except Exception as error:
             err_msg = str(error).encode("ascii", errors="replace").decode("ascii")

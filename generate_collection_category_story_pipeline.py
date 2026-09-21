@@ -42,6 +42,7 @@ from content_automation.overlay import (
     HOMECARTEL_STORY_LOGO_BOX,
     create_three_image_story_grid,
 )
+from content_automation.prompts import build_vision_blending_instruction
 from content_automation.scraping import ScrapeAirtableClient, load_scrape_settings
 from content_automation.scraping.categories import (
     SCRAPE_CATEGORIES,
@@ -49,9 +50,11 @@ from content_automation.scraping.categories import (
     moodboard_id_for_category,
 )
 from content_automation.scraping.products import (
+    ProductItem,
     existing_product_identities,
     select_new_products,
 )
+from content_automation.shopify_client import ShopifyCatalogIndex, ShopifyClient
 from standalone_scrape_akeneo import run_category_scrape
 
 # ── Table & Moodboard Configurations ────────────────────────────────────
@@ -59,51 +62,52 @@ from standalone_scrape_akeneo import run_category_scrape
 COLLECTION_STORY_TABLES: dict[str, dict[str, str]] = {
     "tblJMJQlrnlDb1GtN": {
         "category_code": "chandelier_collec_story",
-        "label": "Chandelier Collec Story",
-        "default_moodboard_id": "b5ffdcbb-192e-4528-8d86-d1a4cf496887",
+        "label": "Collection Category Story Chandelier",
+        "default_moodboard_id": (
+            os.getenv("KREA_MOODBOARD_ID_COLLEC_STORY_CHANDELIER", "").strip()
+            or "de6ad512-870d-4ab7-a48c-3f3ca85faf24"
+        ),
         "default_prompt": "Generate me a modern living room hanging chandelier",
     },
     "tblSSVJnubFk2yBm3": {
         "category_code": "pendant_lights_collec_story",
-        "label": "Pendant Lights Collec Story",
-        "default_moodboard_id": "de5f4ff8-518c-4d6b-b606-ce1d5dac51f3",
+        "label": "Collection Category Story Pendant Lights",
+        "default_moodboard_id": (
+            os.getenv("KREA_MOODBOARD_ID_COLLEC_STORY_PENDANT", "").strip()
+            or os.getenv("KREA_MOODBOARD_ID_COLLEC_STORY_PENDANT_LIGHTS", "").strip()
+            or "0844ad92-c34a-4dc8-9d70-d09498dc098c"
+        ),
         "default_prompt": "Generate me a modern dining room hanging pendant light not too oversize item",
     },
     "tblsXXcoZZD4q6WWt": {
         "category_code": "cluster_chandeliers_collec_story",
-        "label": "Cluster Chandelier Collec Story",
-        "default_moodboard_id": "b5ffdcbb-192e-4528-8d86-d1a4cf496887",
+        "label": "Collection Category Story Cluster Chandelier",
+        "default_moodboard_id": (
+            os.getenv("KREA_MOODBOARD_ID_COLLEC_STORY_CLUSTER_CHANDELIER", "").strip()
+            or os.getenv("KREA_MOODBOARD_ID_COLLEC_STORY_CLUSTER_CHANDELIERS", "").strip()
+            or "b5ffdcbb-192e-4528-8d86-d1a4cf496887"
+        ),
         "default_prompt": "Generate me a modern living room with cluster chandelier hanging from the ceiling",
-    },
-    "tblGxqbSpQF21TLX8": {
-        "category_code": "linear_chandeliers_collec_story",
-        "label": "Linear Chandelier Collec Story",
-        "default_moodboard_id": "b5ffdcbb-192e-4528-8d86-d1a4cf496887",
-        "default_prompt": "Generate me a modern dining room with linear chandelier hanging over a long dining table",
     },
     "tblloZLRSKwOCg247": {
         "category_code": "floor_lamps_collec_story",
-        "label": "Floor Lamp Collec Story",
-        "default_moodboard_id": "c4c15a18-a92d-4465-924f-c85cfe1958bc",
+        "label": "Collection Category Story Floor Lamp",
+        "default_moodboard_id": (
+            os.getenv("KREA_MOODBOARD_ID_COLLEC_STORY_FLOOR_LAMP", "").strip()
+            or os.getenv("KREA_MOODBOARD_ID_COLLEC_STORY_FLOOR_LAMPS", "").strip()
+            or "c4c15a18-a92d-4465-924f-c85cfe1958bc"
+        ),
         "default_prompt": "Generate me a modern bedroom that have beside a floor lamp",
-    },
-    "tblIzL0gItIgoUZFw": {
-        "category_code": "table_lamps_collec_story",
-        "label": "Table Lamp Collec Story",
-        "default_moodboard_id": "b1641228-beec-4823-8d01-1de3eec8410d",
-        "default_prompt": "Generate me a modern bedside table with an elegant table lamp",
     },
     "tbl98UU0h4uFyFIlL": {
         "category_code": "wall_sconces_collec_story",
-        "label": "Wall Sconce Collec Story",
-        "default_moodboard_id": "20c3beaf-0995-44bf-a7a3-ac790fe8f315",
+        "label": "Collection Category Story Wall Lights",
+        "default_moodboard_id": (
+            os.getenv("KREA_MOODBOARD_ID_COLLEC_STORY_WALL_LIGHT", "").strip()
+            or os.getenv("KREA_MOODBOARD_ID_COLLEC_STORY_WALL_LIGHTS", "").strip()
+            or "20c3beaf-0995-44bf-a7a3-ac790fe8f315"
+        ),
         "default_prompt": "Generate me a modern living room with wall sconce mounted on the wall",
-    },
-    "tbl0R6o61lGJmt44n": {
-        "category_code": "chandelier_collec_story",
-        "label": "Chandelier Collec Story (Legacy)",
-        "default_moodboard_id": "b5ffdcbb-192e-4528-8d86-d1a4cf496887",
-        "default_prompt": "Generate me a modern living room hanging chandelier",
     },
 }
 
@@ -112,7 +116,7 @@ DEFAULT_TABLE_ID = (
     or "tblSSVJnubFk2yBm3"
 )
 DEFAULT_CATEGORY = "pendant_lights_collec_story"
-DEFAULT_MOODBOARD_ID = "de5f4ff8-518c-4d6b-b606-ce1d5dac51f3"
+DEFAULT_MOODBOARD_ID = "0844ad92-c34a-4dc8-9d70-d09498dc098c"
 DEFAULT_PROMPT = "Generate me a modern dining room hanging pendant light not too oversize item"
 
 # ── Field Names ─────────────────────────────────────────────────────────
@@ -123,6 +127,13 @@ STATUS_INTERIOR_GENERATED = "Processing Interior Generated Photo"
 STATUS_GENERATING_PROMPT = "Processing Blending Prompt"
 STATUS_BLENDED = "Processing Blended Image"
 STATUS_COMPLETE = "Complete"
+
+TERMINAL_AND_PROTECTED_STATUSES = {
+    "complete", "completed", "done", "finished",
+    "posted", "scheduled", "schedule",
+    "discard", "discarded",
+    "for manual", "minor revision", "minor revisions", "fm",
+}
 
 ITEM_NAME_FIELD = "Item Name"
 SKU_FIELD = "SKU"
@@ -318,12 +329,26 @@ def update_status_if_valid(airtable: ScrapeAirtableClient, record_id: str, desir
         choices = status_entry.get("choices", []) if isinstance(status_entry, dict) else []
 
         if not choices:
-            airtable.update_records([(record_id, {STATUS_FIELD: desired_status})])
+            payload = {STATUS_FIELD: desired_status}
+            if "complete" in desired_status.casefold():
+                try:
+                    from content_automation.airtable_client import current_pht_timestamp
+                    payload["Date and Time Generated"] = current_pht_timestamp()
+                except Exception:
+                    pass
+            airtable.update_records([(record_id, payload)])
             return
 
         matched = next((c for c in choices if c.casefold() == desired_status.casefold()), None)
         if matched:
-            airtable.update_records([(record_id, {STATUS_FIELD: matched})])
+            payload = {STATUS_FIELD: matched}
+            if "complete" in desired_status.casefold():
+                try:
+                    from content_automation.airtable_client import current_pht_timestamp
+                    payload["Date and Time Generated"] = current_pht_timestamp()
+                except Exception:
+                    pass
+            airtable.update_records([(record_id, payload)])
             return
 
         if "processing" in desired_status.casefold():
@@ -335,7 +360,13 @@ def update_status_if_valid(airtable: ScrapeAirtableClient, record_id: str, desir
         if "complete" in desired_status.casefold():
             comp_match = next((c for c in choices if "complete" in c.casefold()), None)
             if comp_match:
-                airtable.update_records([(record_id, {STATUS_FIELD: comp_match})])
+                payload = {STATUS_FIELD: comp_match}
+                try:
+                    from content_automation.airtable_client import current_pht_timestamp
+                    payload["Date and Time Generated"] = current_pht_timestamp()
+                except Exception:
+                    pass
+                airtable.update_records([(record_id, payload)])
                 return
     except Exception as err:
         print(f"  [WARN] Failed updating status for record {record_id}: {err}")
@@ -502,12 +533,12 @@ def ensure_homecartel_logo_uploaded(
     if existing_logo:
         return True
 
-    # 1. Prefer local clean transparent logo on disk
+    # 1. Prefer local clean transparent logo on disk (assets/homecartel_logo.png)
     local_path = find_homecartel_logo_path()
     if local_path and local_path.is_file():
         try:
             airtable.ensure_fields({target_field: "multipleAttachments"})
-            airtable.upload_attachment(record_id, target_field, local_path, local_path.name)
+            airtable.upload_attachment(record_id, target_field, local_path, "homecartel_logo.png")
             print(f"[OK] Uploaded HomeCartel logo '{local_path.name}' to '{target_field}' on record {record_id}")
             return True
         except Exception as err:
@@ -540,6 +571,31 @@ def ensure_homecartel_logo_uploaded(
     return False
 
 
+def backfill_missing_logos(airtable: ScrapeAirtableClient) -> int:
+    """Scan all records in the table and attach homecartel_logo.png to any row missing it."""
+    airtable.ensure_fields({LOGO_FIELD: "multipleAttachments"})
+    try:
+        records = airtable.list_records()
+    except Exception as err:
+        print(f"[ERROR] Failed listing records for logo backfill: {err}")
+        return 0
+
+    if not records:
+        print("[INFO] No records found in table to backfill.")
+        return 0
+
+    backfilled = 0
+    for rec in records:
+        rec_id = rec.get("id")
+        fields = rec.get("fields", {})
+        if not resolve_logo_field(fields):
+            print(f"[INFO] Backfilling missing logo for record {rec_id}...")
+            if ensure_homecartel_logo_uploaded(airtable, rec_id, fields):
+                backfilled += 1
+    print(f"[OK] Completed logo backfill: {backfilled} record(s) updated.")
+    return backfilled
+
+
 def get_first_incomplete_record(airtable: ScrapeAirtableClient) -> dict[str, Any] | None:
     """Find the single lowest ID record in Airtable that is NOT yet Complete and missing any output field."""
     records = airtable.list_records()
@@ -551,8 +607,8 @@ def get_first_incomplete_record(airtable: ScrapeAirtableClient) -> dict[str, Any
         fields = record.get("fields", {})
         status = str(fields.get(STATUS_FIELD) or "").strip().casefold()
 
-        # If Status is already Complete, skip this row completely!
-        if status == STATUS_COMPLETE.casefold():
+        # If Status is already Complete or Protected, skip this row completely!
+        if status in TERMINAL_AND_PROTECTED_STATUSES:
             continue
 
         # Must have at least 1 furniture item to be an active product row
@@ -789,17 +845,10 @@ def generate_claude_blending_prompts(
                 else str(fields.get("Item Name") or "").strip()
             ) or item_label
 
-            instruction = (
-                f"You are an expert interior design AI prompt engineer. Analyze Image 1 as the Room Interior photo "
-                f"and Image 2 as the product photo for '{slot_item_name}' ('Furniture Item {slot}').\n"
-                f"Generate a detailed, highly specific image-blending prompt for Nano Banana Pro (16:9 landscape aspect ratio). "
-                f"The prompt must describe naturally integrating and mounting the {slot_item_name} from Image 2 into the room interior from Image 1.\n"
-                f"CRITICAL ISOLATION & MOUNTING RULES:\n"
-                f"1. The {slot_item_name} shown in Image 2 MUST BE THE ONLY CEILING/MAIN LIGHTING FIXTURE in the entire final blended scene.\n"
-                f"2. If Image 1 contains ANY pre-existing lighting fixtures, pendant lights, or hanging lamps, explicitly instruct to remove and replace them with the exact {slot_item_name} from Image 2.\n"
-                f"3. Strictly exclude unnecessary competing furniture items, duplicate fixtures, or clutter.\n"
-                f"4. Ensure natural hanging/placement height, realistic chain/rod/cord mounting, ceiling canopy, realistic warm illumination, soft ambient glow, natural contact shadows on surrounding walls/floors, and authentic materials.\n\n"
-                f"Output ONLY the prompt text, with no preamble, markdown formatting, or quotes."
+            instruction = build_vision_blending_instruction(
+                interior_label=f"Room Interior ('Furniture Item {slot}')",
+                item_name=slot_item_name,
+                aspect_ratio="16:9",
             )
 
             try:
@@ -843,10 +892,6 @@ def generate_claude_blending_prompts(
         f"[INFO] Claude Sonnet 5 prompt generation complete: {succeeded} succeeded, {failed} failed."
     )
     return failed == 0
-
-
-# Alias for backwards compatibility
-generate_qwen_blending_prompts = generate_claude_blending_prompts
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -973,6 +1018,34 @@ def generate_nano_banana_blends(
                 fields[blended_field] = [{"filename": filename, "url": image_url}]
                 print(f"  [OK] Attached blended image to '{blended_field}' on record {record_id}")
                 slot_success += 1
+
+                # Auto-tag furniture item name onto Blended Image using YOLO-World
+                try:
+                    from content_automation.akeneo_client import split_item_name
+                    from content_automation.item_tagger import TARGET_BLENDED_FIELD, tag_and_upload_blended_image
+                    name_cand = str(
+                        fields.get(f"Item Name{slot}")
+                        or fields.get(f"Item Name copy{slot}")
+                        or (fields.get(ITEM_NAME_FIELD) if slot == 1 else "")
+                        or record_id
+                    ).strip()
+                    item_title, product_type = split_item_name(name_cand, fallback_product_type="Lighting")
+                    table_cat = COLLECTION_STORY_TABLES.get(airtable.table_id, {}).get("category_code", "pendant_lights")
+                    clean_cat = table_cat.replace("_collec_story", "")
+                    tagged_target_field = f"Blended Image{slot} with Name text"
+                    tag_and_upload_blended_image(
+                        airtable=airtable,
+                        record_id=record_id,
+                        blended_source=downloaded.path,
+                        item_name=item_title,
+                        product_type=product_type,
+                        category=clean_cat,
+                        target_field=tagged_target_field,
+                        output_filename_prefix=f"collec_story_tagged_slot{slot}",
+                        fallback_if_undetected=True,
+                    )
+                except Exception as tag_err:
+                    print(f"  [WARN] Failed YOLO item tagging on Slot {slot}: {tag_err}")
             except Exception as error:
                 print(
                     f"  [ERROR] Failed blending slot {slot} for record {record_id}: {error}"
@@ -1255,18 +1328,67 @@ def generate_collection_category_story_final_assembly(
 # Interactive Menu & Execution
 # ══════════════════════════════════════════════════════════════════════════
 
-def show_menu() -> str:
+def show_table_menu(current_table_id: str | None = None) -> str:
+    """Interactive menu to select which Collection Category Story table to target."""
+    print("\n" + "=" * 64)
+    print("      SELECT COLLECTION CATEGORY STORY TABLE")
+    print("=" * 64)
+    table_items = list(COLLECTION_STORY_TABLES.items())
+    for idx, (tid, info) in enumerate(table_items, 1):
+        is_current = " (CURRENT)" if tid == current_table_id else ""
+        print(f"  [{idx}] {info['label']}{is_current}")
+        print(f"      Table ID:  {tid}")
+        print(f"      Category:  {info['category_code']}")
+        print(f"      Moodboard: {info['default_moodboard_id']}")
+        print(f"      Prompt:    \"{info.get('default_prompt', '')}\"\n")
+    print(f"  [{len(table_items) + 1}] Enter Custom Airtable Table ID Manually")
+    print(f"  [{len(table_items) + 2}] Exit\n")
+    print("=" * 64)
+
+    while True:
+        choice = input(f" Select Table [1-{len(table_items) + 2}] (default: 1): ").strip()
+        if not choice:
+            choice = "1"
+        if choice.isdigit():
+            idx = int(choice)
+            if 1 <= idx <= len(table_items):
+                return table_items[idx - 1][0]
+            if idx == len(table_items) + 1:
+                custom = input(" Enter Airtable Table ID (e.g., tblSSVJnubFk2yBm3): ").strip()
+                if custom:
+                    return custom
+                print("[WARN] Table ID cannot be empty.")
+                continue
+            if idx == len(table_items) + 2:
+                return "exit"
+        elif choice in COLLECTION_STORY_TABLES:
+            return choice
+        print(f"[WARN] Invalid option. Please enter 1 to {len(table_items) + 2}.")
+
+
+def show_menu(active_table_id: str | None = None) -> str:
+    tbl_id = active_table_id or DEFAULT_TABLE_ID
+    tbl_info = COLLECTION_STORY_TABLES.get(tbl_id, {})
+    tbl_name = tbl_info.get("label", tbl_id)
+
     print("\n" + "=" * 64)
     print("      COLLECTION CATEGORY STORY AI GENERATION & BLENDING      ")
     print("=" * 64)
+    print(f" Active Table: {tbl_name} ({tbl_id})")
+    print(f" Category:     {tbl_info.get('category_code', 'Custom')}")
+    print(f" Moodboard:    {tbl_info.get('default_moodboard_id', 'Default')}")
+    print(f" Prompt:       \"{tbl_info.get('default_prompt', DEFAULT_PROMPT)}\"")
+    print("=" * 64)
     print(" Select a phase to run:\n")
-    print(" [1] Step 0: Scrape Akeneo Products to Airtable (3 items/row) + Layout")
+    print(" [1] Step 0: Scrape Akeneo Products to Airtable (Shopify verified, 3 items/row) + Layout + Logo")
     print(" [2] Phase 1: Krea AI Interior Generation (16:9) -> 'Interior1/2/3'")
     print(" [3] Phase 2: Claude Sonnet 5 Prompt Generation (Fal AI) -> 'Prompt1/2/3'")
     print(" [4] Phase 3: Fal AI Nano Banana Pro Blending (16:9) -> 'Blended Image 1/2/3'")
     print(" [5] Phase 4: 9:16 Auto-Grid & Logo Story Conversion (Blended 1/2/3 -> Converted)")
     print(" [6] Run Full End-to-End Row-by-Row Pipeline (Scrape -> Layout -> Phases 1 to 4 -> Next Row)")
-    print(" [7] Exit\n")
+    print(" [7] Backfill Missing Logos in Table (Attach homecartel_logo.png to all rows missing Logo)")
+    print(" [8] Switch Target Table ID")
+    print(" [9] Exit\n")
 
     menu_choices = {
         "1": "scrape",
@@ -1275,25 +1397,28 @@ def show_menu() -> str:
         "4": "blend",
         "5": "assembly",
         "6": "all",
-        "7": "exit",
+        "7": "backfill_logos",
+        "8": "switch_table",
+        "9": "exit",
     }
     while True:
-        choice = input(" Enter choice [1-7]: ").strip()
+        choice = input(" Enter choice [1-9]: ").strip()
         if choice in menu_choices:
             return menu_choices[choice]
-        print("[WARN] Invalid option. Please enter 1, 2, 3, 4, 5, 6, or 7.")
+        print("[WARN] Invalid option. Please enter 1, 2, 3, 4, 5, 6, 7, 8, or 9.")
 
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(
         description="Collection Category Story AI Generation & Blending Pipeline"
     )
+    default_mode = "menu" if (argv is None and len(sys.argv) == 1) else "all"
     parser.add_argument(
         "--mode",
         "-m",
-        choices=["scrape", "interior", "prompt", "blend", "assembly", "conversion", "all", "menu"],
-        default="all",
-        help="Mode of operation: scrape, interior, prompt, blend, assembly, all, or menu (default: all)",
+        choices=["scrape", "interior", "prompt", "blend", "assembly", "conversion", "all", "backfill_logos", "menu"],
+        default=default_mode,
+        help="Mode of operation: scrape, interior, prompt, blend, assembly, conversion, all, backfill_logos, or menu (default: menu if no flags)",
     )
     parser.add_argument(
         "--category",
@@ -1330,6 +1455,18 @@ def parse_args(argv=None):
         default=None,
         help=f"Krea interior generation prompt override (default: '{DEFAULT_PROMPT}')",
     )
+    parser.add_argument(
+        "--no-shopify-check",
+        action="store_true",
+        default=False,
+        help="Disable Shopify cross-check during scraping (default: enabled)",
+    )
+    parser.add_argument(
+        "--backfill-logos",
+        action="store_true",
+        default=False,
+        help="Scan target table and attach homecartel_logo.png to any rows missing it",
+    )
     return parser.parse_args(argv)
 
 
@@ -1339,8 +1476,9 @@ def scrape_random_collection_category_row(
     category_code: str,
     table_id: str,
     items_count: int = 3,
+    shopify_cross_check: bool = True,
 ) -> str | None:
-    """Scrape products from Akeneo (sorted newest to oldest) and randomly select 3 eligible items."""
+    """Scrape products from Akeneo, cross-check against Shopify, and randomly select 3 eligible items."""
     akeneo = AkeneoClient(
         settings.akeneo_host,
         settings.akeneo_client_id,
@@ -1352,6 +1490,7 @@ def scrape_random_collection_category_row(
     akeneo.authenticate()
 
     airtable.ensure_product_fields(items_per_row=items_count)
+    airtable.ensure_fields({LOGO_FIELD: "multipleAttachments"})
     existing_skus, incomplete = airtable.load_inventory()
 
     akeneo_cat = akeneo_category_code(category_code)
@@ -1375,15 +1514,43 @@ def scrape_random_collection_category_row(
         print(f"[WARN] No new eligible products found in Akeneo for {category_code}.")
         return None
 
-    if len(all_new_items) < items_count:
-        print(f"[WARN] Only {len(all_new_items)} new products found in Akeneo (needed {items_count}). Using all available.")
-        chosen_items = list(all_new_items)
+    # Cross-check and deduplicate against active Shopify published products
+    eligible_items = all_new_items
+    if shopify_cross_check:
+        try:
+            print("[INFO] Cross-checking candidate products against Shopify published catalog...")
+            shopify = ShopifyClient()
+            shopify_index = shopify.load_published_identities()
+            matched_items: list[ProductItem] = []
+            excluded_not_on_shopify = 0
+            for it in all_new_items:
+                if shopify_index.contains(it.sku, it.item_name):
+                    matched_items.append(it)
+                else:
+                    excluded_not_on_shopify += 1
+
+            print(
+                f"[INFO] Shopify deduplication result: {len(matched_items)} live on Shopify, "
+                f"{excluded_not_on_shopify} excluded (not published on Shopify)."
+            )
+            eligible_items = matched_items
+        except Exception as err:
+            print(f"[WARN] Shopify cross-check failed ({err}), falling back to Akeneo catalog.")
+            eligible_items = all_new_items
+
+    if not eligible_items:
+        print(f"[WARN] No eligible products found for {category_code} that are live on Shopify.")
+        return None
+
+    if len(eligible_items) < items_count:
+        print(f"[WARN] Only {len(eligible_items)} Shopify-verified products found in Akeneo (needed {items_count}). Using all available.")
+        chosen_items = list(eligible_items)
     else:
-        # Randomly select 3 products from the pool of newest-to-oldest candidates
-        chosen_items = random.sample(all_new_items, items_count)
+        # Randomly select 3 products from the pool of Shopify-verified candidates
+        chosen_items = random.sample(eligible_items, items_count)
 
     skus_str = ", ".join(it.sku for it in chosen_items)
-    print(f"[INFO] Randomly selected {len(chosen_items)} products ({skus_str}) from {len(all_new_items)} newest-to-oldest eligible items.")
+    print(f"[INFO] Randomly selected {len(chosen_items)} Shopify-verified products ({skus_str}) from {len(eligible_items)} eligible items.")
 
     try:
         record_id = airtable.create_product_record(chosen_items)
@@ -1410,7 +1577,7 @@ def scrape_random_collection_category_row(
     # Upload layout photo to 'Collection Category Layout'
     ensure_collection_category_layout_uploaded(airtable, record_id)
 
-    # Upload transparent HomeCartel logo to 'Logo'
+    # Automatically attach homecartel_logo.png to 'Logo' multipleAttachment field
     ensure_homecartel_logo_uploaded(airtable, record_id)
 
     return record_id
@@ -1424,16 +1591,39 @@ def run_pipeline(
     interior_prompt: str | None = None,
     max_items: int | None = None,
     target_record_id: str | None = None,
+    shopify_cross_check: bool = True,
+    backfill_logos: bool = False,
 ) -> bool:
     """Execute the selected phases of the Collection Category Story pipeline."""
-    if mode == "menu":
-        mode = show_menu()
-        if mode == "exit":
-            print("[INFO] Exiting menu.")
+    target_table_id = table_id or DEFAULT_TABLE_ID
+    if table_id == "menu":
+        target_table_id = show_table_menu(current_table_id=DEFAULT_TABLE_ID)
+        if target_table_id == "exit":
+            print("[INFO] Exiting.")
             return True
 
+    if mode == "menu":
+        if not table_id:
+            chosen_table = show_table_menu(current_table_id=target_table_id)
+            if chosen_table == "exit":
+                print("[INFO] Exiting menu.")
+                return True
+            target_table_id = chosen_table
+
+        while True:
+            mode_choice = show_menu(target_table_id)
+            if mode_choice == "exit":
+                print("[INFO] Exiting menu.")
+                return True
+            if mode_choice == "switch_table":
+                chosen_table = show_table_menu(current_table_id=target_table_id)
+                if chosen_table != "exit":
+                    target_table_id = chosen_table
+                continue
+            mode = mode_choice
+            break
+
     base = load_settings()
-    target_table_id = table_id or DEFAULT_TABLE_ID
     tbl_cfg = COLLECTION_STORY_TABLES.get(target_table_id, {})
 
     category_code = category or tbl_cfg.get("category_code") or DEFAULT_CATEGORY
@@ -1458,6 +1648,12 @@ def run_pipeline(
         target_table_id,
     )
 
+    if mode in ("backfill_logos", "backfill") or backfill_logos:
+        print(f"[INFO] Backfilling missing logo attachments in table {target_table_id}...")
+        bf_count = backfill_missing_logos(airtable)
+        print(f"[OK] Backfilled {bf_count} logo(s).")
+        return True
+
     count = max_items or 1
     failures = 0
 
@@ -1468,6 +1664,7 @@ def run_pipeline(
     print(f"  Category:     {category_code}")
     print(f"  Table ID:     {target_table_id}")
     print(f"  Moodboard ID: {target_moodboard}")
+    print(f"  Shopify Check:{'ENABLED' if shopify_cross_check else 'DISABLED'}")
     print(f"  Rows Count:   {max_items or 'unlimited / 1 default'}")
     if target_record_id:
         print(f"  Target Record: {target_record_id}")
@@ -1477,10 +1674,15 @@ def run_pipeline(
     # ── Single Step Modes ──
 
     if mode == "scrape":
-        print(f"[INFO] Scraping {count} row(s) with randomized newest-to-oldest items from Akeneo...")
+        print(f"[INFO] Scraping {count} row(s) with Shopify-verified items from Akeneo...")
         for i in range(count):
             rec_id = scrape_random_collection_category_row(
-                airtable, settings, category_code, target_table_id, items_count=3
+                airtable,
+                settings,
+                category_code,
+                target_table_id,
+                items_count=3,
+                shopify_cross_check=shopify_cross_check,
             )
             if not rec_id:
                 failures += 1
@@ -1546,24 +1748,22 @@ def run_pipeline(
             label = fields.get(ITEM_NAME_FIELD) or fields.get(SKU_FIELD) or row_rec_id
             print(f"[INFO] Processing targeted record {row_rec_id} ({label})...")
         else:
-            incomplete_rec = get_first_incomplete_record(airtable)
-            if incomplete_rec:
-                row_rec_id = incomplete_rec["id"]
-                fields = incomplete_rec.get("fields", {})
-                label = fields.get(ITEM_NAME_FIELD) or fields.get(SKU_FIELD) or row_rec_id
-                print(f"[INFO] Found incomplete row: Record {row_rec_id} ({label}). Completing this row...")
-            else:
-                print(f"[INFO] [Step 0/4] Scraping 3 random product items (1 row) from newest-to-oldest Akeneo candidates...")
-                row_rec_id = scrape_random_collection_category_row(
-                    airtable, settings, category_code, target_table_id, items_count=3
-                )
-                if not row_rec_id:
-                    print(f"[ERROR] Failed scraping Akeneo products on Row {row_idx}.")
-                    failures += 1
-                    continue
+            print(f"[INFO] [Step 0/4] Scraping 3 Shopify-verified product items (1 fresh row) from Akeneo candidates...")
+            row_rec_id = scrape_random_collection_category_row(
+                airtable,
+                settings,
+                category_code,
+                target_table_id,
+                items_count=3,
+                shopify_cross_check=shopify_cross_check,
+            )
+            if not row_rec_id:
+                print(f"[ERROR] Failed scraping Akeneo products on Row {row_idx}.")
+                failures += 1
+                continue
 
-                rec_data = airtable.get_record(row_rec_id) if hasattr(airtable, "get_record") else None
-                fields = rec_data.get("fields", {}) if rec_data else {}
+            rec_data = airtable.get_record(row_rec_id) if hasattr(airtable, "get_record") else None
+            fields = rec_data.get("fields", {}) if rec_data else {}
 
         # Step 0b: Ensure Layout and Logo are attached
         ensure_collection_category_layout_uploaded(airtable, row_rec_id, fields)
@@ -1651,6 +1851,8 @@ def main(argv=None) -> int:
         interior_prompt=args.prompt,
         max_items=args.max_items,
         target_record_id=args.target_record_id,
+        shopify_cross_check=not getattr(args, "no_shopify_check", False),
+        backfill_logos=getattr(args, "backfill_logos", False),
     )
     return 0 if success else 1
 

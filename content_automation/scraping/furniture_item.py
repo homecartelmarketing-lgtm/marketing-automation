@@ -3,13 +3,245 @@
 from __future__ import annotations
 
 import concurrent.futures
+import os
 from pathlib import Path
+import sys
+from typing import Any
+
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+import requests
 
 from ..akeneo_client import AkeneoClient
-from ..media import attachment_filename
+from ..media import DownloadedMedia, attachment_filename, download_to_temp_file
+from ..shopify_client import ShopifyCatalogIndex, ShopifyClient
 from . import categories
 from .airtable import API_BASE, ScrapeAirtableClient
 from .products import ProductItem, identity_key, select_new_products
+
+
+LAYOUT_CONFIGURATIONS: list[tuple[tuple[str, ...], list[Path], str]] = [
+    (
+        (
+            "Moodboard Layout",
+            "Converted Moodboard Layout",
+            "Layout Moodboard",
+            "Moodboard #1 Layout",
+        ),
+        [
+            Path("assets/moodboard_layout.jpg"),
+            Path("JSON Prompts/Moodboard V1/firstlayoutmoodboard.jpg"),
+            Path("JSON Prompts/Moodboard V1/moodboard_converted.png"),
+            Path("firstlayoutmoodboard.jpg"),
+            Path("moodboard_layout.jpg"),
+        ],
+        "moodboard_layout.jpg",
+    ),
+    (
+        (
+            "Moodboard #2 Layout",
+            "Moodboard 2 Layout",
+            "Moodboard V2 Layout",
+        ),
+        [
+            Path("JSON Prompts/Moodboard V2/referencephoto_moodboard.png"),
+            Path("assets/referencephoto_moodboard.png"),
+            Path("referencephoto_moodboard.png"),
+        ],
+        "referencephoto_moodboard.png",
+    ),
+    (
+        (
+            "Product Closeup Description Layout",
+            "Product Closeup Description Layout1",
+        ),
+        [
+            Path("assets/layout_product_v2.jpg"),
+            Path("JSON Prompts/Product Closeup V2/layout_product_v2.jpg"),
+            Path("layout_product_v2.jpg"),
+        ],
+        "layout_product_v2.jpg",
+    ),
+    (
+        (
+            "Closeup Photo Layout",
+            "Moodboard #1 Layout Closeup",
+            "Product Closeup Layout",
+            "Closeup Layout",
+        ),
+        [
+            Path("assets/closeup_layout.jpg"),
+            Path("closeup_layout.jpg"),
+        ],
+        "closeup_layout.jpg",
+    ),
+    (
+        (
+            "Product Closeup w/ Specs Layout",
+            "Product Closeup with Specs Layout",
+            "Product Closeup Specs Layout",
+            "Product Specs Layout",
+            "Specs Layout",
+        ),
+        [
+            Path("assets/product_specs_layout.png"),
+            Path("JSON Prompts/Product Closeup with Specs/product_specs_layout.png"),
+            Path("product_specs_layout.png"),
+        ],
+        "product_specs_layout.png",
+    ),
+    (
+        (
+            "CTA Blended Image Watermark Layout",
+            "CTA Layout",
+            "CTA Watermark Layout",
+        ),
+        [
+            Path("assets/cta_layout.jpg"),
+            Path("JSON Prompts/CTA/cta_layout.jpg"),
+            Path("JSON Prompts/cta_layout.jpg"),
+            Path("cta_layout.jpg"),
+        ],
+        "cta_layout.jpg",
+    ),
+    (
+        (
+            "Logo",
+            "HomeCartel Logo",
+            "Brand Logo",
+            "Watermark Logo",
+            "Logo Image",
+            "Logo Watermark For Story",
+            "Logo Watermark",
+            "Moodboard Watermark",
+        ),
+        [
+            Path("assets/homecartel_logo.png"),
+            Path("JSON Prompts/homecartel_logo.png"),
+            Path("scratch/refined_logo.png"),
+            Path("scratch/removed_bg_logo.png"),
+            Path("content_automation/assets/logo.png"),
+            Path("static/img/logo.png"),
+            Path("logo.png"),
+        ],
+        "homecartel_logo.png",
+    ),
+    (
+        ("This or That Layout",),
+        [
+            Path("assets/thisorthatlayout.jpg"),
+            Path("JSON Prompts/This or That/thisorthatlayout.jpg"),
+            Path("JSON Prompts/thisorthatlayout.jpg"),
+            Path("thisorthatlayout.jpg"),
+        ],
+        "thisorthatlayout.jpg",
+    ),
+    (
+        ("Myth Layout", "Myth Emoticon ", "Myth Emoticon"),
+        [
+            Path("JSON Prompts/Myth and Fact/myth_layout.jpg"),
+            Path("JSON Prompts/Myth and Fact/0-02-06-324215afe8a9daad6830b53fe3a8da915f5961f75e8a0f58b567ce22fdda24c7_3001564131aaeb1d.jpg"),
+        ],
+        "myth_layout.jpg",
+    ),
+    (
+        ("Fact Layout", "Fact Emoticon", "Fact Emoticon "),
+        [
+            Path("JSON Prompts/Myth and Fact/fact_layout.jpg"),
+            Path("JSON Prompts/Myth and Fact/0-02-06-c1752a0e95b3c7b832ec15d361bc2fb1370bf58170d1cbd5d9d55189c581e426_759be242e44ec1f5.jpg"),
+        ],
+        "fact_layout.jpg",
+    ),
+    (
+        ("Debunk Layout",),
+        [
+            Path("JSON Prompts/Myth and Fact/debunk_layout.jpg"),
+            Path("JSON Prompts/Myth and Fact/debunk_myth_layout.jpg"),
+        ],
+        "debunk_layout.jpg",
+    ),
+    (
+        ("Outro Layout",),
+        [
+            Path("assets/Outro-Myth-Fact.png"),
+            Path("assets/outro_layout.jpg"),
+            Path("Outro for All Reels/Outro.jpg"),
+            Path("JSON Prompts/Myth and Fact/outro_layout.jpg"),
+        ],
+        "Outro-Myth-Fact.png",
+    ),
+    (
+        ("Outro",),
+        [
+            Path("assets/outro_layout.jpg"),
+            Path("Outro for All Reels/Outro.jpg"),
+            Path("JSON Prompts/Myth and Fact/outro_layout.jpg"),
+        ],
+        "outro_layout.jpg",
+    ),
+]
+
+
+def resolve_layout_source(
+    field_aliases: tuple[str, ...],
+    candidates: list[Path],
+    target_filename: str,
+    has_field_fn: Any,
+    existing_records: list[dict] | None = None,
+    find_field_fn: Any = None,
+) -> tuple[str | None, Path | DownloadedMedia | None, str]:
+    """Find matching field name and source file/downloaded attachment."""
+    target_field = None
+    for f in field_aliases:
+        if find_field_fn:
+            actual = find_field_fn(f)
+            if actual:
+                target_field = actual
+                break
+        elif has_field_fn(f):
+            target_field = f
+            break
+    if not target_field:
+        return None, None, target_filename
+
+    # 1. Local file candidate
+    for p in candidates:
+        if p.is_file():
+            return target_field, p, target_filename
+
+    # 2. Workspace search fallback for logos
+    if "logo" in target_filename.lower():
+        for base in [Path("assets"), Path("JSON Prompts"), Path("static"), Path(".")]:
+            if base.is_dir():
+                matches = list(base.rglob("*logo*.png"))
+                if matches:
+                    return target_field, matches[0], target_filename
+
+    # 3. Hybrid fallback: find an existing record in the table that already has this layout attachment
+    if existing_records:
+        for record in existing_records:
+            atts = record.get("fields", {}).get(target_field) or []
+            if isinstance(atts, list) and atts:
+                url = atts[0].get("url") if isinstance(atts[0], dict) else None
+                if url:
+                    try:
+                        resp = requests.get(url, stream=True)
+                        downloaded = download_to_temp_file(
+                            resp,
+                            prefix="layout_dl_",
+                            suffix=Path(target_filename).suffix or ".jpg",
+                            context=f"Download existing layout from {url}",
+                        )
+                        return target_field, downloaded, target_filename
+                    except Exception as err:
+                        print(f"[WARN] Failed downloading existing layout from Airtable: {err}")
+
+    return target_field, None, target_filename
 
 
 def format_item_name_with_product_type(
@@ -30,6 +262,9 @@ def format_item_name_with_product_type(
         "table_lamp": "Table Lamp",
         "wall_lights": "Wall Light",
         "wall_light": "Wall Light",
+        "ceiling_mounted": "Ceiling Mounted",
+        "ceiling_lights": "Ceiling Mounted",
+        "ceiling_light": "Ceiling Mounted",
     }
     cat_fallback = category_defaults.get((category_code or "").lower().strip(), "")
     raw_type = (product_type or "").strip()
@@ -214,9 +449,14 @@ class FurnitureItemScrapeRunner:
         cross_table_dedup: bool = True,
         sort_by_price: bool = False,
         price_pool_size: int = 50,
+        layout_fields: dict[str, str] | None = None,
+        backfill_layouts: bool = True,
+        shopify_cross_check: bool = True,
+        starting_letter: str | None = None,
     ):
         self.akeneo = akeneo
         self.airtable = airtable
+        self.starting_letter = starting_letter or os.getenv("SCRAPE_STARTING_LETTER")
         self.category_code = category_code
         self.style_code = style_code
         self.field_name = field_name
@@ -229,6 +469,12 @@ class FurnitureItemScrapeRunner:
         self.cross_table_dedup = cross_table_dedup
         self.sort_by_price = sort_by_price
         self.price_pool_size = price_pool_size
+        self.layout_fields = layout_fields or {}
+        self.backfill_layouts = backfill_layouts
+        self.shopify_cross_check = shopify_cross_check
+        self._shopify_index: ShopifyCatalogIndex | None = None
+        self._cached_records: list[dict] | None = None
+        self.created_record_ids: list[str] = []
 
     def _fetch_candidates(self) -> list[dict]:
         akeneo_category = categories.akeneo_category_code(self.category_code)
@@ -259,17 +505,36 @@ class FurnitureItemScrapeRunner:
             category_code=self.category_code,
             sort_by_price_in_newest_pool=self.sort_by_price,
             price_pool_size=self.price_pool_size,
+            starting_letter=self.starting_letter,
         )
         new_items: list[ProductItem] = []
         already_attached = 0
+        excluded_shopify = 0
         for item in candidates:
             filename = attachment_filename(item.item_name, item.media_code)
             if identity_key(filename) in existing_filenames:
+                try:
+                    print(f"[DEDUP SKIP] Existing item: '{item.item_name}' (SKU: {item.sku}) already exists in Airtable")
+                except Exception:
+                    print(f"[DEDUP SKIP] Existing item: SKU {item.sku} already exists in Airtable")
                 already_attached += 1
                 continue
+            if self.shopify_cross_check and self._shopify_index and (self._shopify_index.skus or self._shopify_index.titles):
+                if not self._shopify_index.contains(item.sku, item.item_name):
+                    try:
+                        print(f"[SHOPIFY DRAFT/INACTIVE SKIP] Item '{item.item_name}' (SKU: {item.sku}) is Enabled in Akeneo but Draft/Inactive in Shopify -> skipping to next unique item")
+                    except Exception:
+                        print(f"[SHOPIFY DRAFT/INACTIVE SKIP] SKU {item.sku} is Enabled in Akeneo but Draft/Inactive in Shopify -> skipping")
+                    excluded_shopify += 1
+                    continue
+            try:
+                print(f"[DEDUP PASS] New unique product selected: '{item.item_name}' (SKU: {item.sku})")
+            except Exception:
+                print(f"[DEDUP PASS] New unique product selected: SKU {item.sku}")
             new_items.append(item)
         if self.max_items is not None:
             new_items = new_items[: self.max_items]
+        stats["excluded_not_on_shopify"] = excluded_shopify
         return new_items, stats, already_attached
 
     def _upload_item(self, item: ProductItem) -> bool:
@@ -288,6 +553,28 @@ class FurnitureItemScrapeRunner:
                 record_fields[self.sku_field] = item.sku
             if self.status_field:
                 record_fields[self.status_field] = self.default_status
+
+            # Pre-populate fixed prompt if table schema has it
+            has_layout_field = getattr(self.airtable, "has_field", lambda _name: False)
+            find_layout_field = getattr(self.airtable, "find_field_name", None)
+            fixed_prompt_field = None
+            for alias in ("Moodboard Converstion Fixed Prompt", "Moodboard Conversion Fixed Prompt", "Fixed Prompt"):
+                if find_layout_field:
+                    actual = find_layout_field(alias)
+                    if actual:
+                        fixed_prompt_field = actual
+                        break
+                elif has_layout_field(alias):
+                    fixed_prompt_field = alias
+                    break
+            if fixed_prompt_field:
+                prompt_file = Path("JSON Prompts/Moodboard V2/second_moodboard.json")
+                if prompt_file.is_file():
+                    try:
+                        record_fields[fixed_prompt_field] = prompt_file.read_text(encoding="utf-8")
+                    except Exception:
+                        pass
+
             record_id = self.airtable.create_record(record_fields)
             self.airtable.upload_attachment(
                 record_id,
@@ -298,147 +585,42 @@ class FurnitureItemScrapeRunner:
             cost_desc = f" (Cost: {item.cost})" if item.cost else ""
             print(f"[OK] {item.sku}{cost_desc} -> {self.field_name} ({filename})")
 
-            # Automatically populate Product Closeup Description Layout if column exists
-            layout_field_name = "Product Closeup Description Layout"
-            # Test doubles and small integration adapters are allowed to omit
-            # this optional schema helper; the product scrape itself must not
-            # fail merely because the optional layout feature is unavailable.
-            has_layout_field = getattr(self.airtable, "has_field", lambda _name: False)
-            if has_layout_field(layout_field_name):
-                layout_file = Path("JSON Prompts/Product Closeup V2/layout_product_v2.jpg")
-                if layout_file.exists():
+            # Automatically populate all layout and logo fields present in the table schema
+            uploaded_fields: set[str] = set()
+
+            for field_aliases, candidates, target_name in LAYOUT_CONFIGURATIONS:
+                target_field, source_file, target_fn = resolve_layout_source(
+                    field_aliases,
+                    candidates,
+                    target_name,
+                    has_layout_field,
+                    existing_records=self._cached_records,
+                    find_field_fn=find_layout_field,
+                )
+                if target_field and target_field not in uploaded_fields and source_file:
                     try:
                         self.airtable.upload_attachment(
                             record_id,
-                            layout_field_name,
-                            layout_file,
-                            "layout_product_v2.jpg",
+                            target_field,
+                            source_file,
+                            target_fn,
                         )
-                        print(f"[OK] {item.sku} -> {layout_field_name} (layout_product_v2.jpg)")
+                        uploaded_fields.add(target_field)
+                        print(f"[OK] {item.sku} -> {target_field} ({target_fn})")
                     except Exception as layout_err:
-                        print(f"[WARN] Upload layout image to {layout_field_name} failed: {layout_err}")
+                        print(f"[WARN] Upload layout image to {target_field} failed: {layout_err}")
+                    finally:
+                        if hasattr(source_file, "cleanup"):
+                            source_file.cleanup()
 
-            # Automatically populate This or That Layout if column exists
-            tot_layout_field = "This or That Layout"
-            if has_layout_field(tot_layout_field):
-                tot_candidates = [
-                    Path("JSON Prompts/This or That/thisorthatlayout.jpg"),
-                    Path("JSON Prompts/thisorthatlayout.jpg"),
-                    Path("thisorthatlayout.jpg"),
-                ]
-                tot_file = next((p for p in tot_candidates if p.is_file()), None)
-                if tot_file:
-                    try:
-                        self.airtable.upload_attachment(
-                            record_id,
-                            tot_layout_field,
-                            tot_file,
-                            "thisorthatlayout.jpg",
-                        )
-                        print(f"[OK] {item.sku} -> {tot_layout_field} (thisorthatlayout.jpg)")
-                    except Exception as layout_err:
-                        print(f"[WARN] Upload layout image to {tot_layout_field} failed: {layout_err}")
-
-            # Automatically populate CTA Blended Image Watermark Layout if column exists or in CTA category
-            for cta_field in ("CTA Blended Image Watermark Layout", "CTA Layout", "Watermark Layout"):
-                if has_layout_field(cta_field) or "cta" in getattr(self, "category_code", ""):
-                    cta_candidates = [
-                        Path("JSON Prompts/CTA/cta_layout.jpg"),
-                        Path("JSON Prompts/cta_layout.jpg"),
-                        Path("cta_layout.jpg"),
-                    ]
-                    cta_file = next((p for p in cta_candidates if p.is_file()), None)
-                    if cta_file:
-                        try:
-                            self.airtable.upload_attachment(
-                                record_id,
-                                cta_field,
-                                cta_file,
-                                "cta_layout.jpg",
-                            )
-                            print(f"[OK] {item.sku} -> {cta_field} (cta_layout.jpg)")
-                            break
-                        except Exception as layout_err:
-                            print(f"[WARN] Upload layout image to {cta_field} failed: {layout_err}")
-
-            # Automatically populate Logo if column exists or in CTA / story category
-            logo_fields = ("Logo", "Brand Logo", "Watermark", "Logo Image")
-            has_logo_col = any(has_layout_field(f) for f in logo_fields)
-            if has_logo_col or "cta" in getattr(self, "category_code", ""):
-                for logo_target_field in logo_fields:
-                    if has_layout_field(logo_target_field) or "cta" in getattr(self, "category_code", ""):
-                        logo_candidates = [
-                            Path("assets/homecartel_logo.png"),
-                            Path("JSON Prompts/homecartel_logo.png"),
-                            Path("scratch/refined_logo.png"),
-                            Path("scratch/removed_bg_logo.png"),
-                            Path("content_automation/assets/logo.png"),
-                            Path("static/img/logo.png"),
-                            Path("logo.png"),
-                        ]
-                        logo_file = next((p for p in logo_candidates if p.is_file()), None)
-                        if not logo_file:
-                            for base in [Path("assets"), Path("JSON Prompts"), Path("static"), Path(".")]:
-                                if base.is_dir():
-                                    matches = list(base.rglob("*logo*.png"))
-                                    if matches:
-                                        logo_file = matches[0]
-                                        break
-                        if logo_file:
-                            try:
-                                self.airtable.upload_attachment(
-                                    record_id,
-                                    logo_target_field,
-                                    logo_file,
-                                    "homecartel_logo.png",
-                                )
-                                print(f"[OK] {item.sku} -> {logo_target_field} (homecartel_logo.png)")
-                                break
-                            except Exception as logo_err:
-                                print(f"[WARN] Upload logo image to {logo_target_field} failed: {logo_err}")
-
-            # Automatically populate Myth & Fact Layouts if columns exist or in myth and fact category
-            is_myth_fact = "myth" in getattr(self, "category_code", "") or "fact" in getattr(self, "category_code", "")
-            myth_fact_mapping = [
-                (("Myth Layout", "Myth Emoticon ", "Myth Emoticon"), [
-                    Path("JSON Prompts/Myth and Fact/myth_layout.jpg"),
-                    Path("JSON Prompts/Myth and Fact/0-02-06-324215afe8a9daad6830b53fe3a8da915f5961f75e8a0f58b567ce22fdda24c7_3001564131aaeb1d.jpg"),
-                ], "myth_layout.jpg"),
-                (("Fact Layout", "Fact Emoticon", "Fact Emoticon "), [
-                    Path("JSON Prompts/Myth and Fact/fact_layout.jpg"),
-                    Path("JSON Prompts/Myth and Fact/0-02-06-c1752a0e95b3c7b832ec15d361bc2fb1370bf58170d1cbd5d9d55189c581e426_759be242e44ec1f5.jpg"),
-                ], "fact_layout.jpg"),
-                (("Debunk Layout",), [
-                    Path("JSON Prompts/Myth and Fact/debunk_layout.jpg"),
-                    Path("JSON Prompts/Myth and Fact/debunk_myth_layout.jpg"),
-                ], "debunk_layout.jpg"),
-                (("Outro", "Outro Layout"), [
-                    Path("JSON Prompts/Myth and Fact/outro_layout.jpg"),
-                    Path("Outro for All Reels/Outro.jpg"),
-                ], "outro_layout.jpg"),
-            ]
-            for field_aliases, candidates, target_name in myth_fact_mapping:
-                target_field = next((f for f in field_aliases if has_layout_field(f)), None)
-                if not target_field and is_myth_fact:
-                    target_field = field_aliases[0]
-                if target_field:
-                    file_to_upload = next((p for p in candidates if p.is_file()), None)
-                    if file_to_upload:
-                        try:
-                            self.airtable.upload_attachment(
-                                record_id,
-                                target_field,
-                                file_to_upload,
-                                target_name,
-                            )
-                            print(f"[OK] {item.sku} -> {target_field} ({target_name})")
-                        except Exception as layout_err:
-                            print(f"[WARN] Upload layout image to {target_field} failed: {layout_err}")
-
+            if record_id:
+                self.created_record_ids.append(record_id)
             return True
         except Exception as error:
             print(f"[ERROR] {item.sku} -> {self.field_name} failed: {error}")
             if record_id:
+                if record_id in self.created_record_ids:
+                    self.created_record_ids.remove(record_id)
                 try:
                     self.airtable.delete_record(record_id)
                 except Exception as cleanup_error:
@@ -451,9 +633,83 @@ class FurnitureItemScrapeRunner:
             if downloaded:
                 downloaded.cleanup()
 
+    def backfill_missing_layouts(self, records: list[dict] | None = None) -> int:
+        """Scan table records and attach missing layout files to existing records."""
+        has_layout_field = getattr(self.airtable, "has_field", lambda _name: False)
+        find_layout_field = getattr(self.airtable, "find_field_name", None)
+        all_records = records if records is not None else self.airtable.list_records()
+        if not all_records:
+            return 0
+
+        total_backfilled = 0
+        for record in all_records:
+            record_id = record.get("id")
+            if not record_id:
+                continue
+            fields = record.get("fields", {})
+            sku = fields.get(self.sku_field) if self.sku_field else ""
+            item_label = fields.get(self.item_name_field) or sku or record_id
+
+            for field_aliases, candidates, target_name in LAYOUT_CONFIGURATIONS:
+                target_field = next((f for f in field_aliases if has_layout_field(f)), None)
+                if not target_field:
+                    continue
+                if find_layout_field:
+                    actual_fn = find_layout_field(target_field)
+                    if actual_fn:
+                        target_field = actual_fn
+                existing_att = fields.get(target_field)
+                if not existing_att:
+                    _, source_file, target_fn = resolve_layout_source(
+                        field_aliases,
+                        candidates,
+                        target_name,
+                        has_layout_field,
+                        existing_records=all_records,
+                        find_field_fn=find_layout_field,
+                    )
+                    if source_file:
+                        try:
+                            self.airtable.upload_attachment(
+                                record_id,
+                                target_field,
+                                source_file,
+                                target_fn,
+                            )
+                            total_backfilled += 1
+                            print(f"[OK] [BACKFILL] {item_label} -> {target_field} ({target_fn})")
+                        except Exception as b_err:
+                            print(f"[WARN] [BACKFILL] Failed uploading {target_field} for {item_label}: {b_err}")
+                        finally:
+                            if hasattr(source_file, "cleanup"):
+                                source_file.cleanup()
+
+        if total_backfilled > 0:
+            print(f"[OK] Successfully backfilled {total_backfilled} layout attachment(s) on existing records")
+        return total_backfilled
+
     def run(self, execute: bool = True) -> bool:
         """Run the Furniture Item scrape. True when every upload succeeds."""
+        self.created_record_ids = []
         self.akeneo.authenticate()
+
+        # Reconcile exact casing of table fields
+        if hasattr(self.airtable, "find_field_name"):
+            exact_f = self.airtable.find_field_name(self.field_name)
+            if exact_f:
+                self.field_name = exact_f
+            exact_item = self.airtable.find_field_name(self.item_name_field)
+            if exact_item:
+                self.item_name_field = exact_item
+            if self.sku_field:
+                exact_sku = self.airtable.find_field_name(self.sku_field)
+                if exact_sku:
+                    self.sku_field = exact_sku
+            if self.status_field:
+                exact_status = self.airtable.find_field_name(self.status_field)
+                if exact_status:
+                    self.status_field = exact_status
+
         required_fields = {
             self.field_name: "multipleAttachments",
             self.item_name_field: "singleLineText",
@@ -462,14 +718,38 @@ class FurnitureItemScrapeRunner:
             required_fields[self.sku_field] = "singleLineText"
         if self.status_field:
             required_fields[self.status_field] = "singleSelect"
+        if self.layout_fields:
+            for lk, lv in self.layout_fields.items():
+                required_fields[lk] = lv
+
         if execute:
             self.airtable.ensure_fields(required_fields)
 
         list_fields = [self.field_name, self.item_name_field]
         if self.sku_field:
             list_fields.append(self.sku_field)
+        if self.status_field:
+            list_fields.append(self.status_field)
+        if self.layout_fields:
+            list_fields.extend(self.layout_fields.keys())
+        for aliases, _, _ in LAYOUT_CONFIGURATIONS:
+            for alias in aliases:
+                if self.airtable.has_field(alias):
+                    exact_alias = (
+                        self.airtable.find_field_name(alias)
+                        if hasattr(self.airtable, "find_field_name")
+                        else alias
+                    )
+                    if exact_alias and exact_alias not in list_fields:
+                        list_fields.append(exact_alias)
+
         records = self.airtable.list_records(list_fields)
+        self._cached_records = records
         existing_filenames = attachment_filenames(records, self.field_name)
+
+        # Run layout backfill on existing records if requested
+        if self.backfill_layouts and execute:
+            self.backfill_missing_layouts(records)
 
         existing_skus: set[str] = set()
         existing_names: set[str] = set()
@@ -506,6 +786,13 @@ class FurnitureItemScrapeRunner:
             f"{len(existing_names)} item names, and {len(existing_skus)} existing SKUs to prevent duplicates"
         )
 
+        if self.shopify_cross_check:
+            try:
+                shopify = ShopifyClient()
+                self._shopify_index = shopify.load_published_identities()
+            except Exception as s_err:
+                print(f"[WARN] Shopify cross-check initialization note: {s_err}")
+
         products = self._fetch_candidates()
         items, stats, already_attached = self._new_items(
             products,
@@ -513,10 +800,16 @@ class FurnitureItemScrapeRunner:
             existing_skus,
             existing_names=existing_names,
         )
+        shopify_note = (
+            f"{stats.get('excluded_not_on_shopify', 0)} not published on Shopify, "
+            if self.shopify_cross_check
+            else ""
+        )
         print(
             f"[INFO] Akeneo returned {len(products)} products: "
             f"{len(items)} new images selected, "
             f"{already_attached} already attached, "
+            f"{shopify_note}"
             f"{stats['excluded_category']} excluded by category filter, "
             f"{stats['ineligible']} missing name/image/disabled, "
             f"{stats['duplicate_sku']} duplicate SKUs, "

@@ -3,7 +3,7 @@
   "aspect_ratio": "4:5 vertical portrait",
   "main_instruction": "Use the uploaded minimalist podium image as the main background scene. Place the uploaded table lamp product directly on the center of the circular white podium. The table lamp must be turned on, visibly glowing, and realistically integrated into the softly dimmed studio background. Add an item name label centered above the table lamp: \"[INPUT_ITEM_NAME_HERE]\" in Poppins font.",
   "USER_TEXT_INPUT": {
-    "item_name": "[INPUT_ITEM_NAME_HERE]"
+    "item_name": "Vainthra B"
   },
   "input_references": {
     "background_reference": "Uploaded image with one circular white podium",

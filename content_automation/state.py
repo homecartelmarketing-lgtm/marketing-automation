@@ -69,6 +69,12 @@ class StateManager:
                 )
 
         def needs_output_recovery(product: ProductRecord) -> bool:
+            # If a record is already marked Complete/Completed/Done, never recover it
+            # even if some intermediate or final fields are empty or missing.
+            row_status = str(product.fields.get("Status") or "").strip().casefold()
+            if row_status in {"complete", "completed", "done"}:
+                return False
+
             checkpoint = workflow.recovery_attachment_field
             expected = workflow.recovery_attachment_count
             if not checkpoint or expected < 1:
@@ -220,6 +226,7 @@ class StateManager:
                     run_id=run_id,
                     anchor=anchor,
                     partners=partners,
+                    force=True,
                 )
                 reservations.append(reservation)
                 used_ids.add(anchor.record_id)
@@ -302,6 +309,9 @@ class StateManager:
             assignment = str(product.fields.get("Content Assignment") or "")
             if allow_forced_anchor and force and product.record_id in explicit:
                 return True
+            row_status = str(product.fields.get("Status") or "").strip().casefold()
+            if row_status in {"complete", "completed", "done"}:
+                return False
             if workflow.select_status:
                 # Airtable's own Status column is the queue for these workflows:
                 # a record leaves the pool the moment it turns Processing, so a
@@ -384,6 +394,7 @@ class StateManager:
                 run_id=run_id,
                 anchor=anchor,
                 partners=partners,
+                force=force,
             )
             reservations.append(reservation)
             used_ids.update(consumed_here)

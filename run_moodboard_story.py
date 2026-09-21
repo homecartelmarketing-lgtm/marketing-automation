@@ -64,10 +64,11 @@ def parse_args(argv=None):
         "--target",
         "-t",
         choices=[
-            "1", "2",
+            "1", "2", "3",
             "chandeliers", "chandelier",
             "pendant_lights", "pendant_light", "pendant",
-            "tblhqrci8d1k9ws2m", "tblkm119i48y0m1iq",
+            "floor_lamps", "floor_lamp",
+            "tblhqrci8d1k9ws2m", "tblkm119i48y0m1iq", "tblbaneiszeyruaww",
         ],
         default=None,
         help="Target lighting category / table (default: interactive prompt or pendant_lights)",
@@ -188,7 +189,7 @@ def main(argv=None) -> int:
     cat_code = selected_preset.get("category_code", "pendant_lights")
     akeneo_cat = akeneo_category_code(cat_code)
     mb_id = os.getenv(selected_preset.get("moodboard_env_key", ""), "").strip() or selected_preset.get("default_moodboard_id", "")
-    interior_prompt = selected_preset.get("interior_prompt", "")
+    interior_prompt = os.getenv(selected_preset.get("env_prompt_key", ""), "").strip() or selected_preset.get("interior_prompt", "")
 
     mode_label = "DRY RUN (Simulation - No API Costs)" if args.dry_run else "LIVE EXECUTION (Airtable & API Calls Active)"
 

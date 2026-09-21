@@ -57,7 +57,12 @@ def parse_args(argv=None):
         "-n",
         type=int,
         default=1,
-        help="Maximum number of new floor lamp products to scrape (default: 1)",
+        help="Maximum number of new floor lamp products to scrape (default: 1)
+    parser.add_argument(
+        "--starting-letter",
+        default=None,
+        help="Starting letter for A-Z sorting cycle",
+    )",
     )
     parser.add_argument(
         "--table-id",

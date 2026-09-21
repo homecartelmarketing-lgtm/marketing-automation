@@ -2,8 +2,8 @@
 
 Table ID: tbloMhCOngGDWFS2y
 Category: Chandeliers (Modern)
-Krea Moodboard ID: b5ffdcbb-192e-4528-8d86-d1a4cf496887
-Krea Prompt: "Generate me a photo a modern living room hanging chandelier from the ceiling"
+Krea Moodboard ID: de6ad512-870d-4ab7-a48c-3f3ca85faf24
+Krea Prompt: "Generate me a modern living room"
 
 Features:
 1. Cross-Table Deduplication: Scans all tables in Airtable base to prevent duplicate products.
@@ -59,7 +59,12 @@ def parse_args(argv=None):
         "-n",
         type=int,
         default=1,
-        help="Maximum number of products to scrape (default: 1)",
+        help="Maximum number of products to scrape (default: 1)
+    parser.add_argument(
+        "--starting-letter",
+        default=None,
+        help="Starting letter for A-Z sorting cycle",
+    )",
     )
     parser.add_argument(
         "--table-id",
@@ -119,6 +124,7 @@ def main():
         include_product_type_in_name=True,
         max_items=args.max_items,
         cross_table_dedup=True,
+        starting_letter=args.starting_letter,
         sort_by_price=True,
     )
 

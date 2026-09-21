@@ -52,12 +52,23 @@ ITEMS_PER_ROW: dict[str, int] = {
     "product_description_story": 1,
     "chandelier_product_description_story": 1,
     "chandelier_myth_and_fact_story": 1,
+    "floor_lamp_myth_and_fact_story": 1,
+    "pendant_lights_myth_and_fact_story": 1,
     "myth_and_fact_story": 1,
     "pendant_lights_product_description_story": 1,
     "floor_lamp_product_description_story": 1,
     "cluster_chandelier_product_description_story": 1,
     "table_lamps_product_description_story": 1,
     "wall_lights_product_description_story": 1,
+    # Product Closeup w/ Specs destinations
+    "product_specs_story": 1,
+    "chandelier_product_specs_story": 1,
+    "chandeliers_product_specs_story": 1,
+    "pendant_lights_product_specs_story": 1,
+    "floor_lamp_product_specs_story": 1,
+    "cluster_chandelier_product_specs_story": 1,
+    "table_lamps_product_specs_story": 1,
+    "wall_lights_product_specs_story": 1,
     # Day & Night Story destinations
     "day_night_story": 1,
     "chandelier_day_night_story": 1,
@@ -88,13 +99,18 @@ ITEMS_PER_ROW: dict[str, int] = {
     "floor_lamps_collec_story": 3,
     "table_lamps_collec_story": 3,
     "wall_sconces_collec_story": 3,
+    # 1 Product 3 Styles Feed destinations
+    "chandeliers_one_product_three_styles": 1,
+    "pendant_lights_one_product_three_styles": 1,
+    "floor_lamps_one_product_three_styles": 1,
 }
 
 # Some Airtable destinations are subsets of a broader Akeneo category and have
 # no category of their own in the PIM. They read from a shared source category
 # and then narrow it with the inclusion keywords below.
 AKENEO_SOURCE_CATEGORY: dict[str, str] = {
-    "ceiling_mounted": "chandeliers",
+    "ceiling_mounted": "ceiling_lights",
+    "ceiling_mounted_tips_edu_story": "ceiling_lights",
     "chandeliers_day_night_4_5": "chandeliers",
     "chandeliers_day_night_reel": "chandeliers",
     "floor_lamps_day_night_reel": "floor_lamps",
@@ -119,12 +135,24 @@ AKENEO_SOURCE_CATEGORY: dict[str, str] = {
     "product_description_story": "chandeliers",
     "chandelier_product_description_story": "chandeliers",
     "chandelier_myth_and_fact_story": "chandeliers",
+    "floor_lamp_myth_and_fact_story": "floor_lamps",
+    "pendant_lights_myth_and_fact_story": "pendant_lights",
     "myth_and_fact_story": "chandeliers",
     "pendant_lights_product_description_story": "pendant_lights",
     "floor_lamp_product_description_story": "floor_lamps",
     "cluster_chandelier_product_description_story": "cluster_chandeliers",
     "table_lamps_product_description_story": "table_lamps",
     "wall_lights_product_description_story": "wall_lights",
+
+    # Product Closeup w/ Specs destinations
+    "product_specs_story": "chandeliers",
+    "chandelier_product_specs_story": "chandeliers",
+    "chandeliers_product_specs_story": "chandeliers",
+    "pendant_lights_product_specs_story": "pendant_lights",
+    "floor_lamp_product_specs_story": "floor_lamps",
+    "cluster_chandelier_product_specs_story": "cluster_chandeliers",
+    "table_lamps_product_specs_story": "table_lamps",
+    "wall_lights_product_specs_story": "wall_lights",
 
     # Day & Night Story destinations
     "day_night_story": "chandeliers",
@@ -158,6 +186,10 @@ AKENEO_SOURCE_CATEGORY: dict[str, str] = {
     "floor_lamps_reel": "floor_lamps",
     "wall_sconces_reel": "wall_lights",
     "table_lamps_reel": "table_lamps",
+    # 1 Product 3 Styles Feed destinations
+    "chandeliers_one_product_three_styles": "chandeliers",
+    "pendant_lights_one_product_three_styles": "pendant_lights",
+    "floor_lamps_one_product_three_styles": "floor_lamps",
     # Singular aliases
     "chandelier": "chandeliers",
     "floor_lamp": "floor_lamps",
@@ -176,6 +208,7 @@ AKENEO_CATEGORY_ENV: dict[str, str] = {
     "floor_lamps": "AKENEO_CATEGORY_FLOOR_LAMPS",
     "wall_lights": "AKENEO_CATEGORY_WALL_LIGHTS",
     "cluster_chandeliers": "AKENEO_CATEGORY_CLUSTER_CHANDELIERS",
+    "ceiling_lights": "AKENEO_CATEGORY_CEILING_LIGHTS",
 }
 
 # Products to drop from a category, by Akeneo category or by item-name keyword.
@@ -192,6 +225,10 @@ CATEGORY_EXCLUSIONS: dict[str, dict[str, set[str]]] = {
         "categories": {"cluster_chandeliers", "linear_chandeliers"},
         "keywords": {"cluster", "linear"},
     },
+    "chandeliers_one_product_three_styles": {
+        "categories": {"cluster_chandeliers", "linear_chandeliers"},
+        "keywords": {"cluster", "linear"},
+    },
 }
 
 # Products to keep from a shared source category. When a category appears here,
@@ -202,6 +239,15 @@ CATEGORY_INCLUSIONS: dict[str, dict[str, set[str]]] = {
     },
     "linear_chandeliers_reel": {
         "keywords": {"linear chandelier"},
+    },
+    "chandeliers_one_product_three_styles": {
+        "keywords": {"chandelier"},
+    },
+    "pendant_lights_one_product_three_styles": {
+        "keywords": {"pendant"},
+    },
+    "floor_lamps_one_product_three_styles": {
+        "keywords": {"floor lamp", "floor"},
     },
 }
 

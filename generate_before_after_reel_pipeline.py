@@ -38,6 +38,7 @@ from content_automation.audio import analyze_music_for_cut_grid, add_onbeat_musi
 from content_automation.config import REEL_TABLES, load_settings, resolve_reel_table
 from content_automation.errors import AutomationError, ProviderError
 from content_automation.fal_client import FalClient
+from content_automation.prompts import build_vision_blending_instruction
 from content_automation.krea_client import KreaClient
 from content_automation.media import download_to_temp_file
 from content_automation.models import LocalImage
@@ -117,8 +118,8 @@ AUDIT_LOG_CLAUDE_SONNET = AUDIT_LOG_DIR / "before_after_reel_claude_sonnet_logs.
 AUDIT_LOG_NANO_BANANA = AUDIT_LOG_DIR / "before_after_reel_nano_banana_logs.json"
 AUDIT_LOG_FAL_AI = AUDIT_LOG_DIR / "before_after_reel_fal_ai_logs.json"
 
-GDRIVE_REELS_DIR = Path("G:/My Drive/Before & After Reels")
-GDRIVE_REELS_DIR_ALT = Path("G:/My Drive/Before and After Reels")
+GDRIVE_REELS_DIR = Path(os.getenv("GDRIVE_REELS_DIR", "G:/My Drive/Before & After Reels"))
+GDRIVE_REELS_DIR_ALT = Path(os.getenv("GDRIVE_REELS_DIR_ALT", "G:/My Drive/Before and After Reels"))
 LOCAL_REELS_DIR = Path("output/content/before_and_after_reel")
 
 
@@ -495,20 +496,11 @@ def generate_claude_blending_prompts(
             f"record {record_id} ({item_label}) with Fal AI Claude Sonnet 5..."
         )
 
-        placement_addon = f"\n6. SPECIFIC FIXTURE PLACEMENT RULE: {placement_rule}" if placement_rule else ""
-
-        instruction = (
-            f"You are an expert interior design AI prompt engineer. Analyze Image 1 as the Room Interior photo ('Interior Generated Photo') "
-            f"and Image 2 as the product photo for '{item_name}' ('Furniture Item').\n"
-            f"Generate a detailed, highly specific image-blending prompt for Nano Banana Pro (9:16 vertical ratio). "
-            f"The prompt must describe naturally integrating and mounting/placing the {item_name} from Image 2 into the room interior from Image 1.\n"
-            f"CRITICAL ISOLATION & MOUNTING RULES:\n"
-            f"1. The {item_name} shown in Image 2 MUST BE THE ONLY MAIN LIGHTING FIXTURE/FURNITURE ITEM of its kind in the entire final blended scene.\n"
-            f"2. If Image 1 contains ANY pre-existing competing lighting fixtures or lamps, explicitly instruct to remove and replace them with the exact {item_name} from Image 2.\n"
-            f"3. Strictly exclude unnecessary, competing clutter or duplicate items.\n"
-            f"4. Ensure natural placement/hanging height, realistic canopy/base mounting, authentic materials, warm ambient illumination (3000K), soft contact shadows on surrounding walls/floors, and photorealistic 8k architectural styling.\n"
-            f"5. Strictly maintain the exact room composition, wall color, architectural textures, and layout from Image 1.{placement_addon}\n\n"
-            f"Output ONLY the prompt text, with no preamble, markdown formatting, or quotes."
+        instruction = build_vision_blending_instruction(
+            interior_label="Room Interior ('Interior Generated Photo')",
+            item_name=item_name,
+            aspect_ratio="9:16",
+            extra_instructions=f"SPECIFIC FIXTURE PLACEMENT RULE: {placement_rule}" if placement_rule else "",
         )
 
         try:
@@ -545,10 +537,6 @@ def generate_claude_blending_prompts(
         f"[INFO] Claude Sonnet 5 prompt generation complete: {succeeded} succeeded, {failed} failed."
     )
     return failed == 0
-
-
-# Alias for backward compatibility
-generate_qwen_blending_prompts = generate_claude_blending_prompts
 
 
 def generate_nano_banana_pro_blends(
@@ -644,6 +632,30 @@ def generate_nano_banana_pro_blends(
                 f"[OK] Attached blended image to '{target_blended_field}' and updated "
                 f"{STATUS_FIELD} to '{target_status}' on record {record_id}"
             )
+
+            # Auto-tag furniture item name onto Blended Image using YOLO-World
+            try:
+                from content_automation.akeneo_client import split_item_name
+                from content_automation.item_tagger import TARGET_BLENDED_FIELD, tag_and_upload_blended_image
+                raw_item_name = str(fields.get(ITEM_NAME_FIELD) or fields.get(SKU_FIELD) or record_id).strip()
+                item_title, product_type = split_item_name(raw_item_name, fallback_product_type=str(fields.get("Product Type") or ""))
+                print(
+                    f"\n [ITEM TAGGING] Stamping item name ('{item_title}') onto Blended Image -> '{TARGET_BLENDED_FIELD}'...",
+                    flush=True,
+                )
+                tag_and_upload_blended_image(
+                    airtable=airtable,
+                    record_id=record_id,
+                    blended_source=downloaded.path,
+                    item_name=item_title,
+                    product_type=product_type,
+                    category=category,
+                    target_field=TARGET_BLENDED_FIELD,
+                    output_filename_prefix="before_after_tagged",
+                    fallback_if_undetected=True,
+                )
+            except Exception as tag_err:
+                print(f"[WARN] Failed YOLO item tagging on record {record_id}: {tag_err}")
             succeeded += 1
         except Exception as error:
             print(f"[ERROR] Failed blending image for record {record_id}: {error}")
@@ -656,10 +668,6 @@ def generate_nano_banana_pro_blends(
         f"[INFO] Fal AI Nano Banana Pro blending complete: {succeeded} succeeded, {failed} failed."
     )
     return failed == 0
-
-
-# Alias for backward compatibility
-generate_qwen_image_blends = generate_nano_banana_pro_blends
 
 
 def generate_multiple_angles_pipeline(
@@ -1111,7 +1119,11 @@ def generate_slideshow_reels_pipeline(
         item_label = f"{record_id} ({item_name_val})"
 
         interior_url = extract_attachment_url(get_first_field_value(fields, INTERIOR_FIELDS))
-        blended_url = extract_attachment_url(get_first_field_value(fields, BLENDED_IMAGE_FIELDS)) or interior_url
+        blended_url = (
+            extract_attachment_url(fields.get("Blended Image with Name text"))
+            or extract_attachment_url(get_first_field_value(fields, BLENDED_IMAGE_FIELDS))
+            or interior_url
+        )
         outro_url = extract_attachment_url(get_first_field_value(fields, OUTRO_FIELDS))
         angle_attachments = fields.get(MULTIPLE_ANGLE_FIELD) or []
 

@@ -1,0 +1,43 @@
+# Git & development
+.git
+.gitignore
+.vscode
+.idea
+*.log
+
+# Python cache & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Node & frontend dependencies
+node_modules/
+UI Control/node_modules/
+UI Control/.pnpm-store/
+UI Control/src/
+UI Control/pnpm-lock.yaml
+
+# Local output & temp directories (use clean cloud runtime)
+output/
+tmp/
+scratch/
+
+# Secrets (configured in Railway Dashboard instead)
+.env
+.env.local
+.env.*.local
+
+# Documentation & dev files (not needed in container)
+AGENTS.md
+README.md
+docs/
+*.bak
+*.spec
+todo.md
+New Text Document.txt
+
+# Large model weights (downloaded during Docker build via RUN instruction)
+yolov8s-worldv2.pt

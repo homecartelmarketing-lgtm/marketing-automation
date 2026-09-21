@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HomeCartel • Luxury Item Tagging Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Poppins:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #07090E;
+      --bg-secondary: #0D121D;
+      --bg-card: rgba(18, 24, 38, 0.75);
+      --bg-card-hover: rgba(26, 34, 52, 0.85);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-focus: rgba(245, 158, 11, 0.5);
+      --text-primary: #F8FAFC;
+      --text-secondary: #94A3B8;
+      --text-muted: #64748B;
+      --accent-gold: #F59E0B;
+      --accent-gold-light: #FBBF24;
+      --accent-cyan: #38BDF8;
+      --accent-emerald: #10B981;
+      --accent-rose: #F43F5E;
+      --font-display: 'Outfit', sans-serif;
+      --font-body: 'Inter', sans-serif;
+      --font-tag: 'Poppins', sans-serif;
+      --shadow-luxury: 0 20px 40px -15px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      --glow-gold: 0 0 25px rgba(245, 158, 11, 0.25);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(245, 158, 11, 0.04) 0%, transparent 45%),
+        radial-gradient(circle at 85% 85%, rgba(56, 189, 248, 0.04) 0%, transparent 45%);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Top Luxury Header */
+    header {
+      border-bottom: 1px solid var(--border-subtle);
+      background: rgba(13, 18, 29, 0.8);
+      backdrop-filter: blur(16px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      padding: 14px 28px;
+    }
+
+    .header-inner {
+      max-width: 1600px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-logo {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #F59E0B, #D97706);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-family: var(--font-display);
+      font-size: 19px;
+      color: #07090E;
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+    }
+
+    .brand-text h1 {
+      font-family: var(--font-display);
+      font-size: 19px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: var(--text-primary);
+    }
+
+    .brand-text p {
+      font-size: 12px;
+      color: var(--text-muted);
+      letter-spacing: 0.3px;
+    }
+
+    .header-pills {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pill {
+      font-size: 12px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      border: 1px solid var(--border-subtle);
+      background: rgba(255, 255, 255, 0.03);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pill.yolo {
+      color: var(--accent-cyan);
+      border-color: rgba(56, 189, 248, 0.25);
+      background: rgba(56, 189, 248, 0.06);
+    }
+
+    .pill.zero-cost {
+      color: var(--accent-emerald);
+      border-color: rgba(16, 185, 129, 0.25);
+      background: rgba(16, 185, 129, 0.06);
+    }
+
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(1.2); }
+    }
+
+    /* Main Workspace Layout */
+    .studio-container {
+      max-width: 1600px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 24px;
+      display: grid;
+      grid-template-columns: 460px 1fr;
+      gap: 28px;
+      flex: 1;
+    }
+
+    @media (max-width: 1100px) {
+      .studio-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Left Control Sidebar */
+    .controls-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .glass-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 22px;
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow-luxury);
+    }
+
+    .card-title {
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .badge-tip {
+      font-size: 11px;
+      color: var(--accent-gold);
+      background: rgba(245, 158, 11, 0.1);
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-weight: 500;
+    }
+
+    /* Drag and Drop Zone */
+    .drop-zone {
+      border: 2px dashed rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 28px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      background: rgba(0, 0, 0, 0.25);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--accent-gold);
+      background: rgba(245, 158, 11, 0.05);
+    }
+
+    .drop-zone-icon {
+      font-size: 32px;
+      margin-bottom: 10px;
+      opacity: 0.8;
+    }
+
+    .drop-zone-text {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .drop-zone-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .file-input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .file-preview-strip {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 8px 12px;
+      margin-top: 12px;
+    }
+
+    .file-preview-thumb {
+      width: 44px;
+      height: 44px;
+      border-radius: 6px;
+      object-fit: cover;
+      background: #000;
+    }
+
+    .file-preview-info {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .file-preview-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .file-preview-size {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .file-clear-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 4px;
+      transition: color 0.2s;
+    }
+
+    .file-clear-btn:hover {
+      color: var(--accent-rose);
+    }
+
+    /* Form Fields */
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .label-badge {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-muted);
+    }
+
+    .label-badge.bold {
+      color: #FFF;
+      font-weight: 700;
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .text-input, .select-input {
+      width: 100%;
+      background: rgba(10, 14, 23, 0.8);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: var(--text-primary);
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .text-input:focus, .select-input:focus {
+      border-color: var(--accent-gold);
+      box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15);
+    }
+
+    .text-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .input-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 5px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Placement Switcher */
+    .placement-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .placement-btn {
+      background: rgba(10, 14, 23, 0.8);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 8px 6px;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+
+    .placement-btn:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-primary);
+    }
+
+    .placement-btn.active {
+      border-color: var(--accent-gold);
+      color: var(--accent-gold);
+      background: rgba(245, 158, 11, 0.1);
+      font-weight: 600;
+    }
+
+    /* Slider Container */
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .slider-input {
+      flex: 1;
+      accent-color: var(--accent-gold);
+      cursor: pointer;
+    }
+
+    .slider-value {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      min-width: 40px;
+      text-align: right;
+    }
+
+    /* Toggle Switches */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .toggle-label {
+      font-size: 13px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 22px;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: rgba(255, 255, 255, 0.1);
+      transition: .25s;
+      border-radius: 24px;
+    }
+
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .25s;
+      border-radius: 50%;
+    }
+
+    input:checked + .toggle-slider {
+      background-color: var(--accent-gold);
+    }
+
+    input:checked + .toggle-slider:before {
+      transform: translateX(18px);
+    }
+
+    /* Action Buttons */
+    .btn-primary {
+      width: 100%;
+      background: linear-gradient(135deg, #F59E0B, #D97706);
+      color: #07090E;
+      border: none;
+      border-radius: 12px;
+      padding: 14px 20px;
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-shadow: 0 4px 16px rgba(245, 158, 11, 0.25);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(245, 158, 11, 0.35);
+      background: linear-gradient(135deg, #FBBF24, #F59E0B);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-download {
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--accent-cyan);
+      border-radius: 10px;
+      padding: 11px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .btn-download:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--accent-cyan);
+    }
+
+    /* Right Preview Canvas Stage */
+    .viewport-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .viewport-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      background: rgba(18, 24, 38, 0.85);
+      border: 1px solid var(--border-subtle);
+      font-size: 12px;
+    }
+
+    .status-badge.success {
+      border-color: rgba(16, 185, 129, 0.3);
+      color: var(--accent-emerald);
+    }
+
+    .status-badge.warning {
+      border-color: rgba(245, 158, 11, 0.3);
+      color: var(--accent-gold);
+    }
+
+    .canvas-card {
+      background: #040609;
+      border: 1px solid var(--border-subtle);
+      border-radius: 18px;
+      padding: 16px;
+      position: relative;
+      min-height: 580px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8);
+    }
+
+    .canvas-container {
+      position: relative;
+      max-width: 100%;
+      max-height: 720px;
+      display: inline-block;
+      user-select: none;
+    }
+
+    .preview-image {
+      max-width: 100%;
+      max-height: 720px;
+      width: auto;
+      height: auto;
+      border-radius: 8px;
+      display: block;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+      cursor: crosshair;
+    }
+
+    .canvas-placeholder {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+
+    .canvas-placeholder-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+      opacity: 0.4;
+    }
+
+    .manual-pin-hint {
+      position: absolute;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid var(--border-subtle);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      color: var(--accent-cyan);
+      backdrop-filter: blur(8px);
+      pointer-events: none;
+      display: none;
+    }
+
+    .manual-pin-hint.active {
+      display: block;
+      animation: fadeIn 0.3s ease;
+    }
+
+    /* Compare Button Overlay */
+    .compare-btn {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: all 0.2s;
+    }
+
+    .compare-btn:hover {
+      color: var(--text-primary);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Recent Tags Gallery */
+    .gallery-section {
+      max-width: 1600px;
+      width: 100%;
+      margin: 10px auto 40px auto;
+      padding: 0 24px;
+    }
+
+    .gallery-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .gallery-title {
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .gallery-scroll {
+      display: flex;
+      gap: 16px;
+      overflow-x: auto;
+      padding-bottom: 12px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-subtle) transparent;
+    }
+
+    .gallery-card {
+      flex: 0 0 200px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+
+    .gallery-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(245, 158, 11, 0.3);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    }
+
+    .gallery-card-img {
+      width: 100%;
+      height: 140px;
+      object-fit: cover;
+      background: #000;
+      display: block;
+    }
+
+    .gallery-card-meta {
+      padding: 10px 12px;
+    }
+
+    .gallery-card-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 4px;
+    }
+
+    .gallery-card-time {
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* Spinners & Animations */
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(0, 0, 0, 0.2);
+      border-top-color: #07090E;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translate(-50%, -6px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Header -->
+  <header>
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-logo">HC</div>
+        <div class="brand-text">
+          <h1>Item Name Stamping Studio</h1>
+          <p>Zero-Cost Open-Vocabulary YOLO-World Engine (100% Local CPU)</p>
+        </div>
+      </div>
+      <div class="header-pills">
+        <div class="pill yolo">
+          <div class="pulse-dot"></div>
+          <span>YOLO-World v2 Active</span>
+        </div>
+        <div class="pill zero-cost">
+          <span>$0.00 API Cost</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <div class="studio-container">
+
+    <!-- Left Controls Panel -->
+    <div class="controls-panel">
+
+      <!-- 1. Photo Upload -->
+      <div class="glass-card">
+        <div class="card-title">
+          <span>1. Upload Room Photo</span>
+          <span class="badge-tip">JPG / PNG / WEBP</span>
+        </div>
+        
+        <div class="drop-zone" id="dropZone">
+          <input type="file" id="fileInput" class="file-input" accept="image/jpeg,image/png,image/webp">
+          <div class="drop-zone-icon">📸</div>
+          <div class="drop-zone-text">Drop photo here or click to browse</div>
+          <div class="drop-zone-sub">High-resolution room renders, feeds, or stories</div>
+        </div>
+
+        <div class="file-preview-strip" id="filePreviewStrip">
+          <img id="filePreviewThumb" class="file-preview-thumb" src="" alt="Thumbnail">
+          <div class="file-preview-info">
+            <div id="filePreviewName" class="file-preview-name">room_blended.jpg</div>
+            <div id="filePreviewSize" class="file-preview-size">1080 x 1350 • 1.2 MB</div>
+          </div>
+          <button type="button" id="fileClearBtn" class="file-clear-btn" title="Remove photo">✕</button>
+        </div>
+      </div>
+
+      <!-- 2. Typography & Item Info -->
+      <div class="glass-card">
+        <div class="card-title">
+          <span>2. Product Tag Typography</span>
+          <span class="badge-tip">Poppins 19px Solid White</span>
+        </div>
+
+        <!-- Line 1: Item Name -->
+        <div class="form-group">
+          <div class="form-label">
+            <span>Line 1: Item Name</span>
+            <span class="label-badge bold">Poppins-Bold</span>
+          </div>
+          <input type="text" id="itemNameInput" class="text-input" placeholder="e.g. Halvor" autocomplete="off">
+          <div class="input-hint">💡 Tip: Pasting "Halvor | Modern Floor Lamp" auto-splits Line 1 & Line 2.</div>
+        </div>
+
+        <!-- Line 2: Product Type -->
+        <div class="form-group">
+          <div class="form-label">
+            <span>Line 2: Product Type / Subtitle</span>
+            <span class="label-badge">Poppins-Regular</span>
+          </div>
+          <input type="text" id="productTypeInput" class="text-input" placeholder="e.g. Modern Floor Lamp with Marble Base" autocomplete="off">
+        </div>
+
+        <!-- Category Dropdown -->
+        <div class="form-group">
+          <div class="form-label">
+            <span>YOLO Fixture Category</span>
+            <span id="autoCatBadge" class="label-badge" style="display:none; color:var(--accent-gold);">Auto-Detected</span>
+          </div>
+          <select id="categorySelect" class="select-input">
+            <option value="auto">✨ Auto-Detect from Item Name</option>
+            <option value="floor_lamps">Floor Lamps (floor lamp, standing lamp)</option>
+            <option value="chandeliers">Chandeliers (chandelier, ceiling fixture)</option>
+            <option value="pendant_lights">Pendant Lights (pendant light, hanging lamp)</option>
+            <option value="table_lamps">Table Lamps (table lamp, desk lamp)</option>
+            <option value="wall_sconces">Wall Sconces (wall lamp, sconce)</option>
+            <option value="dining_tables">Dining Tables (dining table, table)</option>
+            <option value="coffee_tables">Coffee Tables (coffee table, low table)</option>
+            <option value="sofas">Sofas & Couches (sofa, couch, sectional)</option>
+            <option value="chairs">Chairs (armchair, accent chair, dining chair)</option>
+            <option value="flush_mounts">Flush Mounts (ceiling mount light)</option>
+            <option value="custom">🔍 Custom Open-Vocabulary Query...</option>
+          </select>
+        </div>
+
+        <!-- Custom Query Input (Hidden by default) -->
+        <div class="form-group" id="customQueryGroup" style="display: none;">
+          <div class="form-label">
+            <span>Custom Detection Query</span>
+            <span class="label-badge">Comma-separated</span>
+          </div>
+          <input type="text" id="customQueryInput" class="text-input" placeholder="e.g. bar stool, velvet armchair, sideboard">
+        </div>
+      </div>
+
+      <!-- 3. Positioning & Detection Controls -->
+      <div class="glass-card">
+        <div class="card-title">
+          <span>3. Detection & Placement</span>
+        </div>
+
+        <!-- Placement Selector -->
+        <div class="form-group">
+          <div class="form-label">
+            <span>Stamp Placement</span>
+          </div>
+          <div class="placement-grid">
+            <button type="button" class="placement-btn active" data-placement="auto">Auto</button>
+            <button type="button" class="placement-btn" data-placement="left">Left</button>
+            <button type="button" class="placement-btn" data-placement="right">Right</button>
+            <button type="button" class="placement-btn" data-placement="manual">Manual Pin</button>
+          </div>
+        </div>
+
+        <!-- Confidence Slider -->
+        <div class="form-group">
+          <div class="form-label">
+            <span>YOLO Confidence Threshold</span>
+            <span id="confValue" class="slider-value">20%</span>
+          </div>
+          <div class="slider-row">
+            <input type="range" id="confSlider" class="slider-input" min="5" max="80" value="20" step="1">
+          </div>
+          <div class="input-hint">Lower threshold to detect subtler items; raise to reject background clutter.</div>
+        </div>
+
+        <!-- Toggles -->
+        <div class="toggle-row">
+          <span class="toggle-label">Show YOLO Bounding Box Overlay</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="showBoxToggle">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Main Action Button -->
+      <button type="button" id="btnTag" class="btn-primary" disabled>
+        <div class="spinner" id="btnSpinner"></div>
+        <span id="btnText">✨ Tag Image with YOLO</span>
+      </button>
+
+    </div>
+
+    <!-- Right Viewport Panel -->
+    <div class="viewport-panel">
+      
+      <!-- Toolbar -->
+      <div class="viewport-toolbar">
+        <div id="statusBadge" class="status-badge" style="display: none;">
+          <span id="statusDot" class="pulse-dot"></span>
+          <span id="statusText">Ready</span>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-left: auto;">
+          <button type="button" id="btnCompare" class="compare-btn" style="display: none;">Hold to View Original</button>
+          <a id="btnDownload" class="btn-download" style="display: none;" download="tagged_item.jpg">
+            ⬇ Download High-Res Tagged JPG
+          </a>
+        </div>
+      </div>
+
+      <!-- Canvas Stage -->
+      <div class="canvas-card" id="canvasCard">
+        <div id="manualPinHint" class="manual-pin-hint">📍 Click anywhere on the image to pin the item tag</div>
+        
+        <div class="canvas-placeholder" id="canvasPlaceholder">
+          <div class="canvas-placeholder-icon">🛋️</div>
+          <p style="font-size: 15px; font-weight: 500; margin-bottom: 6px;">No Image Loaded</p>
+          <p style="font-size: 13px;">Upload or drop a room photo on the left to start detection.</p>
+        </div>
+
+        <div class="canvas-container" id="canvasContainer" style="display: none;">
+          <img id="previewImage" class="preview-image" src="" alt="Tagged Preview">
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Recent Gallery Section -->
+  <section class="gallery-section">
+    <div class="gallery-header">
+      <div class="gallery-title">
+        <span>🕒 Recent Stamped Tags</span>
+      </div>
+      <button type="button" id="btnRefreshGallery" class="compare-btn" style="padding: 4px 10px;">↻ Refresh</button>
+    </div>
+    <div class="gallery-scroll" id="galleryScroll">
+      <!-- Dynamically populated -->
+    </div>
+  </section>
+
+  <!-- Frontend Logic -->
+  <script>
+    // State
+    const state = {
+      selectedFile: null,
+      existingFilename: null,
+      taggedUrl: null,
+      boxUrl: null,
+      originalUrl: null,
+      downloadUrl: null,
+      placement: 'auto',
+      manualX: null,
+      manualY: null,
+      isProcessing: false,
+    };
+
+    // DOM Elements
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const filePreviewStrip = document.getElementById('filePreviewStrip');
+    const filePreviewThumb = document.getElementById('filePreviewThumb');
+    const filePreviewName = document.getElementById('filePreviewName');
+    const filePreviewSize = document.getElementById('filePreviewSize');
+    const fileClearBtn = document.getElementById('fileClearBtn');
+
+    const itemNameInput = document.getElementById('itemNameInput');
+    const productTypeInput = document.getElementById('productTypeInput');
+    const categorySelect = document.getElementById('categorySelect');
+    const customQueryGroup = document.getElementById('customQueryGroup');
+    const customQueryInput = document.getElementById('customQueryInput');
+    const autoCatBadge = document.getElementById('autoCatBadge');
+
+    const placementBtns = document.querySelectorAll('.placement-btn');
+    const confSlider = document.getElementById('confSlider');
+    const confValue = document.getElementById('confValue');
+    const showBoxToggle = document.getElementById('showBoxToggle');
+
+    const btnTag = document.getElementById('btnTag');
+    const btnSpinner = document.getElementById('btnSpinner');
+    const btnText = document.getElementById('btnText');
+    const btnDownload = document.getElementById('btnDownload');
+    const btnCompare = document.getElementById('btnCompare');
+
+    const canvasCard = document.getElementById('canvasCard');
+    const canvasPlaceholder = document.getElementById('canvasPlaceholder');
+    const canvasContainer = document.getElementById('canvasContainer');
+    const previewImage = document.getElementById('previewImage');
+    const manualPinHint = document.getElementById('manualPinHint');
+
+    const statusBadge = document.getElementById('statusBadge');
+    const statusText = document.getElementById('statusText');
+    const galleryScroll = document.getElementById('galleryScroll');
+    const btnRefreshGallery = document.getElementById('btnRefreshGallery');
+
+    // -------------------------------------------------------------
+    // Drag and Drop & File Handling
+    // -------------------------------------------------------------
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+      });
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleFileSelect(e.dataTransfer.files[0]);
+      }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        handleFileSelect(e.target.files[0]);
+      }
+    });
+
+    function handleFileSelect(file) {
+      if (!file.type.startsWith('image/')) {
+        alert('Please select a valid image file (JPG, PNG, WEBP).');
+        return;
+      }
+      state.selectedFile = file;
+      state.existingFilename = null;
+
+      // Update preview strip
+      const url = URL.createObjectURL(file);
+      filePreviewThumb.src = url;
+      filePreviewName.textContent = file.name;
+      filePreviewSize.textContent = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+      filePreviewStrip.style.display = 'flex';
+
+      // Load into canvas viewport immediately as base image
+      previewImage.src = url;
+      canvasPlaceholder.style.display = 'none';
+      canvasContainer.style.display = 'inline-block';
+      state.originalUrl = url;
+      state.taggedUrl = null;
+      state.boxUrl = null;
+      btnCompare.style.display = 'none';
+      btnDownload.style.display = 'none';
+
+      btnTag.disabled = false;
+
+      // Try inferring name if filename has useful info
+      if (!itemNameInput.value) {
+        const cleanStem = file.name.replace(/\.[^/.]+$/, '').replace(/[_\-]+/g, ' ');
+        if (cleanStem.length > 2 && cleanStem.length < 40) {
+          triggerAutoSplit(cleanStem);
+        }
+      }
+    }
+
+    fileClearBtn.addEventListener('click', () => {
+      state.selectedFile = null;
+      state.existingFilename = null;
+      fileInput.value = '';
+      filePreviewStrip.style.display = 'none';
+      canvasContainer.style.display = 'none';
+      canvasPlaceholder.style.display = 'block';
+      btnTag.disabled = true;
+      btnDownload.style.display = 'none';
+      btnCompare.style.display = 'none';
+      statusBadge.style.display = 'none';
+    });
+
+    // -------------------------------------------------------------
+    // Smart Input & Auto-Split Handling
+    // -------------------------------------------------------------
+    function triggerAutoSplit(text) {
+      if (text.includes('|')) {
+        const parts = text.split('|');
+        itemNameInput.value = parts[0].trim();
+        productTypeInput.value = parts.slice(1).join('|').trim();
+      } else {
+        itemNameInput.value = text.trim();
+      }
+      autoInferCategory();
+    }
+
+    itemNameInput.addEventListener('input', (e) => {
+      if (e.target.value.includes('|')) {
+        triggerAutoSplit(e.target.value);
+      } else {
+        autoInferCategory();
+      }
+    });
+
+    productTypeInput.addEventListener('input', () => {
+      autoInferCategory();
+    });
+
+    // Category auto inference with debouncing
+    let inferTimer = null;
+    function autoInferCategory() {
+      if (categorySelect.value !== 'auto') return;
+      clearTimeout(inferTimer);
+      inferTimer = setTimeout(async () => {
+        const combined = `${itemNameInput.value} ${productTypeInput.value}`.trim();
+        if (!combined) return;
+        try {
+          const res = await fetch('/api/infer-category', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: combined }),
+          });
+          const data = await res.json();
+          if (data && data.category) {
+            autoCatBadge.textContent = `Auto: ${data.category.replace('_', ' ')}`;
+            autoCatBadge.style.display = 'inline-block';
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      }, 300);
+    }
+
+    categorySelect.addEventListener('change', () => {
+      if (categorySelect.value === 'custom') {
+        customQueryGroup.style.display = 'block';
+        autoCatBadge.style.display = 'none';
+      } else {
+        customQueryGroup.style.display = 'none';
+        if (categorySelect.value === 'auto') {
+          autoInferCategory();
+        } else {
+          autoCatBadge.style.display = 'none';
+        }
+      }
+    });
+
+    // -------------------------------------------------------------
+    // Placement & Confidence Controls
+    // -------------------------------------------------------------
+    placementBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        placementBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.placement = btn.dataset.placement;
+        if (state.placement === 'manual') {
+          manualPinHint.classList.add('active');
+        } else {
+          manualPinHint.classList.remove('active');
+          state.manualX = null;
+          state.manualY = null;
+        }
+      });
+    });
+
+    confSlider.addEventListener('input', () => {
+      confValue.textContent = `${confSlider.value}%`;
+    });
+
+    // Click on canvas for manual placement
+    previewImage.addEventListener('click', (e) => {
+      const rect = previewImage.getBoundingClientRect();
+      const clickXRel = e.clientX - rect.left;
+      const clickYRel = e.clientY - rect.top;
+
+      // Map to natural image dimensions
+      const scaleX = previewImage.naturalWidth / rect.width;
+      const scaleY = previewImage.naturalHeight / rect.height;
+
+      state.manualX = Math.round(clickXRel * scaleX);
+      state.manualY = Math.round(clickYRel * scaleY);
+      state.placement = 'manual';
+
+      // Set manual button active
+      placementBtns.forEach(b => {
+        b.classList.toggle('active', b.dataset.placement === 'manual');
+      });
+      manualPinHint.classList.remove('active');
+
+      // Auto trigger tag update if we already have an image loaded
+      if (state.selectedFile || state.existingFilename) {
+        tagImage();
+      }
+    });
+
+    // Show Bounding Box Toggle
+    showBoxToggle.addEventListener('change', () => {
+      updateActiveImageView();
+    });
+
+    function updateActiveImageView() {
+      if (showBoxToggle.checked && state.boxUrl) {
+        previewImage.src = state.boxUrl;
+      } else if (state.taggedUrl) {
+        previewImage.src = state.taggedUrl;
+      } else if (state.originalUrl) {
+        previewImage.src = state.originalUrl;
+      }
+    }
+
+    // Compare button (hold to see original)
+    btnCompare.addEventListener('mousedown', () => {
+      if (state.originalUrl) previewImage.src = state.originalUrl;
+    });
+    btnCompare.addEventListener('mouseup', () => {
+      updateActiveImageView();
+    });
+    btnCompare.addEventListener('mouseleave', () => {
+      updateActiveImageView();
+    });
+
+    // -------------------------------------------------------------
+    // Main Tag Execution
+    // -------------------------------------------------------------
+    btnTag.addEventListener('click', () => tagImage());
+
+    async function tagImage() {
+      if (!state.selectedFile && !state.existingFilename) return;
+      if (state.isProcessing) return;
+
+      state.isProcessing = true;
+      btnTag.disabled = true;
+      btnSpinner.style.display = 'block';
+      btnText.textContent = 'Running YOLO-World Detection...';
+
+      statusBadge.style.display = 'inline-flex';
+      statusBadge.className = 'status-badge';
+      statusText.textContent = 'Inferencing on CPU...';
+
+      const formData = new FormData();
+      if (state.selectedFile) {
+        formData.append('image', state.selectedFile);
+      } else if (state.existingFilename) {
+        formData.append('existing_filename', state.existingFilename);
+      }
+
+      formData.append('item_name', itemNameInput.value.trim());
+      formData.append('product_type', productTypeInput.value.trim());
+      formData.append('category', categorySelect.value);
+      formData.append('custom_query', customQueryInput.value.trim());
+      formData.append('confidence', (parseFloat(confSlider.value) / 100).toFixed(2));
+      formData.append('placement', state.placement);
+
+      if (state.manualX !== null && state.manualY !== null) {
+        formData.append('manual_x', state.manualX);
+        formData.append('manual_y', state.manualY);
+      }
+      formData.append('show_box', showBoxToggle.checked ? 'true' : 'false');
+
+      try {
+        const response = await fetch('/api/tag', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const result = await response.json();
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to tag image');
+        }
+
+        // Store result state
+        state.taggedUrl = result.tagged_url;
+        state.boxUrl = result.box_url;
+        state.originalUrl = result.original_url;
+        state.downloadUrl = result.download_url;
+        state.existingFilename = result.filename_orig;
+
+        // Update preview image
+        updateActiveImageView();
+
+        // Download button
+        btnDownload.href = result.download_url;
+        btnDownload.download = result.filename_tagged;
+        btnDownload.style.display = 'inline-flex';
+        btnCompare.style.display = 'inline-block';
+
+        // Update status badge
+        if (result.detected) {
+          statusBadge.className = 'status-badge success';
+          statusText.textContent = `✅ Detected ${result.category.replace('_', ' ')} (${(result.confidence * 100).toFixed(1)}%) in ${result.yolo_time_seconds}s`;
+        } else {
+          statusBadge.className = 'status-badge warning';
+          statusText.textContent = `⚠️ No item detected above ${confSlider.value}% conf. Centered or click image to pin manually.`;
+        }
+
+        // Refresh gallery
+        loadGallery();
+
+      } catch (err) {
+        console.error(err);
+        statusBadge.className = 'status-badge warning';
+        statusText.textContent = `Error: ${err.message}`;
+      } finally {
+        state.isProcessing = false;
+        btnTag.disabled = false;
+        btnSpinner.style.display = 'none';
+        btnText.textContent = '✨ Tag Image with YOLO';
+      }
+    }
+
+    // -------------------------------------------------------------
+    // Recent Tags Gallery
+    // -------------------------------------------------------------
+    async function loadGallery() {
+      try {
+        const res = await fetch('/api/history');
+        const data = await res.json();
+        galleryScroll.innerHTML = '';
+
+        if (!data.items || data.items.length === 0) {
+          galleryScroll.innerHTML = '<div style="color:var(--text-muted); font-size:13px; padding:10px 0;">No previous tags yet.</div>';
+          return;
+        }
+
+        data.items.forEach(item => {
+          const card = document.createElement('div');
+          card.className = 'gallery-card';
+          card.innerHTML = `
+            <img class="gallery-card-img" src="${item.url}" alt="${item.name}">
+            <div class="gallery-card-meta">
+              <div class="gallery-card-name">${item.name}</div>
+              <div class="gallery-card-time">
+                <span>${item.created_at.split(' ')[1]}</span>
+                <span>${item.size_kb} KB</span>
+              </div>
+            </div>
+          `;
+          card.addEventListener('click', () => {
+            previewImage.src = item.url;
+            state.taggedUrl = item.url;
+            state.downloadUrl = item.download_url;
+            btnDownload.href = item.download_url;
+            btnDownload.download = item.filename;
+            btnDownload.style.display = 'inline-flex';
+            canvasPlaceholder.style.display = 'none';
+            canvasContainer.style.display = 'inline-block';
+            statusBadge.style.display = 'inline-flex';
+            statusBadge.className = 'status-badge success';
+            statusText.textContent = `Loaded from history: ${item.name}`;
+          });
+          galleryScroll.appendChild(card);
+        });
+      } catch (err) {
+        console.error('Failed to load gallery:', err);
+      }
+    }
+
+    btnRefreshGallery.addEventListener('click', () => loadGallery());
+
+    // Initial gallery load on start
+    loadGallery();
+  </script>
+</body>
+</html>

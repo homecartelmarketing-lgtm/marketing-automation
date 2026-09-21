@@ -18,8 +18,8 @@ from content_automation.errors import AutomationError
 from content_automation.fal_client import FalClient
 from content_automation.kie_client import KieClient
 from content_automation.krea_client import KreaClient
+from content_automation.zoho_client import ZohoClient
 from content_automation.models import CallEstimate
-from content_automation.qwen_client import QwenClient
 from content_automation.state import StateManager
 from content_automation.workflows import WORKFLOW_CLASSES, create_workflow
 from content_automation.workflows.base import WorkflowContext
@@ -172,8 +172,6 @@ def provider_requirements(definitions) -> set[str]:
         providers.add("fal")
     if any(WORKFLOW_CLASSES[item.key].estimate.krea for item in definitions):
         providers.add("krea")
-    if any(WORKFLOW_CLASSES[item.key].estimate.qwen for item in definitions):
-        providers.add("qwen")
     return providers
 
 
@@ -248,17 +246,6 @@ def main(argv=None) -> int:
             print(f"[ERROR] {TABLES[table_code].label} schema: {error}")
 
     krea = KreaClient(settings.krea_token, settings.krea_base_url)
-    # Prompt writing now runs on Fal AI vision; Qwen/DashScope is optional and
-    # only constructed when a key is actually configured.
-    qwen = (
-        QwenClient(
-            settings.qwen_api_key,
-            settings.qwen_base_url,
-            settings.qwen_model,
-        )
-        if settings.qwen_api_key
-        else None
-    )
     kie = KieClient(
         settings.kie_api_key,
         settings.kie_api_base,
@@ -368,15 +355,21 @@ def main(argv=None) -> int:
             continue
 
         for reservation in plan.reservations:
+            zoho = ZohoClient(
+                settings.zoho_client_id,
+                settings.zoho_client_secret,
+                settings.zoho_refresh_token
+            )
+            
             context = WorkflowContext(
                 settings=settings,
                 reservation=reservation,
                 airtable=client,
                 assets=assets,
                 krea=krea,
-                qwen=qwen,
                 kie=kie,
                 fal=fal,
+                zoho_client=zoho,
             )
             workflow = create_workflow(definition.key, context)
             try:

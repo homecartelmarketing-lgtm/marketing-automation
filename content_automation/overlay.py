@@ -623,11 +623,13 @@ def overlay_cta_story_layout(
 
 
 def stamp_cta_story_watermark_and_logo(
-    base_path: Path | str | Image.Image,
+    base_path: Path | str | Image.Image | None = None,
     logo_path: Path | str | Image.Image | None = None,
     item_name: str = "Singkwenta Dose",
     destination: Path | str | None = None,
     *,
+    base_image_path: Path | str | Image.Image | None = None,
+    output_path: Path | str | None = None,
     logo_box: LogoBox = HOMECARTEL_STORY_LOGO_BOX,
     text_box: StoryTextBox = CTA_STORY_TEXT_BOX,
     headline_font_size: int = 48,
@@ -635,11 +637,16 @@ def stamp_cta_story_watermark_and_logo(
     with_shadow: bool = False,
 ) -> Path | Image.Image:
     """Stamp HomeCartel logo and right-aligned CTA text watermark onto a 9:16 image."""
-    if isinstance(base_path, (str, Path)):
-        with Image.open(base_path) as source_base:
+    actual_base = base_path if base_path is not None else base_image_path
+    actual_dest = destination if destination is not None else output_path
+    if actual_base is None:
+        raise ValueError("Missing base image path for CTA story watermark and logo stamping.")
+
+    if isinstance(actual_base, (str, Path)):
+        with Image.open(actual_base) as source_base:
             canvas = source_base.convert("RGB")
     else:
-        canvas = base_path.convert("RGB")
+        canvas = actual_base.convert("RGB")
 
     # 1. Stamp Logo at top-right if provided
     if logo_path is not None:
@@ -687,40 +694,36 @@ STYLE_THIS_HEADLINE_BOX = StoryTextBox(
 )
 
 # Slide 2: Heart emoji asset
-# Width 77.8, Height 69.3, X 250.8, Y 212.5 (aligned before Double Tap text at X=346.6, Y=212.0)
+# Width 77.8, Height 69.3, anchored in bottom section alongside Double Tap text
 STYLE_THIS_HEART_BOX = LogoBox(
-    x=250.8,
-    y=212.5,
+    x=209.1,
+    y=1396.8,
     width=77.8,
     height=69.3,
     canvas_width=1080,
     canvas_height=1920,
 )
 
-# Slide 2: 'Double tap if you choose:'
-# Width 904.7, Height 70.3, X 346.6, Y 212.0
+# Slide 2: 'Double tap if you choose:' (Poppins Bold, centered in bottom section)
+# Width 904.7, Height 70.3, Y 1396.3 (24px gap above pill at Y=1490.6)
 STYLE_THIS_DOUBLE_TAP_BOX = StoryTextBox(
-    x=346.6,
-    y=212.0,
+    x=87.7,
+    y=1396.3,
     width=904.7,
     height=70.3,
     canvas_width=1080,
     canvas_height=1920,
 )
 
-# Slide 2: Pill background + Claude Generated Text
-# Width 606.4, Height 70.3, X 236.8, Y 1488 (dynamically hugs text, centered horizontally)
+# Slide 2: Pill background + Claude Generated Text (Exact Canva specs: 606.4 x 70.3 at X=236.8, Y=1490.6)
 STYLE_THIS_PILL_BOX = StoryTextBox(
     x=236.8,
-    y=1488.0,
+    y=1490.6,
     width=606.4,
     height=70.3,
     canvas_width=1080,
     canvas_height=1920,
 )
-
-# Vertical gap (in canvas px) between the 'Double tap if you choose:' headline and the pill below it
-STYLE_THIS_DOUBLE_TAP_PILL_GAP = 24.0
 
 DEFAULT_STYLE_THIS_PILL_COLOR = "#adb481"
 
@@ -884,12 +887,10 @@ def create_style_this_double_tap_slide(
     """Create Slide 2-4 ('double_tap_blended0X.jpg') for Style This Story.
 
     1. Stamped HomeCartel Logo at top-right (X=781.7, Y=108.0, W=190.3, H=63.5)
-    2. Heart Emoji + 'Double tap if you choose:' headline rendered as one
-       horizontally-centered group, sitting directly above the pill.
-    3. Headline text in Poppins-Bold (no shadow), Solid White.
-    4. Rounded color Pill for the Claude-generated vibe text anchored to the
-       shape spec (X=236.8, Y=1488, W=606.4, H=70.3), centered horizontally,
-       width dynamically hugging the text, with centered Poppins-Light text.
+    2. Heart Emoji & Headline 'Double tap if you choose:' in Poppins-Bold:
+       Horizontally centered together as a single block in the bottom section (Y ≈ 1394).
+    3. Rounded Pill background dynamically below headline (Y ≈ 1488) with color from Claude
+       and centered Poppins-Bold vibe text in clean solid white.
     """
     if isinstance(base_image, (str, Path)):
         source_base = Image.open(base_image)
@@ -917,91 +918,36 @@ def create_style_this_double_tap_slide(
 
         img = canvas.convert("RGBA")
 
-        # ------------------------------------------------------------------
-        # Geometry is computed top-down so the headline (heart + 'Double tap
-        # if you choose:') and the Claude-generated color pill are all
-        # centered horizontally and stacked together. The pill anchors to
-        # STYLE_THIS_PILL_BOX (X=236.8, Y=1488, W=606.4, H=70.3) and the
-        # headline sits directly above it.
-        # ------------------------------------------------------------------
-
-        # Resolve fonts up-front (needed for measuring the headline & pill text)
-        # - Pill (Claude vibe text): Poppins-Light
-        # - Headline ('Double tap if you choose:'): Poppins-Bold
+        # 2. Typography font setup (Poppins-Bold prioritized)
         if font_path is None:
             font_path = (
-                _resolve_font_path("Poppins-Light.ttf")
+                _resolve_font_path("Poppins-Bold.ttf")
                 or _resolve_font_path("Poppins-Regular.ttf")
-                or _resolve_font_path("Poppins-Bold.ttf")
+                or _resolve_font_path("Poppins-Light.ttf")
             )
-        headline_font_path = (
-            _resolve_font_path("Poppins-Bold.ttf")
-            or _resolve_font_path("Poppins-SemiBold.ttf")
-            or font_path
-        )
 
         txt_layer = Image.new("RGBA", img.size, (255, 255, 255, 0))
         draw = ImageDraw.Draw(txt_layer)
 
-        # --- Pill text metrics (Font size 44 Poppins-Light) ---
-        clean_text = str(claude_text or "Warm Olive").strip().strip("[]\"'")
-        pill_font_size = int(round(44 * scale_y))
-        try:
-            font_pill = ImageFont.truetype(str(font_path), pill_font_size) if font_path else ImageFont.load_default()
-        except Exception:
-            font_pill = ImageFont.load_default()
-
-        bbox_p = font_pill.getbbox(clean_text)
-        tw = bbox_p[2] - bbox_p[0]
-        th = bbox_p[3] - bbox_p[1]
-
-        # --- Dynamic Pill geometry (roundness 89 / rounded ends, hugging text) ---
-        # Height & vertical anchor follow the shape spec (H=70.3, Y=1488),
-        # width dynamically hugs the text but the pill stays centered on the canvas.
-        pad_x = 44.0 * scale_x  # 44px horizontal spread on each side
-        pill_w = tw + pad_x * 2.0
-        pill_h = pill_box.height * scale_y  # 70.3px
-        pill_x = (canvas.width - pill_w) / 2.0  # Centered horizontally (X=236.8 for default width)
-        pill_y = pill_box.y * scale_y  # Y = 1488
-        pill_radius = min(int(round(pill_h / 2.0)), 40)
-
-        # --- Headline (heart + 'Double tap if you choose:') centered above pill ---
         headline_text = "Double tap if you choose:"
         hl_font_size = int(round(44 * scale_y))  # Font size 44 Poppins-Bold
         try:
-            font_hl = ImageFont.truetype(str(headline_font_path), hl_font_size) if headline_font_path else ImageFont.load_default()
+            font_hl = ImageFont.truetype(str(font_path), hl_font_size) if font_path else ImageFont.load_default()
         except Exception:
             font_hl = ImageFont.load_default()
 
         bbox_hl = font_hl.getbbox(headline_text)
-        hl_w = bbox_hl[2] - bbox_hl[0]
+        tw_hl = bbox_hl[2] - bbox_hl[0]
         hl_visible_h = bbox_hl[3] - bbox_hl[1]
 
-        # Heart dimensions (scaled) and the gap between the heart and the text
-        heart_w = int(round(heart_box.width * scale_x))
-        heart_h = int(round(heart_box.height * scale_y))
-        heart_gap = int(round(18.0 * scale_x))  # spacing between heart and headline text
-        has_heart = bool(heart_asset_path) or _resolve_asset_file("Heaart Emoji.jpg") or _resolve_asset_file("Heart Emoji.jpg")
-        group_w = (heart_w + heart_gap if has_heart else 0) + hl_w
-
-        # Center the heart+text group horizontally
-        group_x = (canvas.width - group_w) / 2.0
-        # Place the headline group above the pill with a fixed gap
-        gap = STYLE_THIS_DOUBLE_TAP_PILL_GAP * scale_y
-        group_center_y = pill_y - gap - (max(heart_h, hl_visible_h) / 2.0)
-
-        # Heart position (left of the text, vertically centered on the group)
-        heart_x = int(round(group_x))
-        heart_y = int(round(group_center_y - heart_h / 2.0))
-
-        # Headline text position (right of the heart, vertically centered on the group)
-        hl_x = int(round(group_x + (heart_w + heart_gap if has_heart else 0) - bbox_hl[0]))
-        hl_y = int(round(group_center_y - hl_visible_h / 2.0 - bbox_hl[1]))
-
-        # 2. Heart Emoji overlay (centered as part of the headline group)
+        # 3. Heart Emoji preparation
         if heart_asset_path is None:
             heart_asset_path = _resolve_asset_file("Heaart Emoji.jpg") or _resolve_asset_file("Heart Emoji.jpg")
 
+        heart_resized = None
+        target_w = 0
+        target_h = 0
+        close_heart = False
         if heart_asset_path:
             try:
                 if isinstance(heart_asset_path, (str, Path)):
@@ -1016,18 +962,57 @@ def create_style_this_double_tap_slide(
                 if bounds:
                     heart_prep = heart_prep.crop(bounds)
 
-                heart_resized = heart_prep.resize((heart_w, heart_h), Image.LANCZOS)
-                img.paste(heart_resized, (heart_x, heart_y), heart_resized)
+                target_w = int(round(heart_box.width * scale_x))
+                target_h = int(round(heart_box.height * scale_y))
+                heart_resized = heart_prep.resize((target_w, target_h), Image.LANCZOS)
+            except Exception as err:
+                print(f"[WARN] Failed to load heart emoji: {err}")
+                heart_resized = None
+                target_w = 0
+                target_h = 0
+            finally:
                 if close_heart:
                     heart_source.close()
-            except Exception as err:
-                print(f"[WARN] Failed to overlay heart emoji: {err}")
 
-        # 3. Headline text (Poppins Bold, no shadow/outline)
+        gap_x = int(round(20.0 * scale_x)) if heart_resized is not None else 0
+        total_hl_w = target_w + gap_x + tw_hl
+        start_hl_x = (canvas.width - total_hl_w) / 2.0
+
+        # Baseline vertical position in bottom section
+        row_y = double_tap_box.y * scale_y
+        row_h = double_tap_box.height * scale_y
+        row_center_y = row_y + row_h / 2.0
+
+        # Paste heart if available
+        if heart_resized is not None:
+            hx = int(round(start_hl_x))
+            hy = int(round(row_center_y - target_h / 2.0))
+            img.paste(heart_resized, (hx, hy), heart_resized)
+
+        # Draw headline text (Poppins-Bold, solid white, no shadow)
+        hl_x = int(round(start_hl_x + target_w + gap_x - bbox_hl[0]))
+        hl_y = int(round(row_center_y - hl_visible_h / 2.0 - bbox_hl[1]))
         text_color = (255, 255, 255, 255)
         draw.text((hl_x, hl_y), headline_text, font=font_hl, fill=text_color)
 
-        # 4. Dynamic Pill background (roundness 89 / rounded ends, 100% opacity)
+        # 4. Exact Pill background (Canva spec: 606.4 x 70.3 at X=236.8, Y=1490.6, 100% opacity)
+        clean_text = str(claude_text or "Warm Olive").strip().strip("[]\"'")
+        pill_font_size = int(round(44 * scale_y))  # Font size 44 Poppins-Bold
+        try:
+            font_pill = ImageFont.truetype(str(font_path), pill_font_size) if font_path else ImageFont.load_default()
+        except Exception:
+            font_pill = ImageFont.load_default()
+
+        bbox_p = font_pill.getbbox(clean_text)
+        tw = bbox_p[2] - bbox_p[0]
+        th = bbox_p[3] - bbox_p[1]
+
+        # Exact Canva dimensions from pill_box
+        pill_w = pill_box.width * scale_x
+        pill_h = pill_box.height * scale_y
+        pill_x = pill_box.x * scale_x
+        pill_y = pill_box.y * scale_y
+        pill_radius = min(int(round(pill_h / 2.0)), 40)
 
         hex_clean = pill_color_hex.lstrip("#")
         pill_rgb = tuple(int(hex_clean[i:i+2], 16) for i in (0, 2, 4)) if len(hex_clean) == 6 else (173, 180, 129)
@@ -1045,7 +1030,7 @@ def create_style_this_double_tap_slide(
             fill=(*pill_rgb, 255),
         )
 
-        # 5. Text inside pill (Font size 44 Poppins-Light, centered, no shadow)
+        # 5. Text inside pill (Font size 44 Poppins-Bold, centered, solid white, no shadow)
         pill_center_x = pill_x + pill_w / 2.0
         pill_center_y = pill_y + pill_h / 2.0
         text_px = int(round(pill_center_x - tw / 2.0 - bbox_p[0]))
@@ -1067,4 +1052,659 @@ def create_style_this_double_tap_slide(
             source_base.close()
 
 
+# ==============================================================================
+# Tips & Edu Feed Thumbnail Typography & Layout (4:5 Canvas, 1080x1350)
+# ==============================================================================
+
+@dataclass(frozen=True)
+class FeedTextBox:
+    """Bounding box for 4:5 feed text typography on a design canvas (1080x1350)."""
+
+    x: float
+    y: float
+    width: float
+    height: float
+    canvas_width: int = 1080
+    canvas_height: int = 1350
+
+
+@dataclass(frozen=True)
+class FeedLineDivider:
+    """Horizontal line divider on a 4:5 feed design canvas (1080x1350)."""
+
+    start_x: float = 108.0
+    end_x: float = 289.8
+    start_y: float = 376.8
+    end_y: float = 376.8
+    thickness: float = 2.5
+    canvas_width: int = 1080
+    canvas_height: int = 1350
+
+
+# Title Box: Width 597.4px, Height 66.8px, X 105px, Y 237.4px, Rotate 0°
+TIPS_EDU_THUMBNAIL_TITLE_BOX = FeedTextBox(
+    x=105.0,
+    y=237.4,
+    width=597.4,
+    height=66.8,
+    canvas_width=1080,
+    canvas_height=1350,
+)
+
+# Subtitle Box: Width 522.5px, Height 50.5px, X 107px, Y 304.2px, Rotate 0°
+TIPS_EDU_THUMBNAIL_SUBTITLE_BOX = FeedTextBox(
+    x=107.0,
+    y=304.2,
+    width=522.5,
+    height=50.5,
+    canvas_width=1080,
+    canvas_height=1350,
+)
+
+TIPS_EDU_THUMBNAIL_DIVIDER = FeedLineDivider(
+    start_x=108.0,
+    end_x=289.8,
+    start_y=376.8,
+    end_y=376.8,
+    thickness=2.5,
+    canvas_width=1080,
+    canvas_height=1350,
+)
+
+
+def overlay_tips_edu_thumbnail_text(
+    canvas: Image.Image,
+    title_text: str,
+    subtitle_text: str = "In 3 ways",
+    *,
+    font_bold_path: Path | str | None = None,
+    font_light_path: Path | str | None = None,
+    title_box: FeedTextBox = TIPS_EDU_THUMBNAIL_TITLE_BOX,
+    subtitle_box: FeedTextBox = TIPS_EDU_THUMBNAIL_SUBTITLE_BOX,
+    divider: FeedLineDivider = TIPS_EDU_THUMBNAIL_DIVIDER,
+    title_font_size: int = 47,
+    subtitle_font_size: int = 32,
+    text_color: tuple[int, int, int] = (255, 255, 255),
+    with_divider: bool = True,
+) -> Image.Image:
+    """Overlay bold Title (47px) and light Subtitle (32px) onto a 4:5 (1080x1350) thumbnail image.
+
+    Clean typography with no subshadow or outline.
+    """
+    if not title_text or not str(title_text).strip():
+        return canvas
+
+    if font_bold_path is None:
+        font_bold_path = _resolve_font_path("Poppins-Bold.ttf")
+    if font_light_path is None:
+        font_light_path = (
+            _resolve_font_path("Poppins-Light.ttf")
+            or _resolve_font_path("Poppins-Regular.ttf")
+            or font_bold_path
+        )
+
+    img = canvas.convert("RGBA")
+    txt_layer = Image.new("RGBA", img.size, (255, 255, 255, 0))
+    draw = ImageDraw.Draw(txt_layer)
+
+    scale_x = canvas.width / title_box.canvas_width
+    scale_y = canvas.height / title_box.canvas_height
+
+    # 1. Title Typography (Poppins-Bold, font size 47, Plain White, no shadow)
+    scaled_title_size = max(24, int(round(title_font_size * scale_y)))
+    try:
+        font_title = (
+            ImageFont.truetype(str(font_bold_path), scaled_title_size)
+            if font_bold_path
+            else ImageFont.load_default()
+        )
+    except Exception:
+        font_title = ImageFont.load_default()
+
+    t_box_x = int(round(title_box.x * scale_x))
+    t_box_y = int(round(title_box.y * scale_y))
+    t_box_w = int(round(title_box.width * scale_x))
+
+    clean_title = str(title_text).strip().strip('"\'`')
+    words = clean_title.split()
+    title_lines: list[str] = []
+    current_line: list[str] = []
+
+    for word in words:
+        test_line = " ".join(current_line + [word])
+        bbox = draw.textbbox((0, 0), test_line, font=font_title)
+        line_w = bbox[2] - bbox[0]
+        if line_w <= t_box_w or not current_line:
+            current_line.append(word)
+        else:
+            title_lines.append(" ".join(current_line))
+            current_line = [word]
+    if current_line:
+        title_lines.append(" ".join(current_line))
+
+    t_line_spacing = int(scaled_title_size * 0.18)
+    curr_t_y = t_box_y
+
+    for line in title_lines:
+        bbox = draw.textbbox((0, 0), line, font=font_title)
+        line_h = bbox[3] - bbox[1]
+        draw.text((t_box_x, curr_t_y), line, font=font_title, fill=(*text_color, 255))
+        curr_t_y += line_h + t_line_spacing
+
+    # 2. Subtitle Typography (Poppins-Light, font size 32, Plain White, no shadow)
+    clean_sub = str(subtitle_text or "").strip().strip('"\'`')
+    if clean_sub:
+        scaled_sub_size = max(18, int(round(subtitle_font_size * scale_y)))
+        try:
+            font_sub = (
+                ImageFont.truetype(str(font_light_path), scaled_sub_size)
+                if font_light_path
+                else font_title
+            )
+        except Exception:
+            font_sub = font_title
+
+        s_box_x = int(round(subtitle_box.x * scale_x))
+        nominal_s_y = int(round(subtitle_box.y * scale_y))
+        s_box_y = max(nominal_s_y, curr_t_y + int(scaled_title_size * 0.10))
+
+        draw.text((s_box_x, s_box_y), clean_sub, font=font_sub, fill=(*text_color, 255))
+
+        sub_bbox = draw.textbbox((0, 0), clean_sub, font=font_sub)
+        sub_h = sub_bbox[3] - sub_bbox[1]
+        curr_s_bottom = s_box_y + sub_h
+    else:
+        curr_s_bottom = curr_t_y
+
+    # 3. Horizontal White Line Divider (Start X=108, End X=289.8, Y=376.8)
+    if with_divider:
+        line_start_x = int(round(divider.start_x * scale_x))
+        line_end_x = int(round(divider.end_x * scale_x))
+        nominal_line_y = int(round(divider.start_y * scale_y))
+        line_y = max(nominal_line_y, curr_s_bottom + int(round(18 * scale_y)))
+        line_thickness = max(2, int(round(divider.thickness * scale_y)))
+
+        draw.line(
+            [(line_start_x, line_y), (line_end_x, line_y)],
+            fill=(*text_color, 255),
+            width=line_thickness,
+        )
+
+    combined = Image.alpha_composite(img, txt_layer)
+    return combined.convert("RGB")
+
+
+def create_tips_edu_thumbnail_with_text(
+    base_image: Path | str | Image.Image,
+    title_text: str,
+    subtitle_text: str = "In 3 ways",
+    logo_path: Path | str | Image.Image | None = None,
+    destination: Path | str | None = None,
+    *,
+    logo_box: LogoBox = HOMECARTEL_LOGO_BOX,
+    title_box: FeedTextBox = TIPS_EDU_THUMBNAIL_TITLE_BOX,
+    subtitle_box: FeedTextBox = TIPS_EDU_THUMBNAIL_SUBTITLE_BOX,
+    divider: FeedLineDivider = TIPS_EDU_THUMBNAIL_DIVIDER,
+    title_font_size: int = 47,
+    subtitle_font_size: int = 32,
+    with_divider: bool = True,
+) -> Path | Image.Image:
+    """Compose 4:5 Tips & Edu thumbnail with bold Title, light Subtitle, divider line, and bottom-left HomeCartel logo."""
+    if isinstance(base_image, (str, Path)):
+        source_base = Image.open(base_image)
+        close_base = True
+    else:
+        source_base = base_image
+        close_base = False
+
+    try:
+        canvas = source_base.convert("RGB")
+        if canvas.size != (1080, 1350):
+            canvas = ImageOps.fit(canvas, (1080, 1350), method=Image.LANCZOS, centering=(0.5, 0.5))
+
+        # 1. Overlay Title + Subtitle + Divider
+        canvas = overlay_tips_edu_thumbnail_text(
+            canvas,
+            title_text=title_text,
+            subtitle_text=subtitle_text,
+            title_box=title_box,
+            subtitle_box=subtitle_box,
+            divider=divider,
+            title_font_size=title_font_size,
+            subtitle_font_size=subtitle_font_size,
+            with_divider=with_divider,
+        )
+
+        # 2. Stamp HomeCartel Logo at bottom-left if provided or resolved
+        if logo_path is None:
+            logo_path = _resolve_asset_file("homecartel_logo.png") or _resolve_asset_file("logo.png")
+
+        if logo_path is not None:
+            stamped = stamp_logo(canvas, logo_path, destination=None, box=logo_box)
+            if isinstance(stamped, Image.Image):
+                canvas = stamped
+
+        if destination is not None:
+            dest_path = Path(destination)
+            dest_path.parent.mkdir(parents=True, exist_ok=True)
+            canvas.save(dest_path, "JPEG", quality=95, optimize=True)
+            return dest_path
+
+        return canvas
+    finally:
+        if close_base:
+            source_base.close()
+
+
+# ==============================================================================
+# Tips & Edu Feed Layout Typography (4:5 Canvas, 1080x1350)
+# ==============================================================================
+
+@dataclass(frozen=True)
+class TipsEduFeedBox:
+    """Bounding box for 4:5 tips and edu feed typography on a design canvas (1080x1350)."""
+
+    x: float
+    y: float
+    width: float
+    height: float
+    canvas_width: int = 1080
+    canvas_height: int = 1350
+
+
+# Numeral (1, 2, 3): Font size 196 Poppins-Regular
+# Canva position: Width 82px, Height 312.7px, X 147.8px, Y 942.2px, Rotate 0°
+TIPS_EDU_FEED_NUMERAL_BOX = TipsEduFeedBox(
+    x=147.8,
+    y=942.2,
+    width=82.0,
+    height=312.7,
+    canvas_width=1080,
+    canvas_height=1350,
+)
+
+# Tip Text Box: Font size 32 Poppins-Regular
+# Canva position: Width 755.3px, Height 176.5px, X 229.8px, Y 1007.3px, Rotate 0°
+TIPS_EDU_FEED_TEXT_BOX = TipsEduFeedBox(
+    x=229.8,
+    y=1007.3,
+    width=755.3,
+    height=176.5,
+    canvas_width=1080,
+    canvas_height=1350,
+)
+
+
+def overlay_tips_edu_feed_layout(
+    canvas: Image.Image,
+    numeral: str | int = "1",
+    tip_text: str = "",
+    *,
+    font_path: Path | str | None = None,
+    numeral_font_path: Path | str | None = None,
+    text_font_path: Path | str | None = None,
+    numeral_box: TipsEduFeedBox = TIPS_EDU_FEED_NUMERAL_BOX,
+    text_box: TipsEduFeedBox = TIPS_EDU_FEED_TEXT_BOX,
+    numeral_font_size: int = 196,
+    text_font_size: int = 32,
+    line_spacing: float = 1.0,
+    letter_spacing: int = 0,
+    text_color: tuple[int, int, int] = (255, 255, 255),
+) -> Image.Image:
+    """Overlay clean white Numeral (196px Poppins-Regular) and bold Tip Text (32px Poppins-Bold) onto a 4:5 (1080x1350) feed image.
+
+    Strictly adheres to Canva settings: Line spacing: 1, Letter spacing: 0, Top anchor.
+    """
+    if numeral_font_path is None:
+        numeral_font_path = font_path or _resolve_font_path("Poppins-Regular.ttf") or _resolve_font_path("Poppins-Bold.ttf")
+
+    if text_font_path is None:
+        text_font_path = _resolve_font_path("Poppins-Bold.ttf") or font_path or numeral_font_path
+
+    img = canvas.convert("RGBA")
+    txt_layer = Image.new("RGBA", img.size, (255, 255, 255, 0))
+    draw = ImageDraw.Draw(txt_layer)
+
+    scale_x = canvas.width / text_box.canvas_width
+    scale_y = canvas.height / text_box.canvas_height
+
+    # 1. Render Numeral (Poppins-Regular, font size 196, Plain White, no shadow)
+    scaled_num_size = max(48, int(round(numeral_font_size * scale_y)))
+    try:
+        font_num = ImageFont.truetype(str(numeral_font_path), scaled_num_size) if numeral_font_path else ImageFont.load_default()
+    except Exception:
+        font_num = ImageFont.load_default()
+
+    num_x = int(round(numeral_box.x * scale_x))
+    num_y = int(round(numeral_box.y * scale_y))
+    clean_num = str(numeral).strip()
+    draw.text((num_x, num_y), clean_num, font=font_num, fill=(*text_color, 255))
+
+    # 2. Render Tip Text (Poppins-Bold, font size 32, Line spacing 1.0, Letter spacing 0, Top Anchor)
+    clean_tip = str(tip_text or "").strip().strip('"\'`')
+    if clean_tip:
+        # Calculate actual glyph bounds of the numeral to dynamically prevent text overlap.
+        # Wider numerals (2 and 3) extend ~112-116px compared to numeral 1 (~63px).
+        num_bbox = font_num.getbbox(clean_num)
+        num_glyph_right = num_x + num_bbox[2]
+        min_gap = int(round(19 * scale_x))
+        t_box_x = max(int(round(text_box.x * scale_x)), num_glyph_right + min_gap)
+        t_box_y = int(round(text_box.y * scale_y))
+
+        # Anchor right edge to Canva boundary (229.8 + 755.3 = 985.1px)
+        right_boundary = int(round((text_box.x + text_box.width) * scale_x))
+        max_w = max(200.0, float(right_boundary - t_box_x))
+        max_h = text_box.height * scale_y
+
+        # Auto-fit text if necessary so it stays within max_h (with Line Spacing = 1.0)
+        curr_text_size = max(20, int(round(text_font_size * scale_y)))
+        font_text = None
+        wrapped_lines: list[str] = []
+        line_height = 0
+
+        while curr_text_size >= max(18, int(round(22 * scale_y))):
+            try:
+                candidate_font = ImageFont.truetype(str(text_font_path), curr_text_size) if text_font_path else ImageFont.load_default()
+            except Exception:
+                candidate_font = ImageFont.load_default()
+
+            words = clean_tip.split()
+            candidate_lines: list[str] = []
+            current_line: list[str] = []
+
+            for word in words:
+                test_line = " ".join(current_line + [word])
+                line_w = candidate_font.getlength(test_line)
+                if line_w <= max_w or not current_line:
+                    current_line.append(word)
+                else:
+                    candidate_lines.append(" ".join(current_line))
+                    current_line = [word]
+            if current_line:
+                candidate_lines.append(" ".join(current_line))
+
+            # Canva Line spacing = 1.0 (exact font-size multiple)
+            cand_line_height = int(round(curr_text_size * line_spacing))
+            total_h = len(candidate_lines) * cand_line_height
+            if total_h <= max_h + 10 or curr_text_size <= int(round(24 * scale_y)):
+                font_text = candidate_font
+                wrapped_lines = candidate_lines
+                line_height = cand_line_height
+                break
+            curr_text_size -= 2
+
+        if font_text is None:
+            try:
+                font_text = ImageFont.truetype(str(text_font_path), curr_text_size) if text_font_path else ImageFont.load_default()
+            except Exception:
+                font_text = ImageFont.load_default()
+            line_height = int(round(curr_text_size * line_spacing))
+            wrapped_lines = [clean_tip]
+
+        # Top anchor: lines flow downwards starting from t_box_y (Canva Y: 1007.3px)
+        curr_y = t_box_y
+        for line in wrapped_lines:
+            draw.text((t_box_x, curr_y), line, font=font_text, fill=(*text_color, 255))
+            curr_y += line_height
+
+    combined = Image.alpha_composite(img, txt_layer)
+    return combined.convert("RGB")
+
+
+def create_tips_edu_feed_image(
+    base_image: Path | str | Image.Image,
+    numeral: str | int = "1",
+    tip_text: str = "",
+    destination: Path | str | None = None,
+    *,
+    numeral_box: TipsEduFeedBox = TIPS_EDU_FEED_NUMERAL_BOX,
+    text_box: TipsEduFeedBox = TIPS_EDU_FEED_TEXT_BOX,
+    numeral_font_size: int = 196,
+    text_font_size: int = 32,
+    line_spacing: float = 1.0,
+    letter_spacing: int = 0,
+    font_path: Path | str | None = None,
+    numeral_font_path: Path | str | None = None,
+    text_font_path: Path | str | None = None,
+) -> Path | Image.Image:
+    """Compose 4:5 Tips & Edu Feed post (1080x1350) adhering to Canva settings (Line Spacing 1, Letter Spacing 0, Top Anchor)."""
+    if isinstance(base_image, (str, Path)):
+        source_base = Image.open(base_image)
+        close_base = True
+    else:
+        source_base = base_image
+        close_base = False
+
+    try:
+        canvas = source_base.convert("RGB")
+        if canvas.size != (1080, 1350):
+            canvas = ImageOps.fit(canvas, (1080, 1350), method=Image.LANCZOS, centering=(0.5, 0.5))
+
+        result = overlay_tips_edu_feed_layout(
+            canvas,
+            numeral=numeral,
+            tip_text=tip_text,
+            font_path=font_path,
+            numeral_font_path=numeral_font_path,
+            text_font_path=text_font_path,
+            numeral_box=numeral_box,
+            text_box=text_box,
+            numeral_font_size=numeral_font_size,
+            text_font_size=text_font_size,
+            line_spacing=line_spacing,
+            letter_spacing=letter_spacing,
+        )
+
+        if destination is not None:
+            dest_path = Path(destination)
+            dest_path.parent.mkdir(parents=True, exist_ok=True)
+            result.save(dest_path, "JPEG", quality=95, optimize=True)
+            return dest_path
+
+        return result
+    finally:
+        if close_base:
+            source_base.close()
+
+
+@dataclass(frozen=True)
+class MoodboardTextureBox:
+    """Canva coordinate box for Moodboard Reel 3-panel textures (1080x1920 canvas)."""
+
+    x: float
+    y: float
+    width: float
+    height: float
+
+
+# Exact Canva coordinates for the 3 horizontal panels in Moodboard Reel (1080 x 1920 px):
+MOODBOARD_TEXTURE_TOP_BOX = MoodboardTextureBox(x=355.5, y=268.8, width=368.9, height=76.2)
+MOODBOARD_TEXTURE_MID_BOX = MoodboardTextureBox(x=231.6, y=921.9, width=632.9, height=76.2)
+MOODBOARD_TEXTURE_BOT_BOX = MoodboardTextureBox(x=346.9, y=1559.0, width=386.1, height=76.2)
+
+
+def overlay_moodboard_textures(
+    base_image: Path | str | Image.Image,
+    texture_top: str = "",
+    texture_middle: str = "",
+    texture_bottom: str = "",
+    *,
+    destination: Path | str | None = None,
+    font_path: Path | str | None = None,
+    top_box: MoodboardTextureBox = MOODBOARD_TEXTURE_TOP_BOX,
+    mid_box: MoodboardTextureBox = MOODBOARD_TEXTURE_MID_BOX,
+    bot_box: MoodboardTextureBox = MOODBOARD_TEXTURE_BOT_BOX,
+    font_size: int = 40,
+    line_width: int = 150,
+    line_thickness: int = 2,
+    text_color: tuple[int, int, int] = (255, 255, 255),
+) -> Path | Image.Image:
+    """Overlay 3 uppercase texture words with centered underline bars onto a 9:16 (1080x1920) moodboard image.
+
+    Renders clean Poppins typography with tracking and Canva coordinates:
+      - Top Panel: Box (X=355.5, Y=268.8, W=368.9, H=76.2)
+      - Middle Panel: Box (X=231.6, Y=921.9, W=632.9, H=76.2)
+      - Bottom Panel: Box (X=346.9, Y=1559.0, W=386.1, H=76.2)
+    Each panel features a centered uppercase word and a ~150px centered thin white underline bar.
+    Zero layout API cost: executes 100% locally via Python Pillow.
+    """
+    if isinstance(base_image, (str, Path)):
+        source_base = Image.open(base_image)
+        close_base = True
+    else:
+        source_base = base_image
+        close_base = False
+
+    try:
+        canvas = source_base.convert("RGB")
+        if canvas.size != (1080, 1920):
+            canvas = ImageOps.fit(canvas, (1080, 1920), method=Image.LANCZOS, centering=(0.5, 0.5))
+
+        resolved_font_path = (
+            Path(font_path)
+            if font_path
+            else (_resolve_font_path("Poppins-Regular.ttf") or _resolve_font_path("Poppins-Light.ttf") or _resolve_font_path("Poppins-Bold.ttf"))
+        )
+
+        draw = ImageDraw.Draw(canvas)
+
+        panels = [
+            (top_box, texture_top),
+            (mid_box, texture_middle),
+            (bot_box, texture_bottom),
+        ]
+
+        for box, raw_text in panels:
+            word = str(raw_text or "").strip().upper()
+            if not word:
+                continue
+
+            current_font_size = font_size
+            font = (
+                ImageFont.truetype(str(resolved_font_path), current_font_size)
+                if resolved_font_path
+                else ImageFont.load_default()
+            )
+
+            # Auto-calculate tracking based on word length
+            if len(word) <= 4:
+                tracking = 10
+            elif len(word) <= 7:
+                tracking = 8
+            else:
+                tracking = 6
+
+            # Auto-scale font down if word exceeds box width
+            while current_font_size > 22:
+                char_widths = [font.getbbox(ch)[2] - font.getbbox(ch)[0] for ch in word]
+                calc_width = sum(char_widths) + tracking * (len(word) - 1)
+                if calc_width <= (box.width - 20):
+                    break
+                current_font_size -= 2
+                if resolved_font_path:
+                    font = ImageFont.truetype(str(resolved_font_path), current_font_size)
+
+            char_widths = [font.getbbox(ch)[2] - font.getbbox(ch)[0] for ch in word]
+            text_width = sum(char_widths) + tracking * (len(word) - 1)
+
+            # Center text horizontally in box
+            start_x = box.x + (box.width - text_width) / 2.0
+            start_y = box.y + 20.0
+
+            # Draw letters with letter spacing (tracking)
+            cur_x = start_x
+            for i, ch in enumerate(word):
+                draw.text((cur_x, start_y), ch, font=font, fill=text_color)
+                cur_x += char_widths[i] + tracking
+
+            # Draw centered underline bar
+            actual_line_w = min(line_width, int(box.width - 20))
+            line_x = box.x + (box.width - actual_line_w) / 2.0
+            line_y = box.y + 76.0
+            draw.rectangle(
+                [line_x, line_y, line_x + actual_line_w, line_y + line_thickness],
+                fill=text_color,
+            )
+
+        if destination is not None:
+            dest_path = Path(destination)
+            dest_path.parent.mkdir(parents=True, exist_ok=True)
+            canvas.save(dest_path, "JPEG", quality=95, optimize=True)
+            return dest_path
+
+        return canvas
+    finally:
+        if close_base:
+            source_base.close()
+
+
+
+def overlay_centered_headline(
+    base_image: Path | str | Image.Image,
+    headline: str,
+    destination: Path | str | None = None,
+    *,
+    font_path: Path | str | None = None,
+    font_size: int = 48,
+    text_color: tuple[int, int, int] = (255, 255, 255),
+) -> Path | Image.Image:
+    """Overlay a centered headline on a 9:16 vertical image.
+    
+    Uses Poppins-Bold by default, pure white text, no shadow.
+    Auto-scales the font size if the text is too wide for the canvas.
+    """
+    if isinstance(base_image, (str, Path)):
+        source_base = Image.open(base_image)
+        close_base = True
+    else:
+        source_base = base_image
+        close_base = False
+
+    try:
+        canvas = source_base.convert("RGB")
+        if font_path is None:
+            font_path = _resolve_font_path("Poppins-Bold.ttf")
+
+        # Auto-scaling logic
+        current_size = font_size
+        font = None
+        max_width = canvas.width - 100  # 50px padding on each side
+        
+        while current_size >= 24:
+            try:
+                font = ImageFont.truetype(str(font_path), current_size) if font_path else ImageFont.load_default()
+            except Exception:
+                font = ImageFont.load_default()
+                break
+                
+            bbox = font.getbbox(headline)
+            text_width = bbox[2] - bbox[0]
+            if text_width <= max_width:
+                break
+            current_size -= 2
+            
+        if font is None:
+            font = ImageFont.load_default()
+            
+        draw = ImageDraw.Draw(canvas)
+        bbox = font.getbbox(headline)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        
+        # Center coordinates
+        x = (canvas.width - text_width) / 2.0
+        y = (canvas.height - text_height) / 2.0
+        
+        draw.text((x, y), headline, font=font, fill=text_color)
+        
+        if destination is not None:
+            dest_path = Path(destination)
+            dest_path.parent.mkdir(parents=True, exist_ok=True)
+            canvas.save(dest_path, "JPEG", quality=95, optimize=True)
+            return dest_path
+            
+        return canvas
+    finally:
+        if close_base:
+            source_base.close()
 

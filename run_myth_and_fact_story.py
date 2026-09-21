@@ -108,8 +108,8 @@ def get_standby_record_count(settings, table_def) -> int:
     return len(records)
 
 
-def scrape_new_products(settings, table_id: str, akeneo_cat: str, count: int, style: str) -> bool:
-    """Scrape unique products from Akeneo into Airtable with Status 'Standby'."""
+def scrape_new_products(settings, table_id: str, akeneo_cat: str, count: int, style: str) -> list[str]:
+    """Scrape unique products from Akeneo into Airtable with Status 'Standby' and return created record IDs."""
     print(f"\n[PHASE 0: SCRAPE] Checking & scraping {count} new product(s) from Akeneo (category={akeneo_cat}, style={style})...")
     akeneo = AkeneoClient(
         settings.akeneo_host,
@@ -136,7 +136,10 @@ def scrape_new_products(settings, table_id: str, akeneo_cat: str, count: int, st
         include_product_type_in_name=True,
         max_items=count,
     )
-    return runner.run()
+    success = runner.run()
+    if success and runner.created_record_ids:
+        return runner.created_record_ids
+    return []
 
 
 def main(argv=None) -> int:
@@ -152,7 +155,12 @@ def main(argv=None) -> int:
                 break
     table_def = TABLES.get(table_code, TABLES["chandelier_myth_and_fact_story"])
     table_id = table_def.table_id
-    cat_code = "chandeliers"
+    if "floor" in table_code:
+        cat_code = "floor_lamps"
+    elif "pendant" in table_code:
+        cat_code = "pendant_lights"
+    else:
+        cat_code = "chandeliers"
     akeneo_cat = akeneo_category_code(cat_code)
     style_filter = (args.style or os.getenv("AKENEO_STYLE") or "modern").strip()
 
@@ -166,17 +174,42 @@ def main(argv=None) -> int:
         print(f" Target  : {', '.join(args.record_id)}")
     print("=" * 64)
 
-    # 1. Check if we need to scrape new products from Akeneo
+    # Pre-check explicitly specified record IDs: skip any that are already Complete (unless --force is set)
+    if args.record_id and not args.force:
+        airtable_client = AirtableClient(
+            settings.airtable_token,
+            settings.airtable_base_id,
+            table_def,
+        )
+        active_records = []
+        for rid in args.record_id:
+            try:
+                rec = airtable_client.get_record(rid)
+                st = str(rec.get("fields", {}).get("Status") or "").strip().casefold()
+                if st in {"complete", "completed", "done"}:
+                    print(f"\n[SKIP] Record {rid} is already marked '{rec.get('fields', {}).get('Status')}'. Skipping execution (even if some fields are missing). Use --force to override.")
+                else:
+                    active_records.append(rid)
+            except Exception:
+                active_records.append(rid)
+
+        if not active_records:
+            print("\n[OK] All specified records are already Complete. Skipping execution.")
+            return 0
+        args.record_id = active_records
+
+    # 1. Always scrape fresh products from Akeneo unless target record IDs were explicitly provided
     if not args.dry_run and not args.record_id and not args.no_scrape:
-        standby_count = get_standby_record_count(settings, table_def)
-        if standby_count < args.batch_size:
-            needed = args.batch_size - standby_count
-            print(f"\n[STEP 1/2] Checking rows: Found {standby_count} Standby row(s). Auto-scraping {needed} new product(s) from Akeneo...")
-            success = scrape_new_products(settings, table_id, akeneo_cat, needed, style_filter)
-            if not success:
-                print("[WARN] No new products found or scrape returned no items.")
+        print(f"\n[STEP 1/2] Auto-scraping {args.batch_size} fresh active product(s) from Akeneo (category={cat_code})...")
+        created_ids = scrape_new_products(settings, table_id, akeneo_cat, args.batch_size, style_filter)
+        if created_ids:
+            print(f"[OK] Successfully scraped {len(created_ids)} fresh product row(s): {', '.join(created_ids)}")
+            args.record_id = created_ids
         else:
-            print(f"\n[STEP 1/2] Found {standby_count} Standby row(s) ready in Airtable.")
+            print("[WARN] No new products found or scrape returned no items.")
+            if not args.force:
+                print("[ERROR] Cannot proceed with pipeline run without a target record. Exiting.")
+                return 1
 
     if args.scrape_only:
         print("\n[OK] Scrape complete. Exiting (--scrape-only).")
@@ -187,7 +220,7 @@ def main(argv=None) -> int:
         "--phase", "stories",
         "--assignment", "myth_and_fact_story",
         "--category", table_code,
-        "--batch-size", str(args.batch_size),
+        "--batch-size", str(len(args.record_id) if args.record_id else args.batch_size),
     ]
     if not args.dry_run:
         forward_args.append("--execute")

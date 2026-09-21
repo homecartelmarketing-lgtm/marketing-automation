@@ -2,7 +2,7 @@
 
 End-to-end automated generation pipeline for Style This Story (9:16 vertical ratio).
 Workflow:
-  Phase 0: Akeneo Scrape (if needed): Scrapes Floor Lamp -> 'Furniture Item', 'Item Name', 'SKU', 'How would You Layout', 'Double Tap', Status: 'Standby'
+  Phase 0: Akeneo Scrape (always): Scrapes fresh Shopify-active product -> 'Furniture Item', 'Item Name', 'SKU', 'How would You Layout', 'Double Tap', Status: 'Standby' (brand-new row, never re-uses existing rows)
   Phase 1: Krea AI 9:16 Interior Generation for 4 slots -> 'Interior', 'Interior2', 'Interior3', 'Interior4' (Moodboard: b1641228-beec-4823-8d01-1de3eec8410d)
   Phase 2: Fal AI Claude Sonnet 5 Vision Prompt Generation -> 'Prompt', 'Prompt2', 'Prompt3', 'Prompt4'
   Phase 3: Fal AI Nano Banana Pro 9:16 Blending -> 'Style This Blended' (4 photos)
@@ -43,10 +43,14 @@ from typing import Any
 from PIL import Image
 import requests
 
-from content_automation.akeneo_client import AkeneoClient
+from content_automation.akeneo_client import AkeneoClient, split_item_name
 from content_automation.config import load_settings
 from content_automation.errors import AutomationError, ProviderError
 from content_automation.fal_client import FalClient
+from content_automation.item_tagger import (
+    TARGET_BLENDED_FIELD,
+    tag_and_upload_blended_image,
+)
 from content_automation.krea_client import KreaClient
 from content_automation.media import download_to_temp_file
 from content_automation.models import LocalImage
@@ -54,6 +58,7 @@ from content_automation.overlay import (
     create_style_this_double_tap_slide,
     create_style_this_slide_1,
 )
+from content_automation.prompts import build_vision_blending_instruction
 from content_automation.scraping import (
     FurnitureItemScrapeRunner,
     ScrapeAirtableClient,
@@ -79,38 +84,23 @@ def _env_first(*names_and_default: str) -> str:
 # Every value below is read from .env first (so all table IDs, moodboard IDs and
 # prompts can live in .env), falling back to the built-in default only when the
 # matching .env key is absent.
+# Active Built-in Categories for Style This Story (verified 2 existing tables in Airtable)
 STYLE_THIS_CATEGORIES: dict[str, dict[str, Any]] = {
+    "chandeliers": {
+        "name": "Chandeliers",
+        "category_code": "chandeliers",
+        "table_id": _env_first("AIRTABLE_TABLE_ID_STYLE_THIS_CHANDELIER", "tblYge5R7LwTJkEHC"),
+        "moodboard_id": _env_first("KREA_MOODBOARD_ID_STYLE_THIS_CHANDELIER", "de6ad512-870d-4ab7-a48c-3f3ca85faf24"),
+        "prompt": _env_first("STYLE_THIS_PROMPT_CHANDELIER", "Generate me a modern living room"),
+        "akeneo_category": _env_first("STYLE_THIS_AKENEO_CATEGORY_CHANDELIER", "chandeliers"),
+    },
     "floor_lamps": {
         "name": "Floor Lamps",
         "category_code": "floor_lamps",
         "table_id": _env_first("AIRTABLE_TABLE_ID_STYLE_THIS_FLOOR_LAMPS", "AIRTABLE_TABLE_ID_STYLE_THIS", "tblvSAzXasTVI85r9"),
-        "moodboard_id": _env_first("KREA_MOODBOARD_ID_STYLE_THIS_FLOOR_LAMPS", "b1641228-beec-4823-8d01-1de3eec8410d"),
-        "prompt": _env_first("STYLE_THIS_PROMPT_FLOOR_LAMPS", "Generate me a modern bedroom that have beside a floor lamp"),
+        "moodboard_id": _env_first("KREA_MOODBOARD_ID_STYLE_THIS_FLOOR_LAMPS", "c4c15a18-a92d-4465-924f-c85cfe1958bc"),
+        "prompt": _env_first("STYLE_THIS_PROMPT_FLOOR_LAMPS", "Generate me a modern living room"),
         "akeneo_category": _env_first("STYLE_THIS_AKENEO_CATEGORY_FLOOR_LAMPS", "floor_lamps"),
-    },
-    "pendant_lights": {
-        "name": "Pendant Lights",
-        "category_code": "pendant_lights",
-        "table_id": _env_first("AIRTABLE_TABLE_ID_STYLE_THIS_PENDANT_LIGHTS", "tblWdz71nULR0TZx7"),
-        "moodboard_id": _env_first("KREA_MOODBOARD_ID_STYLE_THIS_PENDANT_LIGHTS", "0844ad92-c34a-4dc8-9d70-d09498dc098c"),
-        "prompt": _env_first("STYLE_THIS_PROMPT_PENDANT_LIGHTS", "Generate me a modern dining room"),
-        "akeneo_category": _env_first("STYLE_THIS_AKENEO_CATEGORY_PENDANT_LIGHTS", "pendant_lights"),
-    },
-    "chandeliers": {
-        "name": "Chandeliers",
-        "category_code": "chandeliers",
-        "table_id": _env_first("AIRTABLE_TABLE_ID_STYLE_THIS_CHANDELIER", "tblp6AMYb13NPqkuT"),
-        "moodboard_id": _env_first("KREA_MOODBOARD_ID_STYLE_THIS_CHANDELIER", "fda7090c-787b-4116-94cd-3feef613eaaa"),
-        "prompt": _env_first("STYLE_THIS_PROMPT_CHANDELIER", "Generate me a modern bedroom"),
-        "akeneo_category": _env_first("STYLE_THIS_AKENEO_CATEGORY_CHANDELIER", "chandeliers"),
-    },
-    "wall_lights": {
-        "name": "Wall Lights",
-        "category_code": "wall_lights",
-        "table_id": _env_first("AIRTABLE_TABLE_ID_STYLE_THIS_WALL_LIGHTS", "tblXJrvSBkJNhRHLa"),
-        "moodboard_id": _env_first("KREA_MOODBOARD_ID_STYLE_THIS_WALL_LIGHTS", "b1641228-beec-4823-8d01-1de3eec8410d"),
-        "prompt": _env_first("STYLE_THIS_PROMPT_WALL_LIGHTS", "Generate me a modern living room with a wall light"),
-        "akeneo_category": _env_first("STYLE_THIS_AKENEO_CATEGORY_WALL_LIGHTS", "wall_lights"),
     },
 }
 
@@ -178,17 +168,20 @@ STYLE_THIS_CATEGORIES.update(load_custom_categories_from_env())
 STYLE_THIS_TABLE_MAP: dict[str, str] = {
     k: v["table_id"] for k, v in STYLE_THIS_CATEGORIES.items()
 }
-STYLE_THIS_TABLE_MAP["chandelier"] = STYLE_THIS_CATEGORIES["chandeliers"]["table_id"]
+if "chandeliers" in STYLE_THIS_CATEGORIES:
+    STYLE_THIS_TABLE_MAP["chandelier"] = STYLE_THIS_CATEGORIES["chandeliers"]["table_id"]
 
 STYLE_THIS_MOODBOARD_MAP: dict[str, str] = {
     k: v["moodboard_id"] for k, v in STYLE_THIS_CATEGORIES.items()
 }
-STYLE_THIS_MOODBOARD_MAP["chandelier"] = STYLE_THIS_CATEGORIES["chandeliers"]["moodboard_id"]
+if "chandeliers" in STYLE_THIS_CATEGORIES:
+    STYLE_THIS_MOODBOARD_MAP["chandelier"] = STYLE_THIS_CATEGORIES["chandeliers"]["moodboard_id"]
 
 STYLE_THIS_PROMPT_MAP: dict[str, str] = {
     k: v["prompt"] for k, v in STYLE_THIS_CATEGORIES.items()
 }
-STYLE_THIS_PROMPT_MAP["chandelier"] = STYLE_THIS_CATEGORIES["chandeliers"]["prompt"]
+if "chandeliers" in STYLE_THIS_CATEGORIES:
+    STYLE_THIS_PROMPT_MAP["chandelier"] = STYLE_THIS_CATEGORIES["chandeliers"]["prompt"]
 
 TABLE_ID_TO_CATEGORY_CONFIG: dict[str, dict[str, Any]] = {
     v["table_id"]: v for v in STYLE_THIS_CATEGORIES.values()
@@ -397,13 +390,17 @@ def generate_blending_prompts_for_style_this(
     *,
     dry_run: bool = False,
 ) -> list[str]:
-    """Generate 4 detailed blending prompts using Claude Sonnet 5 Vision."""
-    item_name = str(fields.get(ITEM_NAME_FIELD) or fields.get(SKU_FIELD) or "Modern Floor Lamp").strip()
-    print(f"\n  [PHASE 2/4] Analyzing 4 Scenes & Writing Blending Prompts (Claude Sonnet 5 Vision)...")
+    """Generate 4 detailed vision-adaptive blending prompts using Claude Sonnet 5 Vision."""
+    raw_item_name = str(fields.get(ITEM_NAME_FIELD) or fields.get(SKU_FIELD) or "Modern Lighting Fixture").strip()
+    item_title, product_type = split_item_name(
+        raw_item_name, fallback_product_type=str(fields.get("Product Type") or "")
+    )
+    fixture_label = f"{item_title} ({product_type})" if product_type and product_type.lower() not in item_title.lower() else item_title
+    print(f"\n  [PHASE 2/4] Analyzing 4 Scenes & Writing Blending Prompts (Claude Sonnet 5 Vision) for '{fixture_label}'...")
 
     if dry_run:
-        print("  [DRY-RUN] Would generate 4 Claude Sonnet 5 vision blending prompts.")
-        return ["A modern bedroom with floor lamp placed elegantly."] * 4
+        print(f"  [DRY-RUN] Would generate 4 Claude Sonnet 5 vision blending prompts for '{fixture_label}'.")
+        return [f"A modern luxury interior with {fixture_label} seamlessly integrated and naturally illuminating the room."] * 4
 
     prompts: list[str] = []
     updates: dict[str, Any] = {}
@@ -415,16 +412,10 @@ def generate_blending_prompts_for_style_this(
             prompts.append(existing_prompt)
             continue
 
-        instruction = (
-            f"You are an expert interior design AI prompt engineer. Analyze Image 1 as the Room Interior photo ('{int_field}') "
-            f"and Image 2 as the product photo for '{item_name}' ('Furniture Item').\n"
-            f"Generate a detailed, highly specific image-blending prompt for Nano Banana Pro (9:16 vertical ratio). "
-            f"The prompt must describe naturally integrating, positioning, and standing the {item_name} from Image 2 onto the floor space in Image 1.\n"
-            f"RULES:\n"
-            f"1. The {item_name} shown in Image 2 MUST BE THE ONLY MAIN FLOOR LAMP in the entire final blended scene.\n"
-            f"2. Ensure natural floor contact, realistic base shadow, authentic material textures, warm ambient glow (2700K-3000K), and photorealistic 8k styling.\n"
-            f"3. Strictly maintain the exact room composition, wall color, architectural textures, and layout from Image 1.\n"
-            f"Output ONLY the prompt text, with no preamble, markdown formatting, or quotes."
+        instruction = build_vision_blending_instruction(
+            interior_label=f"Room Interior ('{int_field}')",
+            item_name=raw_item_name,
+            aspect_ratio="9:16",
         )
 
         raw_prompt = fal.generate_vision_prompt(
@@ -496,10 +487,34 @@ def generate_blends_for_style_this(
     # Upload all 4 blended images to 'Style This Blended'
     target_blended_field = resolve_table_field(airtable, [BLENDED_FIELD, "Style This Blended Image", "Blended Image"], BLENDED_FIELD)
     for temp_img, filename in downloaded_files:
-        try:
-            airtable.upload_attachment(record_id, target_blended_field, temp_img, filename)
-        finally:
-            temp_img.cleanup()
+        airtable.upload_attachment(record_id, target_blended_field, temp_img, filename)
+
+    # Auto-tag furniture item name onto 9:16 blended room photos using zero-cost local YOLO-World
+    try:
+        raw_item_name = str(fields.get(ITEM_NAME_FIELD) or fields.get(SKU_FIELD) or record_id).strip()
+        item_title, product_type = split_item_name(
+            raw_item_name, fallback_product_type=str(fields.get("Product Type") or "")
+        )
+        print(f"  [+] Tagging item name ('{item_title}') onto 9:16 Story blended photos -> '{TARGET_BLENDED_FIELD}'...")
+        local_paths = [t.path for t, _ in downloaded_files]
+        tag_and_upload_blended_image(
+            airtable=airtable,
+            record_id=record_id,
+            blended_source=local_paths,
+            item_name=item_title,
+            product_type=product_type,
+            category=str(fields.get("Category") or product_type or "lighting"),
+            target_field=TARGET_BLENDED_FIELD,
+            output_filename_prefix="style_this_tagged",
+        )
+    except Exception as tag_err:
+        print(f"  [WARN] Failed auto-tagging item name onto Style This Story blended photos: {tag_err}")
+    finally:
+        for temp_img, _ in downloaded_files:
+            try:
+                temp_img.cleanup()
+            except Exception:
+                pass
 
     target_status = resolve_status_choice(airtable, [STATUS_BLENDED, "Blended Image Generated", "Processing Day Image"])
     airtable.update_records([(record_id, {STATUS_FIELD: target_status})])
@@ -521,8 +536,10 @@ def generate_story_cards_for_style_this(
     dry_run: bool = False,
 ) -> bool:
     """Generate final 4 9:16 Story Cards via local Python Pillow: Slide 1 (How Would You) + Slides 2-4 (Double Tap)."""
-    item_name = str(fields.get(ITEM_NAME_FIELD) or fields.get(SKU_FIELD) or "Modern Floor Lamp").strip()
-    product_type = str(fields.get("Product Type") or "Floor Lamp").strip()
+    raw_item_name = str(fields.get(ITEM_NAME_FIELD) or fields.get(SKU_FIELD) or "Modern Lighting Fixture").strip()
+    item_name, product_type = split_item_name(
+        raw_item_name, fallback_product_type=str(fields.get("Product Type") or "")
+    )
     item_label = f"{item_name} | {product_type}" if product_type and product_type.lower() not in item_name.lower() else item_name
 
     print(f"\n  [PHASE 4/4] Creating 4 Story Cards via Local Python Pillow (Slide 1: How Would You + Slides 2-4: Double Tap)...")
@@ -882,12 +899,12 @@ def parse_args(argv=None):
     )
     parser.add_argument(
         "--moodboard-id",
-        default=DEFAULT_MOODBOARD_ID,
+        default=None,
         help=f"Krea Moodboard ID (default: {DEFAULT_MOODBOARD_ID})",
     )
     parser.add_argument(
         "--prompt",
-        default=DEFAULT_INTERIOR_PROMPT,
+        default=None,
         help=f"Krea Interior Prompt (default: '{DEFAULT_INTERIOR_PROMPT}')",
     )
     parser.add_argument(
@@ -899,11 +916,6 @@ def parse_args(argv=None):
         "--dry-run",
         action="store_true",
         help="Perform dry run without calling paid APIs or mutating Airtable",
-    )
-    parser.add_argument(
-        "--no-scrape",
-        action="store_true",
-        help="Skip Akeneo auto-scraping",
     )
     parser.add_argument(
         "--scrape-only",
@@ -923,7 +935,6 @@ def run_pipeline(
     max_items: int = 1,
     record_ids: list[str] | None = None,
     dry_run: bool = False,
-    no_scrape: bool = False,
     scrape_only: bool = False,
 ) -> int:
     """Execute the complete Style This Story pipeline."""
@@ -991,17 +1002,22 @@ def run_pipeline(
             dry_run=dry_run,
         )
 
-    # 1. Check existing pending rows in Airtable
-    records = airtable.list_records()
-    pending_records = [
-        rec for rec in records
-        if str(rec.get("fields", {}).get(STATUS_FIELD) or "").strip().casefold() != STATUS_COMPLETE.casefold()
-        and rec.get("fields", {}).get(FIELD_NAME)
-    ]
-
-    # 2. Auto-Scrape if no pending rows and scraping allowed
-    if not pending_records and not no_scrape and not record_ids:
-        print(f"\n[INFO] No pending rows found in Airtable table '{table_id}'. Scraping {max_items} new {cat_label} from Akeneo...")
+    # Master Rule 2: ALWAYS scrape fresh products into brand-new rows and process end-to-end.
+    # The only sanctioned way to touch an existing row is an explicit --record-id.
+    if record_ids:
+        records = airtable.list_records()
+        req_set = set(record_ids)
+        to_process = [rec for rec in records if rec["id"] in req_set]
+        if not to_process:
+            print(f"\n[WARN] None of the requested record id(s) were found in table '{table_id}'!")
+            return 1
+    elif dry_run:
+        print(f"\n[DRY-RUN] Would scrape {max_items} fresh {cat_label} product(s) from Akeneo "
+              f"(strict Shopify-active check + base-wide dedup) into brand-new row(s) and process them "
+              f"end-to-end (interior -> prompt -> blend -> story cards -> Complete).")
+        return 0
+    else:
+        print(f"\n[INFO] Scraping {max_items} fresh {cat_label} product(s) from Akeneo into brand-new Airtable row(s)...")
         akeneo = AkeneoClient(
             settings.akeneo_host,
             settings.akeneo_client_id,
@@ -1024,31 +1040,21 @@ def run_pipeline(
             max_items=max_items,
             cross_table_dedup=True,
         )
-        scrape_ok = runner.run(execute=not dry_run)
+        scrape_ok = runner.run(execute=True)
         if scrape_only:
             print(f"[OK] Scrape-only finished: {'Success' if scrape_ok else 'No new items'}.")
             return 0 if scrape_ok else 1
 
-        records = airtable.list_records()
-        pending_records = [
-            rec for rec in records
-            if str(rec.get("fields", {}).get(STATUS_FIELD) or "").strip().casefold() != STATUS_COMPLETE.casefold()
-            and rec.get("fields", {}).get(FIELD_NAME)
-        ]
+        to_process = []
+        for rid in runner.created_record_ids:
+            try:
+                to_process.append(airtable.get_record(rid))
+            except Exception as err:
+                print(f"[ERROR] Could not fetch newly created record {rid}: {err}")
 
-    if scrape_only:
-        print("[INFO] Scrape-only flag set. Skipping generation.")
-        return 0
-
-    # 3. Filter records to process
-    if record_ids:
-        to_process = [rec for rec in records if rec["id"] in record_ids]
-    else:
-        to_process = pending_records[:max_items]
-
-    if not to_process:
-        print("\n[OK] No pending rows to process in Airtable!")
-        return 0
+        if not to_process:
+            print(f"\n[WARN] No new eligible {cat_label} products could be scraped (Shopify-active + base-wide dedup).")
+            return 0
 
     print(f"\n[INFO] Starting sequential row-by-row generation for {len(to_process)} Style This row(s)...")
 
@@ -1121,26 +1127,30 @@ def run_interactive_menu():
                 print("  [0] Back to Category Selection")
                 print("-" * 64)
                 action_choice = input("Enter action [0-6]: ").strip()
-                if action_choice == "0":
-                    break
-                elif action_choice == "1":
-                    run_pipeline(mode="all", table_id=cfg["table_id"], moodboard_id=cfg["moodboard_id"], prompt=cfg["prompt"], max_items=1)
-                elif action_choice == "2":
-                    run_pipeline(mode="conversion", table_id=cfg["table_id"], moodboard_id=cfg["moodboard_id"], prompt=cfg["prompt"], max_items=1)
-                elif action_choice == "3":
-                    num_str = input("How many rows to process? [default: 3]: ").strip()
-                    limit = int(num_str) if num_str.isdigit() else 3
-                    run_pipeline(mode="all", table_id=cfg["table_id"], moodboard_id=cfg["moodboard_id"], prompt=cfg["prompt"], max_items=limit)
-                elif action_choice == "4":
-                    run_pipeline(mode="all", table_id=cfg["table_id"], moodboard_id=cfg["moodboard_id"], prompt=cfg["prompt"], max_items=1, scrape_only=True)
-                elif action_choice == "5":
-                    rec_id = input("Enter Airtable Record ID (e.g. recXXXXXXXX): ").strip()
-                    if rec_id:
-                        conv_choice = input("Run conversion only? (y/N): ").strip().lower()
-                        m = "conversion" if conv_choice == "y" else "all"
-                        run_pipeline(mode=m, table_id=cfg["table_id"], moodboard_id=cfg["moodboard_id"], prompt=cfg["prompt"], record_ids=[rec_id])
-                elif action_choice == "6":
-                    run_pipeline(mode="all", table_id=cfg["table_id"], moodboard_id=cfg["moodboard_id"], prompt=cfg["prompt"], max_items=1, dry_run=True)
+                try:
+                    if action_choice == "0":
+                        break
+                    elif action_choice == "1":
+                        run_pipeline(mode="all", table_id=cfg["table_id"], moodboard_id=cfg["moodboard_id"], prompt=cfg["prompt"], max_items=1)
+                    elif action_choice == "2":
+                        run_pipeline(mode="conversion", table_id=cfg["table_id"], moodboard_id=cfg["moodboard_id"], prompt=cfg["prompt"], max_items=1)
+                    elif action_choice == "3":
+                        num_str = input("How many rows to process? [default: 3]: ").strip()
+                        limit = int(num_str) if num_str.isdigit() else 3
+                        run_pipeline(mode="all", table_id=cfg["table_id"], moodboard_id=cfg["moodboard_id"], prompt=cfg["prompt"], max_items=limit)
+                    elif action_choice == "4":
+                        run_pipeline(mode="all", table_id=cfg["table_id"], moodboard_id=cfg["moodboard_id"], prompt=cfg["prompt"], max_items=1, scrape_only=True)
+                    elif action_choice == "5":
+                        rec_id = input("Enter Airtable Record ID (e.g. recXXXXXXXX): ").strip()
+                        if rec_id:
+                            conv_choice = input("Run conversion only? (y/N): ").strip().lower()
+                            m = "conversion" if conv_choice == "y" else "all"
+                            run_pipeline(mode=m, table_id=cfg["table_id"], moodboard_id=cfg["moodboard_id"], prompt=cfg["prompt"], record_ids=[rec_id])
+                    elif action_choice == "6":
+                        run_pipeline(mode="all", table_id=cfg["table_id"], moodboard_id=cfg["moodboard_id"], prompt=cfg["prompt"], max_items=1, dry_run=True)
+                except (AutomationError, ProviderError) as exc:
+                    print(f"\n[ERROR] Pipeline run failed: {exc}")
+                    print("[HINT] Check that your table ID exists in base and your AIRTABLE_TOKEN has permissions.")
         except (KeyboardInterrupt, EOFError):
             break
 
@@ -1161,33 +1171,38 @@ def main(argv=None) -> int:
     cat_cfg = TABLE_ID_TO_CATEGORY_CONFIG.get(target_table_id, STYLE_THIS_CATEGORIES["floor_lamps"])
 
     target_moodboard_id = args.moodboard_id
-    if target_moodboard_id == DEFAULT_MOODBOARD_ID:
+    if not target_moodboard_id:
         if args.category and args.category in STYLE_THIS_MOODBOARD_MAP:
             target_moodboard_id = STYLE_THIS_MOODBOARD_MAP[args.category]
-        elif target_table_id in TABLE_ID_TO_MOODBOARD_MAP:
-            target_moodboard_id = TABLE_ID_TO_MOODBOARD_MAP[target_table_id]
         elif cat_cfg.get("moodboard_id"):
             target_moodboard_id = cat_cfg["moodboard_id"]
+        else:
+            target_moodboard_id = DEFAULT_MOODBOARD_ID
 
     target_prompt = args.prompt
-    if target_prompt == DEFAULT_INTERIOR_PROMPT:
+    if not target_prompt:
         if args.category and args.category in STYLE_THIS_PROMPT_MAP:
             target_prompt = STYLE_THIS_PROMPT_MAP[args.category]
         elif cat_cfg.get("prompt"):
             target_prompt = cat_cfg["prompt"]
+        else:
+            target_prompt = DEFAULT_INTERIOR_PROMPT
 
-    return run_pipeline(
-        mode=args.mode,
-        table_id=target_table_id,
-        moodboard_id=target_moodboard_id,
-        prompt=target_prompt,
-        style=args.style,
-        max_items=args.max_items,
-        record_ids=args.record_id,
-        dry_run=args.dry_run,
-        no_scrape=args.no_scrape,
-        scrape_only=args.scrape_only,
-    )
+    try:
+        return run_pipeline(
+            mode=args.mode,
+            table_id=target_table_id,
+            moodboard_id=target_moodboard_id,
+            prompt=target_prompt,
+            style=args.style,
+            max_items=args.max_items,
+            record_ids=args.record_id,
+            dry_run=args.dry_run,
+            scrape_only=args.scrape_only,
+        )
+    except (AutomationError, ProviderError) as exc:
+        print(f"\n[FATAL] {exc}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

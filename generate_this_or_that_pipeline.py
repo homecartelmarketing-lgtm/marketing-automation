@@ -32,6 +32,7 @@ from content_automation.akeneo_client import AkeneoClient
 from content_automation.config import TABLES, load_settings
 from content_automation.errors import AssetValidationError, AutomationError
 from content_automation.fal_client import FalClient
+from content_automation.item_tagger import tag_and_upload_blended_image
 from content_automation.media import download_to_temp_file
 from content_automation.scraping import (
     ScrapeAirtableClient,
@@ -140,6 +141,13 @@ STATUS_PROCESSING = "Processing"
 STATUS_COMPLETE = "Complete"
 STATUS_ERROR = "Error"
 
+TERMINAL_AND_PROTECTED_STATUSES = {
+    "complete", "completed", "done", "finished",
+    "posted", "scheduled", "schedule",
+    "discard", "discarded",
+    "for manual", "minor revision", "minor revisions", "fm",
+}
+
 LOG_DIR = Path("output") / "logs"
 LOG_FILE = LOG_DIR / "fal_nano_this_or_that_logs.json"
 
@@ -158,9 +166,9 @@ def parse_args(argv=None):
     parser.add_argument(
         "--mode",
         "-m",
-        choices=["all", "scrape", "generate"],
+        choices=["all", "scrape", "generate", "backfill-layout"],
         default="all",
-        help="Pipeline execution mode (default: all - end-to-end scrape then generate row-by-row)",
+        help="Pipeline execution mode (default: all - end-to-end scrape then generate; 'backfill-layout' - backfill missing layouts)",
     )
     parser.add_argument(
         "--count",
@@ -235,6 +243,7 @@ def get_clean_name_and_type(name_val: str, type_val: str, default_type: str = "L
 
 def find_this_or_that_layout_path() -> Path:
     candidates = [
+        Path("assets/thisorthatlayout.jpg"),
         Path("JSON Prompts/This or That/thisorthatlayout.jpg"),
         Path("JSON Prompts/thisorthatlayout.jpg"),
         Path("thisorthatlayout.jpg"),
@@ -242,7 +251,7 @@ def find_this_or_that_layout_path() -> Path:
     for c in candidates:
         if c.is_file():
             return c
-    for base in [Path("JSON Prompts"), Path(".")]:
+    for base in [Path("assets"), Path("JSON Prompts"), Path(".")]:
         if base.is_dir():
             matches = list(base.rglob("thisorthatlayout.jpg"))
             if matches:
@@ -258,6 +267,57 @@ def resolve_final_field(schema: dict[str, Any]) -> str:
         if "this or that" in k.lower() and ("story" in k.lower() or "converted" in k.lower()):
             return k
     return "Story This or That (1)"
+
+
+def backfill_missing_this_or_that_layout(airtable: ScrapeAirtableClient, label: str = "") -> int:
+    """Auto-attach thisorthatlayout.jpg to pending/active records that lack 'This or That Layout'."""
+    try:
+        layout_path = find_this_or_that_layout_path()
+    except FileNotFoundError as err:
+        print(f"[WARN] Cannot backfill layout: {err}")
+        return 0
+
+    schema = airtable.table_fields()
+    final_field = resolve_final_field(schema)
+    records = airtable.list_records([
+        FIELD_LAYOUT,
+        FIELD_FURNITURE_ITEM_1,
+        "Furniture Item1",
+        FIELD_ITEM_NAME_1,
+        "SKU",
+        FIELD_STATUS,
+        final_field,
+    ])
+
+    backfilled = 0
+    for rec in records:
+        rec_id = rec.get("id")
+        fields = rec.get("fields", {})
+
+        status_cf = str(fields.get(FIELD_STATUS) or "").strip().casefold()
+        if status_cf in TERMINAL_AND_PROTECTED_STATUSES or "complete" in status_cf:
+            continue
+
+        if extract_attachment_url(fields.get(final_field)):
+            continue
+
+        has_prod = bool(fields.get(FIELD_FURNITURE_ITEM_1) or fields.get("Furniture Item1"))
+        has_layout = bool(extract_attachment_url(fields.get(FIELD_LAYOUT)))
+
+        if has_prod and not has_layout:
+            item_label = fields.get(FIELD_ITEM_NAME_1) or fields.get("SKU") or rec_id
+            print(f"[INFO] Auto-backfilling missing '{FIELD_LAYOUT}' ({layout_path.name}) for {item_label} ({rec_id})...", flush=True)
+            try:
+                airtable.upload_attachment(rec_id, FIELD_LAYOUT, layout_path, layout_path.name)
+                backfilled += 1
+                print(f"[OK] Backfilled '{FIELD_LAYOUT}' on record {rec_id}", flush=True)
+            except Exception as err:
+                print(f"[WARN] Failed backfilling '{FIELD_LAYOUT}' on record {rec_id}: {err}", flush=True)
+
+    if backfilled > 0:
+        lbl = f" in {label}" if label else ""
+        print(f"[OK] Successfully backfilled 'This or That Layout' on {backfilled} pending record(s){lbl}.", flush=True)
+    return backfilled
 
 
 def build_runtime_prompt(top_name: str, top_type: str, bottom_name: str, bottom_type: str) -> str:
@@ -389,6 +449,20 @@ def run_single_record_generation(
         airtable.upload_attachment(rec_id, final_field, temp_file, out_filename)
         print(f"[OK] Attached output image to '{final_field}' on record {rec_id}")
 
+        # 4b. Tag and upload to 'Blended Image with Name text'
+        try:
+            tag_and_upload_blended_image(
+                airtable=airtable,
+                record_id=rec_id,
+                blended_source=temp_file.path,
+                item_name=top_name or bottom_name,
+                category=target_key,
+                target_field="Blended Image with Name text",
+                fallback_if_undetected=True,
+            )
+        except Exception as tag_err:
+            print(f"[WARN] Tagging for 'Blended Image with Name text' skipped: {tag_err}")
+
         # Update status to Complete
         airtable.update_records([(rec_id, {FIELD_STATUS: STATUS_COMPLETE})])
         print(f"[STATUS] Record {rec_id} marked as '{STATUS_COMPLETE}'")
@@ -466,6 +540,15 @@ def run_row_by_row_pipeline(
     print(f"[START] HOME CARTEL THIS OR THAT PIPELINE: {label.upper()}")
     print(f"Table ID: {table_id} | Mode: {mode.upper()} | Target Count: {count}")
     print("=" * 80)
+
+    # Auto-backfill missing 'This or That Layout' on pending records before proceeding
+    try:
+        backfill_missing_this_or_that_layout(airtable, label)
+    except Exception as bf_err:
+        print(f"[WARN] Layout backfill note: {bf_err}", flush=True)
+
+    if mode == "backfill-layout":
+        return True
 
     if record_id:
         record = airtable.get_record(record_id)

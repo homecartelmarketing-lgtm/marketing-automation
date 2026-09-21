@@ -2,8 +2,8 @@
 
 Table ID: tbleUP86Kw36G8Hdw
 Category: Pendant Lights (Modern)
-Krea Moodboard ID: 0844ad92-c34a-4dc8-9d70-d09498dc098c
-Krea Prompt: "Generate me a modern dining room"
+Krea Moodboard ID: de5f4ff8-518c-4d6b-b606-ce1d5dac51f3
+Krea Prompt: "Generate me a modern Dining room"
 
 Features:
 1. Cross-Table Deduplication: Scans all tables in Airtable base to prevent duplicate products.
@@ -59,7 +59,12 @@ def parse_args(argv=None):
         "-n",
         type=int,
         default=1,
-        help="Maximum number of products to scrape (default: 1)",
+        help="Maximum number of products to scrape (default: 1)
+    parser.add_argument(
+        "--starting-letter",
+        default=None,
+        help="Starting letter for A-Z sorting cycle",
+    )",
     )
     parser.add_argument(
         "--table-id",
@@ -119,6 +124,7 @@ def main():
         include_product_type_in_name=True,
         max_items=args.max_items,
         cross_table_dedup=True,
+        starting_letter=args.starting_letter,
         sort_by_price=True,
     )
 

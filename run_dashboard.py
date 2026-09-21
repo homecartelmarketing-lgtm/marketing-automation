@@ -35,11 +35,11 @@ import requests
 dotenv.load_dotenv()
 
 # Base Google Drive & local fallback paths
-GDRIVE_DIR = Path("G:/My Drive/Collection Category Feed")
+GDRIVE_DIR = Path(os.getenv("GDRIVE_DIR", "G:/My Drive/Collection Category Feed"))
 LOCAL_DIR = Path("output/content/collection_category_feed")
 
-GDRIVE_REELS_DIR = Path("G:/My Drive/Before & After Reels")
-GDRIVE_REELS_DIR_ALT = Path("G:/My Drive/Before and After Reels")
+GDRIVE_REELS_DIR = Path(os.getenv("GDRIVE_REELS_DIR", "G:/My Drive/Before & After Reels"))
+GDRIVE_REELS_DIR_ALT = Path(os.getenv("GDRIVE_REELS_DIR_ALT", "G:/My Drive/Before and After Reels"))
 LOCAL_REELS_DIR = Path("output/content/before_after_reel")
 LOCAL_SLIDESHOW_DIR = Path("output/slideshow_reels")
 
@@ -309,7 +309,7 @@ def parse_collection_folder(folder: Path) -> dict[str, Any]:
         "date": date_str,
         "status": status,
         "cost": cost,
-        "cost_breakdown": meta_data.get("cost_breakdown") or ("krea ×5 · qwen ×5 · kie ×1" if status != "Standby" else "akeneo scrape only"),
+        "cost_breakdown": meta_data.get("cost_breakdown") or ("krea ×5 · fal ×5" if status != "Standby" else "akeneo scrape only"),
         "items": items,
         "folder_name": folder.name,
         "prompts_text": prompts_text,

@@ -20,7 +20,7 @@ class AssetCatalog:
         extra_roots: Iterable[Path] | None = None,
     ):
         self.workspace = workspace
-        roots = [workspace, workspace / "JSON Prompts"]
+        roots = [workspace, workspace / "assets", workspace / "JSON Prompts"]
         configured = os.getenv("CONTENT_AUTOMATION_ASSET_ROOT", "").strip()
         if configured:
             roots.append(Path(configured))

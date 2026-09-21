@@ -31,10 +31,10 @@ class IsolatedAutomationSettings:
     style_code: str
     krea_token: str
     krea_base_url: str
-    qwen_api_key: str
-    qwen_base_url: str
     fal_key: str
     output_dir: Path
+    qwen_api_key: str = ""
+    qwen_base_url: str = ""
 
     @classmethod
     def load(
@@ -45,15 +45,15 @@ class IsolatedAutomationSettings:
         workspace: Path | None = None,
     ) -> "IsolatedAutomationSettings":
         workspace = (workspace or WORKSPACE).resolve()
-        expected = {
+        expected: dict[str, tuple[str, str | None, bool]] = {
             "day_night_reel": (
                 ".env.day-night-reel",
-                "DAY_NIGHT_REEL_QWEN_API_KEY",
+                None,
                 True,
             ),
             "tips_edu_story": (
                 ".env.tips-edu-story",
-                "TIPS_EDU_STORY_QWEN_API_KEY",
+                None,
                 True,
             ),
         }
@@ -62,9 +62,13 @@ class IsolatedAutomationSettings:
         filename, qwen_key_name, requires_fal = expected[automation]
         source = (env_path or workspace / filename).resolve()
         if not source.is_file():
-            raise ConfigurationError(
-                f"Missing isolated configuration: {source}. Copy the matching .example file first."
-            )
+            fallback = (workspace / ".env").resolve()
+            if fallback.is_file():
+                source = fallback
+            else:
+                raise ConfigurationError(
+                    f"Missing isolated configuration: {source}. Copy the matching .example file first."
+                )
 
         # dotenv_values reads this file directly. It intentionally does not
         # consult process variables or the repository's shared .env file.
@@ -84,8 +88,9 @@ class IsolatedAutomationSettings:
             "CHANNEL_NAME",
             "AKENEO_STYLE",
             "KREA_API_TOKEN",
-            qwen_key_name,
         }
+        if qwen_key_name:
+            required.add(qwen_key_name)
         if requires_fal:
             required.add("FAL_KEY")
         missing = sorted(name for name in required if not raw.get(name))
@@ -113,7 +118,7 @@ class IsolatedAutomationSettings:
             style_code=raw["AKENEO_STYLE"],
             krea_token=raw["KREA_API_TOKEN"],
             krea_base_url=raw.get("KREA_API_BASE", "https://api.krea.ai").rstrip("/"),
-            qwen_api_key=raw[qwen_key_name],
+            qwen_api_key=raw.get(qwen_key_name, "") if qwen_key_name else "",
             qwen_base_url=raw.get(
                 "QWEN_BASE_URL",
                 "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",

@@ -1,8 +1,5 @@
 """Interactive Terminal Menu for Before & After Reel Automation.
 
-Run this script to launch a user-friendly console menu that dynamically reads all
-built-in and custom tables defined in .env.
-
 Usage:
     python "Before and After Reel/4_Interactive_Menu.py"
 """
@@ -21,14 +18,10 @@ sys.path.insert(0, str(BASE_DIR))
 from content_automation.config import get_reel_tables
 
 
-def clear_screen():
-    os.system("cls" if os.name == "nt" else "clear")
-
-
 def print_banner():
-    print("\n" + "=" * 68)
-    print(" 🎬 HomeCartel - Before & After Reel Automation Menu (.env Driven)")
-    print("=" * 68)
+    print("\n" + "=" * 64)
+    print("  HomeCartel - Before & After Reel Automation")
+    print("=" * 64)
 
 
 def run_interactive_menu():
@@ -36,76 +29,60 @@ def run_interactive_menu():
     parent_dir = folder.parent
 
     while True:
-        tables = get_reel_tables()
-        table_keys = list(tables.keys())
-
         print_banner()
-        print(" [A] 🚀 RUN FULL AUTOMATION (Scrape -> Krea -> Claude -> Nano Banana -> Video)")
-        for idx, key in enumerate(table_keys, start=1):
-            info = tables[key]
-            t_id = os.getenv(info.get("env_table_key", ""), "").strip() or info.get("default_table_id", "")
-            cat = info.get("akeneo_category") or info.get("category_code", "")
-            custom_tag = " (Custom .env)" if info.get("is_custom") else ""
-            print(f"     [{idx}] {info['label']}{custom_tag} [Table: {t_id} | Scrape: {cat}]")
+        print("  [1] Run Full Pipeline: Chandeliers (tbloMhCOngGDWFS2y)")
+        print("  [2] Run Full Pipeline: Pendant Lights (tbleUP86Kw36G8Hdw)")
+        print("  [3] Generate Videos Only (Compile existing Airtable photos)")
+        print("  [4] Scrape 1 New Product from Akeneo (Standby row)")
+        print("  [0] Exit")
+        print("-" * 64)
 
-        print("\n [B] 🎬 GENERATE VIDEOS ONLY (Compile existing Airtable photos into Reels)")
-        print(" [C] 🔍 SCRAPE NEW PRODUCTS ONLY (Akeneo -> Airtable)")
-        print(" [0] 🚪 Exit")
-        print("-" * 68)
-
-        choice = input(f" Piliin ang numero o aksyon [1-{len(table_keys)}, B, C, 0]: ").strip().lower()
+        choice = input("Select an option [0-4]: ").strip().lower()
 
         if choice in ("0", "exit", "q"):
-            print("\n[INFO] Exited Before & After Reel Menu. Salamat!\n")
+            print("\n[INFO] Exited menu. Goodbye!\n")
             break
-
-        # Direct number selection for Full Automation
-        if choice.isdigit():
-            num = int(choice)
-            if 1 <= num <= len(table_keys):
-                selected_key = table_keys[num - 1]
-                cmd = [sys.executable, str(parent_dir / "run_before_after_reel.py"), "--target", selected_key]
+        elif choice == "1":
+            cmd = [sys.executable, str(parent_dir / "run_before_after_reel.py"), "--target", "chandeliers"]
+            subprocess.run(cmd)
+        elif choice == "2":
+            cmd = [sys.executable, str(parent_dir / "run_before_after_reel.py"), "--target", "pendant_lights"]
+            subprocess.run(cmd)
+        elif choice == "3":
+            print("\nSelect target category for video compilation:")
+            print("  [1] Chandeliers (Default)")
+            print("  [2] Pendant Lights")
+            print("  [0] Cancel")
+            sub = input("Select [0-2]: ").strip()
+            if sub == "1":
+                cmd = [sys.executable, str(folder / "2_Generate_Videos_Only.py"), "--target", "chandeliers"]
                 subprocess.run(cmd)
-            else:
-                print("\n[WARNING] Hindi wastong numero.")
-        elif choice == "a":
-            print("\nPiliin ang target table para sa Full Automation:")
-            for idx, key in enumerate(table_keys, start=1):
-                print(f" [{idx}] {tables[key]['label']}")
-            sub = input(f"Piliin [1-{len(table_keys)}]: ").strip()
-            if sub.isdigit() and 1 <= int(sub) <= len(table_keys):
-                selected_key = table_keys[int(sub) - 1]
-                cmd = [sys.executable, str(parent_dir / "run_before_after_reel.py"), "--target", selected_key]
+            elif sub == "2":
+                cmd = [sys.executable, str(folder / "2_Generate_Videos_Only.py"), "--target", "pendant_lights"]
                 subprocess.run(cmd)
-        elif choice == "b":
-            print("\nPiliin ang target table para sa Video Compilation:")
-            for idx, key in enumerate(table_keys, start=1):
-                print(f" [{idx}] {tables[key]['label']}")
-            sub = input(f"Piliin [1-{len(table_keys)}]: ").strip()
-            if sub.isdigit() and 1 <= int(sub) <= len(table_keys):
-                selected_key = table_keys[int(sub) - 1]
-                cmd = [sys.executable, str(folder / "2_Generate_Videos_Only.py"), "--target", selected_key]
+        elif choice == "4":
+            print("\nSelect category to scrape from Akeneo:")
+            print("  [1] Chandeliers (tbloMhCOngGDWFS2y)")
+            print("  [2] Pendant Lights (tbleUP86Kw36G8Hdw)")
+            print("  [0] Cancel")
+            sub = input("Select [0-2]: ").strip()
+            if sub == "1":
+                cmd = [sys.executable, str(parent_dir / "run_before_after_reel.py"), "--target", "chandeliers", "--max-items", "1"]
                 subprocess.run(cmd)
-        elif choice == "c":
-            print("\nPiliin ang target table para mag-scrape ng bagong items:")
-            for idx, key in enumerate(table_keys, start=1):
-                print(f" [{idx}] {tables[key]['label']} (Category: {tables[key].get('akeneo_category', '')})")
-            sub = input(f"Piliin [1-{len(table_keys)}]: ").strip()
-            if sub.isdigit() and 1 <= int(sub) <= len(table_keys):
-                selected_key = table_keys[int(sub) - 1]
-                cmd = [sys.executable, str(parent_dir / "run_before_after_reel.py"), "--target", selected_key, "--max-items", "1"]
+            elif sub == "2":
+                cmd = [sys.executable, str(parent_dir / "run_before_after_reel.py"), "--target", "pendant_lights", "--max-items", "1"]
                 subprocess.run(cmd)
         else:
-            print("\n[WARNING] Hindi wastong pagpipilian. Subukan muli.")
+            print("\n[WARNING] Invalid choice. Please try again.")
 
-        input("\nPress ENTER para bumalik sa menu...")
+        input("\nPress ENTER to continue...")
 
 
 def main():
     try:
         run_interactive_menu()
     except KeyboardInterrupt:
-        print("\n[INFO] Exited Before & After Reel Menu.")
+        print("\n[INFO] Exited menu.")
 
 
 if __name__ == "__main__":

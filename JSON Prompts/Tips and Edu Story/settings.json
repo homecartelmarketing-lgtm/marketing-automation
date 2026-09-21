@@ -1,0 +1,70 @@
+{
+  "pendant_lights": {
+    "name": "Pendant Light Tips & Edu Story",
+    "table_id": "tblwnFN5a8fLzKuP4",
+    "moodboard_id": "de5f4ff8-518c-4d6b-b606-ce1d5dac51f3",
+    "prompts": [
+      "Generate me a modern dining room"
+    ]
+  },
+  "floor_lamps": {
+    "name": "Floor Lamp Tips & Edu Story",
+    "table_id": "tblJxWwZexgBHl26B",
+    "moodboard_id": "b1641228-beec-4823-8d01-1de3eec8410d",
+    "prompts": [
+      "Generate a premium modern interior in a vertical 9:16 composition with a clearly visible, prominent standing floor lamp beside an armchair. The floor lamp must be fully in frame and clearly visible from top to base. Bright, photorealistic, elegant modern room styling, no text or unrelated lighting fixtures.",
+      "Generate a premium modern living room interior in a vertical 9:16 composition with a clearly visible, prominent standing floor lamp positioned at the end of a sofa. The floor lamp must be fully in frame and clearly visible from top to base. Bright, photorealistic, elegant modern room styling, no text or unrelated lighting fixtures.",
+      "Generate a premium modern reading corner interior with a bookshelf in a vertical 9:16 composition with a clearly visible, prominent standing floor lamp. The floor lamp must be fully in frame and clearly visible next to the seating and bookshelf. Bright, photorealistic, elegant modern room styling, no text or unrelated lighting fixtures.",
+      "Generate a premium modern interior beside a lounge chair near curtains and window in a vertical 9:16 composition with a clearly visible, prominent standing floor lamp. The floor lamp must be fully in frame and clearly visible. Bright, photorealistic, elegant modern room styling, no text or unrelated lighting fixtures.",
+      "Generate a premium modern bedroom corner interior in a vertical 9:16 composition with a clearly visible, prominent standing floor lamp standing in the corner. The floor lamp must be fully in frame and clearly visible from top to base. Bright, photorealistic, elegant modern room styling, no text or unrelated lighting fixtures.",
+      "Generate a premium modern living room console area in a vertical 9:16 composition with a clearly visible, prominent standing floor lamp standing next to the console table. The floor lamp must be fully in frame and clearly visible from top to base. Bright, photorealistic, elegant modern room styling, no text or unrelated lighting fixtures."
+    ]
+  },
+  "chandeliers": {
+    "name": "Chandelier Tips & Edu Story",
+    "table_id": "tblpFiaNn1Ym9fTTk",
+    "moodboard_id": "b5ffdcbb-192e-4528-8d86-d1a4cf496887",
+    "prompts": [
+      "Generate me a modern living room"
+    ]
+  },
+  "ceiling_mounted": {
+    "name": "Ceiling Mounted Tips & Edu Story",
+    "table_id": "tblGlRibUZXB9R3Gt",
+    "moodboard_id": "b5ffdcbb-192e-4528-8d86-d1a4cf496887",
+    "prompts": [
+      "Generate a premium modern hallway interior in a vertical 9:16 composition with clean walls and a plain, flat ceiling with a central focal point for a flush-mount ceiling light. Bright, photorealistic, elegant modern styling, no text or unrelated lighting fixtures.",
+      "Generate a premium modern bedroom interior in a vertical 9:16 composition with clean minimalist furniture and a plain flat ceiling with a central ceiling-mount light fixture focal point. Bright, photorealistic, elegant modern styling, no text or unrelated lighting fixtures.",
+      "Generate a premium modern kitchen interior in a vertical 9:16 composition with sleek cabinetry and a plain flat ceiling with a central flush ceiling light focal point. Bright, photorealistic, elegant modern styling, no text or unrelated lighting fixtures.",
+      "Generate a premium modern entryway interior in a vertical 9:16 composition with a stylish console and a clean, flat ceiling with a central ceiling light focal point. Bright, photorealistic, elegant modern styling, no text or unrelated lighting fixtures.",
+      "Generate a premium modern home office interior in a vertical 9:16 composition with a wooden desk and a plain, flat ceiling with a central ceiling light focal point. Bright, photorealistic, elegant modern styling, no text or unrelated lighting fixtures.",
+      "Generate a premium modern compact living room in a vertical 9:16 composition with modern sofa and a clean, flat ceiling with a central flush ceiling light focal point. Bright, photorealistic, elegant modern styling, no text or unrelated lighting fixtures."
+    ]
+  },
+  "table_lamps": {
+    "name": "Table Lamp Tips & Edu Story",
+    "table_id": "tblZtENqILDAekLv2",
+    "moodboard_id": "257569e1-7be8-4412-a90f-acbc347e4646",
+    "prompts": [
+      "Generate a premium modern bedroom interior in a vertical 9:16 composition with a prominent bedside nightstand table surface in full view for a table lamp. Bright, photorealistic, elegant modern styling, no text or unrelated lighting fixtures.",
+      "Generate a premium modern living room interior in a vertical 9:16 composition with a prominent side table beside a contemporary sofa in full view for a table lamp. Bright, photorealistic, elegant modern styling, no text or unrelated lighting fixtures.",
+      "Generate a premium modern entryway interior in a vertical 9:16 composition with a stylish console table surface in full view for a table lamp. Bright, photorealistic, elegant modern styling, no text or unrelated lighting fixtures.",
+      "Generate a premium modern home office interior in a vertical 9:16 composition with a clean wooden desk workspace surface in full view for a table lamp. Bright, photorealistic, elegant modern styling, no text or unrelated lighting fixtures.",
+      "Generate a premium modern reading nook in a vertical 9:16 composition with a cozy armchair and an accent table in full view for a table lamp. Bright, photorealistic, elegant modern styling, no text or unrelated lighting fixtures.",
+      "Generate a premium modern living room credenza in a vertical 9:16 composition with a clean wooden surface in full view for a table lamp. Bright, photorealistic, elegant modern styling, no text or unrelated lighting fixtures."
+    ]
+  },
+  "cluster_chandeliers": {
+    "name": "Cluster Chandelier Tips & Edu Story",
+    "table_id": "tbllzkE2prSyj9BaD",
+    "moodboard_id": "b5ffdcbb-192e-4528-8d86-d1a4cf496887",
+    "prompts": [
+      "Generate a premium modern high-ceiling living room interior in a vertical 9:16 composition with a spacious vertical ceiling volume for a hanging cluster chandelier. Bright, photorealistic, elegant modern styling, no text or unrelated lighting fixtures.",
+      "Generate a premium modern dining room interior in a vertical 9:16 composition with an expansive dining table centered under a tall ceiling for a dramatic hanging cluster chandelier. Bright, photorealistic, elegant modern styling, no text or unrelated lighting fixtures.",
+      "Generate a premium modern two-story staircase foyer in a vertical 9:16 composition with a high open vertical drop for a cascading cluster chandelier. Bright, photorealistic, elegant modern styling, no text or unrelated lighting fixtures.",
+      "Generate a premium modern double-height ceiling lounge in a vertical 9:16 composition with luxury seating and an ample vertical headroom for a cluster chandelier. Bright, photorealistic, elegant modern styling, no text or unrelated lighting fixtures.",
+      "Generate a premium modern great room in a vertical 9:16 composition with floor-to-ceiling windows and a grand central ceiling focal point for a cluster chandelier. Bright, photorealistic, elegant modern styling, no text or unrelated lighting fixtures.",
+      "Generate a premium modern open-concept kitchen and bar in a vertical 9:16 composition with high ceilings and a clear focal point above the island for a cluster chandelier. Bright, photorealistic, elegant modern styling, no text or unrelated lighting fixtures."
+    ]
+  }
+}

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 import random
 from dataclasses import dataclass
 
@@ -28,12 +29,32 @@ ITEMS_PER_ROW = 4
 DEFAULT_CATEGORIES = ("chandeliers",)
 
 
+LAYOUT_SLOT_FILES = (
+    ("Tips and Edu Layout1", "tipsandedufeed1layout.jpg"),
+    ("Tips and Edu Layout2", "tipsandedufeed2layout.jpg"),
+    ("Tips and Edu Layout3", "tipsandedufeed3layout.jpg"),
+)
+
+
+def _resolve_layout_template_path(filename: str) -> Path | None:
+    candidates = [
+        Path("assets") / filename,
+        Path("Tips and Edu Feeds") / filename,
+    ]
+    for p in candidates:
+        if p.is_file():
+            return p
+    return None
+
+
 def tips_and_edu_required_fields() -> dict[str, str]:
     required: dict[str, str] = {}
     for slot in range(ITEMS_PER_ROW):
         required[furniture_field(slot)] = "multipleAttachments"
         required[sku_field(slot)] = "multilineText"
         required[item_name_field(slot)] = "singleLineText"
+    for field_name, _ in LAYOUT_SLOT_FILES:
+        required[field_name] = "multipleAttachments"
     return required
 
 
@@ -233,6 +254,22 @@ class TipsAndEduRunner:
             for slot, item in enumerate(row_items):
                 if not self._upload(record_id, slot, item):
                     failures += 1
+
+            for layout_field, asset_name in LAYOUT_SLOT_FILES:
+                asset_path = _resolve_layout_template_path(asset_name)
+                if asset_path and asset_path.is_file():
+                    try:
+                        self.airtable.upload_attachment(
+                            record_id,
+                            layout_field,
+                            asset_path,
+                            asset_name,
+                        )
+                        print(f"[OK] Attached template {asset_name} -> {record_id} / {layout_field}")
+                    except Exception as error:
+                        print(f"[WARN] Failed to attach layout {asset_name} to {layout_field}: {error}")
+                else:
+                    print(f"[WARN] Layout template asset not found: {asset_name}")
 
         if failures:
             print(

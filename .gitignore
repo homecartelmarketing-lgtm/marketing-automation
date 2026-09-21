@@ -13,11 +13,15 @@ __pycache__/
 # PyInstaller output (rebuild with: pyinstaller AkeneoScraper.spec)
 build/
 dist/
+!UI Control/dist/
+!UI Control/dist/**
 
 # Generated and scratch data
 output/
 backups/
 tmp/
+*.pt
+*.onnx
 
 # Test and tooling caches
 .pytest_cache/
@@ -38,3 +42,10 @@ desktop.ini
 
 # Scratch / temp
 scratch/
+
+# Node dependencies
+node_modules/
+*/node_modules/
+UI Control/node_modules/
+UI Control/.pnpm-store/
+

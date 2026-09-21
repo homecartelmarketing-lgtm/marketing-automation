@@ -76,7 +76,7 @@ class KreaClient:
         )
         if self._moodboard_rejected(response, moodboard_id):
             raise ProviderError(
-                f"Krea moodboard '{moodboard_id}' is not accessible or invalid for this API key. Status: {response.status_code}, Details: {response.text}"
+                f"Moodboard Not Found: Krea moodboard '{moodboard_id}' was not found or is not accessible for this API key. Status: {response.status_code}, Details: {response.text}"
             )
         if not response.ok:
             raise response_error(response, "Krea image generation")

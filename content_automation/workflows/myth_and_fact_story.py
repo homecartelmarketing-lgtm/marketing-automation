@@ -56,8 +56,17 @@ class MythAndFactStoryWorkflow(BaseWorkflow):
         AssetRequirement(
             "JSON Prompts/Myth and Fact/fact_slide.json", "json",
         ),
+        AssetRequirement(
+            "assets/debunk_thumb.jpg", "image",
+        ),
+        AssetRequirement(
+            "assets/homecartel_logo.png", "image",
+        ),
+        AssetRequirement(
+            "assets/Outro-Myth-Fact.png", "image",
+        ),
     )
-    estimate = CallEstimate(krea=2, fal=5)
+    estimate = CallEstimate(krea=3, fal=5)
     aspect_ratio = "9:16"
     final_filenames = (
         "debunk_layout.jpg",
@@ -69,12 +78,22 @@ class MythAndFactStoryWorkflow(BaseWorkflow):
     attachment_fields = (
         "Myth Blended",
         "Fact Blended",
+        "Debunk Myth Thumbnail",
+        "Outro Photo Generated",
+        "Logo Watermark For Story",
+        "Outro Layout",
+        "Blended Image with Name text",
     )
     required_columns = (
         "Furniture Item",
     )
 
     def execute(self):
+        row_status = str(self.ctx.anchor.fields.get("Status") or "").strip().casefold()
+        if row_status in {"complete", "completed", "done"} and not self.ctx.force:
+            print(f"\n[SKIP] Record {self.ctx.anchor.record_id} has Status '{self.ctx.anchor.fields.get('Status')}'. Skipping execution (even if some fields are missing). Use --force to override.\n")
+            return self.success([])
+
         product = self.product_image()
         item_name = self.ctx.anchor.item_name or self.ctx.anchor.fields.get("Item Name") or "Chandelier"
 
@@ -104,14 +123,31 @@ class MythAndFactStoryWorkflow(BaseWorkflow):
         table_code = self.ctx.definition.table_code.lower()
         custom_prompt = ""
         if "chand" in table_code:
-            custom_prompt = (os.getenv("MYTH_AND_FACT_PROMPT_CHANDELIER") or "").strip()
+            custom_prompt = (
+                os.getenv("MYTH_AND_FACT_PROMPT_CHANDELIER")
+                or os.getenv("MYTH_FACT_PROMPT_CHANDELIER")
+                or os.getenv("KREA_PROMPT")
+                or ""
+            ).strip()
         elif "floor" in table_code:
-            custom_prompt = (os.getenv("MYTH_AND_FACT_PROMPT_FLOOR_LAMPS") or "").strip()
+            custom_prompt = (
+                os.getenv("MYTH_AND_FACT_PROMPT_FLOOR_LAMPS")
+                or os.getenv("MYTH_FACT_PROMPT_FLOOR_LAMP")
+                or os.getenv("MYTH_FACT_PROMPT_FLOOR_LAMPS")
+                or os.getenv("KREA_PROMPT")
+                or ""
+            ).strip()
         elif "pendant" in table_code:
-            custom_prompt = (os.getenv("MYTH_AND_FACT_PROMPT_PENDANT_LIGHTS") or "").strip()
+            custom_prompt = (
+                os.getenv("MYTH_AND_FACT_PROMPT_PENDANT_LIGHTS")
+                or os.getenv("MYTH_FACT_PROMPT_PENDANT")
+                or os.getenv("MYTH_FACT_PROMPT_PENDANT_LIGHTS")
+                or os.getenv("KREA_PROMPT")
+                or ""
+            ).strip()
 
         prompt2 = custom_prompt or "Modern luxury living room interior, curvilinear boucle furniture, warm neutral Japandi aesthetic, empty high ceiling ready for lighting fixture, soft daylight, vertical 9:16 portrait"
-        prompt3 = (os.getenv("MYTH_AND_FACT_PROMPT_DINING") or "").strip() or custom_prompt or "Modern luxury dining room interior, large sleek dining table, warm ambient lighting, empty high ceiling ready for lighting fixture, soft diffused natural daylight, vertical 9:16 portrait"
+        prompt3 = (os.getenv("MYTH_AND_FACT_PROMPT_BEDROOM") or os.getenv("MYTH_AND_FACT_PROMPT_INTERIOR3") or "").strip() or "Generate me a modern bedroom"
 
         interior2 = None
         try:
@@ -119,7 +155,10 @@ class MythAndFactStoryWorkflow(BaseWorkflow):
             print("  [OK] Using existing Interior 2 (Living Room)")
         except Exception:
             print(f"  [GEN] Generating new 9:16 Interior 2 (Prompt: '{prompt2}')...")
-            moodboard_id = self.ctx.settings.moodboard_id(self.ctx.definition.table_code)
+            moodboard_id = (
+                os.getenv("KREA_MOODBOARD_ID")
+                or self.ctx.settings.moodboard_id(self.ctx.definition.table_code)
+            )
             interior2 = self.krea_image("source_interior2.jpg", prompt2, aspect_ratio="9:16", moodboard_id=moodboard_id)
             try:
                 self.attach_exact("Interior2", [interior2])
@@ -127,22 +166,61 @@ class MythAndFactStoryWorkflow(BaseWorkflow):
             except Exception as e:
                 print(f"  [WARN] Could not upload Interior 2: {e}")
 
-        # 2. Resolve or generate Interior3 (Dining room)
+        # 2. Resolve or generate Interior3 (Modern Bedroom)
         interior3 = None
         try:
             interior3 = self.record_attachment("Interior3", "source_interior3")
-            print("  [OK] Using existing Interior 3 (Dining Room)")
+            print("  [OK] Using existing Interior 3 (Bedroom)")
         except Exception:
             print(f"  [GEN] Generating new 9:16 Interior 3 (Prompt: '{prompt3}')...")
-            moodboard_id = self.ctx.settings.moodboard_id(self.ctx.definition.table_code)
-            interior3 = self.krea_image("source_interior3.jpg", prompt3, aspect_ratio="9:16", moodboard_id=moodboard_id)
+            moodboard_id3 = (os.getenv("KREA_MOODBOARD_ID_MYTH_AND_FACT_INTERIOR3") or "06fcc401-2e66-4638-b581-45220a8b497e").strip()
+            interior3 = self.krea_image("source_interior3.jpg", prompt3, aspect_ratio="9:16", moodboard_id=moodboard_id3)
             try:
                 self.attach_exact("Interior3", [interior3])
                 print("  [OK] Uploaded Interior 3 to Airtable")
             except Exception as e:
                 print(f"  [WARN] Could not upload Interior 3: {e}")
 
-        # 3. Resolve layout templates
+        # 3. Resolve or generate Outro Photo Generated (Modern Living Room)
+        prompt_outro = (
+            os.getenv("MYTH_AND_FACT_PROMPT_OUTRO_LIVING_ROOM")
+            or "Modern luxury living room interior, curvilinear boucle furniture, warm neutral Japandi aesthetic, soft daylight, vertical 9:16 portrait"
+        ).strip()
+        outro_photo_generated = None
+        try:
+            outro_photo_generated = self.record_attachment("Outro Photo Generated", "source_outro_photo")
+            print("  [OK] Using existing Outro Photo Generated (Living Room) from Airtable")
+        except Exception:
+            print(f"  [GEN] Generating new 9:16 Outro Photo Generated (Prompt: '{prompt_outro}')...")
+            moodboard_id = self.ctx.settings.moodboard_id(self.ctx.definition.table_code)
+            outro_photo_generated = self.krea_image("source_outro_photo.jpg", prompt_outro, aspect_ratio="9:16", moodboard_id=moodboard_id)
+            try:
+                self.attach_exact("Outro Photo Generated", [outro_photo_generated])
+                print("  [OK] Uploaded Outro Photo Generated to Airtable")
+            except Exception as e:
+                print(f"  [WARN] Could not upload Outro Photo Generated: {e}")
+
+        # 4. Resolve Logo Watermark For Story
+        logo_watermark_file = Path("assets/homecartel_logo.png")
+        has_logo = False
+        try:
+            logo_att = self.record_attachment("Logo Watermark For Story", "logo_watermark")
+            if logo_att and "homecartel_logo" in logo_att.filename.lower():
+                has_logo = True
+                print("  [OK] Using existing Logo Watermark For Story ('homecartel_logo.png') from Airtable")
+        except Exception:
+            has_logo = False
+
+        if not has_logo and logo_watermark_file.is_file():
+            print("  [UPLOAD] Uploading 'assets/homecartel_logo.png' to 'Logo Watermark For Story' in Airtable...")
+            logo_img = LocalImage(logo_watermark_file, logo_watermark_file.name)
+            try:
+                self.attach_exact("Logo Watermark For Story", [logo_img])
+                print("  [OK] Successfully uploaded 'assets/homecartel_logo.png' to 'Logo Watermark For Story'")
+            except Exception as e:
+                print(f"  [WARN] Could not upload Logo Watermark For Story: {e}")
+
+        # 5. Resolve layout templates
         myth_layout = _get_layout_or_fallback(
             ("Myth Layout", "Myth Emoticon ", "Myth Emoticon"),
             [
@@ -167,31 +245,78 @@ class MythAndFactStoryWorkflow(BaseWorkflow):
             ],
             "debunk_layout",
         )
-        outro_layout = _get_layout_or_fallback(
-            ("Outro Layout", "Outro"),
-            [
-                Path("JSON Prompts/Myth and Fact/outro_layout.jpg"),
-                Path("Outro for All Reels/Outro.jpg"),
-            ],
-            "outro_layout",
-        )
-
-        # 4. Resolve thumbnails
+        outro_layout_file = Path("assets/Outro-Myth-Fact.png")
+        outro_layout = None
+        has_correct_outro = False
         try:
-            debunk_thumbnail = _get_attachment(
-                ("Debunk Myth Thumbnail", "Debunk Myth Thumbnail Generated Interior"),
-                "debunk_thumbnail",
-            )
+            outro_layout = self.record_attachment("Outro Layout", "outro_layout")
+            if outro_layout and ("outro-myth-fact" in outro_layout.filename.lower() or outro_layout.filename.lower().endswith(".png")):
+                has_correct_outro = True
+                print("  [OK] Using existing transparent Outro Layout from Airtable")
         except Exception:
-            debunk_thumbnail = interior2
+            has_correct_outro = False
 
-        try:
-            outro_thumbnail = _get_attachment(
-                ("Outro Thumbnail", "Outro Photo Generated"),
-                "outro_thumbnail",
+        if not has_correct_outro and outro_layout_file.is_file():
+            print("  [UPLOAD] Uploading transparent 'assets/Outro-Myth-Fact.png' to 'Outro Layout' in Airtable...")
+            outro_layout = LocalImage(outro_layout_file, outro_layout_file.name)
+            try:
+                self.attach_exact("Outro Layout", [outro_layout])
+                print("  [OK] Successfully uploaded 'assets/Outro-Myth-Fact.png' to 'Outro Layout'")
+            except Exception as e:
+                print(f"  [WARN] Could not upload Outro Layout: {e}")
+        elif not outro_layout and outro_layout_file.is_file():
+            outro_layout = LocalImage(outro_layout_file, outro_layout_file.name)
+        elif not outro_layout:
+            outro_layout = _get_layout_or_fallback(
+                ("Outro Layout", "Outro"),
+                [
+                    outro_layout_file,
+                    Path("JSON Prompts/Myth and Fact/outro_layout.jpg"),
+                    Path("Outro for All Reels/Outro.jpg"),
+                ],
+                "outro_layout",
             )
+
+        # 6. Resolve or generate Debunk Myth Thumbnail Generated Interior
+        debunk_thumbnail = None
+        has_generated_thumb = False
+        try:
+            debunk_thumbnail = self.record_attachment("Debunk Myth Thumbnail Generated Interior", "debunk_thumb_interior")
+            if debunk_thumbnail and not ("debunk_thumb.jpg" == debunk_thumbnail.filename.lower()):
+                has_generated_thumb = True
+                print("  [OK] Using existing Debunk Myth Thumbnail Generated Interior from Airtable")
         except Exception:
-            outro_thumbnail = interior3
+            has_generated_thumb = False
+
+        if not has_generated_thumb:
+            try:
+                debunk_thumbnail = self.record_attachment("Debunk Myth Thumbnail", "debunk_thumbnail")
+                if debunk_thumbnail and not ("debunk_thumb.jpg" == debunk_thumbnail.filename.lower()):
+                    has_generated_thumb = True
+                    print("  [OK] Using existing Debunk Myth Thumbnail from Airtable")
+            except Exception:
+                has_generated_thumb = False
+
+        if not has_generated_thumb:
+            prompt_debunk_thumb = (
+                os.getenv("MYTH_AND_FACT_PROMPT_DEBUNK_THUMBNAIL")
+                or custom_prompt
+                or prompt2
+                or "Modern luxury living room interior, curvilinear boucle furniture, warm neutral Japandi aesthetic, empty high ceiling ready for lighting fixture, soft daylight, vertical 9:16 portrait"
+            ).strip()
+            print(f"  [GEN] Generating new 9:16 Debunk Myth Thumbnail Generated Interior (Prompt: '{prompt_debunk_thumb}')...")
+            moodboard_id = self.ctx.settings.moodboard_id(self.ctx.definition.table_code)
+            debunk_thumbnail = self.krea_image("debunk_thumb_interior.jpg", prompt_debunk_thumb, aspect_ratio="9:16", moodboard_id=moodboard_id)
+            try:
+                self.attach_exact("Debunk Myth Thumbnail Generated Interior", [debunk_thumbnail])
+                print("  [OK] Uploaded generated interior to 'Debunk Myth Thumbnail Generated Interior'")
+            except Exception as e:
+                print(f"  [WARN] Could not upload to 'Debunk Myth Thumbnail Generated Interior': {e}")
+            try:
+                self.attach_exact("Debunk Myth Thumbnail", [debunk_thumbnail])
+                print("  [OK] Also uploaded generated interior to 'Debunk Myth Thumbnail'")
+            except Exception as e:
+                print(f"  [WARN] Could not upload to 'Debunk Myth Thumbnail': {e}")
 
         # 5. Resolve or generate blending prompts
         print("\n [PHASE 2/5] Writing Blending Prompts (Claude Sonnet)...")
@@ -253,6 +378,24 @@ class MythAndFactStoryWorkflow(BaseWorkflow):
         self.attach_exact("Myth Blended", [blended])
         print("  [OK] Myth Interior Blended: myth_blended.jpg")
 
+        # Auto-tag furniture item name onto Myth Blended Image using YOLO-World
+        try:
+            from ..akeneo_client import split_item_name
+            from ..item_tagger import TARGET_BLENDED_FIELD, tag_and_upload_blended_image
+            item_title, product_type = split_item_name(item_name, fallback_product_type="Chandelier")
+            tag_and_upload_blended_image(
+                airtable=self.ctx.airtable,
+                record_id=self.ctx.anchor.record_id,
+                blended_source=blended.path,
+                item_name=item_title,
+                product_type=product_type,
+                target_field=TARGET_BLENDED_FIELD,
+                output_filename_prefix="myth_tagged_blend",
+                fallback_if_undetected=True,
+            )
+        except Exception as tag_err:
+            print(f"  [WARN] Failed YOLO item tagging for Myth blend: {tag_err}")
+
         print("  [GEN] Generating Myth Slide with Text (Slide 2)...")
         myth1 = self.fal_image(
             "myth1.jpg",
@@ -273,6 +416,24 @@ class MythAndFactStoryWorkflow(BaseWorkflow):
         self.attach_exact("Fact Blended", [fact_blended])
         print("  [OK] Fact Interior Blended: fact_blended.jpg")
 
+        # Auto-tag furniture item name onto Fact Blended Image using YOLO-World
+        try:
+            from ..akeneo_client import split_item_name
+            from ..item_tagger import TARGET_BLENDED_FIELD, tag_and_upload_blended_image
+            item_title, product_type = split_item_name(item_name, fallback_product_type="Chandelier")
+            tag_and_upload_blended_image(
+                airtable=self.ctx.airtable,
+                record_id=self.ctx.anchor.record_id,
+                blended_source=fact_blended.path,
+                item_name=item_title,
+                product_type=product_type,
+                target_field=TARGET_BLENDED_FIELD,
+                output_filename_prefix="fact_tagged_blend",
+                fallback_if_undetected=True,
+            )
+        except Exception as tag_err:
+            print(f"  [WARN] Failed YOLO item tagging for Fact blend: {tag_err}")
+
         print("  [GEN] Generating Fact Slide Debunking Myth (Slide 3)...")
         fact1 = self.fal_image(
             "fact1.jpg",
@@ -282,10 +443,12 @@ class MythAndFactStoryWorkflow(BaseWorkflow):
         )
         print("  [OK] Slide 3 (Fact) Complete: fact1.jpg")
 
-        # 9. Slide 4: Outro slide (Directly use Outro Layout attachment)
-        print("\n [PHASE 5/5] Resolving Slide 4 (Outro Layout)...")
-        outro = outro_layout
-        print("  [OK] Slide 4 (Outro) Complete: using attached Outro Layout")
+        # 9. Slide 4: Outro slide (Composite Outro Layout over Outro Photo Generated via PIL)
+        print("\n [PHASE 5/5] Creating Slide 4 (Outro Layout Local Conversion)...")
+        outro_dest = self.ctx.workdir / "outro.jpg"
+        convert_outro_layout_slide(outro_photo_generated.path, outro_layout.path, outro_dest)
+        outro = LocalImage(outro_dest, "outro.jpg")
+        print("  [OK] Slide 4 (Outro) Complete: outro.jpg (composite of Outro Photo Generated + Outro Layout)")
 
         # 10. Upload all 4 final slides to Airtable
         finals = [debunk, myth1, fact1, outro]

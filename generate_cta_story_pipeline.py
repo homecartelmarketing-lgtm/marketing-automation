@@ -23,15 +23,20 @@ import json
 import os
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
 from PIL import Image
 
+from content_automation.airtable_client import fetch_multiple_tables_status_breakdown
+from content_automation.akeneo_client import split_item_name
 from content_automation.config import TABLES, load_settings
 from content_automation.cta_conversion import run_cta_conversion
 from content_automation.errors import AutomationError
 from content_automation.fal_client import FalClient
+from content_automation.item_tagger import TARGET_BLENDED_FIELD, tag_blended_image
+from content_automation.prompts import build_vision_blending_instruction
 from content_automation.kie_client import KieClient
 from content_automation.krea_client import KreaClient
 from content_automation.media import download_to_temp_file
@@ -51,6 +56,220 @@ from content_automation.scraping.categories import (
 )
 from standalone_scrape_akeneo import run_category_scrape
 
+CTA_STORY_TABLES: dict[str, dict[str, str]] = {
+    "tblYHdVq14FjMWg5o": {
+        "category_code": "chandelier_cta_story",
+        "label": "CTA Story Chandelier",
+        "default_moodboard_id": (
+            os.getenv("KREA_MOODBOARD_ID_CHANDELIER_CTA", "").strip()
+            or os.getenv("KREA_MOODBOARD_ID_CHANDELIERS", "").strip()
+            or "de6ad512-870d-4ab7-a48c-3f3ca85faf24"
+        ),
+        "default_prompt": (
+            os.getenv("CTA_PROMPT_CHANDELIER", "").strip()
+            or os.getenv("PROMPT_CHANDELIER", "").strip()
+            or "Generate me a modern living room"
+        ),
+    },
+    "tblfl7fqFZa2vUieB": {
+        "category_code": "pendant_lights_cta_story",
+        "label": "CTA Story Pendant Light",
+        "default_moodboard_id": (
+            os.getenv("KREA_MOODBOARD_ID_PENDANT_LIGHTS_CTA", "").strip()
+            or os.getenv("KREA_MOODBOARD_ID_PENDANT_LIGHTS", "").strip()
+            or "0844ad92-c34a-4dc8-9d70-d09498dc098c"
+        ),
+        "default_prompt": (
+            os.getenv("CTA_PROMPT_PENDANT_LIGHTS", "").strip()
+            or os.getenv("PROMPT_PENDANT_LIGHTS", "").strip()
+            or "Generate me a modern dining room"
+        ),
+    },
+    "tblSpGJLO3faYfIDY": {
+        "category_code": "cluster_chandelier_cta_story",
+        "label": "CTA Story Cluster Chandelier",
+        "default_moodboard_id": (
+            os.getenv("KREA_MOODBOARD_ID_CLUSTER_CHANDELIER_CTA", "").strip()
+            or os.getenv("KREA_MOODBOARD_ID_CLUSTER_CHANDELIER_DAY_NIGHT_STORY", "").strip()
+            or os.getenv("KREA_MOODBOARD_ID_CLUSTER_CHANDELIER", "").strip()
+            or "b5ffdcbb-192e-4528-8d86-d1a4cf496887"
+        ),
+        "default_prompt": (
+            os.getenv("CTA_PROMPT_CLUSTER_CHANDELIER", "").strip()
+            or os.getenv("PROMPT_CLUSTER_CHANDELIER", "").strip()
+            or (
+                "Modern high-ceiling room interior, luxury contemporary architecture, warm neutral tones, "
+                "clean open ceiling space ready for cluster chandelier integration, photorealistic 8k vertical portrait"
+            )
+        ),
+    },
+    "tblKJeCCp4zQ6g7Em": {
+        "category_code": "table_lamps_cta_story",
+        "label": "CTA Story Table Lamp",
+        "default_moodboard_id": (
+            os.getenv("KREA_MOODBOARD_ID_TABLE_LAMPS_CTA", "").strip()
+            or os.getenv("KREA_MOODBOARD_ID_TABLE_LAMPS_DAY_NIGHT_STORY", "").strip()
+            or os.getenv("KREA_MOODBOARD_ID_TABLE_LAMPS", "").strip()
+            or "257569e1-7be8-4412-a90f-acbc347e4646"
+        ),
+        "default_prompt": (
+            os.getenv("CTA_PROMPT_TABLE_LAMPS", "").strip()
+            or os.getenv("PROMPT_TABLE_LAMPS", "").strip()
+            or "Generate me a modern bedroom with a table lamp side by side"
+        ),
+    },
+    "tblPKSYyjgbgMypE2": {
+        "category_code": "floor_lamp_cta_story",
+        "label": "CTA Story Floor Lamp",
+        "default_moodboard_id": (
+            os.getenv("KREA_MOODBOARD_ID_FLOOR_LAMP_CTA", "").strip()
+            or os.getenv("KREA_MOODBOARD_ID_FLOOR_LAMPS", "").strip()
+            or "c4c15a18-a92d-4465-924f-c85cfe1958bc"
+        ),
+        "default_prompt": (
+            os.getenv("CTA_PROMPT_FLOOR_LAMPS", "").strip()
+            or os.getenv("PROMPT_FLOOR_LAMPS", "").strip()
+            or (
+                "Modern living room interior, stylish lounge chair, warm ambient lighting, "
+                "spacious floor corner ready for floor lamp integration, photorealistic 8k vertical portrait"
+            )
+        ),
+    },
+}
+
+
+def get_cta_tables() -> dict[str, dict[str, str]]:
+    """Return dynamically refreshed CTA tables config from .env."""
+    return {
+        (os.getenv("AIRTABLE_TABLE_ID_CHANDELIER_CTA", "").strip() or "tblYHdVq14FjMWg5o"): {
+            "category_code": "chandelier_cta_story",
+            "label": "CTA Story Chandelier",
+            "default_moodboard_id": (
+                os.getenv("KREA_MOODBOARD_ID_CHANDELIER_CTA", "").strip()
+                or os.getenv("KREA_MOODBOARD_ID_CHANDELIERS", "").strip()
+                or "de6ad512-870d-4ab7-a48c-3f3ca85faf24"
+            ),
+            "default_prompt": (
+                os.getenv("CTA_PROMPT_CHANDELIER", "").strip()
+                or os.getenv("PROMPT_CHANDELIER", "").strip()
+                or "Generate me a modern living room"
+            ),
+        },
+        (os.getenv("AIRTABLE_TABLE_ID_PENDANT_LIGHTS_CTA", "").strip() or "tblfl7fqFZa2vUieB"): {
+            "category_code": "pendant_lights_cta_story",
+            "label": "CTA Story Pendant Light",
+            "default_moodboard_id": (
+                os.getenv("KREA_MOODBOARD_ID_PENDANT_LIGHTS_CTA", "").strip()
+                or os.getenv("KREA_MOODBOARD_ID_PENDANT_LIGHTS", "").strip()
+                or "0844ad92-c34a-4dc8-9d70-d09498dc098c"
+            ),
+            "default_prompt": (
+                os.getenv("CTA_PROMPT_PENDANT_LIGHTS", "").strip()
+                or os.getenv("PROMPT_PENDANT_LIGHTS", "").strip()
+                or "Generate me a modern dining room"
+            ),
+        },
+        (os.getenv("AIRTABLE_TABLE_ID_CLUSTER_CHANDELIER_CTA", "").strip() or "tblSpGJLO3faYfIDY"): {
+            "category_code": "cluster_chandelier_cta_story",
+            "label": "CTA Story Cluster Chandelier",
+            "default_moodboard_id": (
+                os.getenv("KREA_MOODBOARD_ID_CLUSTER_CHANDELIER_CTA", "").strip()
+                or os.getenv("KREA_MOODBOARD_ID_CLUSTER_CHANDELIER_DAY_NIGHT_STORY", "").strip()
+                or os.getenv("KREA_MOODBOARD_ID_CLUSTER_CHANDELIER", "").strip()
+                or "b5ffdcbb-192e-4528-8d86-d1a4cf496887"
+            ),
+            "default_prompt": (
+                os.getenv("CTA_PROMPT_CLUSTER_CHANDELIER", "").strip()
+                or os.getenv("PROMPT_CLUSTER_CHANDELIER", "").strip()
+                or (
+                    "Modern high-ceiling room interior, luxury contemporary architecture, warm neutral tones, "
+                    "clean open ceiling space ready for cluster chandelier integration, photorealistic 8k vertical portrait"
+                )
+            ),
+        },
+        (os.getenv("AIRTABLE_TABLE_ID_TABLE_LAMPS_CTA", "").strip() or "tblKJeCCp4zQ6g7Em"): {
+            "category_code": "table_lamps_cta_story",
+            "label": "CTA Story Table Lamp",
+            "default_moodboard_id": (
+                os.getenv("KREA_MOODBOARD_ID_TABLE_LAMPS_CTA", "").strip()
+                or os.getenv("KREA_MOODBOARD_ID_TABLE_LAMPS_DAY_NIGHT_STORY", "").strip()
+                or os.getenv("KREA_MOODBOARD_ID_TABLE_LAMPS", "").strip()
+                or "257569e1-7be8-4412-a90f-acbc347e4646"
+            ),
+            "default_prompt": (
+                os.getenv("CTA_PROMPT_TABLE_LAMPS", "").strip()
+                or os.getenv("PROMPT_TABLE_LAMPS", "").strip()
+                or "Generate me a modern bedroom with a table lamp side by side"
+            ),
+        },
+        (os.getenv("AIRTABLE_TABLE_ID_FLOOR_LAMP_CTA", "").strip() or "tblPKSYyjgbgMypE2"): {
+            "category_code": "floor_lamp_cta_story",
+            "label": "CTA Story Floor Lamp",
+            "default_moodboard_id": (
+                os.getenv("KREA_MOODBOARD_ID_FLOOR_LAMPS_CTA", "").strip()
+                or os.getenv("KREA_MOODBOARD_ID_FLOOR_LAMP_CTA", "").strip()
+                or os.getenv("KREA_MOODBOARD_ID_FLOOR_LAMPS", "").strip()
+                or "c4c15a18-a92d-4465-924f-c85cfe1958bc"
+            ),
+            "default_prompt": (
+                os.getenv("CTA_PROMPT_FLOOR_LAMPS", "").strip()
+                or os.getenv("PROMPT_FLOOR_LAMPS", "").strip()
+                or (
+                    "Modern living room interior, stylish lounge chair, warm ambient lighting, "
+                    "spacious floor corner ready for floor lamp integration, photorealistic 8k vertical portrait"
+                )
+            ),
+        },
+    }
+
+
+def find_cta_table_by_category(category_code: str) -> tuple[str, dict[str, str]] | None:
+    """Find the Table ID and table configuration for a given category code."""
+    tables = get_cta_tables()
+    for tid, info in tables.items():
+        if info.get("category_code") == category_code:
+            return tid, info
+    if category_code == "cta_story":
+        for tid, info in tables.items():
+            if info.get("category_code") == "chandelier_cta_story":
+                return tid, info
+    return None
+
+
+def resolve_cta_table_and_config(
+    target_table_id: str | None = None,
+    category_code: str | None = None,
+) -> tuple[str, str, dict[str, str]]:
+    """Resolve (table_id, category_code, tbl_config) dynamically without Chandelier lock."""
+    tables = get_cta_tables()
+
+    # 1. If explicit recognized Table ID was provided, use it
+    if target_table_id and target_table_id in tables:
+        cfg = tables[target_table_id]
+        cat = category_code or cfg.get("category_code", DEFAULT_CATEGORY)
+        return target_table_id, cat, cfg
+
+    # 2. If category_code was provided, find its dedicated Table ID
+    if category_code:
+        found = find_cta_table_by_category(category_code)
+        if found:
+            tid, cfg = found
+            return tid, category_code, cfg
+
+    # 3. If target_table_id is a custom/unrecognized ID
+    if target_table_id:
+        return target_table_id, (category_code or DEFAULT_CATEGORY), {}
+
+    # 4. Default fallback to Chandelier
+    default_tid = (
+        os.getenv("AIRTABLE_TABLE_ID_CHANDELIER_CTA", "").strip()
+        or os.getenv("AIRTABLE_TABLE_ID_CTA_STORY", "").strip()
+        or DEFAULT_TABLE_ID
+    )
+    default_cfg = tables.get(default_tid, {})
+    return default_tid, default_cfg.get("category_code", DEFAULT_CATEGORY), default_cfg
+
+
 DEFAULT_TABLE_ID = (
     os.getenv("AIRTABLE_TABLE_ID_CHANDELIER_CTA", "").strip()
     or os.getenv("AIRTABLE_TABLE_ID_CTA_STORY", "").strip()
@@ -60,7 +279,7 @@ DEFAULT_MOODBOARD_ID = (
     os.getenv("KREA_MOODBOARD_ID_CHANDELIER_CTA", "").strip()
     or os.getenv("KREA_MOODBOARD_ID_CHANDELIERS", "").strip()
     or os.getenv("KREA_MOODBOARD_ID_FLOOR_LAMPS", "").strip()
-    or "fda7090c-787b-4116-94cd-3feef613eaaa"
+    or "de6ad512-870d-4ab7-a48c-3f3ca85faf24"
 )
 DEFAULT_PROMPT = "Generate me a modern living room"
 
@@ -72,10 +291,7 @@ CTA_INTERIOR_PROMPTS: dict[str, str] = {
         "Modern high-ceiling room interior, luxury contemporary architecture, warm neutral tones, "
         "clean open ceiling space ready for cluster chandelier integration, photorealistic 8k vertical portrait"
     ),
-    "pendant_lights_cta_story": (
-        "Modern dining room or kitchen interior, warm minimalist design, soft ambient daylight, "
-        "clean ceiling focal point ready for pendant light integration, photorealistic 8k vertical portrait"
-    ),
+    "pendant_lights_cta_story": "Generate me a modern dining room",
     "floor_lamp_cta_story": (
         "Modern living room interior, stylish lounge chair, warm ambient lighting, "
         "spacious floor corner ready for floor lamp integration, photorealistic 8k vertical portrait"
@@ -91,6 +307,9 @@ def prompt_for_category(category_code: str, custom_prompt: str | None = None) ->
     """Return the designated interior prompt for a category or custom override."""
     if custom_prompt and custom_prompt.strip():
         return custom_prompt.strip()
+    for info in get_cta_tables().values():
+        if info.get("category_code") == category_code and info.get("default_prompt"):
+            return info["default_prompt"]
     return CTA_INTERIOR_PROMPTS.get(category_code, DEFAULT_PROMPT)
 
 
@@ -317,7 +536,11 @@ def get_existing_logo_attachment_from_table(airtable: ScrapeAirtableClient) -> d
 
 def ensure_cta_layout_uploaded(airtable: ScrapeAirtableClient, record_id: str, fields: dict[str, Any]) -> bool:
     """Ensure CTA layout asset is populated on the record."""
-    target_field = get_first_field_name(fields, LAYOUT_FIELD_FALLBACKS)
+    target_field = (
+        (getattr(airtable, "find_field_name", lambda n: None)("CTA Blended Image Watermark Layout") if hasattr(airtable, "find_field_name") else None)
+        or get_first_field_name(fields, LAYOUT_FIELD_FALLBACKS)
+        or "CTA Blended Image Watermark Layout"
+    )
     if get_first_field_value(fields, LAYOUT_FIELD_FALLBACKS):
         return True
 
@@ -337,15 +560,19 @@ def ensure_cta_layout_uploaded(airtable: ScrapeAirtableClient, record_id: str, f
 
 def ensure_cta_logo_uploaded(airtable: ScrapeAirtableClient, record_id: str, fields: dict[str, Any]) -> bool:
     """Ensure HomeCartel brand logo asset is populated on the record."""
-    target_field = get_first_field_name(fields, LOGO_FIELD_FALLBACKS)
+    target_field = (
+        (getattr(airtable, "find_field_name", lambda n: None)("Logo") if hasattr(airtable, "find_field_name") else None)
+        or get_first_field_name(fields, LOGO_FIELD_FALLBACKS)
+        or "Logo"
+    )
     if get_first_field_value(fields, LOGO_FIELD_FALLBACKS):
         return True
 
     logo_path = find_homecartel_logo_path()
     if logo_path and logo_path.exists():
         try:
-            airtable.upload_attachment(record_id, target_field, logo_path, logo_path.name)
-            print(f"[OK] Uploaded logo '{logo_path.name}' to '{target_field}' on record {record_id}")
+            airtable.upload_attachment(record_id, target_field, logo_path, "homecartel_logo.png")
+            print(f"[OK] Uploaded logo 'homecartel_logo.png' to '{target_field}' on record {record_id}")
             return True
         except Exception as error:
             print(f"[WARN] Local logo upload failed for record {record_id}: {error}")
@@ -370,10 +597,21 @@ def ensure_cta_logo_uploaded(airtable: ScrapeAirtableClient, record_id: str, fie
 
 
 def safe_update_status(airtable: ScrapeAirtableClient, record_id: str, status_value: str) -> None:
+    payload = {STATUS_FIELD: status_value}
+    if status_value == STATUS_COMPLETE:
+        try:
+            from content_automation.airtable_client import current_pht_timestamp
+            payload["Date and Time Generated"] = current_pht_timestamp()
+        except Exception:
+            pass
     try:
-        airtable.update_records([(record_id, {STATUS_FIELD: status_value})])
+        airtable.update_records([(record_id, payload)])
     except Exception:
-        pass
+        try:
+            airtable.update_records([(record_id, {STATUS_FIELD: status_value})])
+        except Exception:
+            pass
+
 
 
 def backfill_missing_cta_assets(airtable: ScrapeAirtableClient) -> None:
@@ -543,15 +781,10 @@ def generate_claude_blending_prompts(
         )
 
         image_urls = [url for url in [interior_url, furniture_url] if url]
-        instruction = (
-            f"You are an expert interior design AI prompt engineer. Analyze Image 1 as the Room Interior photo ('CTA Interior') "
-            f"and Image 2 as the product photo for '{item_name}' ('Furniture Item').\n"
-            f"Write a precise, photorealistic image-to-image blending prompt to seamlessly integrate and install "
-            f"the lighting fixture/furniture item '{item_name}' into the interior room in Image 1. "
-            f"Describe exact realistic placement (e.g. hung gracefully from ceiling center above living area, standing on floor, or mounted on wall), "
-            f"natural warm illumination casting soft light and subtle ambient shadows onto surrounding furniture and architecture, "
-            f"matching perspective, exact textures, luxury modern aesthetic, 8k vertical portrait resolution, hyperrealistic. "
-            f"Output ONLY the prompt text without commentary or preamble."
+        instruction = build_vision_blending_instruction(
+            interior_label="Room Interior ('CTA Interior')",
+            item_name=item_name,
+            aspect_ratio="9:16",
         )
 
         try:
@@ -575,9 +808,6 @@ def generate_claude_blending_prompts(
 
     print(f"[INFO] Claude Sonnet 5 prompt generation complete: {succeeded} succeeded, {failed} failed.")
     return failed == 0
-
-
-generate_qwen_blending_prompts = generate_claude_blending_prompts
 
 
 def generate_cta_blended_images(
@@ -683,6 +913,22 @@ def generate_cta_blended_images(
     return failed == 0
 
 
+def clean_headline_text(text: str) -> str:
+    """Clean generated headline to be concise 2-4 words, removing markdown and extra punctuation."""
+    if not text:
+        return ""
+    s = str(text).strip()
+    lines = [line.strip() for line in s.splitlines() if line.strip()]
+    if lines:
+        s = lines[0]
+    for _ in range(3):
+        s = s.strip().strip('"\'`*#_~').strip()
+        for prefix in ("headline:", "hook:", "title:", "caption:", "words:"):
+            if s.lower().startswith(prefix):
+                s = s[len(prefix):].strip()
+    return s.rstrip(".:,;!-").strip('"\'`*#_~ ').strip()
+
+
 def generate_claude_word_generated(
     fal_or_vision: Any,
     airtable: ScrapeAirtableClient,
@@ -690,8 +936,10 @@ def generate_claude_word_generated(
     vision_model: str = FAL_VISION_MODEL,
     limit_records: int | None = None,
     target_record_id: str | None = None,
+    force_refresh: bool = False,
+    max_retries: int = 3,
 ) -> bool:
-    """Generate luxury 2-3 word headline in 'Word Generated' using Claude Sonnet 5."""
+    """Generate luxury 2-4 word headline in 'Word Generated' strictly using Claude Sonnet 5 via Fal AI."""
     airtable.ensure_fields({WORD_GENERATED_FIELD: "singleLineText"})
     records = airtable.list_records(
         BLENDED_FIELD_FALLBACKS + WORD_GENERATED_FALLBACKS + [ITEM_NAME_FIELD, SKU_FIELD, STATUS_FIELD, "ID", "Auto Number", "No"]
@@ -704,6 +952,14 @@ def generate_claude_word_generated(
     if target_record_id:
         records = [r for r in records if r["id"] == target_record_id]
 
+    existing_headlines: set[str] = set()
+    for r in records:
+        w = get_first_field_value(r.get("fields", {}), WORD_GENERATED_FALLBACKS)
+        if w and isinstance(w, str):
+            clean_w = clean_headline_text(w)
+            if clean_w and clean_w.lower() not in ("modern luxury living", "singkwenta dose"):
+                existing_headlines.add(clean_w)
+
     eligible = []
     for record in records:
         fields = record.get("fields", {})
@@ -711,20 +967,27 @@ def generate_claude_word_generated(
         word_val = get_first_field_value(fields, WORD_GENERATED_FALLBACKS)
         if not blended_val:
             continue
+
+        is_repeating_default = False
         if word_val:
+            clean_val = clean_headline_text(str(word_val))
+            if clean_val.lower() in ("modern luxury living", "singkwenta dose"):
+                is_repeating_default = True
+
+        if word_val and not force_refresh and not is_repeating_default:
             continue
         eligible.append(record)
 
     if not eligible:
-        print(f"[OK] No records requiring Claude Sonnet 5 word generation (blended image missing or word already filled).")
+        print(f"[OK] No records requiring Claude Sonnet 5 word generation (blended image missing or word already filled with unique headline).")
         return True
 
     if limit_records is not None:
         eligible = eligible[:limit_records]
 
     print(
-        f"[INFO] Generating '{WORD_GENERATED_FIELD}' for {len(eligible)} record(s) "
-        f"using Claude Sonnet 5 via Fal AI ({vision_model})..."
+        f"[INFO] Generating unique '{WORD_GENERATED_FIELD}' for {len(eligible)} record(s) "
+        f"strictly using Claude Sonnet 5 API ({vision_model})..."
     )
 
     succeeded = 0
@@ -745,34 +1008,86 @@ def generate_claude_word_generated(
             f"record {record_id} ({item_label}) with Claude Sonnet 5..."
         )
 
+        avoid_clause = ""
+        if existing_headlines:
+            sample_avoid = list(existing_headlines)[-20:]
+            avoid_clause = (
+                f" Do NOT reuse or repeat any of the following previously used headlines: "
+                f"{json.dumps(sample_avoid)}. Make sure your headline is completely unique, creative, and distinct."
+            )
+
         instruction = (
             "Analyze this luxury interior and lighting design image ('CTA Blended Image'). "
             "Generate an original, elegant, luxury 2 to 4 word headline or hook that captures the unique visual vibe, architectural aesthetic, lighting mood, and interior style shown in the room for an Instagram Story. "
             "Do NOT include or mention any product item names, brand names, catalog titles, or SKU codes. "
             "Base the words purely and dynamically on the visual composition, textures, colors, and lighting atmosphere in the image. "
             "Keep it concise, elegant, and punchy. Output ONLY the 2 to 4 words without quotation marks, commentary, explanations, or extra punctuation."
+            f"{avoid_clause}"
         )
 
-        try:
-            if hasattr(fal_or_vision, "analyze_image"):
-                generated_words = fal_or_vision.analyze_image(
-                    prompt=instruction,
-                    image_urls=[blended_url],
-                    model=vision_model,
-                )
-            else:
-                generated_words = "Modern Luxury Living"
+        cleaned_words = ""
+        last_error: Exception | None = None
 
-            cleaned_words = generated_words.strip().strip('"\'')
-            target_field = get_first_field_name(fields, WORD_GENERATED_FALLBACKS)
-            airtable.update_records([(record_id, {target_field: cleaned_words})])
+        for attempt in range(1, max_retries + 1):
+            try:
+                raw_words = ""
+                if hasattr(fal_or_vision, "analyze_image"):
+                    raw_words = fal_or_vision.analyze_image(
+                        prompt=instruction,
+                        image_urls=[blended_url],
+                        model=vision_model,
+                    )
+                elif hasattr(fal_or_vision, "generate_vision_prompt"):
+                    raw_words = fal_or_vision.generate_vision_prompt(
+                        image_urls=[blended_url],
+                        prompt=instruction,
+                        model=vision_model,
+                    )
+                else:
+                    raise AutomationError("Vision client has neither 'analyze_image' nor 'generate_vision_prompt'.")
+
+                candidate = clean_headline_text(raw_words)
+                if not candidate:
+                    raise ValueError(f"Claude Vision API returned an empty response (raw: {raw_words!r})")
+
+                # If Claude returned a duplicate headline already in this table, prompt Claude again
+                if candidate.lower() in {h.lower() for h in existing_headlines}:
+                    if attempt < max_retries:
+                        print(
+                            f"[WARN] [Attempt {attempt}/{max_retries}] Claude returned duplicate headline '{candidate}'. "
+                            f"Re-querying Claude Sonnet 5 for a completely distinct phrase..."
+                        )
+                        instruction += f" Note: You previously returned '{candidate}'. Do NOT use that; generate a completely different phrase."
+                        time.sleep(1.0)
+                        continue
+
+                cleaned_words = candidate
+                break
+
+            except Exception as err:
+                last_error = err
+                print(
+                    f"[WARN] [Attempt {attempt}/{max_retries}] Claude Vision API call error on record {record_id}: {err}"
+                )
+                if attempt < max_retries:
+                    sleep_sec = attempt * 1.5
+                    print(f"[INFO] Retrying Claude Sonnet 5 Vision in {sleep_sec:.1f}s...")
+                    time.sleep(sleep_sec)
+
+        if not cleaned_words:
             print(
-                f"[OK] Generated words '{cleaned_words}' for record {record_id} and updated '{target_field}'"
+                f"[ERROR] Failed generating Claude words for record {record_id} after {max_retries} API attempts: {last_error}"
             )
-            succeeded += 1
-        except Exception as error:
-            print(f"[ERROR] Failed generating Claude words for record {record_id}: {error}")
             failed += 1
+            continue
+
+        target_field = get_first_field_name(fields, WORD_GENERATED_FALLBACKS)
+        airtable.update_records([(record_id, {target_field: cleaned_words})])
+        existing_headlines.add(cleaned_words)
+        print(
+            f"[OK] Claude Sonnet 5 generated unique words '{cleaned_words}' for record {record_id} and updated '{target_field}'"
+        )
+        succeeded += 1
 
     print(f"[INFO] Claude word generation complete: {succeeded} succeeded, {failed} failed.")
     return failed == 0
@@ -787,7 +1102,11 @@ def generate_watermark_added_images(
     """Stamp Logo and Canva CTA text watermark layout using Python Pillow."""
     airtable.ensure_fields({WATERMARK_FIELD: "multipleAttachments", STATUS_FIELD: "singleSelect"})
     records = airtable.list_records(
-        BLENDED_FIELD_FALLBACKS + WATERMARK_FIELD_FALLBACKS + LOGO_FIELD_FALLBACKS + WORD_GENERATED_FALLBACKS + [ITEM_NAME_FIELD, SKU_FIELD, STATUS_FIELD, "ID", "Auto Number", "No"]
+        BLENDED_FIELD_FALLBACKS
+        + WATERMARK_FIELD_FALLBACKS
+        + LOGO_FIELD_FALLBACKS
+        + WORD_GENERATED_FALLBACKS
+        + [ITEM_NAME_FIELD, SKU_FIELD, STATUS_FIELD, "Product Type", "Category", TARGET_BLENDED_FIELD, "ID", "Auto Number", "No"]
     )
     if not records:
         print("[OK] No records found in Airtable to composite watermark layout.")
@@ -826,8 +1145,16 @@ def generate_watermark_added_images(
     for position, record in enumerate(eligible, start=1):
         record_id = record["id"]
         fields = record.get("fields", {})
-        item_name = str(fields.get(ITEM_NAME_FIELD) or fields.get(SKU_FIELD) or "HomeCartel Lighting").strip()
-        item_label = f"{record_id} ({item_name})"
+        raw_item_name = str(fields.get(ITEM_NAME_FIELD) or fields.get(SKU_FIELD) or "HomeCartel Lighting").strip()
+        item_title, product_type = split_item_name(
+            raw_item_name, fallback_product_type=str(fields.get("Product Type") or "")
+        )
+        item_label = f"{record_id} ({item_title})"
+
+        cat_code = str(fields.get("Category") or "").strip().lower().replace(" ", "_")
+        if not cat_code:
+            tbl_info = CTA_STORY_TABLES.get(table_id or "", {})
+            cat_code = tbl_info.get("category_code", "chandelier").replace("_cta_story", "")
 
         blended_url = extract_attachment_url(get_first_field_value(fields, BLENDED_FIELD_FALLBACKS))
         if not blended_url:
@@ -836,7 +1163,7 @@ def generate_watermark_added_images(
 
         logo_url = extract_attachment_url(get_first_field_value(fields, LOGO_FIELD_FALLBACKS))
         words_val = get_first_field_value(fields, WORD_GENERATED_FALLBACKS)
-        display_headline = str(words_val).strip() if words_val else item_name
+        display_headline = str(words_val).strip() if words_val else item_title
 
         print(
             f"[INFO] [{position}/{len(eligible)}] Stamping Logo & CTA layout for "
@@ -846,9 +1173,40 @@ def generate_watermark_added_images(
         dl_blended = None
         dl_logo = None
         out_path = None
+        tagged_temp_path = None
         try:
             resp_b = requests.get(blended_url, stream=True, timeout=30)
             dl_blended = download_to_temp_file(resp_b, prefix="blend_in_", suffix=".jpg", context="Blended photo dl")
+
+            # Auto-tag furniture item name onto blended scene using zero-cost local YOLO-World (with Upper/Mid-Left fallback)
+            source_to_composite = dl_blended.path
+            try:
+                with tempfile.NamedTemporaryFile(suffix="_cta_tagged.jpg", delete=False) as tf_tag:
+                    tagged_temp_path = tf_tag.name
+
+                tagged_img, _ = tag_blended_image(
+                    image_input=dl_blended.path,
+                    item_name=item_title,
+                    product_type=product_type,
+                    category=cat_code,
+                    destination=tagged_temp_path,
+                    fallback_if_undetected=True,
+                )
+                if tagged_temp_path and Path(tagged_temp_path).is_file():
+                    source_to_composite = tagged_temp_path
+                    # Upload to 'Blended Image with Name text'
+                    try:
+                        airtable.ensure_fields({TARGET_BLENDED_FIELD: "multipleAttachments"})
+                        airtable.upload_attachment(
+                            record_id,
+                            TARGET_BLENDED_FIELD,
+                            tagged_temp_path,
+                            f"cta_tagged_{record_id}.jpg",
+                        )
+                    except Exception:
+                        pass
+            except Exception as tag_err:
+                print(f"[WARN] Failed auto-tagging item name on record {record_id}: {tag_err}")
 
             logo_source_path = None
             if logo_url:
@@ -868,7 +1226,7 @@ def generate_watermark_added_images(
                 out_path = tf.name
 
             stamp_cta_story_watermark_and_logo(
-                base_image_path=dl_blended.path,
+                base_image_path=source_to_composite,
                 logo_path=logo_source_path,
                 output_path=out_path,
                 item_name=display_headline,
@@ -891,6 +1249,11 @@ def generate_watermark_added_images(
                 dl_blended.cleanup()
             if dl_logo:
                 dl_logo.cleanup()
+            if tagged_temp_path and Path(tagged_temp_path).exists():
+                try:
+                    Path(tagged_temp_path).unlink()
+                except Exception:
+                    pass
             if out_path and Path(out_path).exists():
                 try:
                     Path(out_path).unlink()
@@ -924,19 +1287,98 @@ def get_first_incomplete_record(airtable: ScrapeAirtableClient) -> dict[str, Any
     return None
 
 
-def show_menu() -> str:
+def show_table_menu(current_table_id: str | None = None) -> str:
+    """Interactive menu to select which CTA Story table to target."""
+    tables = get_cta_tables()
+    table_items = list(tables.items())
+
+    # Fast parallel fetch of live P, C, D, FM status breakdown
+    status_map: dict[str, dict[str, int]] = {}
+    try:
+        scrape_settings = load_scrape_settings()
+        if scrape_settings.airtable_token and scrape_settings.airtable_base_id and table_items:
+            table_ids = [tid for tid, _ in table_items]
+            status_map = fetch_multiple_tables_status_breakdown(
+                scrape_settings.airtable_token,
+                scrape_settings.airtable_base_id,
+                table_ids,
+                max_workers=5,
+            )
+    except Exception:
+        pass
+
+    print("\n" + "=" * 68)
+    print("              SELECT CTA STORY AIRTABLE TABLE")
+    print("=" * 68)
+    for idx, (tid, info) in enumerate(table_items, 1):
+        is_current = " (CURRENT)" if tid == current_table_id else ""
+        st = status_map.get(tid)
+        if st:
+            status_line = f"P: {st['P']} | C: {st['C']} | D: {st['D']} | FM: {st['FM']} (Completed: {st['P'] + st['C']})"
+        else:
+            status_line = "P: - | C: - | D: - | FM: -"
+
+        print(f"  [{idx}] {info['label']}{is_current}")
+        print(f"      Table ID:  {tid}")
+        print(f"      Category:  {info['category_code']}")
+        print(f"      Moodboard: {info['default_moodboard_id']}")
+        print(f"      Prompt:    \"{info['default_prompt']}\"")
+        print(f"      Status:    {status_line}\n")
+    print(f"  [{len(table_items) + 1}] Multi-Table Round-Robin (All CTA Tables)")
+    print(f"  [{len(table_items) + 2}] Enter Custom Airtable Table ID Manually")
+    print(f"  [{len(table_items) + 3}] Exit\n")
+    print("=" * 68)
+
+    while True:
+        choice = input(f" Select Table [1-{len(table_items) + 3}] (default: 1): ").strip()
+        if not choice:
+            choice = "1"
+        if choice.lower() in {"0", "q", "exit", "quit"}:
+            return "exit"
+        if choice.isdigit():
+            idx = int(choice)
+            if 1 <= idx <= len(table_items):
+                return table_items[idx - 1][0]
+            if idx == len(table_items) + 1:
+                return "round_robin"
+            if idx == len(table_items) + 2:
+                custom = input(" Enter Airtable Table ID (e.g., tblYHdVq14FjMWg5o): ").strip()
+                if custom:
+                    return custom
+                print("[WARN] Table ID cannot be empty.")
+                continue
+            if idx == len(table_items) + 3:
+                return "exit"
+        elif choice in tables or choice in CTA_STORY_TABLES:
+            return choice
+        print(f"[WARN] Invalid option. Please enter 1 to {len(table_items) + 3}.")
+
+
+def show_menu(active_table_id: str | None = None) -> str:
+    tables = get_cta_tables()
+    tbl_id = active_table_id or DEFAULT_TABLE_ID
+    tbl_info = tables.get(tbl_id, {})
+    tbl_name = tbl_info.get("label", tbl_id)
+
     print("\n" + "=" * 64)
-    print("           CTA STORY AI GENERATION & BLENDING MENU           ")
+    print("           CTA STORY AI GENERATION & BLENDING           ")
+    print("=" * 64)
+    print(f" Active Table: {tbl_name} ({tbl_id})")
+    print(f" Category:     {tbl_info.get('category_code', 'Custom')}")
+    print(f" Moodboard:    {tbl_info.get('default_moodboard_id', 'Default')}")
+    print(f" Prompt:       \"{tbl_info.get('default_prompt', DEFAULT_PROMPT)}\"")
     print("=" * 64)
     print(" Select a phase to run:\n")
     print(" [1] Scrape Akeneo Products to Airtable (1 item)")
     print(" [2] Krea AI Interior Generation (9:16) -> 'CTA Interior'")
     print(" [3] Claude Sonnet 5 Prompt Generation (Fal AI) -> 'Blending Prompt'")
     print(" [4] Fal AI Nano Banana Pro Blending (9:16) -> 'CTA Blended Image'")
-    print(" [5] Claude Sonnet 5 Headline Generation -> 'Word Generated'")
+    print(" [5] Claude Sonnet 5 Headline Generation -> 'Word Generated' (Unique/Deduplicated)")
     print(" [6] Python Local CTA Layout & Logo Stamping (9:16) -> 'CTA Converted Image'")
     print(" [7] Run Full End-to-End Pipeline (Scrape Akeneo 1 item + Steps 2-6)")
-    print(" [8] Exit\n")
+    print(" [8] Multi-Table Round-Robin (All CTA Tables)")
+    print(" [9] Switch Target Table ID")
+    print(" [10] Exit\n")
 
     menu_choices = {
         "1": "scrape",
@@ -946,25 +1388,30 @@ def show_menu() -> str:
         "5": "words",
         "6": "conversion",
         "7": "all",
-        "8": "exit",
+        "8": "round_robin",
+        "9": "switch_table",
+        "10": "exit",
     }
     while True:
-        choice = input(" Enter choice [1-8]: ").strip()
+        choice = input(" Enter choice [1-10]: ").strip()
+        if choice.lower() in {"0", "q", "exit", "quit"}:
+            return "exit"
         if choice in menu_choices:
             return menu_choices[choice]
-        print("[WARN] Invalid option. Please enter 1, 2, 3, 4, 5, 6, 7, or 8.")
+        print("[WARN] Invalid option. Please enter 1, 2, 3, 4, 5, 6, 7, 8, 9, or 10.")
 
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(
         description="CTA Story AI Generation & Blending Pipeline"
     )
+    default_mode = "menu" if (argv is None and len(sys.argv) == 1) else "all"
     parser.add_argument(
         "--mode",
         "-m",
-        choices=["scrape", "interior", "prompt", "blend", "words", "conversion", "watermark", "all", "menu"],
-        default="all",
-        help="Mode of operation: scrape, interior, prompt, blend, words, conversion, all, or menu (default: all)",
+        choices=["scrape", "interior", "prompt", "blend", "words", "conversion", "watermark", "round_robin", "all", "menu"],
+        default=default_mode,
+        help="Mode of operation: scrape, interior, prompt, blend, words, conversion, round_robin, all, or menu (default: menu if no flags)",
     )
     parser.add_argument(
         "--category",
@@ -996,6 +1443,18 @@ def parse_args(argv=None):
         metavar="N",
         help="Process at most N records in each phase (default: 1)",
     )
+    parser.add_argument(
+        "--force-words",
+        "--refresh-words",
+        action="store_true",
+        dest="force_words",
+        help="Force re-generation of 'Word Generated' headlines even if already filled (replaces repetitive defaults)",
+    )
+    parser.add_argument(
+        "--moodboard-id",
+        default=None,
+        help="Optional custom Krea Moodboard ID override",
+    )
     return parser.parse_args(argv)
 
 
@@ -1006,19 +1465,84 @@ def run_pipeline(
     custom_prompt: str | None = None,
     table_id_override: str | None = None,
     max_items: int = 1,
+    force_words: bool = False,
+    custom_moodboard_id: str | None = None,
 ) -> int:
-    base_settings = load_settings()
-    scrape_settings = load_scrape_settings(
-        category_code=category_code,
-        style_code=style_code,
-        table_id_override=table_id_override,
+    target_table_id = table_id_override
+
+    if mode == "menu":
+        if not target_table_id:
+            chosen = show_table_menu(current_table_id=DEFAULT_TABLE_ID)
+            if chosen == "exit":
+                print("[INFO] Exiting CTA Story Pipeline. Goodbye!")
+                return 0
+            if chosen == "round_robin":
+                from run_cta_round_robin import run_round_robin, DEFAULT_CTA_CATEGORIES
+                return run_round_robin(
+                    categories=[c for c, _ in DEFAULT_CTA_CATEGORIES],
+                    total_rounds=1,
+                    is_infinite=False,
+                    style_code=style_code,
+                    delay_seconds=5,
+                )
+            target_table_id = chosen
+
+        while True:
+            choice = show_menu(target_table_id)
+            if choice == "exit":
+                print("[INFO] Exiting CTA Story Pipeline. Goodbye!")
+                return 0
+            if choice == "switch_table":
+                chosen = show_table_menu(current_table_id=target_table_id)
+                if chosen == "exit":
+                    print("[INFO] Exiting CTA Story Pipeline. Goodbye!")
+                    return 0
+                if chosen == "round_robin":
+                    from run_cta_round_robin import run_round_robin, DEFAULT_CTA_CATEGORIES
+                    return run_round_robin(
+                        categories=[c for c, _ in DEFAULT_CTA_CATEGORIES],
+                        total_rounds=1,
+                        is_infinite=False,
+                        style_code=style_code,
+                        delay_seconds=5,
+                    )
+                target_table_id = chosen
+                continue
+            if choice == "round_robin":
+                from run_cta_round_robin import run_round_robin, DEFAULT_CTA_CATEGORIES
+                return run_round_robin(
+                    categories=[c for c, _ in DEFAULT_CTA_CATEGORIES],
+                    total_rounds=1,
+                    is_infinite=False,
+                    style_code=style_code,
+                    delay_seconds=5,
+                )
+            mode = choice
+            break
+
+    target_table_id, effective_category, tbl_cfg = resolve_cta_table_and_config(
+        target_table_id=target_table_id,
+        category_code=category_code if (category_code != DEFAULT_CATEGORY or not target_table_id) else None,
     )
 
-    interior_prompt = prompt_for_category(scrape_settings.category_code, custom_prompt)
-    target_table_id = (
-        table_id_override
-        or scrape_settings.airtable_table_id
-        or DEFAULT_TABLE_ID
+    base_settings = load_settings()
+    scrape_settings = load_scrape_settings(
+        category_code=effective_category,
+        style_code=style_code,
+        table_id_override=target_table_id,
+    )
+
+    interior_prompt = (
+        custom_prompt
+        or tbl_cfg.get("default_prompt")
+        or prompt_for_category(effective_category, custom_prompt)
+    )
+
+    moodboard_id = (
+        custom_moodboard_id
+        or tbl_cfg.get("default_moodboard_id")
+        or moodboard_id_for_category(effective_category, DEFAULT_MOODBOARD_ID)
+        or DEFAULT_MOODBOARD_ID
     )
 
     airtable = ScrapeAirtableClient(
@@ -1027,12 +1551,14 @@ def run_pipeline(
         table_id=target_table_id,
     )
 
-    print("=" * 64)
-    print(f"CTA Story Pipeline | Category: {scrape_settings.category_code}")
-    print(f"Airtable: Base {scrape_settings.airtable_base_id} / Table {target_table_id}")
-    print("=" * 64)
-
-    moodboard_id = moodboard_id_for_category(scrape_settings.category_code, DEFAULT_MOODBOARD_ID)
+    tbl_label = tbl_cfg.get("label", effective_category)
+    print("\n" + "=" * 70)
+    print(f" [CTA RUNNER] Target Table:  {tbl_label} ({target_table_id})")
+    print(f" [CTA RUNNER] Category Code: {effective_category}")
+    print(f" [CTA RUNNER] Moodboard ID:  {moodboard_id}")
+    print(f" [CTA RUNNER] Krea Prompt:   \"{interior_prompt}\"")
+    print(f" [CTA RUNNER] Airtable Base: {scrape_settings.airtable_base_id}")
+    print("=" * 70 + "\n")
     count = max_items or 1
     failures = 0
 
@@ -1095,6 +1621,7 @@ def run_pipeline(
             fal_client,
             airtable,
             limit_records=count,
+            force_refresh=force_words,
         ) else 1
 
     if mode == "conversion":
@@ -1112,36 +1639,52 @@ def run_pipeline(
 
     for row_idx in range(1, count + 1):
         print(f"\n{'=' * 30} ROW {row_idx}/{count} {'=' * 30}")
-        incomplete_rec = get_first_incomplete_record(airtable)
-        if incomplete_rec:
-            target_record_id = incomplete_rec["id"]
-            fields = incomplete_rec.get("fields", {})
-            label = fields.get(ITEM_NAME_FIELD) or fields.get(SKU_FIELD) or target_record_id
-            print(f"[INFO] Found incomplete row: Record {target_record_id} ({label}). Completing this row...")
-        else:
-            print(f"[INFO] [Phase 1/6] Scraping 1 product item from Akeneo to Airtable...")
-            try:
-                if not run_category_scrape(
-                    category_code=scrape_settings.category_code,
-                    style_code=scrape_settings.style_code,
-                    items_per_row_override=1,
-                    max_items=1,
-                    table_id_override=target_table_id,
-                ):
-                    print(f"[WARN] Akeneo scrape returned warnings on Row {row_idx}.")
-            except Exception as error:
-                print(f"[ERROR] Failed scraping Akeneo products on Row {row_idx}: {error}")
-                failures += 1
-                continue
+        print(f"[INFO] [Phase 1/6] Scraping 1 new product item from Akeneo (cross-checked with Shopify) to Airtable...")
+        existing_ids = {r["id"] for r in airtable.list_records(["Status"])}
+        target_record_id = None
 
-            newly_scraped_rec = get_first_incomplete_record(airtable)
-            if not newly_scraped_rec:
-                print(f"[WARN] No incomplete record found after scrape on Row {row_idx}.")
-                continue
-            target_record_id = newly_scraped_rec["id"]
-            fields = newly_scraped_rec.get("fields", {})
+        try:
+            if not run_category_scrape(
+                category_code=scrape_settings.category_code,
+                style_code=scrape_settings.style_code,
+                items_per_row_override=1,
+                max_items=1,
+                table_id_override=target_table_id,
+            ):
+                print(f"[WARN] Akeneo scrape returned warnings on Row {row_idx}.")
+        except Exception as error:
+            print(f"[ERROR] Failed scraping Akeneo products on Row {row_idx}: {error}")
+            failures += 1
+
+        refreshed_records = airtable.list_records(
+            INTERIOR_FIELD_FALLBACKS
+            + PROMPT_FIELD_FALLBACKS
+            + BLENDED_FIELD_FALLBACKS
+            + WORD_GENERATED_FALLBACKS
+            + CONVERTED_FIELD_FALLBACKS
+            + [FIELD_NAME, ITEM_NAME_FIELD, SKU_FIELD, STATUS_FIELD]
+        )
+        newly_scraped_candidates = [r for r in refreshed_records if r["id"] not in existing_ids]
+
+        if newly_scraped_candidates:
+            target_record_id = newly_scraped_candidates[0]["id"]
+            fields = newly_scraped_candidates[0].get("fields", {})
+            label = fields.get(ITEM_NAME_FIELD) or fields.get(SKU_FIELD) or target_record_id
+            print(f"[OK] Successfully scraped new product: Record {target_record_id} ({label})")
             ensure_cta_layout_uploaded(airtable, target_record_id, fields)
             ensure_cta_logo_uploaded(airtable, target_record_id, fields)
+        else:
+            incomplete_rec = get_first_incomplete_record(airtable)
+            if incomplete_rec:
+                target_record_id = incomplete_rec["id"]
+                fields = incomplete_rec.get("fields", {})
+                label = fields.get(ITEM_NAME_FIELD) or fields.get(SKU_FIELD) or target_record_id
+                print(f"[INFO] No new Akeneo products scraped. Completing existing row: Record {target_record_id} ({label})...")
+                ensure_cta_layout_uploaded(airtable, target_record_id, fields)
+                ensure_cta_logo_uploaded(airtable, target_record_id, fields)
+            else:
+                print(f"[WARN] No new products scraped from Akeneo and no incomplete records in table.")
+                continue
 
         rec_fetch = airtable.get_record(target_record_id)
         current_fields = rec_fetch.get("fields", {}) if rec_fetch else {}
@@ -1150,6 +1693,7 @@ def run_pipeline(
         # Phase 2: Krea AI Interior Generation (9:16) -> 'CTA Interior'
         if not get_first_field_value(current_fields, INTERIOR_FIELD_FALLBACKS):
             print(f"[INFO] [Phase 2/6] Generating 9:16 Room Interior with Krea AI for Record {target_record_id}...")
+            print(f"[INFO] [Phase 2/6] Active Moodboard: {moodboard_id} | Prompt: \"{interior_prompt}\"")
             ok_phase2 = generate_krea_interiors(
                 krea,
                 airtable,
@@ -1198,23 +1742,34 @@ def run_pipeline(
         current_fields = rec_fetch.get("fields", {}) if rec_fetch else {}
 
         # Phase 5: Claude Sonnet 5 Headline Analysis -> 'Word Generated'
-        if not get_first_field_value(current_fields, WORD_GENERATED_FALLBACKS):
+        word_val_now = get_first_field_value(current_fields, WORD_GENERATED_FALLBACKS)
+        is_stale_default = (
+            word_val_now
+            and clean_headline_text(str(word_val_now)).lower() in ("modern luxury living", "singkwenta dose")
+        )
+        word_was_updated = False
+        if not word_val_now or is_stale_default or force_words:
             print(f"[INFO] [Phase 5/6] Analyzing 'CTA Blended Image' with Claude Sonnet 5 for Record {target_record_id}...")
             ok_phase5 = generate_claude_word_generated(
                 fal_client,
                 airtable,
                 target_record_id=target_record_id,
+                force_refresh=force_words,
             )
             if not ok_phase5:
                 print(f"[ERROR] Phase 5 Claude Headline Analysis failed on Record {target_record_id}.")
                 failures += 1
                 continue
+            word_was_updated = True
 
         rec_fetch = airtable.get_record(target_record_id)
         current_fields = rec_fetch.get("fields", {}) if rec_fetch else {}
 
         # Phase 6: Python Local CTA Layout & Logo Stamping (9:16) -> 'CTA Converted Image' / 'Watermark Added'
-        if not get_first_field_value(current_fields, CONVERTED_FIELD_FALLBACKS):
+        has_converted = get_first_field_value(current_fields, CONVERTED_FIELD_FALLBACKS)
+        if not has_converted or word_was_updated:
+            ensure_cta_layout_uploaded(airtable, target_record_id, current_fields)
+            ensure_cta_logo_uploaded(airtable, target_record_id, current_fields)
             print(f"[INFO] [Phase 6/6] Stamping Logo & CTA Layout (Python Pillow) for Record {target_record_id}...")
             ok_phase6 = run_cta_conversion(
                 base_settings,
@@ -1234,22 +1789,20 @@ def run_pipeline(
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    mode = args.mode
-
-    if mode == "menu":
-        mode = show_menu()
-        if mode == "exit":
-            print("[INFO] Exiting CTA Story Pipeline. Goodbye!")
-            return 0
-
-    return run_pipeline(
-        mode=mode,
-        category_code=args.category,
-        style_code=args.style,
-        custom_prompt=args.prompt,
-        table_id_override=args.table_id,
-        max_items=args.max_items,
-    )
+    try:
+        return run_pipeline(
+            mode=args.mode,
+            category_code=args.category,
+            style_code=args.style,
+            custom_prompt=args.prompt,
+            table_id_override=args.table_id,
+            max_items=args.max_items,
+            force_words=getattr(args, "force_words", False),
+            custom_moodboard_id=getattr(args, "moodboard_id", None),
+        )
+    except KeyboardInterrupt:
+        print("\n[INFO] Exited CTA Story Pipeline. Goodbye!")
+        return 0
 
 
 if __name__ == "__main__":

@@ -12,9 +12,9 @@ from content_automation.errors import AutomationError
 from content_automation.scraping.airtable import ScrapeAirtableClient
 from content_automation.scraping.tips_and_edu import TipsAndEduRunner
 
-DEFAULT_TABLE_ID = "tblEy5batpOObnZ4J"
+DEFAULT_TABLE_ID = "tblQ65S51Dmauwx4c"
 TABLE_PRESETS: dict[str, str] = {
-    "chandeliers": "tblEy5batpOObnZ4J",
+    "chandeliers": "tblQ65S51Dmauwx4c",
     "pendant_lights": "tblIhCP3Gjg09QFCK",
 }
 TABLE_ENV_CHANDELIER = "AIRTABLE_TABLE_ID_TIPS_EDUCATIONAL_FEED"

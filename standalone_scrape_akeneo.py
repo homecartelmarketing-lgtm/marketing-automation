@@ -55,6 +55,17 @@ def parse_args(argv=None):
         default=None,
         help="Override the Airtable destination table ID for this run",
     )
+    parser.add_argument(
+        "--no-shopify-check",
+        action="store_true",
+        default=False,
+        help="Disable Shopify published products cross-check (default: enabled)",
+    )
+    parser.add_argument(
+        "--starting-letter",
+        default=None,
+        help="Starting letter for A-Z sorting cycle",
+    )
     return parser.parse_args(argv)
 
 
@@ -64,6 +75,8 @@ def run_category_scrape(
     items_per_row_override: int | None = None,
     max_items: int | None = None,
     table_id_override: str | None = None,
+    shopify_cross_check: bool = True,
+    starting_letter: str | None = None,
 ) -> bool:
     """Scrape one category. True when nothing failed."""
     settings = load_scrape_settings(
@@ -104,6 +117,8 @@ def run_category_scrape(
         style_code=settings.style_code,
         items_per_row=items_per_row_override,
         max_items=max_items,
+        shopify_cross_check=shopify_cross_check,
+        starting_letter=starting_letter,
     )
     return runner.run()
 
@@ -114,6 +129,8 @@ def run_categories(
     items_per_row_override: int | None = None,
     max_items: int | None = None,
     table_id_override: str | None = None,
+    shopify_cross_check: bool = True,
+    starting_letter: str | None = None,
 ) -> int:
     """Scrape each category in turn, returning a process exit code."""
     failures = 0
@@ -125,6 +142,8 @@ def run_categories(
                 items_per_row_override=items_per_row_override,
                 max_items=max_items,
                 table_id_override=table_id_override,
+                shopify_cross_check=shopify_cross_check,
+                starting_letter=starting_letter,
             ):
                 failures += 1
         except KeyboardInterrupt:
@@ -149,6 +168,8 @@ def main(argv=None) -> int:
         items_per_row_override=args.items_per_row,
         max_items=args.max_items,
         table_id_override=args.table_id,
+        shopify_cross_check=not getattr(args, "no_shopify_check", False),
+        starting_letter=args.starting_letter,
     )
 
 

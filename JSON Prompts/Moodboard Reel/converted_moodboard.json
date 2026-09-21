@@ -1,57 +1,39 @@
 {
-  "task": "Convert the uploaded interior photo into a luxury vertical 3-section material palette board of three realistic close-up texture panels. Use the layout reference only as a structure template.",
+  "task": "Convert any uploaded interior photo, including an image with a furniture, lighting or decor item already blended into the room, into a luxury vertical three-panel material moodboard. Extract realistic close-up details from the actual item and surrounding interior. Render absolutely no text.",
   "aspect_ratio": "9:16 vertical portrait",
-  "style": "luxury material palette board, refined editorial design, realistic tactile textures, minimal typography, soft natural lighting",
   "input_references": {
-    "interior_reference_photo": "Main source for all materials. Identify the strongest finishes, textures and furniture fabrics visible. Do NOT recreate the room scene - convert it into close-up texture panels only.",
-    "layout_reference_photo": "Structure and typography template. Follow its vertical stack of three equal panels and copy its text treatment exactly. Do NOT copy its colors, crops or materials - replace those with textures from the interior photo."
+    "layout_reference": "Use the supplied three-panel moodboard reference ONLY for its equal stacked layout, photographic close-up scale and editorial composition. Ignore all text and decorative lines. Never copy its glass, upholstery, oak or colors unless these are visible in the source interior.",
+    "source_interior": "Use the uploaded room or blended interior image as the source of materials, colors, finishes and object details. If it is the only image supplied, apply the three-panel layout described here.",
+    "featured_item": "Prioritize the furniture, lighting or decor item identified by the user or a separate supplied product reference. When no item is identified, select the most visually prominent furniture or lighting piece. Do not assume you can identify which object was digitally blended.",
+    "optional_product_reference": "If a separate product photo is supplied, use it to preserve the featured item design and surface details; use the interior image for lighting and surrounding material choices."
+  },
+  "material_selection": {
+    "method": "Inspect the featured item and room before choosing three material details. Include at least one close-up of the featured item. Choose remaining details from the item or visible surrounding furnishings and surfaces to form a coherent palette.",
+    "adaptability": "Adapt to any visible item, including a sofa, chair, table, cabinet, bed, chandelier, lamp or decor object. Materials may include fabric, leather, wood, metal, glass, stone, ceramic, rattan or other visibly supported finishes. Upholstery is not mandatory when none is visible.",
+    "fidelity": "Preserve visible colors, grain direction, weave, transparency, reflectivity, seams, curves and construction details. Do not redesign the item or invent unsupported materials.",
+    "fallback": "Prefer three distinct visible materials. If fewer than three are visible, use different close-up details or angles of the available materials rather than inventing new ones."
   },
   "layout": {
     "panel_count": 3,
-    "arrangement": "Three equal horizontal panels stacked top to bottom, each one third of the canvas, split by clean straight divisions with no thick borders.",
-    "composition": "Full bleed. Each panel fills the full canvas width edge-to-edge and touches its neighbours directly, with no outer frame, border, margin or gap anywhere."
+    "arrangement": "Three equal horizontal panels stacked vertically. Each occupies exactly one third of the image height and the entire image width.",
+    "edges": "Full bleed on all four canvas edges. Panels touch directly with clean straight boundaries. No borders, divider strokes, gutters, padding or outer margins.",
+    "framing": "Crop to fill each panel completely. Show photographic material details with natural object curvature and depth, like the reference. Do not recreate a full room, show an entire product, or include a source-image inset."
   },
   "panels": {
-    "top": {
-      "label": "[MATERIAL 01]",
-      "source": "A dominant architectural, decorative, lighting, wall, flooring, stone, wood, metal or glass finish from the interior photo.",
-      "texture": "Realistic close-up preserving surface detail, subtle imperfections, lighting and depth."
-    },
-    "middle": {
-      "label": "[FURNITURE MATERIAL]",
-      "source": "STRICT: must come from a dominant furniture piece - sofa, sectional, lounge or accent chair, bed, headboard, bench, ottoman or dining chair upholstery.",
-      "examples": ["LINEN","BOUCLE","VELVET","LEATHER","WOOL","TWEED","RATTAN","CANE"],
-      "priority": "Pick the furniture material with the largest surface and clearest texture, even if neutral. Never use wall, floor, ceiling, stone, glass, lighting, cabinetry or metal finishes here unless part of the furniture.",
-      "fallback": "If none is visible, use the closest soft furnishing - cushion, throw or rug fiber.",
-      "texture": "Realistic close-up showing weave, upholstery grain, leather texture, boucle loops, velvet nap or fibers."
-    },
-    "bottom": {
-      "label": "[MATERIAL 03]",
-      "source": "Another dominant or complementary material from the interior photo, different from the middle panel.",
-      "texture": "Realistic close-up that feels tactile and premium."
-    }
+    "top": "A close-up of the most distinctive visible material or construction detail of the featured furniture, lighting or decor item.",
+    "middle": "A contrasting tactile detail from the featured item or surrounding furniture. Prefer visible upholstery or woven texture when available; otherwise choose another visibly supported surface.",
+    "bottom": "A complementary visible material from the item or interior, preferably distinct from the first two panels, to complete the palette."
   },
-  "material_labels": "Replace each placeholder with the detected material name. Short uppercase words only, such as GLASS, OAK, LINEN, MARBLE, BRASS, VELVET. Prefer strong texture or color identity.",
-  "typography": {
-    "match_the_reference": "Copy the text treatment of the layout reference image EXACTLY - same weight, same tracking, same label size relative to its panel, same divider length, same vertical placement. This is the highest priority requirement.",
-    "font": "Geometric sans-serif in the style of Poppins. LIGHT to REGULAR weight only - never bold, never heavy.",
-    "size": "Small and understated. The label must never dominate its panel.",
-    "letter_spacing": "Widely tracked out, with clear airy gaps between letters.",
-    "text_transform": "uppercase",
-    "position": "Centered horizontally AND vertically inside its own panel - never near the top or bottom edge.",
-    "divider_line": "One short thin hairline centered directly below the label, clearly SHORTER than the label text - roughly one third of the text width. Never a full-width underline."
+  "photographic_style": "Premium interior editorial macro photography, realistic tactile detail, gentle contrast, soft lighting consistent with the source image, natural shadows and believable reflections. Keep the selected surface in clear focus. Preserve the source color balance without adding an overly warm yellow or orange cast.",
+  "text_policy": {
+    "render_text": false,
+    "instruction": "The entire output must be text-free. Omit all reference labels and underlines. Do not render material names, titles, captions, letters, numbers, logos, watermarks, annotations or symbols. JSON keys and instructions are guidance only and must never appear in the image."
   },
-  "text_color_visibility": {
-    "instruction": "Analyze each panel brightness before applying text, then choose the most readable color.",
-    "rules": [
-      "Dark charcoal or warm brown text on light materials.",
-      "Warm ivory or soft white text on dark materials.",
-      "Never dark text on dark or shadowed textures.",
-      "Never white text on pale or bright reflective surfaces."
-    ],
-    "dark_text": ["#2F2A25","#3F3026","#4A4038"],
-    "light_text": ["#F4EFE7","#F7F2EA","#EDE4D8"]
-  },
-  "visual_style": "Soft natural daylight, gentle contrast, realistic tactile surfaces. Elegant, calm, timeless. All panels from the same interior palette.",
-  "negative_prompt": "No full room scene. No placeholder colors from the layout reference. No material names not visible in the interior photo. NEVER put flooring, wood, stone, glass, lighting or cabinetry in the middle panel - it must be upholstery fabric. No outer frame, white border, margin or gap around or between panels. No bold or heavy text. No underline as wide as or wider than the label text. No missing divider line. No shadow box, scrim or dark band behind the text. No label placed near the top or bottom edge of a panel. No logos, watermarks, captions or extra text. No uneven panel heights. No low-contrast text. No blurred textures. No people or unrelated objects. Not a flat color-block graphic, textures must be realistic."
+  "negative_prompt": "Text, typography, material labels, titles, captions, letters, numbers, logos, watermarks, underlines, decorative lines, panel divider strokes, white borders, outer frames, margins, gaps, padding, letterboxing, source-photo insets, thumbnails, full-room views, whole-product catalog shots, flat color swatches, invented materials, redesigned furniture, copied reference materials absent from the source, excessive warmth, distorted details, smeared textures, people, unrelated objects, uneven panel heights.",
+  "final_check": [
+    "Exactly three equal stacked full-bleed panels in 9:16.",
+    "No text or decorative lines anywhere.",
+    "At least one panel clearly derives from the featured item.",
+    "All selected materials are grounded in the uploaded source images."
+  ]
 }

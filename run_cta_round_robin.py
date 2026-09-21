@@ -25,7 +25,7 @@ import time
 from datetime import datetime
 from typing import Sequence
 
-from generate_cta_story_pipeline import run_pipeline
+from generate_cta_story_pipeline import find_cta_table_by_category, run_pipeline
 
 
 # Verified CTA categories with their human-readable labels
@@ -70,6 +70,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=int,
         default=5,
         help="Delay in seconds between table switches (default: 5s).",
+    )
+    parser.add_argument(
+        "--menu",
+        action="store_true",
+        help="Display interactive round-robin configuration menu.",
     )
     return parser.parse_args(argv)
 
@@ -117,11 +122,17 @@ def run_round_robin(
                 print(f"Executing 1 complete row (Phases 1 -> 6)...")
                 print("-" * 70)
 
+                target_table_id = None
+                found = find_cta_table_by_category(cat_code)
+                if found:
+                    target_table_id = found[0]
+
                 try:
                     # Execute 1 single row end-to-end for this table
                     exit_code = run_pipeline(
                         mode="all",
                         category_code=cat_code,
+                        table_id_override=target_table_id,
                         style_code=style_code,
                         max_items=1,
                     )
@@ -172,8 +183,92 @@ def run_round_robin(
     return 1 if total_failures > 0 else 0
 
 
+def show_round_robin_menu() -> tuple[list[str], int, bool, int, bool]:
+    """Display interactive console menu for CTA Story Round-Robin automation."""
+    print("\n" + "=" * 68)
+    print("      CTA STORY MULTI-TABLE ROUND-ROBIN ORCHESTRATOR MENU      ")
+    print("=" * 68)
+    print(" Target Tables available:")
+    for idx, (cat_code, cat_name) in enumerate(DEFAULT_CTA_CATEGORIES, 1):
+        print(f"  [{idx}] {cat_name} (`{cat_code}`)")
+    print("=" * 68)
+    print(" Select execution mode:\n")
+    print(" [1] 1 Round across all 5 CTA Tables (1 complete row each)")
+    print(" [2] Custom Number of Rounds across all tables")
+    print(" [3] Continuous Infinite Loop (Ctrl+C to stop)")
+    print(" [4] Select Specific Subset of Tables to cycle through")
+    print(" [5] Launch Single-Table CTA Story Pipeline Menu")
+    print(" [0] Exit\n")
+
+    while True:
+        choice = input(" Enter choice [0-5] (default: 1): ").strip()
+        if not choice:
+            choice = "1"
+
+        if choice in ("0", "q", "exit", "quit"):
+            print("[INFO] Exiting Round-Robin Menu. Goodbye!")
+            sys.exit(0)
+
+        elif choice == "1":
+            return [c for c, _ in DEFAULT_CTA_CATEGORIES], 1, False, 5, False
+
+        elif choice == "2":
+            num_str = input(" Enter number of rounds to run [default: 2]: ").strip()
+            rounds = int(num_str) if num_str.isdigit() and int(num_str) > 0 else 2
+            delay_str = input(" Inter-table delay in seconds [default: 5]: ").strip()
+            delay = int(delay_str) if delay_str.isdigit() else 5
+            return [c for c, _ in DEFAULT_CTA_CATEGORIES], rounds, False, delay, False
+
+        elif choice == "3":
+            delay_str = input(" Inter-table delay in seconds [default: 5]: ").strip()
+            delay = int(delay_str) if delay_str.isdigit() else 5
+            return [c for c, _ in DEFAULT_CTA_CATEGORIES], 1, True, delay, False
+
+        elif choice == "4":
+            print("\n Select tables to include (comma-separated numbers, e.g. '1,3,4'):")
+            for idx, (cat_code, cat_name) in enumerate(DEFAULT_CTA_CATEGORIES, 1):
+                print(f"  [{idx}] {cat_name}")
+            sub_choice = input(" Choice: ").strip()
+            selected = []
+            for part in sub_choice.split(","):
+                part = part.strip()
+                if part.isdigit():
+                    idx = int(part)
+                    if 1 <= idx <= len(DEFAULT_CTA_CATEGORIES):
+                        selected.append(DEFAULT_CTA_CATEGORIES[idx - 1][0])
+            if not selected:
+                print("[WARN] No valid tables selected. Using all tables.")
+                selected = [c for c, _ in DEFAULT_CTA_CATEGORIES]
+
+            rounds_str = input(" Number of rounds (or 'inf' for infinite) [default: 1]: ").strip().lower()
+            is_inf = rounds_str in ("inf", "infinite")
+            rounds = 1 if is_inf else (int(rounds_str) if rounds_str.isdigit() and int(rounds_str) > 0 else 1)
+            delay_str = input(" Inter-table delay in seconds [default: 5]: ").strip()
+            delay = int(delay_str) if delay_str.isdigit() else 5
+            return selected, rounds, is_inf, delay, False
+
+        elif choice == "5":
+            return [], 0, False, 0, True
+
+        print("[WARN] Invalid option. Please enter 0 to 5.")
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
+
+    if args.menu or (argv is None and len(sys.argv) == 1 and sys.stdin.isatty()):
+        categories, rounds, infinite, delay, open_pipeline = show_round_robin_menu()
+        if open_pipeline:
+            from generate_cta_story_pipeline import run_pipeline
+            return run_pipeline(mode="menu")
+        return run_round_robin(
+            categories=categories,
+            total_rounds=rounds,
+            is_infinite=infinite,
+            style_code=args.style,
+            delay_seconds=delay,
+        )
+
     return run_round_robin(
         categories=args.categories,
         total_rounds=args.rounds,

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ..akeneo_client import split_item_name
+from ..item_tagger import TARGET_BLENDED_FIELD, tag_and_upload_blended_image
 from ..models import AssetRequirement, CallEstimate
 from .base import BaseWorkflow
 
@@ -49,12 +51,47 @@ class CtaStoryWorkflow(BaseWorkflow):
             "cta_blended_input",
         )
 
+        # Auto-tag furniture item name onto 9:16 Story blended photos using zero-cost local YOLO-World (with fallback)
+        anchor = self.ctx.anchor
+        try:
+            raw_item_name = str(anchor.fields.get("Item Name") or anchor.fields.get("SKU") or anchor.record_id).strip()
+            item_title, product_type = split_item_name(
+                raw_item_name, fallback_product_type=str(anchor.fields.get("Product Type") or "")
+            )
+            print(f"\n [ITEM TAGGING] Stamping item name ('{item_title}') onto Blended Image -> '{TARGET_BLENDED_FIELD}'...")
+            tag_and_upload_blended_image(
+                airtable=self.ctx.airtable,
+                record_id=anchor.record_id,
+                blended_source=blend.path,
+                item_name=item_title,
+                product_type=product_type,
+                category=str(self.ctx.definition.table_code or "chandeliers"),
+                target_field=TARGET_BLENDED_FIELD,
+                output_filename_prefix="cta_story_tagged",
+                fallback_if_undetected=True,
+            )
+        except Exception as tag_err:
+            print(f"  [WARN] Failed auto-tagging item name onto CTA Story photos: {tag_err}")
+
+        # Use tagged blend for final layout conversion if available
+        conversion_blend = attached_blend
+        if anchor.record_id:
+            try:
+                tagged_attachment = self.refreshed_record_attachment(
+                    TARGET_BLENDED_FIELD,
+                    "cta_tagged_blend_input",
+                )
+                if tagged_attachment:
+                    conversion_blend = tagged_attachment
+            except Exception:
+                pass
+
         final = self.nano_image(
             "cta_blended_image.jpg",
             self.prompt("CTA.json"),
             # CTA.json defines the blended scene as the first uploaded image
             # and the poster layout as the second reference image.
-            [attached_blend, layout],
+            [conversion_blend, layout],
             aspect_ratio="9:16",
         )
         final_field = (

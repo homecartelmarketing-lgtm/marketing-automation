@@ -9,7 +9,7 @@ Runs the complete end-to-end workflow for Before & After Reels:
 6. Compiles Slideshow Video Reel with Centered Typography & Exports to Google Drive ('Slide Show Before and After Reel', Status: 'Complete')
 
 Supported Destination Tables:
-- Floor Lamp Before & After Reel: tbl2VoWOt7sSut4E2 (Category: floor_lamps)
+- Floor Lamp Before & After Reel: tblVPgI4C6HEFcKW9 (Category: floor_lamps)
 - Pendant Light Before & After Reel: tbleUP86Kw36G8Hdw (Category: pendant_lights)
 - Chandelier Before & After Reel: tbloMhCOngGDWFS2y (Category: chandeliers)
 
@@ -38,12 +38,11 @@ from content_automation.scraping import (
 )
 from content_automation.scraping.categories import moodboard_id_for_category
 from generate_before_after_reel_pipeline import (
+    TERMINAL_AND_PROTECTED_STATUSES,
     generate_claude_blending_prompts,
     generate_krea_interiors_pipeline,
     generate_multiple_angles_pipeline,
     generate_nano_banana_pro_blends,
-    generate_qwen_blending_prompts,
-    generate_qwen_image_blends,
     generate_slideshow_reels_pipeline,
 )
 
@@ -90,6 +89,11 @@ def parse_args(argv=None):
         help="Krea Moodboard ID override",
     )
     parser.add_argument(
+        "--interior-prompt",
+        default=None,
+        help="Krea interior generation prompt override",
+    )
+    parser.add_argument(
         "--no-cross-dedup",
         action="store_true",
         help="Disable base-wide cross-table deduplication (check current table only)",
@@ -108,6 +112,16 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
+def resolve_interior_prompt(reel_config: dict, override: str | None = None) -> str:
+    """Prefer a Studio/CLI prompt override over the table preset."""
+    return (override or "").strip() or str(
+        reel_config.get(
+            "interior_prompt",
+            "Generate me a modern bedroom that have beside a floor lamp",
+        )
+    ).strip()
+
+
 def run_pipeline_for_table(
     krea: KreaClient,
     fal: FalClient,
@@ -116,41 +130,45 @@ def run_pipeline_for_table(
     interior_prompt: str,
     placement_rule: str = "",
     max_items: int | None = None,
+    record_ids: list[str] | None = None,
 ) -> bool:
     """Run all 5 AI pipeline phases (Interior -> Claude Sonnet 5 Prompt -> Nano Banana Pro Blend -> Multiple Angles -> Slideshow Video) on Airtable records."""
     success = True
     print("\n[AI PIPELINE PHASE 1/5] Krea AI Room Interior Generation (Before Image)...")
-    if not generate_krea_interiors_pipeline(krea, airtable, moodboard_id=moodboard_id, prompt=interior_prompt, limit_records=max_items):
+    if not generate_krea_interiors_pipeline(krea, airtable, moodboard_id=moodboard_id, prompt=interior_prompt, limit_records=max_items, record_ids=record_ids):
         success = False
 
     print("\n[AI PIPELINE PHASE 2/5] Fal AI Claude Sonnet 5 Blending Prompt Generation...")
-    if not generate_claude_blending_prompts(fal, airtable, placement_rule=placement_rule, limit_records=max_items):
+    if not generate_claude_blending_prompts(fal, airtable, placement_rule=placement_rule, limit_records=max_items, record_ids=record_ids):
         success = False
 
     print("\n[AI PIPELINE PHASE 3/5] Fal AI Nano Banana Pro Image Blending (After Image)...")
-    if not generate_nano_banana_pro_blends(fal, airtable, limit_records=max_items):
+    if not generate_nano_banana_pro_blends(fal, airtable, limit_records=max_items, record_ids=record_ids):
         success = False
 
     print("\n[AI PIPELINE PHASE 4/5] Fal AI Multiple Angle Generation (4 Angles)...")
-    if not generate_multiple_angles_pipeline(fal, airtable, limit_records=max_items):
+    if not generate_multiple_angles_pipeline(fal, airtable, limit_records=max_items, record_ids=record_ids):
         success = False
 
     print("\n[AI PIPELINE PHASE 5/5] Slideshow Reel Video Generation & Google Drive Export...")
-    if not generate_slideshow_reels_pipeline(fal, airtable, limit_records=max_items):
+    if not generate_slideshow_reels_pipeline(fal, airtable, limit_records=max_items, record_ids=record_ids):
         success = False
 
     return success
 
 
 def count_incomplete_records(airtable: ScrapeAirtableClient) -> int:
-    """Count records in Airtable that have not reached 'Complete' status."""
-    records = airtable.list_records(["Status"])
+    """Count records in Airtable that genuinely require processing and are not terminal/completed."""
+    records = airtable.list_records(["Status", "Slide Show Before and After Reel"])
     incomplete = 0
     for record in records:
         fields = record.get("fields", {})
         status = str(fields.get("Status") or "").strip().casefold()
-        if status not in ("complete", "done"):
-            incomplete += 1
+        if status in TERMINAL_AND_PROTECTED_STATUSES or "complete" in status or "error" in status:
+            continue
+        if bool(fields.get("Slide Show Before and After Reel")):
+            continue
+        incomplete += 1
     return incomplete
 
 
@@ -180,10 +198,7 @@ def main(argv=None) -> int:
         or reel_config.get("default_moodboard_id", "")
         or moodboard_id_for_category(akeneo_cat)
     )
-    interior_prompt = reel_config.get(
-        "interior_prompt",
-        "Generate me a modern bedroom that have beside a floor lamp",
-    )
+    interior_prompt = resolve_interior_prompt(reel_config, args.interior_prompt)
     placement_rule = reel_config.get("placement_rule", "")
 
     settings = load_scrape_settings(
@@ -240,7 +255,7 @@ def main(argv=None) -> int:
             overall_success = False
         print(f"\n[INFO] Finished processing existing incomplete row(s). Skipping new Akeneo scrape to save API credits.")
     else:
-        print("\n[AIRTABLE CLEAN] All existing rows in Airtable are 100% Complete! Scraping 1 new item from Akeneo...")
+        print(f"\n[AIRTABLE CLEAN] All existing rows in Airtable are 100% Complete! Scraping {args.max_items} new item(s) from Akeneo...")
         runner = FurnitureItemScrapeRunner(
             akeneo,
             airtable,
@@ -258,7 +273,8 @@ def main(argv=None) -> int:
             price_pool_size=args.price_pool_size,
         )
         if runner.run():
-            print(f"\n[NEW ITEM AI PIPELINE] Processing newly scraped item(s) through full AI pipeline...")
+            target_record_ids = runner.created_record_ids if runner.created_record_ids else None
+            print(f"\n[NEW ITEM AI PIPELINE] Processing {len(target_record_ids) if target_record_ids else 'newly scraped'} item(s) through full AI pipeline...")
             if not run_pipeline_for_table(
                 krea,
                 fal,
@@ -267,6 +283,7 @@ def main(argv=None) -> int:
                 interior_prompt,
                 placement_rule=placement_rule,
                 max_items=args.max_items,
+                record_ids=target_record_ids,
             ):
                 overall_success = False
         else:

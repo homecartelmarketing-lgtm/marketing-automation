@@ -6,10 +6,12 @@ from pathlib import Path
 from typing import Any
 import uuid
 
+from .akeneo_client import split_item_name
 from .assets import AssetCatalog
 from .config import Settings
 from .errors import AssetValidationError
 from .fal_client import FalClient
+from .item_tagger import TARGET_BLENDED_FIELD, tag_blended_image
 from .overlay import (
     CTA_STORY_TEXT_BOX,
     HOMECARTEL_STORY_LOGO_BOX,
@@ -23,6 +25,13 @@ from .scraping.airtable import ScrapeAirtableClient
 
 
 CTA_TABLE_ID = "tblYHdVq14FjMWg5o"
+TABLE_CATEGORY_MAP: dict[str, str] = {
+    "tblyhdvq14fjmwg5o": "chandeliers",
+    "tblfl7fqfza2vuieb": "pendant_lights",
+    "tblspgjlo3fayfidy": "chandeliers",
+    "tblkjeccp4zq6g7em": "table_lamps",
+    "tblpksyyjgbgmype2": "floor_lamps",
+}
 SOURCE_FIELD = "CTA Blended Image"
 SOURCE_FIELD_FALLBACKS = ["CTA Blended Image", "CTA Blended", "CTA Interior", "CTA Interior Image", "Interior", "Interior Image"]
 LAYOUT_FIELD = "CTA Blended Image Watermark Layout"
@@ -35,11 +44,11 @@ LAYOUT_FIELD_FALLBACKS = [
 LOGO_FIELD = "Logo"
 LOGO_FIELD_FALLBACKS = [
     "Logo",
+    "HomeCartel Logo",
     "Brand Logo",
-    "Watermark",
+    "Watermark Logo",
     "Logo Image",
-    "CTA Blended Image Watermark Layout",
-    "Watermark Layout",
+    "Watermark",
 ]
 WORD_GENERATED_FIELD = "Word Generated"
 WORD_GENERATED_FALLBACKS = [
@@ -129,7 +138,7 @@ def run_cta_conversion(
             + LOGO_FIELD_FALLBACKS
             + WORD_GENERATED_FALLBACKS
             + OUTPUT_FIELD_FALLBACKS
-            + ["Furniture Item", "Item Name", "SKU", "Status"]
+            + [TARGET_BLENDED_FIELD, "Furniture Item", "Item Name", "SKU", "Product Type", "Category", "Status"]
         )
     )
     records = sorted(
@@ -254,10 +263,15 @@ def run_cta_conversion(
             # If this record does not have a Logo attached yet, upload it
             if not _get_first_field_value(fields, LOGO_FIELD_FALLBACKS) and logo_path and Path(logo_path).is_file():
                 try:
-                    target_logo_field = _get_first_field_name(fields, LOGO_FIELD_FALLBACKS)
+                    target_logo_field = (
+                        (getattr(client, "find_field_name", lambda n: None)("Logo") if hasattr(client, "find_field_name") else None)
+                        or _get_first_field_name(fields, LOGO_FIELD_FALLBACKS)
+                        or "Logo"
+                    )
                     client.upload_attachment(record_id, target_logo_field, Path(logo_path), "homecartel_logo.png")
-                except Exception:
-                    pass
+                    print(f"  [OK] Auto-attached 'homecartel_logo.png' -> '{target_logo_field}' for record {record_id}")
+                except Exception as logo_err:
+                    print(f"  [WARN] Failed auto-attaching logo for record {record_id}: {logo_err}")
 
             headline_text = str(
                 _get_first_field_value(fields, WORD_GENERATED_FALLBACKS)
@@ -266,9 +280,45 @@ def run_cta_conversion(
                 or "Singkwenta Dose"
             ).strip()
 
+            raw_item_name = str(fields.get("Item Name") or fields.get("SKU") or record_id).strip()
+            item_title, product_type = split_item_name(
+                raw_item_name, fallback_product_type=str(fields.get("Product Type") or "")
+            )
+            cat_code = str(fields.get("Category") or "").strip().lower().replace(" ", "_")
+            if not cat_code:
+                cat_code = TABLE_CATEGORY_MAP.get(str(table_id or "").lower().strip(), "chandeliers")
+
+            # Auto-tag furniture item name onto blended scene using zero-cost local YOLO-World (with Upper/Mid-Left fallback)
+            tagged_blend_path = output_root / f"{record_id}_cta_tagged_blend.jpg"
+            source_to_stamp = source_path
+            try:
+                tagged_img, _ = tag_blended_image(
+                    image_input=source_path,
+                    item_name=item_title,
+                    product_type=product_type,
+                    category=cat_code,
+                    destination=tagged_blend_path,
+                    fallback_if_undetected=True,
+                )
+                if tagged_blend_path.is_file():
+                    source_to_stamp = tagged_blend_path
+                    # Upload to 'Blended Image with Name text' if target field exists/ensured
+                    try:
+                        client.ensure_fields({TARGET_BLENDED_FIELD: "multipleAttachments"})
+                        client.upload_attachment(
+                            record_id,
+                            TARGET_BLENDED_FIELD,
+                            tagged_blend_path,
+                            f"cta_tagged_{record_id}.jpg",
+                        )
+                    except Exception:
+                        pass
+            except Exception as tag_err:
+                source_to_stamp = source_path
+
             output_path = output_root / f"{record_id}_cta_converted.jpg"
             stamp_cta_story_watermark_and_logo(
-                source_path,
+                source_to_stamp,
                 logo_path=logo_path,
                 item_name=headline_text,
                 destination=output_path,

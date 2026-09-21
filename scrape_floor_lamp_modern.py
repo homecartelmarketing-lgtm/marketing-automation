@@ -49,6 +49,11 @@ def parse_args(argv=None):
         help="Upload at most N new product images",
     )
     parser.add_argument(
+        "--starting-letter",
+        default=None,
+        help="Starting letter for A-Z sorting cycle",
+    )
+    parser.add_argument(
         "--table-id",
         default=DEFAULT_TABLE_ID,
         help=f"Airtable destination table ID (default: {DEFAULT_TABLE_ID})",

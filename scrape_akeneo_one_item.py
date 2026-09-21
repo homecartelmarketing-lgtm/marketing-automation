@@ -39,6 +39,11 @@ def parse_args(argv=None):
         help="Upload at most N new products in the entire run",
     )
     parser.add_argument(
+        "--starting-letter",
+        default=None,
+        help="Starting letter for A-Z sorting cycle",
+    )
+    parser.add_argument(
         "--table-id",
         default=None,
         help="Override the Airtable destination table ID for this run",

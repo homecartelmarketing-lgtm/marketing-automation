@@ -1,6 +1,6 @@
 """Scrape products from Akeneo into Airtable for Chandelier Day & Night Reel (Before & After Reel).
 
-Destination: ``tbl2VoWOt7sSut4E2`` (or override via --table-id or env)
+Destination: ``tblVPgI4C6HEFcKW9`` (or override via --table-id or env)
 Writable fields: ``Furniture Item``, ``Item Name``, ``SKU``, ``Status`` ("Standby")
 
 Each Akeneo product gets its own Airtable record:
@@ -57,7 +57,7 @@ def parse_args(argv=None):
         "-t",
         choices=["chandeliers", "floor_lamps", "pendant_lights"],
         default=None,
-        help="Target table: chandeliers (tblODnfaNVP6SXn0A), floor_lamps (tbl2VoWOt7sSut4E2), or pendant_lights (tbleUP86Kw36G8Hdw)",
+        help="Target table: chandeliers (tblODnfaNVP6SXn0A), floor_lamps (tblVPgI4C6HEFcKW9), or pendant_lights (tbleUP86Kw36G8Hdw)",
     )
     parser.add_argument(
         "--category",
@@ -78,6 +78,11 @@ def parse_args(argv=None):
         default=None,
         metavar="N",
         help="Upload at most N new product images in total",
+    )
+    parser.add_argument(
+        "--starting-letter",
+        default=None,
+        help="Starting letter for A-Z sorting cycle",
     )
     parser.add_argument(
         "--table-id",
@@ -127,6 +132,10 @@ def main(argv=None) -> int:
         settings.airtable_base_id,
         settings.airtable_table_id,
     )
+    try:
+        airtable.ensure_fields({"Outro": "multipleAttachments"})
+    except Exception as field_err:
+        print(f"[WARN] Schema check for 'Outro' field note: {field_err}")
 
     overall_success = True
     items_remaining = args.max_items
@@ -148,6 +157,11 @@ def main(argv=None) -> int:
         )
         if not runner.run():
             overall_success = False
+        try:
+            print("[INFO] Checking and backfilling missing 'Outro' attachments on existing records...")
+            runner.backfill_missing_layouts()
+        except Exception as backfill_err:
+            print(f"[WARN] Outro backfill note: {backfill_err}")
 
     if args.generate_interior:
         print("\n" + "=" * 64)

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import os
 import sys
 from pathlib import Path
 
+from content_automation.airtable_client import fetch_multiple_tables_status_breakdown
 from content_automation.errors import AutomationError
 from content_automation.isolated_config import IsolatedAutomationSettings
 from content_automation.phased_content import (
@@ -19,7 +21,8 @@ from content_automation.phased_content import (
     TIPS_EDU_STORY_FLOOR_LAMP,
     TIPS_EDU_STORY_PENDANT,
     TIPS_EDU_STORY_TABLE_LAMP,
-    TIPS_EDU_STORY_PIPELINES,
+    TIPS_EDU_STORY_PIPELINES,   
+    apply_tips_edu_story_settings,
 )
 
 TIPS_EDU_STORY_PRESETS: list[tuple[str, PipelineDefinition]] = [
@@ -32,69 +35,117 @@ TIPS_EDU_STORY_PRESETS: list[tuple[str, PipelineDefinition]] = [
 ]
 
 
+def get_tips_edu_story_presets(workspace: Path | None = None) -> list[tuple[str, PipelineDefinition]]:
+    """Return active presets with any overrides from settings.json applied."""
+    return [
+        (label, apply_tips_edu_story_settings(defn, workspace=workspace))
+        for label, defn in TIPS_EDU_STORY_PRESETS
+    ]
+
+
 def resolve_tips_edu_story_pipeline(
     target_arg: str | None = None,
     table_id_arg: str | None = None,
     prompt_if_interactive: bool = True,
+    workspace: Path | None = None,
 ) -> PipelineDefinition:
     """Resolve which Tips & Edu Story destination table/category to run."""
+    presets = get_tips_edu_story_presets(workspace)
+
     # 1. Check table_id_arg first
     if table_id_arg:
         tid = table_id_arg.strip()
+        for _, defn in presets:
+            if defn.table_id.lower() == tid.lower():
+                return defn
         if tid in TIPS_EDU_STORY_PIPELINES:
-            return TIPS_EDU_STORY_PIPELINES[tid]
-        return dataclasses.replace(TIPS_EDU_STORY_PENDANT, table_id=tid)
+            return apply_tips_edu_story_settings(TIPS_EDU_STORY_PIPELINES[tid], workspace)
+        return apply_tips_edu_story_settings(dataclasses.replace(TIPS_EDU_STORY_PENDANT, table_id=tid), workspace)
 
     # 2. Check target_arg
     if target_arg:
         raw = target_arg.strip().lower()
-        if raw in ("1", "pendant_lights", "pendant_light", "pendant", "tblwnfn5a8flzkup4"):
-            return TIPS_EDU_STORY_PENDANT
-        if raw in ("2", "floor_lamps", "floor_lamp", "floor", "tbljxwzexgbhl26b"):
-            return TIPS_EDU_STORY_FLOOR_LAMP
-        if raw in ("3", "chandeliers", "chandelier", "tblpfiann1ym9fttk"):
-            return TIPS_EDU_STORY_CHANDELIER
-        if raw in ("4", "ceiling_mounted", "ceiling", "ceiling_light", "ceiling_lights", "tblglribuzxb9r3gt"):
-            return TIPS_EDU_STORY_CEILING_MOUNTED
-        if raw in ("5", "table_lamps", "table_lamp", "table", "tblztenqildaeklv2"):
-            return TIPS_EDU_STORY_TABLE_LAMP
-        if raw in ("6", "cluster_chandeliers", "cluster_chandelier", "cluster", "tbllzke2prsyj9bad"):
-            return TIPS_EDU_STORY_CLUSTER_CHANDELIER
+        if raw in ("1", "pendant_lights", "pendant_light", "pendant") or (presets[0][1].table_id.lower() == raw):
+            return presets[0][1]
+        if raw in ("2", "floor_lamps", "floor_lamp", "floor") or (presets[1][1].table_id.lower() == raw):
+            return presets[1][1]
+        if raw in ("3", "chandeliers", "chandelier") or (presets[2][1].table_id.lower() == raw):
+            return presets[2][1]
+        if raw in ("4", "ceiling_mounted", "ceiling", "ceiling_light", "ceiling_lights") or (presets[3][1].table_id.lower() == raw):
+            return presets[3][1]
+        if raw in ("5", "table_lamps", "table_lamp", "table") or (presets[4][1].table_id.lower() == raw):
+            return presets[4][1]
+        if raw in ("6", "cluster_chandeliers", "cluster_chandelier", "cluster") or (presets[5][1].table_id.lower() == raw):
+            return presets[5][1]
+        for _, defn in presets:
+            if defn.category_code.lower() == raw or defn.table_id.lower() == raw:
+                return defn
         if raw in TIPS_EDU_STORY_PIPELINES:
-            return TIPS_EDU_STORY_PIPELINES[raw]
+            return apply_tips_edu_story_settings(TIPS_EDU_STORY_PIPELINES[raw], workspace)
 
     # 3. Interactive prompt
     if prompt_if_interactive:
-        print("\n" + "=" * 64)
-        print("Select Tips & Edu Story Destination Table:")
-        print("=" * 64)
-        for idx, (label, defn) in enumerate(TIPS_EDU_STORY_PRESETS, start=1):
+        token = os.getenv("AIRTABLE_TOKEN") or ""
+        base_id = os.getenv("AIRTABLE_BASE_ID") or ""
+        if not (token and base_id):
+            try:
+                settings_temp = IsolatedAutomationSettings.load("tips_edu_story", workspace=workspace)
+                token = settings_temp.airtable_token or token
+                base_id = settings_temp.airtable_base_id or base_id
+            except Exception:
+                pass
+
+        table_ids = [defn.table_id for _, defn in presets if defn.table_id]
+        status_map: dict[str, dict[str, int]] = {}
+        if token and base_id and table_ids:
+            try:
+                status_map = fetch_multiple_tables_status_breakdown(token, base_id, table_ids, max_workers=6)
+            except Exception:
+                pass
+
+        print("\n" + "=" * 68)
+        print("          SELECT TIPS & EDU STORY DESTINATION TABLE")
+        print("=" * 68)
+        for idx, (label, defn) in enumerate(presets, start=1):
+            prompt_str = defn.interior_prompt or (defn.interior_prompts[0] if defn.interior_prompts else "N/A")
+            st = status_map.get(defn.table_id)
+            if st:
+                status_line = f"P: {st['P']} | C: {st['C']} | D: {st['D']} | FM: {st['FM']} (Completed: {st['P'] + st['C']})"
+            else:
+                status_line = "P: - | C: - | D: - | FM: -"
+
             print(f"  [{idx}] {label}")
-            print(f"      Table ID: {defn.table_id} | Category: {defn.category_code}")
+            print(f"      Table ID:  {defn.table_id}")
+            print(f"      Category:  {defn.category_code}")
             print(f"      Moodboard: {defn.moodboard_id}")
-        print("=" * 64)
+            print(f"      Prompt:    \"{prompt_str}\"")
+            print(f"      Status:    {status_line}\n")
+        print("=" * 68)
         try:
-            choice = input(f"Enter choice [1-{len(TIPS_EDU_STORY_PRESETS)}] (default: 1): ").strip().lower()
+            choice = input(f"Enter choice [1-{len(presets)}] (default: 1): ").strip().lower()
             if choice:
-                if choice in ("1", "pendant_lights", "pendant_light", "pendant", "tblwnfn5a8flzkup4"):
-                    return TIPS_EDU_STORY_PENDANT
-                if choice in ("2", "floor", "floor_lamp", "floor_lamps", "tbljxwzexgbhl26b"):
-                    return TIPS_EDU_STORY_FLOOR_LAMP
-                if choice in ("3", "chandelier", "chandeliers", "tblpfiann1ym9fttk"):
-                    return TIPS_EDU_STORY_CHANDELIER
-                if choice in ("4", "ceiling", "ceiling_mounted", "ceiling_light", "ceiling_lights", "tblglribuzxb9r3gt"):
-                    return TIPS_EDU_STORY_CEILING_MOUNTED
-                if choice in ("5", "table", "table_lamp", "table_lamps", "tblztenqildaeklv2"):
-                    return TIPS_EDU_STORY_TABLE_LAMP
-                if choice in ("6", "cluster", "cluster_chandelier", "cluster_chandeliers", "tbllzke2prsyj9bad"):
-                    return TIPS_EDU_STORY_CLUSTER_CHANDELIER
+                if choice in ("1", "pendant_lights", "pendant_light", "pendant") or (presets[0][1].table_id.lower() == choice):
+                    return presets[0][1]
+                if choice in ("2", "floor", "floor_lamp", "floor_lamps") or (presets[1][1].table_id.lower() == choice):
+                    return presets[1][1]
+                if choice in ("3", "chandelier", "chandeliers") or (presets[2][1].table_id.lower() == choice):
+                    return presets[2][1]
+                if choice in ("4", "ceiling", "ceiling_mounted", "ceiling_light", "ceiling_lights") or (presets[3][1].table_id.lower() == choice):
+                    return presets[3][1]
+                if choice in ("5", "table", "table_lamp", "table_lamps") or (presets[4][1].table_id.lower() == choice):
+                    return presets[4][1]
+                if choice in ("6", "cluster", "cluster_chandelier", "cluster_chandeliers") or (presets[5][1].table_id.lower() == choice):
+                    return presets[5][1]
+                for _, defn in presets:
+                    if defn.category_code.lower() == choice or defn.table_id.lower() == choice:
+                        return defn
                 if choice in TIPS_EDU_STORY_PIPELINES:
-                    return TIPS_EDU_STORY_PIPELINES[choice]
-            return TIPS_EDU_STORY_PENDANT
+                    return apply_tips_edu_story_settings(TIPS_EDU_STORY_PIPELINES[choice], workspace)
+            return presets[0][1]
         except (EOFError, KeyboardInterrupt):
             pass
 
-    return TIPS_EDU_STORY_PENDANT
+    return presets[0][1]
 
 
 def parse_args(argv=None):
@@ -143,6 +194,17 @@ def parse_args(argv=None):
         type=Path,
         help="Optional path to the isolated Tips & Edu environment file.",
     )
+    parser.add_argument(
+        "--moodboard-id",
+        default=None,
+        help="Optional custom Krea Moodboard ID override.",
+    )
+    parser.add_argument(
+        "--prompt",
+        "-p",
+        default=None,
+        help="Optional custom Krea interior generation prompt override.",
+    )
     return parser.parse_args(argv)
 
 
@@ -154,7 +216,12 @@ def main(argv=None) -> int:
         target_arg=args.target,
         table_id_arg=args.table_id,
         prompt_if_interactive=True,
+        workspace=settings.workspace,
     )
+    if args.moodboard_id and args.moodboard_id.strip():
+        pipeline = dataclasses.replace(pipeline, moodboard_id=args.moodboard_id.strip())
+    if args.prompt and args.prompt.strip():
+        pipeline = dataclasses.replace(pipeline, interior_prompt=args.prompt.strip())
     print("=" * 64)
     print(f"Starting Tips & Edu Story: {pipeline.category_code}")
     print(f"Destination Table: {settings.airtable_base_id} / {pipeline.table_id}")

@@ -347,11 +347,25 @@ class AirtableClient:
         self,
         record_id: str,
         field_name: str,
-        image: LocalImage,
+        image: Any,
+        filename: str | None = None,
     ) -> None:
-        if not image.path.is_file():
-            raise FileNotFoundError(image.path)
-        content_type = image.content_type or mimetypes.guess_type(image.filename)[0] or "image/jpeg"
+        if isinstance(image, LocalImage):
+            local_img = LocalImage(image.path, filename or image.filename, image.content_type)
+        elif hasattr(image, "path"):
+            img_path = Path(image.path)
+            img_filename = filename or getattr(image, "filename", img_path.name)
+            content_type = getattr(image, "content_type", None) or mimetypes.guess_type(img_filename)[0] or "image/jpeg"
+            local_img = LocalImage(img_path, img_filename, content_type)
+        else:
+            img_path = Path(image)
+            img_filename = filename or img_path.name
+            content_type = mimetypes.guess_type(img_filename)[0] or "image/jpeg"
+            local_img = LocalImage(img_path, img_filename, content_type)
+
+        if not local_img.path.is_file():
+            raise FileNotFoundError(local_img.path)
+        content_type = local_img.content_type or mimetypes.guess_type(local_img.filename)[0] or "image/jpeg"
         encoded_field = quote(field_name, safe="")
         url = (
             f"{self.CONTENT_BASE}/{self.base_id}/{record_id}/"
@@ -359,12 +373,12 @@ class AirtableClient:
         )
         payload = {
             "contentType": content_type,
-            "file": base64.b64encode(image.path.read_bytes()).decode("ascii"),
-            "filename": image.filename,
+            "file": base64.b64encode(local_img.path.read_bytes()).decode("ascii"),
+            "filename": local_img.filename,
         }
         response = self._request("POST", url, json=payload)
         if not response.ok:
-            raise response_error(response, f"Upload {image.filename} to {field_name}")
+            raise response_error(response, f"Upload {local_img.filename} to {field_name}")
 
     def set_attachment_ids(
         self,

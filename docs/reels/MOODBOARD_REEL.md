@@ -22,12 +22,11 @@ The **Moodboard Reel Automation Pipeline** generates high-end **9:16 vertical vi
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Phase 1** | **Akeneo 4-Product Scrape** | Akeneo PIM API | Active Ingestion (`enabled=true`) + cross-table dedup | Akeneo Catalog | `Furniture Item1..4`, `Item Name1..4` -> Status: `Standby` |
 | **Phase 2** | **Krea Room Interiors** | Krea AI | `krea-2-medium` (9:16, 1K)<br>Moodboard: `de6ad512-870d-4ab7-a48c-3f3ca85faf24` | 4 Room Prompts | `Interior1..4` -> Status: `Already attached a room Interior` |
-| **Phase 2.5** | **Claude Vision Prompting** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | 4 Interiors + 4 Products | `Prompt1..4` -> Status: `Processing` |
-| **Phase 3** | **Nano Banana Pro Blending** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | Interiors + Products + Prompts | `Moodboard Blended` (4 images) |
+| **Phase 2.5** | **Claude Vision Prompting + Unique Materials** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | 4 Furniture Products (1 row-level call) + 4 Interiors + 4 Products | `Texture1..12` (12 globally-unique material words, never repeating) + `Prompt1..4` (materials conveyed visually in the blend prompt) -> Status: `Processing` |
+| **Phase 3** | **Nano Banana Pro Blending** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | Interiors + Products + Prompts | `Moodboard Blended` (4 images) + YOLO item-name tags on blends -> `Blended Image with Name text` |
 | **Phase 4** | **3-Panel Moodboard Conversion**| Fal AI | `fal-ai/nano-banana-pro/edit`<br>Blended + Reference Template | 4 Blends + Reference Photo + Prompt | `Converted Moodboard` (4 raw 3-panel images) |
-| **Phase 4.2** | **Claude Textures & Typography**| Claude Sonnet 5 + Local Pillow | Auto-scaling Poppins (Canva coords) + underline bar | 4 Converted Moodboards | `Texture1..12` + `Moodboard Converted with Text` (4 stamped images) |
 | **Phase 4.5** | **Music Generation** (Optional)| Fal AI ElevenLabs | `fal-ai/elevenlabs/music`<br>120 BPM luxury lounge house music | Music Prompt | `Music Generated` (20s audio) |
-| **Phase 5** | **Reel Video Assembly** | Local FFmpeg | 2x2 collage + 8 slides + Outro + Audio mix | Stamped Moodboards + Blends + Audio | `REEL - Moodboard Reel` -> Status: `Complete` |
+| **Phase 5** | **Reel Video Assembly** | Local FFmpeg | 2x2 collage + 8 slides + Outro + Audio mix | Converted Moodboards + Name-tagged Blends + Audio | `REEL - Moodboard Reel` -> Status: `Complete` |
 
 ---
 

@@ -234,7 +234,7 @@ The Row Inspector modal queries `/api/rows?table_id=<table_id>` and constructs d
 > - If an item is **Draft, Inactive, Archived, or Not Published on Shopify**, it MUST be skipped immediately:
 >   `[SHOPIFY DRAFT/INACTIVE SKIP] Item '<name>' (SKU: <sku>) is not active on Shopify -> skipping`
 > - **Strict Matching Only**: Matching against Shopify MUST use exact normalized SKU equality or exact Title equality (or pre-pipe title). Substring matching (e.g. `s in clean_sku`, which mistakenly matches short tokens like `'dl'`) is strictly banned.
-> - **Catalog Cache Refresh**: The Shopify catalog index cache must auto-refresh every 12 hours from `https://homecartel.net/products.json` so newly unpublished or out-of-stock items are never ingested.
+> - **Catalog Cache Refresh & Zero Partial-Cache Guarantee**: The Shopify catalog index cache auto-refreshes every 12 hours from `https://homecartel.net/products.json`. If a storefront crawl experiences unrecovered failed pages or catalog shrinkage (<75% of previous cache SKUs), the disk cache is NEVER overwritten, falling back safely to the existing cache to prevent false product rejections. The crawler uses 4 workers with per-slot initial delays (0.35s/worker), 1.0s inter-batch pauses, `Retry-After` header parsing (or jittered exponential backoff up to 7 attempts capped at 30s), and a final sequential single-threaded retry pass for failed pages.
 
 ### 3. Base-Wide Cross-Table Deduplication
 - Before inserting any product into ANY Story, Feed, or Reel table, cross-check its SKU and Item Name against ALL 60+ tables across the entire Airtable base using `fetch_all_base_existing_identities`.

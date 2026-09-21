@@ -17,6 +17,8 @@ from ..errors import AssetValidationError, ProviderError, ProviderTimeout
 from ..fal_client import FalClient
 from ..kie_client import KieClient
 from ..krea_client import KreaClient
+from ..prompts import build_vision_blending_instruction
+from ..zoho_client import ZohoClient
 from ..models import (
     AssetRequirement,
     Attachment,
@@ -26,7 +28,6 @@ from ..models import (
     WorkflowResult,
 )
 from ..overlay import HOMECARTEL_LOGO_BOX, LogoBox, stamp_logo
-from ..qwen_client import QwenClient
 from ..video import slideshow_with_fade_out
 
 
@@ -56,8 +57,10 @@ class WorkflowContext:
     assets: AssetCatalog
     krea: KreaClient
     kie: KieClient
+    qwen: Any = None
     fal: FalClient | None = None
-    qwen: QwenClient | None = None  # Deprecated: prompts now run on Fal AI vision.
+    zoho_client: ZohoClient | None = None
+    qwen: Any | None = None  # Deprecated: prompts now run on Fal AI vision.
 
     @property
     def definition(self):
@@ -66,6 +69,10 @@ class WorkflowContext:
     @property
     def anchor(self):
         return self.reservation.anchor
+
+    @property
+    def force(self) -> bool:
+        return getattr(self.reservation, "force", False)
 
     @property
     def workdir(self) -> Path:
@@ -673,6 +680,31 @@ class BaseWorkflow:
             field_name,
             [image.filename for image in images],
         )
+        
+        # Automatic Zoho WorkDrive Upload for final deliverables
+        if field_name == self.ctx.definition.final_field and self.ctx.zoho_client and self.ctx.zoho_client.is_configured:
+            try:
+                print(f"  [ZOHO] Uploading final outputs to Zoho WorkDrive...")
+                master_folder = getattr(self.ctx.settings, "zoho_master_folder_id", "0637ufb323b0f0ed3446aa298bcda77897a28")
+                
+                # Option A: Categorized folder structure inside Zoho
+                from datetime import datetime
+                today = datetime.now().strftime("%Y-%m-%d")
+                story_folder_name = self.ctx.definition.key
+                
+                # 1. Get or create story type folder (e.g. "myth_and_fact_story")
+                story_folder_id = self.ctx.zoho_client.create_folder(story_folder_name, master_folder)
+                
+                # 2. Get or create date folder (e.g. "2026-09-11") inside story folder
+                date_folder_id = self.ctx.zoho_client.create_folder(today, story_folder_id)
+                
+                # 3. Upload images to the date folder
+                for image in images:
+                    permalink = self.ctx.zoho_client.upload_file(image, date_folder_id)
+                    if permalink:
+                        print(f"  [ZOHO OK] Uploaded {image.filename}")
+            except Exception as e:
+                print(f"  [ZOHO WARN] Failed to upload to Zoho WorkDrive: {e}")
 
     def update_field(
         self,
@@ -734,18 +766,12 @@ class BaseWorkflow:
         DashScope/Qwen request is made.
         """
         key = f"blend:{room.filename}:{product.filename}"
-        instruction = (
-            "Analyze Image 1 as the target interior room photo and Image 2 as the exact "
-            "product photo. Write a detailed, clean image-to-image blending prompt that "
-            "places the product from Image 2 naturally into the room in Image 1.\n"
-            "CRITICAL SINGLE-PRODUCT RULES:\n"
-            "1. The product in Image 2 MUST be the ONLY lighting fixture / lamp in the final scene.\n"
-            "2. If Image 1 contains any pre-existing lamps or competing light fixtures, explicitly "
-            "instruct to remove and replace them so only the Image 2 product remains.\n"
-            "3. Exclude extra, duplicate, or competing furniture and clutter.\n"
-            "4. Preserve product identity, geometry, finish, proportions, realistic scale, "
-            "camera perspective, shadows, and lighting.\n\n"
-            "Output ONLY the prompt text, with no preamble, markdown, or quotes."
+        anchor = getattr(self.ctx, "anchor", None)
+        item_name = getattr(anchor, "item_name", None) or "featured product"
+        instruction = build_vision_blending_instruction(
+            interior_label="Room Interior",
+            item_name=item_name,
+            aspect_ratio="9:16",
         )
         return self._cached_prompt(
             key,
@@ -799,21 +825,15 @@ class BaseWorkflow:
         product: LocalImage,
         *,
         model: str = "anthropic/claude-sonnet-5",
+        placement_rule: str = "",
     ) -> str:
-        key = f"claude_blend:{room.filename}:{product.filename}:{model}"
+        key = f"claude_blend:{room.filename}:{product.filename}:{model}:{placement_rule}"
         item_name = self.ctx.anchor.item_name or "featured lighting fixture"
-        instruction = (
-            f"You are an expert interior design photographer and image blending director.\n"
-            f"Treat Image 1 as the background room interior ('Interior Generated') "
-            f"and Image 2 as the product photo for '{item_name}' ('Furniture Item').\n"
-            f"Generate a detailed, highly specific image-blending prompt for Nano Banana Pro (9:16 vertical ratio). "
-            f"The prompt must describe naturally integrating and mounting the {item_name} from Image 2 into the room interior from Image 1.\n"
-            f"CRITICAL ISOLATION & MOUNTING RULES:\n"
-            f"1. The {item_name} shown in Image 2 MUST BE THE ONLY CEILING/MAIN LIGHTING FIXTURE in the entire final blended scene.\n"
-            f"2. If Image 1 contains ANY pre-existing lighting fixtures, explicitly instruct to remove and replace them with the exact {item_name} from Image 2.\n"
-            f"3. Strictly exclude unnecessary, competing furniture items, duplicate fixtures, or clutter.\n"
-            f"4. Ensure natural hanging/placement height, realistic chain/rod/cord mounting, ceiling canopy, realistic daylight illumination, soft ambient glow, natural contact shadows on surrounding walls/floors, and authentic materials.\n\n"
-            f"Output ONLY the prompt text, with no preamble, markdown formatting, or quotes."
+        instruction = build_vision_blending_instruction(
+            interior_label="Room Interior ('Interior Generated')",
+            item_name=item_name,
+            aspect_ratio="9:16",
+            extra_instructions=f"SPECIFIC PLACEMENT: {placement_rule}" if placement_rule else "",
         )
         fal_client = self._fal_prompt_client()
         return self._cached_prompt(

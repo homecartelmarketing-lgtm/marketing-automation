@@ -14,6 +14,8 @@ from urllib.parse import quote
 
 import requests
 
+from ..airtable_client import current_pht_timestamp, inject_generated_timestamp
+from ..foreign_key import generate_foreign_key
 from ..fields import (
     DEFAULT_ITEMS_PER_ROW,
     ITEM_NAME_FIELD,
@@ -130,8 +132,16 @@ class ScrapeAirtableClient:
             self._schema = self.table_fields()
         return set(self._schema)
 
+    def find_field_name(self, name: str) -> str | None:
+        """Find the exact field name matching `name` case-insensitively."""
+        target = name.strip().lower()
+        for f in self.known_field_names():
+            if f.strip().lower() == target:
+                return f
+        return None
+
     def has_field(self, name: str) -> bool:
-        return name in self.known_field_names()
+        return self.find_field_name(name) is not None
 
     def _retype_field(self, name: str, schema_entry: Any, expected: str) -> bool:
         """Try to widen a mistyped column in place. False if Airtable refuses."""
@@ -153,8 +163,19 @@ class ScrapeAirtableClient:
         """Create missing columns and reconcile any whose type is wrong."""
         existing = self.table_fields()
 
-        conflicts: list[str] = []
+        # Map required fields to existing fields case-insensitively
+        normalized_required: dict[str, str] = {}
         for name, expected in required.items():
+            matched_name = None
+            target_lower = name.strip().lower()
+            for ex in existing:
+                if ex.strip().lower() == target_lower:
+                    matched_name = ex
+                    break
+            normalized_required[matched_name or name] = expected
+
+        conflicts: list[str] = []
+        for name, expected in normalized_required.items():
             if name not in existing:
                 continue
             actual = field_type_of(existing[name])
@@ -173,7 +194,7 @@ class ScrapeAirtableClient:
                 "Airtable field type conflict:\n" + "\n".join(conflicts)
             )
 
-        missing = [(name, kind) for name, kind in required.items() if name not in existing]
+        missing = [(name, kind) for name, kind in normalized_required.items() if name not in existing]
         if missing:
             print(f"[INFO] Creating {len(missing)} missing Airtable product fields...")
             for position, (name, kind) in enumerate(missing, start=1):
@@ -279,6 +300,10 @@ class ScrapeAirtableClient:
             raise response_error(response, f"Read Airtable record {record_id}")
         return response.json()
 
+    def record(self, record_id: str) -> dict[str, Any]:
+        """Convenience alias for get_record."""
+        return self.get_record(record_id)
+
     def _present(self, names: Iterable[str]) -> list[str]:
         known = self.known_field_names()
         return [name for name in names if name in known]
@@ -324,14 +349,56 @@ class ScrapeAirtableClient:
 
     def update_records(self, updates: Sequence[tuple[str, dict[str, Any]]]) -> None:
         """Patch fields on existing rows, in Airtable's 10-per-call batches."""
-        records = [{"id": record_id, "fields": fields} for record_id, fields in updates]
+        records = []
+        for record_id, fields in updates:
+            r_fields = inject_generated_timestamp(fields)
+            records.append({"id": record_id, "fields": r_fields})
         for start in range(0, len(records), 10):
             batch = records[start : start + 10]
             response = self._request(
                 "PATCH", self.records_url, json={"records": batch, "typecast": True}
             )
+            if not response.ok and ("Date and Time Generated" in response.text or "Date and Time" in response.text):
+                # Fallback attempt 1: Try "Date and Time" instead of "Date and Time Generated"
+                fallback_batch = []
+                for item in batch:
+                    f_fields = dict(item.get("fields", {}))
+                    if "Date and Time Generated" in f_fields:
+                        f_fields["Date and Time"] = f_fields.pop("Date and Time Generated")
+                    fallback_batch.append({"id": item["id"], "fields": f_fields})
+                response = self._request(
+                    "PATCH", self.records_url, json={"records": fallback_batch, "typecast": True}
+                )
+                # Fallback attempt 2: Strip date fields completely
+                if not response.ok and ("Date and Time Generated" in response.text or "Date and Time" in response.text):
+                    clean_batch = [
+                        {
+                            "id": r["id"],
+                            "fields": {
+                                k: v for k, v in r["fields"].items()
+                                if k not in ("Date and Time Generated", "Date and Time")
+                            },
+                        }
+                        for r in batch
+                    ]
+                    response = self._request(
+                        "PATCH", self.records_url, json={"records": clean_batch, "typecast": True}
+                    )
             if not response.ok:
                 raise response_error(response, "Batch update Airtable records")
+
+            try:
+                records_to_patch = []
+                for rec in response.json().get("records", []):
+                    f = rec.get("fields", {})
+                    if not f.get("Foreign Key ID") and f.get("ID") is not None:
+                        fk = generate_foreign_key(self.table_id, f["ID"])
+                        records_to_patch.append({"id": rec["id"], "fields": {"Foreign Key ID": fk}})
+                if records_to_patch:
+                    self._request("PATCH", self.records_url, json={"records": records_to_patch, "typecast": True})
+            except Exception:
+                pass
+
             print(f"[OK] Updated {len(batch)} records")
 
     def resolve_slot_field(self, base_name: str, slot: int) -> str:
@@ -390,6 +457,13 @@ class ScrapeAirtableClient:
                 response, f"Create Airtable product record for {skus}"
             )
         record_id = response.json()["id"]
+        row_id = response.json().get("fields", {}).get("ID")
+        if row_id is not None:
+            fk = generate_foreign_key(self.table_id, row_id)
+            try:
+                self._request("PATCH", f"{self.records_url}/{record_id}", json={"fields": {"Foreign Key ID": fk}, "typecast": True})
+            except Exception:
+                pass
         print(f"[OK] Created product record {record_id}: {skus}")
         return record_id
 
@@ -406,6 +480,13 @@ class ScrapeAirtableClient:
         if not response.ok:
             raise response_error(response, "Create Airtable record")
         record_id = response.json()["id"]
+        row_id = response.json().get("fields", {}).get("ID")
+        if row_id is not None:
+            fk = generate_foreign_key(self.table_id, row_id)
+            try:
+                self._request("PATCH", f"{self.records_url}/{record_id}", json={"fields": {"Foreign Key ID": fk}, "typecast": True})
+            except Exception:
+                pass
         written = ", ".join(fields) if fields else "no initial fields"
         print(f"[OK] Created product record {record_id} ({written})")
         return record_id
@@ -480,6 +561,56 @@ class ScrapeAirtableClient:
         response = self._request("POST", url, json=payload)
         if not response.ok:
             raise response_error(response, f"Upload {filename} to {field_name}")
+
+        # --- GLOBAL ZOHO INTERCEPTOR ---
+        name_lower = field_name.lower().strip()
+        fn_lower = filename.lower().strip()
+        is_final = (
+            fn_lower.endswith(".mp4")
+            or any(t in name_lower for t in ("converted", "final", "deliverable", "output", "(1)"))
+            or (
+                any(t in name_lower for t in ("story", "feed", "reel", "carousel"))
+                and not any(t in name_lower for t in ("interior", "furniture", "blended", "layout", "logo", "swatch", "outro", "source", "raw", "tag"))
+            )
+        )
+        if is_final:
+            try:
+                import sys
+                import os
+                script_name = os.path.basename(sys.argv[0])
+                if script_name.startswith("run_") or script_name.startswith("generate_"):
+                    pipeline_name = (
+                        script_name.replace("run_", "")
+                        .replace("generate_", "")
+                        .replace("_pipeline.py", "")
+                        .replace(".py", "")
+                        .replace("_", " ")
+                        .title()
+                    )
+                    pipeline_name = pipeline_name.replace("Cta", "CTA").replace("Edu", "EDU")
+                else:
+                    pipeline_name = "Marketing Output"
+
+                from ..config import load_settings
+                from ..zoho_client import ZohoClient
+                from ..models import LocalImage
+
+                settings = load_settings()
+                if settings.zoho_output_folder_id and settings.zoho_client_id:
+                    if not hasattr(self, "_zoho_client"):
+                        self._zoho_client = ZohoClient(
+                            settings.zoho_client_id,
+                            settings.zoho_client_secret,
+                            settings.zoho_refresh_token,
+                        )
+                    print(f"  [+] Intercepted final upload '{field_name}'. Mirroring to Zoho WorkDrive -> '{pipeline_name}'...")
+                    self._zoho_client.upload_pipeline_output(
+                        pipeline_name,
+                        [LocalImage(path, filename, content_type)],
+                        settings.zoho_output_folder_id,
+                    )
+            except Exception as e:
+                print(f"  [WARN] Failed to mirror upload to Zoho WorkDrive: {e}")
 
     def clear_attachment_field(self, record_id: str, field_name: str) -> None:
         """Clear an attachment field before replacing its generated output."""

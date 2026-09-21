@@ -56,7 +56,12 @@ def parse_args(argv=None):
         "--max-items",
         type=int,
         default=None,
-        help="Maximum individual products to scrape (overrides --rows if set)",
+        help="Maximum individual products to scrape (overrides --rows if set)
+    parser.add_argument(
+        "--starting-letter",
+        default=None,
+        help="Starting letter for A-Z sorting cycle",
+    )",
     )
     parser.add_argument(
         "--style",

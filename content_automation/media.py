@@ -12,7 +12,7 @@ from urllib.parse import unquote, urlparse
 
 import requests
 
-from .http import response_error
+from .http import request_with_retry, response_error
 
 
 DEFAULT_IMAGE_EXTENSION = ".jpg"
@@ -100,3 +100,28 @@ def download_to_temp_file(
         suffix,
     )
     return DownloadedMedia(path=path, content_type=content_type)
+
+
+def download_url_to_temp_file(
+    session: requests.Session,
+    url: str,
+    *,
+    prefix: str,
+    suffix: str,
+    context: str,
+    timeout: float = 60,
+) -> DownloadedMedia:
+    """Download a URL with transient retry protection, then persist it."""
+    response = request_with_retry(
+        session,
+        "GET",
+        url,
+        stream=True,
+        timeout=timeout,
+    )
+    return download_to_temp_file(
+        response,
+        prefix=prefix,
+        suffix=suffix,
+        context=context,
+    )

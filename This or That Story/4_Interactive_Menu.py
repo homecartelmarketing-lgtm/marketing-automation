@@ -43,10 +43,11 @@ def run_interactive_menu():
         print(" [2] 🎨 Generate Stories Only (Process Pending Records in Airtable)")
         print(" [3] 🔍 Scrape Products Only from Akeneo (Pick Category)")
         print(" [4] ⚡ Run 1 Pair for All 6 Categories (End-to-End)")
+        print(" [5] 🖼️  Backfill 'This or That Layout' Watermark on Pending Rows")
         print(" [0] 🚪 Exit")
         print("-" * 65)
 
-        choice = input(" Piliin ang nais mong gawin [0-4]: ").strip()
+        choice = input(" Piliin ang nais mong gawin [0-5]: ").strip()
 
         if choice == "0":
             print("\n[INFO] Exited This or That Story Menu. Salamat!\n")
@@ -146,6 +147,31 @@ def run_interactive_menu():
                 "all",
                 "--count",
                 "1",
+            ]
+            subprocess.run(cmd)
+
+        elif choice == "5":
+            print("\nPiliin ang target category para sa Layout Backfill:")
+            for num, name, key, _ in CATEGORIES:
+                print(f" [{num}] {name}")
+            print(" [7] ALL Categories")
+            cat_choice = input("Category [1-7] (default 7 - ALL Categories): ").strip() or "7"
+
+            selected_cat = "all"
+            if cat_choice != "7":
+                for num, name, key, _ in CATEGORIES:
+                    if cat_choice == num:
+                        selected_cat = key
+                        break
+
+            print(f"\n[START] Auto-backfilling 'This or That Layout' ({selected_cat})...")
+            cmd = [
+                sys.executable,
+                str(BASE_DIR / "generate_this_or_that_pipeline.py"),
+                "--target",
+                selected_cat,
+                "--mode",
+                "backfill-layout",
             ]
             subprocess.run(cmd)
 

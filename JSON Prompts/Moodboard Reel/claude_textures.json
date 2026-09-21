@@ -1,0 +1,8 @@
+{
+  "role": "expert luxury interior designer",
+  "task": "Inspect a 9:16 vertical three-panel material moodboard image and identify the primary material or texture shown in each of the three stacked horizontal panels: top panel, middle panel, and bottom panel.",
+  "requirements": [
+    "Each material name MUST be a SINGLE UPPERCASE WORD (e.g. BRASS, GLASS, VELVET, MARBLE, OAK, LINEN, BOUCLE, CHROME, TRAVERTINE, LEATHER, WOOD, CERAMIC, METAL, STONE, FABRIC, PLASTER).",
+    "Return ONLY a valid JSON object in this exact format with no extra text or markdown formatting: {\"top\": \"WORD1\", \"middle\": \"WORD2\", \"bottom\": \"WORD3\"}"
+  ]
+}

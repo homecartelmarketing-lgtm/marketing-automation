@@ -8,11 +8,13 @@ import random
 import re
 import uuid
 
+import dataclasses
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+WORKSPACE = Path(__file__).resolve().parent.parent
 PHT = timezone(timedelta(hours=8))  # Philippine Standard Time (UTC+8)
 
 
@@ -23,13 +25,20 @@ def pht_timestamp() -> str:
 import requests
 from PIL import Image, UnidentifiedImageError
 
-from .akeneo_client import AkeneoClient
+from .airtable_client import current_pht_timestamp
+from .akeneo_client import AkeneoClient, split_item_name
 from .assets import AssetCatalog
 from .errors import AssetValidationError, AutomationError, ProviderError
 from .fal_client import FalClient
 from .isolated_config import IsolatedAutomationSettings
+from .item_tagger import (
+    TARGET_BLENDED_FIELD,
+    tag_and_upload_blended_image,
+    tag_blended_image,
+)
 from .krea_client import KreaClient
-from .qwen_client import QwenClient
+from .overlay import HOMECARTEL_STORY_LOGO_BOX, stamp_logo
+from .prompts import build_vision_blending_instruction
 from .scraping.airtable import ScrapeAirtableClient
 from .scraping.categories import akeneo_category_code
 from .scraping.furniture_item import (
@@ -37,24 +46,27 @@ from .scraping.furniture_item import (
     format_item_name_with_product_type,
 )
 from .scraping.products import (
+    ProductItem,
     existing_product_identities,
     select_new_products,
 )
+from .shopify_client import ShopifyCatalogIndex, ShopifyClient
 
 
-QWEN_PROMPT_MODEL = "qwen3.7-flash"
-QWEN_IMAGE_MODEL = "qwen-image-3.0-pro"
-QWEN_IMAGE_SIZE = "1536*2688"
-QWEN_IMAGE_DIMENSIONS = (1536, 2688)
 KREA_ASPECT_RATIO = "9:16"
 KREA_MODEL_LABEL = "krea-2-medium"
-FAL_KLING_MODEL = "fal-ai/kling-video/v3/turbo/pro/image-to-video"
-FAL_STABLE_AUDIO_MODEL = "fal-ai/stable-audio-3/small/music/base/text-to-audio"
+FAL_GROK_VIDEO_MODEL = "xai/grok-imagine-video/v1.5/image-to-video"
+FAL_ELEVENLABS_MUSIC_MODEL = "fal-ai/elevenlabs/music"
 FAL_VISION_MODEL = "anthropic/claude-sonnet-5"
 FAL_NANO_BANANA_MODEL = "fal-ai/nano-banana-pro/edit"
 
+# Toggle to enable/disable AI background jazz music generation (Phase 7).
+# Set to False to turn OFF, True to turn ON. Can also be overridden with DAY_NIGHT_GENERATE_MUSIC=true|false in .env.
+ENABLE_DAY_NIGHT_MUSIC: bool = os.getenv("DAY_NIGHT_GENERATE_MUSIC", "false").strip().lower() in ("true", "1", "yes")
+
 DAY_NIGHT_MUSIC_DURATION = 18.0
 DAY_NIGHT_VIDEO_DURATION = 15.0
+DAY_NIGHT_VIDEO_RESOLUTION = "720p"
 DAY_NIGHT_OUTRO_DURATION = 3.0
 DAY_NIGHT_TIMELAPSE_PROMPT = (
     'Generate a timelapse of this "day" photo. Start from 7am and timelapse '
@@ -62,6 +74,14 @@ DAY_NIGHT_TIMELAPSE_PROMPT = (
     "from the lighting fixture and outside the interior. Do not change the "
     "angle of the camera and do not change the lighting fixture."
 )
+
+TERMINAL_AND_PROTECTED_STATUSES = {
+    "complete", "completed", "done", "finished",
+    "posted", "scheduled", "schedule",
+    "discard", "discarded",
+    "for manual", "minor revision", "minor revisions", "fm",
+    "skip", "skipped", "ignore", "disabled", "error",
+}
 
     
 @dataclass(frozen=True)
@@ -82,26 +102,57 @@ class PipelineDefinition:
     layout_asset: str = ""
     final_prompt_asset: str = ""
     interior_prompts: tuple[str, ...] = ()
+    outro_asset: str = ""
+
+
+def get_day_night_table(category_code: str, default_table_id: str) -> str:
+    """Resolve Airtable Table ID dynamically from environment variables with fallback."""
+    env_keys = {
+        "chandeliers": [
+            "AIRTABLE_TABLE_ID_CHANDELIER_DAY_AND_NIGHT_REEL",
+            "AIRTABLE_TABLE_ID_CHANDELIERS_DAY_AND_NIGHT_REEL",
+            "AIRTABLE_TABLE_ID_BEFORE_AFTER_CHANDELIER",
+            "AIRTABLE_TABLE_ID_CHANDELIER_DAY_NIGHT_STORY",
+        ],
+        "pendant_lights": [
+            "AIRTABLE_TABLE_ID_PENDANT_LIGHTS_DAY_AND_NIGHT_REEL",
+            "AIRTABLE_TABLE_ID_PENDANT_DAY_AND_NIGHT_REEL",
+            "AIRTABLE_TABLE_ID_BEFORE_AFTER_PENDANT_LIGHTS",
+            "AIRTABLE_TABLE_ID_PENDANT_LIGHTS_DAY_NIGHT_STORY",
+        ],
+        "floor_lamps": [
+            "AIRTABLE_TABLE_ID_FLOORLAMP_DAY_AND_NIGHT_REEL",
+            "AIRTABLE_TABLE_ID_FLOOR_LAMPS_DAY_AND_NIGHT_REEL",
+            "AIRTABLE_TABLE_ID_MYTH_AND_FACT_FLOOR_LAMPS",
+            "AIRTABLE_TABLE_ID_FLOOR_LAMPS_DAY_NIGHT_STORY",
+        ],
+    }
+    for key in env_keys.get(category_code, []):
+        val = os.getenv(key, "").strip()
+        if val:
+            return val
+    return default_table_id
 
 
 DAY_NIGHT_REEL_CHANDELIER = PipelineDefinition(
     key="day_night_reel_chandeliers",
-    table_id="tbl35JySlNuWh61tL",
+    table_id=get_day_night_table("chandeliers", "tbl35JySlNuWh61tL"),
     category_code="chandeliers",
-    moodboard_id="b5ffdcbb-192e-4528-8d86-d1a4cf496887",
+    moodboard_id="de6ad512-870d-4ab7-a48c-3f3ca85faf24",
     interior_field="Interior",
     blended_field="Day and Night Blended",
     video_field="REEL - Day & Night",
     music_field="Music Generated",
     outro_field="Outro",
+    outro_asset="assets/outro_layout.jpg",
     final_field="Day and Night Reel with Music and Outro",
     phase_count=8,
-    interior_prompt="Generate me a modern living room with hanging chandelier from the ceiling",
+    interior_prompt="Generate me a modern living room",
 )
 
 DAY_NIGHT_REEL_PENDANT = PipelineDefinition(
     key="day_night_reel_pendant_lights",
-    table_id="tblkTuM627s2f0FTN",
+    table_id=get_day_night_table("pendant_lights", "tblkTuM627s2f0FTN"),
     category_code="pendant_lights",
     moodboard_id="de5f4ff8-518c-4d6b-b606-ce1d5dac51f3",
     interior_field="Interior",
@@ -109,6 +160,7 @@ DAY_NIGHT_REEL_PENDANT = PipelineDefinition(
     video_field="REEL - Day & Night",
     music_field="Music Generated",
     outro_field="Outro",
+    outro_asset="assets/outro_layout.jpg",
     final_field="Day and Night Reel with Music and Outro",
     phase_count=8,
     interior_prompt="Generate me a modern dining room hanging chandelier",
@@ -116,7 +168,7 @@ DAY_NIGHT_REEL_PENDANT = PipelineDefinition(
 
 DAY_NIGHT_REEL_FLOOR_LAMP = PipelineDefinition(
     key="day_night_reel_floor_lamps",
-    table_id="tbl2VoWOt7sSut4E2",
+    table_id=get_day_night_table("floor_lamps", "tblVPgI4C6HEFcKW9"),
     category_code="floor_lamps",
     moodboard_id="b1641228-beec-4823-8d01-1de3eec8410d",
     interior_field="Interior",
@@ -124,6 +176,7 @@ DAY_NIGHT_REEL_FLOOR_LAMP = PipelineDefinition(
     video_field="REEL - Day & Night",
     music_field="Music Generated",
     outro_field="Outro",
+    outro_asset="assets/outro_layout.jpg",
     final_field="Day and Night Reel with Music and Outro",
     phase_count=8,
     interior_prompt="Generate me a bedroom that have beside a floor lamp",
@@ -140,12 +193,13 @@ DAY_NIGHT_REEL_PIPELINES: dict[str, PipelineDefinition] = {
     "chandelier": DAY_NIGHT_REEL_CHANDELIER,
     "floor": DAY_NIGHT_REEL_FLOOR_LAMP,
     "floor_lamp": DAY_NIGHT_REEL_FLOOR_LAMP,
-    "tblkTuM627s2f0FTN": DAY_NIGHT_REEL_PENDANT,
-    "tbl35JySlNuWh61tL": DAY_NIGHT_REEL_PENDANT,
-    "tblODnfaNVP6SXn0A": DAY_NIGHT_REEL_CHANDELIER,
-    "tbloMhCOngGDWFS2y": DAY_NIGHT_REEL_CHANDELIER,
-    "tbl2VoWOt7sSut4E2": DAY_NIGHT_REEL_FLOOR_LAMP,
 }
+
+# Dynamically register each active pipeline by its table ID:
+for _pipe in (DAY_NIGHT_REEL_PENDANT, DAY_NIGHT_REEL_CHANDELIER, DAY_NIGHT_REEL_FLOOR_LAMP):
+    if _pipe.table_id:
+        DAY_NIGHT_REEL_PIPELINES[_pipe.table_id] = _pipe
+        DAY_NIGHT_REEL_PIPELINES[_pipe.table_id.lower()] = _pipe
 
 
 
@@ -167,8 +221,8 @@ TIPS_EDU_STORY_PENDANT = PipelineDefinition(
     blended_field="Blended Image",
     final_field="Tips and Edu Story Converted",
     phase_count=5,
-    interior_prompt=PENDANT_TIPS_EDU_PROMPTS[0],
-    interior_prompts=PENDANT_TIPS_EDU_PROMPTS,
+    interior_prompt="Generate me a modern dining room",
+    interior_prompts=("Generate me a modern dining room",) + PENDANT_TIPS_EDU_PROMPTS,
     layout_field="Tips and Edu Story Layout",
     layout_asset="Tips and Edu Story/stories (33).jpg",
     final_prompt_asset="Tips and Edu Story/tips-and-edu.json",
@@ -200,12 +254,7 @@ TIPS_EDU_STORY_FLOOR_LAMP = PipelineDefinition(
 )
 
 CHANDELIER_TIPS_EDU_PROMPTS = (
-    "Generate a premium modern living room interior in a vertical 9:16 composition with a plain, empty ceiling and clear central focal point for a hanging chandelier above the seating area. Bright, photorealistic, elegant modern room styling, no text or unrelated lighting fixtures.",
-    "Generate a premium modern dining room interior in a vertical 9:16 composition featuring a luxury dining table under a plain, clean ceiling with a clear central focal point for a hanging chandelier. Bright, photorealistic, elegant modern room styling, no text or unrelated lighting fixtures.",
-    "Generate a premium modern grand foyer and entryway in a vertical 9:16 composition with high ceilings and a prominent central ceiling focal point for a grand hanging chandelier. Bright, photorealistic, elegant modern room styling, no text or unrelated lighting fixtures.",
-    "Generate a premium modern lounge and conversation area in a vertical 9:16 composition with luxurious seating and a plain ceiling ready for a central chandelier. Bright, photorealistic, elegant modern room styling, no text or unrelated lighting fixtures.",
-    "Generate a premium modern master bedroom interior in a vertical 9:16 composition with an elegant bed and a plain ceiling centered for a luxury hanging chandelier. Bright, photorealistic, elegant modern room styling, no text or unrelated lighting fixtures.",
-    "Generate a premium modern open-concept great room in a vertical 9:16 composition with expansive windows and a clean ceiling focal point for a hanging chandelier. Bright, photorealistic, elegant modern room styling, no text or unrelated lighting fixtures.",
+    "Generate me a modern living room",
 )
 
 TIPS_EDU_STORY_CHANDELIER = PipelineDefinition(
@@ -299,46 +348,165 @@ TIPS_EDU_STORY_CLUSTER_CHANDELIER = PipelineDefinition(
     final_prompt_asset="Tips and Edu Story/tips-and-edu.json",
 )
 
-def resolve_krea_moodboard_id(category_code: str, fallback: str = "") -> str:
-    """Resolve category or table-specific Krea moodboard ID from environment."""
-    category = category_code.lower()
-    candidate_keys = []
-    if "pendant" in category:
+def load_tips_edu_story_config(workspace: Path | None = None) -> dict[str, Any]:
+    """Load customized Tips & Edu Story configuration from JSON Prompts/Tips and Edu Story/settings.json."""
+    ws = (workspace or WORKSPACE).resolve()
+    config_path = ws / "JSON Prompts" / "Tips and Edu Story" / "settings.json"
+    if config_path.is_file():
+        try:
+            with config_path.open("r", encoding="utf-8") as file:
+                data = json.load(file)
+                if isinstance(data, dict):
+                    return data
+        except Exception:
+            pass
+    return {}
+
+
+def find_tips_edu_story_entry(
+    config: dict[str, Any],
+    category_or_table: str,
+) -> dict[str, Any] | None:
+    """Find category entry from settings.json matching category_code or table_id."""
+    if not config or not category_or_table:
+        return None
+    target = str(category_or_table).strip().lower()
+    if target in config:
+        return config[target]
+    for key, val in config.items():
+        if not isinstance(val, dict):
+            continue
+        tid = str(val.get("table_id") or "").strip().lower()
+        if tid and tid == target:
+            return val
+        k = key.lower()
+        if target in k or k in target:
+            return val
+    return None
+
+
+def _normalize_tips_edu_category(category_code: str) -> str:
+    cat = category_code.lower().strip()
+    if "pendant" in cat:
+        return "pendant_lights"
+    if "floor" in cat:
+        return "floor_lamps"
+    if "cluster" in cat:
+        return "cluster_chandeliers"
+    if "ceiling" in cat:
+        return "ceiling_mounted"
+    if "table" in cat:
+        return "table_lamps"
+    if "chand" in cat:
+        return "chandeliers"
+    return cat
+
+
+def resolve_tips_edu_table_id(category_code: str, fallback: str = "") -> str:
+    """Resolve Airtable destination table ID for Tips & Edu Story from .env or fallback."""
+    cat = _normalize_tips_edu_category(category_code)
+    candidate_keys: list[str] = []
+    if cat == "pendant_lights":
         candidate_keys = [
-            "KREA_MOODBOARD_ID_PENDANT_LIGHTS_TIPS_EDU_STORY",
-            "KREA_MOODBOARD_ID_PENDANT_LIGHTS",
+            "AIRTABLE_TABLE_ID_PENDANT_LIGHTS_TIPS_EDU_STORY",
+            "AIRTABLE_TABLE_ID_PENDANT_LIGHT_TIPS_EDU_STORY",
+            "AIRTABLE_TABLE_ID_PENDANT_TIPS_EDU_STORY",
         ]
-    elif "floor" in category:
+    elif cat == "floor_lamps":
         candidate_keys = [
-            "KREA_MOODBOARD_ID_FLOOR_LAMP_TIPS_EDU_STORY",
-            "KREA_MOODBOARD_ID_FLOOR_LAMPS",
+            "AIRTABLE_TABLE_ID_FLOOR_LAMPS_TIPS_EDU_STORY",
+            "AIRTABLE_TABLE_ID_FLOOR_LAMP_TIPS_EDU_STORY",
         ]
-    elif "table" in category:
+    elif cat == "chandeliers":
         candidate_keys = [
-            "KREA_MOODBOARD_ID_TABLE_LAMP_TIPS_EDU_STORY",
-            "KREA_MOODBOARD_ID_TABLE_LAMPS",
+            "AIRTABLE_TABLE_ID_CHANDELIERS_TIPS_EDU_STORY",
+            "AIRTABLE_TABLE_ID_CHANDELIER_TIPS_EDU_STORY",
         ]
-    elif "cluster" in category:
+    elif cat == "ceiling_mounted":
         candidate_keys = [
-            "KREA_MOODBOARD_ID_CLUSTER_CHANDELIER_TIPS_EDU_STORY",
-            "KREA_MOODBOARD_ID_CLUSTER_CHANDELIER",
-            "KREA_MOODBOARD_ID_CHANDELIERS",
+            "AIRTABLE_TABLE_ID_CEILING_MOUNTED_TIPS_EDU_STORY",
+            "AIRTABLE_TABLE_ID_CEILING_LIGHTS_TIPS_EDU_STORY",
+            "AIRTABLE_TABLE_ID_CEILING_LIGHT_TIPS_EDU_STORY",
         ]
-    elif "ceiling" in category:
+    elif cat == "table_lamps":
         candidate_keys = [
-            "KREA_MOODBOARD_ID_CEILING_MOUNTED_TIPS_EDU_STORY",
-            "KREA_MOODBOARD_ID_WALL_SCONCE",
-            "KREA_MOODBOARD_ID_CHANDELIERS",
+            "AIRTABLE_TABLE_ID_TABLE_LAMPS_TIPS_EDU_STORY",
+            "AIRTABLE_TABLE_ID_TABLE_LAMP_TIPS_EDU_STORY",
         ]
-    elif "chand" in category:
+    elif cat == "cluster_chandeliers":
         candidate_keys = [
-            "KREA_MOODBOARD_ID_CHANDELIER_TIPS_EDU_STORY",
-            "KREA_MOODBOARD_ID_CHANDELIERS",
+            "AIRTABLE_TABLE_ID_CLUSTER_CHANDELIERS_TIPS_EDU_STORY",
+            "AIRTABLE_TABLE_ID_CLUSTER_CHANDELIER_TIPS_EDU_STORY",
         ]
+
     for key in candidate_keys:
         val = (os.getenv(key) or "").strip()
         if val:
             return val
+    return fallback
+
+
+def resolve_krea_moodboard_id(
+    category_code: str,
+    fallback: str = "",
+    workspace: Path | None = None,
+) -> str:
+    """Resolve category or table-specific Krea moodboard ID from .env, settings.json, or fallback."""
+    cat = _normalize_tips_edu_category(category_code)
+    candidate_keys: list[str] = []
+    if cat == "pendant_lights":
+        candidate_keys = [
+            "KREA_MOODBOARD_ID_PENDANT_LIGHTS_TIPS_EDU_STORY",
+            "KREA_MOODBOARD_ID_PENDANT_LIGHT_TIPS_EDU_STORY",
+            "KREA_MOODBOARD_ID_PENDANT_LIGHTS",
+        ]
+    elif cat == "floor_lamps":
+        candidate_keys = [
+            "KREA_MOODBOARD_ID_FLOOR_LAMPS_TIPS_EDU_STORY",
+            "KREA_MOODBOARD_ID_FLOOR_LAMP_TIPS_EDU_STORY",
+            "KREA_MOODBOARD_ID_FLOOR_LAMPS",
+        ]
+    elif cat == "table_lamps":
+        candidate_keys = [
+            "KREA_MOODBOARD_ID_TABLE_LAMPS_TIPS_EDU_STORY",
+            "KREA_MOODBOARD_ID_TABLE_LAMP_TIPS_EDU_STORY",
+            "KREA_MOODBOARD_ID_TABLE_LAMPS",
+        ]
+    elif cat == "cluster_chandeliers":
+        candidate_keys = [
+            "KREA_MOODBOARD_ID_CLUSTER_CHANDELIERS_TIPS_EDU_STORY",
+            "KREA_MOODBOARD_ID_CLUSTER_CHANDELIER_TIPS_EDU_STORY",
+            "KREA_MOODBOARD_ID_CLUSTER_CHANDELIER",
+            "KREA_MOODBOARD_ID_CHANDELIERS",
+        ]
+    elif cat == "ceiling_mounted":
+        candidate_keys = [
+            "KREA_MOODBOARD_ID_CEILING_MOUNTED_TIPS_EDU_STORY",
+            "KREA_MOODBOARD_ID_CEILING_LIGHTS_TIPS_EDU_STORY",
+            "KREA_MOODBOARD_ID_CEILING_LIGHT_TIPS_EDU_STORY",
+            "KREA_MOODBOARD_ID_WALL_SCONCE",
+            "KREA_MOODBOARD_ID_CHANDELIERS",
+        ]
+    elif cat == "chandeliers":
+        candidate_keys = [
+            "KREA_MOODBOARD_ID_CHANDELIERS_TIPS_EDU_STORY",
+            "KREA_MOODBOARD_ID_CHANDELIER_TIPS_EDU_STORY",
+            "KREA_MOODBOARD_ID_CHANDELIERS",
+        ]
+
+    for key in candidate_keys:
+        val = (os.getenv(key) or "").strip()
+        if val:
+            return val
+
+    # Fallback to settings.json
+    config = load_tips_edu_story_config(workspace)
+    entry = find_tips_edu_story_entry(config, category_code)
+    if entry and isinstance(entry, dict):
+        val = str(entry.get("moodboard_id") or "").strip()
+        if val:
+            return val
+
     return fallback
 
 
@@ -347,7 +515,88 @@ def load_tips_edu_json_prompts(
     category_code: str,
     fallback_prompts: tuple[str, ...] | list[str],
 ) -> list[str]:
-    """Load customized interior prompts from JSON Prompts/Tips and Edu Story/interior_prompts.json if available."""
+    """Load customized interior prompts from .env, settings.json, interior_prompts.json, or fallback."""
+    cat = _normalize_tips_edu_category(category_code)
+    env_keys: list[str] = []
+    if cat == "pendant_lights":
+        env_keys = [
+            "TIPS_EDU_PROMPTS_PENDANT_LIGHTS",
+            "TIPS_EDU_PROMPT_PENDANT_LIGHTS",
+            "TIPS_EDU_PROMPT_PENDANT_LIGHT",
+            "TIPS_EDU_PROMPT_PENDANT",
+        ]
+    elif cat == "floor_lamps":
+        env_keys = [
+            "TIPS_EDU_PROMPTS_FLOOR_LAMPS",
+            "TIPS_EDU_PROMPT_FLOOR_LAMPS",
+            "TIPS_EDU_PROMPT_FLOOR_LAMP",
+        ]
+    elif cat == "chandeliers":
+        env_keys = [
+            "TIPS_EDU_PROMPTS_CHANDELIERS",
+            "TIPS_EDU_PROMPT_CHANDELIERS",
+            "TIPS_EDU_PROMPT_CHANDELIER",
+        ]
+    elif cat == "ceiling_mounted":
+        env_keys = [
+            "TIPS_EDU_PROMPTS_CEILING_MOUNTED",
+            "TIPS_EDU_PROMPT_CEILING_MOUNTED",
+            "TIPS_EDU_PROMPT_CEILING_LIGHT",
+        ]
+    elif cat == "table_lamps":
+        env_keys = [
+            "TIPS_EDU_PROMPTS_TABLE_LAMPS",
+            "TIPS_EDU_PROMPT_TABLE_LAMPS",
+            "TIPS_EDU_PROMPT_TABLE_LAMP",
+        ]
+    elif cat == "cluster_chandeliers":
+        env_keys = [
+            "TIPS_EDU_PROMPTS_CLUSTER_CHANDELIERS",
+            "TIPS_EDU_PROMPT_CLUSTER_CHANDELIERS",
+            "TIPS_EDU_PROMPT_CLUSTER_CHANDELIER",
+        ]
+
+    for key in env_keys:
+        raw_val = (os.getenv(key) or "").strip()
+        if raw_val:
+            if raw_val.startswith("[") and raw_val.endswith("]"):
+                try:
+                    parsed = json.loads(raw_val)
+                    if isinstance(parsed, list) and parsed:
+                        cleaned = [str(p).strip() for p in parsed if str(p).strip()]
+                        if cleaned:
+                            return cleaned
+                except Exception:
+                    pass
+            if "|" in raw_val:
+                prompts = [p.strip() for p in raw_val.split("|") if p.strip()]
+                if prompts:
+                    return prompts
+            return [raw_val]
+
+    # Check indexed variables: TIPS_EDU_PROMPT_{CAT}_1, _2, etc.
+    base_prefix = env_keys[1] if len(env_keys) > 1 else (env_keys[0] if env_keys else "")
+    if base_prefix:
+        indexed: list[str] = []
+        idx = 1
+        while True:
+            val = (os.getenv(f"{base_prefix}_{idx}") or "").strip()
+            if not val:
+                break
+            indexed.append(val)
+            idx += 1
+        if indexed:
+            return indexed
+
+    # Fallback to settings.json
+    config = load_tips_edu_story_config(workspace)
+    entry = find_tips_edu_story_entry(config, category_code)
+    if entry and isinstance(entry, dict):
+        prompts = entry.get("prompts")
+        if isinstance(prompts, list) and prompts:
+            return prompts
+
+    # Fallback to interior_prompts.json
     json_path = workspace / "JSON Prompts" / "Tips and Edu Story" / "interior_prompts.json"
     if json_path.is_file():
         try:
@@ -362,6 +611,44 @@ def load_tips_edu_json_prompts(
         except Exception:
             pass
     return list(fallback_prompts)
+
+
+def apply_tips_edu_story_settings(
+    pipeline: PipelineDefinition,
+    workspace: Path | None = None,
+) -> PipelineDefinition:
+    """Return a PipelineDefinition updated with overrides from .env or settings.json."""
+    ws = (workspace or WORKSPACE).resolve()
+    table_id = resolve_tips_edu_table_id(pipeline.category_code, fallback=pipeline.table_id)
+    moodboard_id = resolve_krea_moodboard_id(
+        pipeline.category_code, fallback=pipeline.moodboard_id, workspace=ws
+    )
+    prompts_list = load_tips_edu_json_prompts(
+        ws,
+        pipeline.category_code,
+        pipeline.interior_prompts or (pipeline.interior_prompt,),
+    )
+    prompts = tuple(prompts_list) if prompts_list else pipeline.interior_prompts
+    interior_prompt = prompts[0] if prompts else pipeline.interior_prompt
+
+    # Fallback overrides from settings.json if table_id/moodboard_id still unchanged
+    config = load_tips_edu_story_config(ws)
+    entry = find_tips_edu_story_entry(config, pipeline.category_code) or find_tips_edu_story_entry(
+        config, pipeline.table_id
+    )
+    if entry and isinstance(entry, dict):
+        if table_id == pipeline.table_id:
+            table_id = str(entry.get("table_id") or table_id).strip() or table_id
+        if moodboard_id == pipeline.moodboard_id:
+            moodboard_id = str(entry.get("moodboard_id") or moodboard_id).strip() or moodboard_id
+
+    return dataclasses.replace(
+        pipeline,
+        table_id=table_id,
+        moodboard_id=moodboard_id,
+        interior_prompt=interior_prompt,
+        interior_prompts=prompts,
+    )
 
 
 
@@ -467,10 +754,11 @@ class PhasedContentRunner:
         airtable: ScrapeAirtableClient | None = None,
         akeneo: AkeneoClient | None = None,
         krea: KreaClient | None = None,
-        qwen: QwenClient | None = None,
         fal: FalClient | None = None,
         logger: JsonlRunLogger | None = None,
     ) -> None:
+        if definition.key.startswith("tips_edu_story"):
+            definition = apply_tips_edu_story_settings(definition, settings.workspace)
         self.definition = definition
         self.settings = settings
         self.airtable = airtable or ScrapeAirtableClient(
@@ -485,13 +773,6 @@ class PhasedContentRunner:
             channel_name=settings.channel_name,
         )
         self.krea = krea or KreaClient(settings.krea_token, settings.krea_base_url)
-        # Prompt writing runs on Fal AI vision; Qwen/DashScope is optional and only
-        # built when a key is configured (kept for backwards compatibility only).
-        self.qwen = qwen or (
-            QwenClient(settings.qwen_api_key, settings.qwen_base_url)
-            if getattr(settings, "qwen_api_key", "")
-            else None
-        )
         self.fal = fal or FalClient(settings.fal_key)
         self.run_id = uuid.uuid4().hex
         self.logger = logger or JsonlRunLogger(settings.workspace, definition.key, self.run_id)
@@ -527,6 +808,8 @@ class PhasedContentRunner:
             self.definition.blended_field: "multipleAttachments",
             self.definition.final_field: "multipleAttachments",
         }
+        if self.definition.key.startswith("tips_edu_story") or self.is_day_night:
+            required[TARGET_BLENDED_FIELD] = "multipleAttachments"
         if self.definition.video_field:
             required[self.definition.video_field] = "multipleAttachments"
         if self.definition.music_field:
@@ -560,17 +843,87 @@ class PhasedContentRunner:
             layout = AssetCatalog(self.settings.workspace).path(self.definition.layout_asset)
             if not layout.is_file():
                 raise AssetValidationError(f"Missing layout asset: {layout}")
+        if self.definition.outro_asset:
+            outro = AssetCatalog(self.settings.workspace).path(self.definition.outro_asset)
+            if not outro.is_file():
+                raise AssetValidationError(f"Missing outro asset: {outro}")
         self.logger.event("preflight_completed", table_id=self.definition.table_id)
 
-    def run(self, phase: int | str = "all") -> None:
+    def _backfill_missing_outro(self) -> int:
+        """Auto-attach outro asset to existing records in Airtable that lack an Outro attachment."""
+        outro_field = self.definition.outro_field
+        if not outro_field or not self.definition.outro_asset:
+            return 0
+
+        outro_source: Path | None = None
+        if self.definition.outro_asset:
+            candidate = AssetCatalog(self.settings.workspace).path(self.definition.outro_asset)
+            if candidate.is_file():
+                outro_source = candidate
+        if not outro_source:
+            workspace_outro = self.settings.workspace / "Outro for All Reels" / "Outro.jpg"
+            if workspace_outro.is_file():
+                outro_source = workspace_outro
+        if not outro_source:
+            return 0
+
+        records = self._records()
+        backfilled_count = 0
+        for record in records:
+            record_id = record.get("id")
+            fields = record.get("fields", {})
+            status_cf = str(fields.get("Status") or "").strip().casefold()
+            if status_cf in TERMINAL_AND_PROTECTED_STATUSES or "complete" in status_cf:
+                continue
+            if self._has_attachment(fields, self.definition.final_field):
+                continue
+            if not self._has_attachment(fields, outro_field):
+                item_label = fields.get("Item Name") or fields.get("SKU") or record_id
+                print(f"[INFO] Auto-backfilling missing '{outro_field}' ({outro_source.name}) for {item_label}...", flush=True)
+                try:
+                    self.airtable.upload_attachment(
+                        record_id,
+                        outro_field,
+                        outro_source,
+                        outro_source.name,
+                    )
+                    fields[outro_field] = [{"id": "backfilled", "filename": outro_source.name}]
+                    backfilled_count += 1
+                    print(f"[OK] Backfilled '{outro_field}' on record {record_id}", flush=True)
+                except Exception as err:
+                    print(f"[WARN] Failed backfilling '{outro_field}' on record {record_id}: {err}", flush=True)
+        if backfilled_count > 0:
+            print(f"[OK] Successfully backfilled Outro on {backfilled_count} record(s).", flush=True)
+        return backfilled_count
+
+    def run(self, phase: int | str = "all", *, resume: bool = False, max_items: int = 1) -> None:
         self.preflight()
+        if self.definition.outro_field and self.definition.outro_asset:
+            try:
+                self._backfill_missing_outro()
+            except Exception as b_err:
+                print(f"[WARN] Outro auto-backfill note: {b_err}", flush=True)
         if phase == "all":
-            record, start_phase = self._next_incomplete()
-            if record is None:
-                record = self._phase_1()
+            items_to_process = max(1, int(max_items or 1))
+            for item_idx in range(items_to_process):
+                if items_to_process > 1:
+                    print(f"\n[BATCH] Processing item {item_idx + 1} of {items_to_process}...", flush=True)
+                record = None
                 start_phase = 2
-            for phase_number in range(start_phase, self.definition.phase_count + 1):
-                self._run_phase(phase_number, record["id"])
+                if resume and item_idx == 0:
+                    # User explicitly requested to resume an incomplete / interrupted row (first item only)
+                    record, start_phase = self._next_incomplete()
+                    if record:
+                        item_name = record.get("fields", {}).get("Item Name") or record.get("fields", {}).get("SKU") or record["id"]
+                        print(f"[INFO] Resuming interrupted row {record['id']} ('{item_name}') starting from Phase {start_phase}...", flush=True)
+                    else:
+                        print("[INFO] No incomplete rows found to resume. Scraping a new candidate...", flush=True)
+                if record is None:
+                    print("[INFO] Creating a new row: scraping product candidate from Akeneo...", flush=True)
+                    record = self._phase_1()
+                    start_phase = 2
+                for phase_number in range(start_phase, self.definition.phase_count + 1):
+                    self._run_phase(phase_number, record["id"])
             return
         phase_number = int(phase)
         if phase_number == 1:
@@ -596,7 +949,12 @@ class PhasedContentRunner:
     def _phase_for_record(self, record: dict[str, Any]) -> int | None:
         fields = record.get("fields", {})
         status = str(fields.get("Status") or "").strip()
-        if status.casefold() in ("error", "skip", "skipped", "ignore", "disabled") or "error" in status.casefold():
+        status_cf = status.casefold()
+        # Strictly ignore any completed, protected, scheduled, posted, discarded, or error records
+        if status_cf in TERMINAL_AND_PROTECTED_STATUSES or "complete" in status_cf or "error" in status_cf:
+            return None
+        # Also, if final media is already attached, it's 100% complete
+        if self._has_attachment(fields, self.definition.final_field):
             return None
         if not self._has_attachment(fields, "Furniture Item"):
             return None
@@ -610,7 +968,7 @@ class PhasedContentRunner:
                 return 5 if local_blend.is_file() else 4
             if not self._has_attachment(fields, self.definition.video_field or "REEL - Day & Night"):
                 return 6
-            if not self._has_attachment(fields, self.definition.music_field or "Music Generated"):
+            if ENABLE_DAY_NIGHT_MUSIC and not self._has_attachment(fields, self.definition.music_field or "Music Generated"):
                 return 7
             if not self._has_attachment(fields, self.definition.final_field):
                 return 8
@@ -629,13 +987,17 @@ class PhasedContentRunner:
         return None, 0
 
     def _find_for_phase(self, phase: int) -> dict[str, Any] | None:
-        for record in self._records():
+        # Search newest first for the latest row that needs this phase
+        for record in reversed(self._records()):
             if self._phase_for_record(record) == phase:
                 return record
         return None
 
     def _update_status(self, record_id: str, status: str) -> None:
-        self.airtable.update_records([(record_id, {"Status": status})])
+        fields: dict[str, Any] = {"Status": status}
+        if str(status).strip().casefold() == "complete":
+            fields["Date and Time Generated"] = current_pht_timestamp()
+        self.airtable.update_records([(record_id, fields)])
         self.logger.event("status_updated", record_id=record_id, status=status)
 
     def _run_phase(self, phase: int, record_id: str) -> None:
@@ -713,14 +1075,16 @@ class PhasedContentRunner:
         local_skus, _ = self.airtable.load_inventory()
         existing_skus = set(base_skus) | set(local_skus)
 
-        products = self.akeneo.fetch_products(
-            {
-                "categories": [
-                    {"operator": "IN", "value": [akeneo_category_code(self.definition.category_code)]}
-                ],
-                "Style2": [{"operator": "IN", "value": [self.settings.style_code]}],
-            }
-        )
+        ak_cat = akeneo_category_code(self.definition.category_code)
+        query = {
+            "categories": [
+                {"operator": "IN", "value": [ak_cat]}
+            ],
+            "enabled": [{"operator": "=", "value": True}],
+        }
+        if self.settings.style_code and self.settings.style_code.lower() != "all":
+            query["Style2"] = [{"operator": "IN", "value": [self.settings.style_code]}]
+        products = self.akeneo.fetch_products(query)
         existing_names, existing_media = existing_product_identities(products, existing_skus)
         all_names = set(base_names) | set(existing_names)
         all_media = set(base_files) | set(existing_media)
@@ -732,10 +1096,62 @@ class PhasedContentRunner:
             existing_media_codes=all_media,
             category_code=self.definition.category_code,
         )
+        if not candidates and self.settings.style_code and self.settings.style_code.lower() != "all":
+            print(f"[INFO] Style '{self.settings.style_code}' yielded no new candidates. Broadening search across all styles...", flush=True)
+            fallback_query = {
+                "categories": [{"operator": "IN", "value": [ak_cat]}],
+                "enabled": [{"operator": "=", "value": True}],
+            }
+            products = self.akeneo.fetch_products(fallback_query)
+            existing_names, existing_media = existing_product_identities(products, existing_skus)
+            all_names = set(base_names) | set(existing_names)
+            all_media = set(base_files) | set(existing_media)
+            candidates, _ = select_new_products(
+                products,
+                existing_skus,
+                existing_item_names=all_names,
+                existing_media_codes=all_media,
+                category_code=self.definition.category_code,
+            )
         if not candidates:
             raise AutomationError("Akeneo returned no new eligible product to scrape (all products already exist across Airtable tables)")
 
-        item = random.choice(candidates)
+        # Cross-check candidates against published products on Shopify (Strict Verification)
+        print(f"[INFO] Cross-checking {len(candidates)} Akeneo candidate(s) against Shopify published catalog...", flush=True)
+        try:
+            shopify = ShopifyClient()
+            shopify_index = shopify.load_published_identities()
+        except Exception as shopify_err:
+            raise AutomationError(
+                f"Strict Shopify verification failed to load catalog ({shopify_err}). "
+                "Aborting to prevent inactive products from entering pipeline."
+            ) from shopify_err
+
+        active_candidates: list[ProductItem] = []
+        excluded_shopify = 0
+        for cand in candidates:
+            if shopify_index.contains(cand.sku, cand.item_name):
+                active_candidates.append(cand)
+            else:
+                try:
+                    print(f"  [SHOPIFY DRAFT/INACTIVE SKIP] Item '{cand.item_name}' (SKU: {cand.sku}) is Enabled in Akeneo but Draft/Inactive in Shopify -> skipping", flush=True)
+                except Exception:
+                    print(f"  [SHOPIFY DRAFT/INACTIVE SKIP] SKU {cand.sku} is not active in Shopify -> skipping", flush=True)
+                excluded_shopify += 1
+
+        print(
+            f"[INFO] Shopify cross-check: {len(active_candidates)} active on Shopify, "
+            f"{excluded_shopify} excluded (Draft/Inactive in Shopify).",
+            flush=True,
+        )
+
+        if not active_candidates:
+            raise AutomationError(
+                f"No active/published Shopify products found among eligible Akeneo candidates "
+                f"({len(candidates)} candidates checked, but all {excluded_shopify} are Draft/Inactive on Shopify)."
+            )
+
+        item = random.choice(active_candidates)
         full_name = format_item_name_with_product_type(
             item.item_name,
             item.product_type,
@@ -764,6 +1180,16 @@ class PhasedContentRunner:
                     self.definition.layout_field,
                     layout_path,
                     layout_path.name,
+                )
+            if self.definition.outro_field and self.definition.outro_asset:
+                outro_path = AssetCatalog(self.settings.workspace).path(self.definition.outro_asset)
+                if not outro_path.is_file():
+                    raise AssetValidationError(f"Missing outro asset: {outro_path}")
+                self.airtable.upload_attachment(
+                    record_id,
+                    self.definition.outro_field,
+                    outro_path,
+                    outro_path.name,
                 )
         except Exception:
             self._update_status(record_id, "Phase 1 - Failed")
@@ -796,6 +1222,40 @@ class PhasedContentRunner:
 
     def _record(self, record_id: str) -> dict[str, Any]:
         return self.airtable.get_record(record_id)
+
+    def _resolve_logo_path(self, fields: dict[str, Any] | None = None) -> Path | None:
+        """Resolve the HomeCartel logo asset path from Airtable 'Logo' field or local fallback."""
+        if fields:
+            logo_attachments = fields.get("Logo") or []
+            if isinstance(logo_attachments, list) and logo_attachments and isinstance(logo_attachments[0], dict):
+                logo_url = str(logo_attachments[0].get("url") or "").strip()
+                if logo_url:
+                    try:
+                        cached_logo = self.settings.workspace / "output" / "cache" / "airtable_logo.png"
+                        cached_logo.parent.mkdir(parents=True, exist_ok=True)
+                        if not cached_logo.is_file() or cached_logo.stat().st_size == 0:
+                            resp = requests.get(logo_url, timeout=30)
+                            if resp.ok:
+                                cached_logo.write_bytes(resp.content)
+                        if cached_logo.is_file() and cached_logo.stat().st_size > 0:
+                            return cached_logo
+                    except Exception:
+                        pass
+
+        # Local fallbacks
+        workspace = self.settings.workspace or Path(".")
+        candidates = [
+            workspace / "assets" / "homecartel_logo.png",
+            workspace / "assets" / "Logo.png",
+            workspace / "assets" / "logo.png",
+            workspace / "JSON Prompts" / "homecartel_logo.png",
+            Path("assets/homecartel_logo.png"),
+            Path("assets/Logo.png"),
+        ]
+        for cand in candidates:
+            if cand.is_file() and cand.stat().st_size > 0:
+                return cand
+        return None
 
     @staticmethod
     def _attachment_url(fields: dict[str, Any], field_name: str) -> str:
@@ -842,15 +1302,31 @@ class PhasedContentRunner:
         return destination
 
     def _phase_2(self, record_id: str) -> None:
-        available_prompts = load_tips_edu_json_prompts(
-            self.settings.workspace,
-            self.definition.category_code,
-            self.definition.interior_prompts or (self.definition.interior_prompt,),
-        )
-        prompt = random.choice(available_prompts)
-        moodboard_id = resolve_krea_moodboard_id(
-            self.definition.category_code,
-            self.definition.moodboard_id,
+        # Honor explicitly configured/overridden interior prompt
+        if self.definition.interior_prompt and self.definition.interior_prompt.strip():
+            prompt = self.definition.interior_prompt.strip()
+        else:
+            available_prompts = load_tips_edu_json_prompts(
+                self.settings.workspace,
+                self.definition.category_code,
+                self.definition.interior_prompts or (self.definition.interior_prompt,),
+            )
+            prompt = random.choice(available_prompts)
+
+        # Honor explicitly configured/overridden moodboard ID
+        if self.definition.moodboard_id and self.definition.moodboard_id.strip():
+            moodboard_id = self.definition.moodboard_id.strip()
+        else:
+            moodboard_id = resolve_krea_moodboard_id(
+                self.definition.category_code,
+                self.definition.moodboard_id,
+                workspace=self.settings.workspace,
+            )
+
+        print(
+            f"[INFO] [Phase 2/{self.definition.phase_count}] Krea AI Interior Generation | "
+            f"Moodboard: {moodboard_id} | Prompt: \"{prompt}\"",
+            flush=True,
         )
 
         url = self.krea.generate(
@@ -910,76 +1386,12 @@ class PhasedContentRunner:
         product_url = self._attachment_url(fields, "Furniture Item")
         item_name = str(fields.get("Item Name") or fields.get("SKU") or "Lighting Product").strip()
 
-        if "floor" in self.definition.category_code:
-            instruction = (
-                f"You are an expert interior design AI prompt engineer. Analyze Image 1 as the Room Interior photo "
-                f"and Image 2 as the product photo for '{item_name}'.\n"
-                f"Generate a detailed, clean, photorealistic image blending prompt that will place and stand this {item_name} floor lamp naturally on the floor in this room interior.\n"
-                f"CRITICAL ISOLATION & FLOOR LAMP PLACEMENT RULES:\n"
-                f"1. The floor lamp shown in Image 2 MUST BE THE ONLY STANDING FLOOR LAMP in the entire final blended scene.\n"
-                f"2. If Image 1 contains ANY pre-existing floor lamps, secondary lamps, or competing light fixtures, "
-                f"EXPLICITLY INSTRUCT TO REMOVE AND REPLACE THEM so that ONLY the exact {item_name} floor lamp from Image 2 stands in the room.\n"
-                f"3. Strictly place the floor lamp standing on the floor in full view (e.g. beside the armchair, at the end of the sofa, in the reading corner, beside the lounge chair, in the bedroom corner, or beside the console table).\n"
-                f"4. Ensure natural standing height, realistic sturdy base resting flat on the floor/rug, natural contact shadows on the floor and adjacent walls, realistic warm illumination and soft ambient glow, and authentic product materials.\n"
-                f"5. Strictly exclude duplicate lamps, extra competing lighting fixtures, or unwanted clutter.\n\n"
-                f"Output ONLY the prompt text, with no preamble or markdown quotes."
-            )
-        elif "table" in self.definition.category_code:
-            instruction = (
-                f"You are an expert interior design AI prompt engineer. Analyze Image 1 as the Room Interior photo "
-                f"and Image 2 as the product photo for '{item_name}'.\n"
-                f"Generate a detailed, clean, photorealistic image blending prompt that will place this {item_name} table lamp on a tabletop, nightstand, or console in this room interior.\n"
-                f"CRITICAL ISOLATION & TABLE LAMP PLACEMENT RULES:\n"
-                f"1. The table lamp shown in Image 2 MUST BE THE ONLY TABLE LAMP in the entire final blended scene.\n"
-                f"2. If Image 1 contains ANY pre-existing table lamps or competing light fixtures, "
-                f"EXPLICITLY INSTRUCT TO REMOVE AND REPLACE THEM so that ONLY the exact table lamp from Image 2 rests on the table.\n"
-                f"3. Ensure realistic contact shadows on the tabletop, authentic lamp materials, natural scale, and soft warm ambient lighting.\n\n"
-                f"Output ONLY the prompt text, with no preamble or markdown quotes."
-            )
-        elif "wall" in self.definition.category_code:
-            instruction = (
-                f"You are an expert interior design AI prompt engineer. Analyze Image 1 as the Room Interior photo "
-                f"and Image 2 as the product photo for '{item_name}'.\n"
-                f"Generate a detailed, clean, photorealistic image blending prompt that will mount this {item_name} wall light securely on the wall in this room interior.\n"
-                f"CRITICAL ISOLATION & WALL MOUNT RULES:\n"
-                f"1. The wall light shown in Image 2 MUST BE THE ONLY WALL LIGHT in the entire final blended scene.\n"
-                f"2. If Image 1 contains ANY pre-existing wall sconces or competing light fixtures, "
-                f"EXPLICITLY INSTRUCT TO REMOVE AND REPLACE THEM so that ONLY the exact wall light from Image 2 is mounted on the wall.\n"
-                f"3. Ensure natural mounting height, realistic wall junction, authentic materials, and soft warm ambient illumination casting on the wall.\n\n"
-                f"Output ONLY the prompt text, with no preamble or markdown quotes."
-            )
-        elif "ceiling" in self.definition.category_code:
-            instruction = (
-                f"You are an expert interior design AI prompt engineer. Analyze Image 1 as the Room Interior photo "
-                f"and Image 2 as the product photo for '{item_name}'.\n"
-                f"Generate a detailed, clean, photorealistic image blending prompt that will mount this {item_name} ceiling light directly onto the ceiling in this room interior.\n"
-                f"CRITICAL ISOLATION & CEILING MOUNT RULES:\n"
-                f"1. The ceiling light shown in Image 2 MUST BE THE ONLY CEILING LIGHTING FIXTURE in the entire final blended scene.\n"
-                f"2. If Image 1 contains ANY pre-existing lighting fixtures, ceiling lamps, or secondary light fixtures, "
-                f"EXPLICITLY INSTRUCT TO REMOVE AND REPLACE THEM so that ONLY the exact ceiling-mounted light from Image 2 is installed on the ceiling.\n"
-                f"3. Ensure seamless flush/semi-flush ceiling mounting, realistic ceiling canopy/junction, authentic materials, and soft warm ambient downward illumination.\n\n"
-                f"Output ONLY the prompt text, with no preamble or markdown quotes."
-            )
-        else:
-            if "cluster" in self.definition.category_code:
-                fixture_type = "cluster chandelier"
-            elif "pendant" in self.definition.category_code:
-                fixture_type = "pendant light"
-            else:
-                fixture_type = "chandelier"
-            instruction = (
-                f"You are an expert interior design AI prompt engineer. Analyze Image 1 as the Room Interior photo "
-                f"and Image 2 as the product photo for '{item_name}'.\n"
-                f"Generate a detailed, clean, photorealistic image blending prompt that will mount and hang this {item_name} {fixture_type} from the ceiling in this room interior.\n"
-                f"CRITICAL ISOLATION & CEILING MOUNT RULES:\n"
-                f"1. The {fixture_type} shown in Image 2 MUST BE THE ONLY CEILING LIGHTING FIXTURE in the entire final blended scene.\n"
-                f"2. If Image 1 contains ANY pre-existing lighting fixtures, ceiling lamps, or secondary light fixtures, "
-                f"EXPLICITLY INSTRUCT TO REMOVE AND REPLACE THEM so that ONLY the exact {fixture_type} from Image 2 hangs from the ceiling.\n"
-                f"3. Strictly exclude unnecessary, extra, competing furniture items, duplicate fixtures, or clutter.\n"
-                f"4. Ensure natural hanging height, realistic chain/rod/cord mounting, ceiling junction canopy, realistic warm illumination, "
-                f"soft downward & ambient glow, natural contact shadows on surrounding walls/floors, and authentic materials.\n\n"
-                f"Output ONLY the prompt text, with no preamble or markdown quotes."
-            )
+        ratio = getattr(self.definition, "aspect_ratio", None) or "9:16"
+        instruction = build_vision_blending_instruction(
+            interior_label=f"Room Interior ('{self.definition.interior_field}')",
+            item_name=item_name,
+            aspect_ratio=ratio,
+        )
         print(f"  Requesting vision blending prompt from Claude Sonnet 5 ({FAL_VISION_MODEL})...", flush=True)
         raw_prompt = self.fal.generate_vision_prompt(
             [interior_url, product_url],
@@ -1050,6 +1462,31 @@ class PhasedContentRunner:
 
         if not self.is_day_night:
             self.airtable.upload_attachment(record_id, self.definition.blended_field, destination, destination.name)
+            if self.definition.key.startswith("tips_edu_story"):
+                try:
+                    raw_item_name = str(fields.get("Item Name") or fields.get("SKU") or record_id).strip()
+                    item_title, product_type = split_item_name(
+                        raw_item_name, fallback_product_type=str(fields.get("Product Type") or "")
+                    )
+                    print(
+                        f"\n [ITEM TAGGING] Stamping item name ('{item_title}') onto 9:16 Blended Image -> '{TARGET_BLENDED_FIELD}'...",
+                        flush=True,
+                    )
+                    tag_and_upload_blended_image(
+                        airtable=self.airtable,
+                        record_id=record_id,
+                        blended_source=destination,
+                        item_name=item_title,
+                        product_type=product_type,
+                        category=self.definition.category_code,
+                        target_field=TARGET_BLENDED_FIELD,
+                        output_filename_prefix=f"{self.definition.key}_tagged",
+                    )
+                except Exception as tag_err:
+                    print(
+                        f"  [WARN] Failed auto-tagging item name onto Tips & Edu Story blended image: {tag_err}",
+                        flush=True,
+                    )
 
         self.logger.event(
             "provider_completed",
@@ -1085,17 +1522,73 @@ class PhasedContentRunner:
         )
 
     def _phase_5(self, record_id: str) -> None:
+        fields = self._record(record_id).get("fields", {})
         if self.is_day_night:
             source = self._artifact_path(record_id, "day_and_night_blended.jpg")
             if not source.is_file():
                 raise AssetValidationError("Phase 4 blend artifact is missing; rerun Phase 4")
             self._validate_9_16(source, "Day and Night blend")
             self.airtable.upload_attachment(record_id, self.definition.blended_field, source, source.name)
+
+            # Auto-tag furniture item name onto Day & Night Reel Blended Image using YOLO-World
+            try:
+                raw_item_name = str(fields.get("Item Name") or fields.get("SKU") or record_id).strip()
+                item_title, product_type = split_item_name(
+                    raw_item_name, fallback_product_type=str(fields.get("Product Type") or "")
+                )
+                print(
+                    f"\n [ITEM TAGGING] Stamping item name ('{item_title}') onto Day & Night Reel Blended Image -> '{TARGET_BLENDED_FIELD}'...",
+                    flush=True,
+                )
+                tag_and_upload_blended_image(
+                    airtable=self.airtable,
+                    record_id=record_id,
+                    blended_source=source,
+                    item_name=item_title,
+                    product_type=product_type,
+                    category=self.definition.category_code,
+                    target_field=TARGET_BLENDED_FIELD,
+                    output_filename_prefix=f"{self.definition.key}_tagged",
+                    fallback_if_undetected=True,
+                )
+            except Exception as tag_err:
+                print(f"  [WARN] Failed auto-tagging item name onto Day & Night Reel: {tag_err}", flush=True)
+
             return
 
-        fields = self._record(record_id).get("fields", {})
-        print(f"  [1/3] Reading '{self.definition.blended_field}' and '{self.definition.layout_field}' attachments from Airtable...", flush=True)
-        blended_url = self._attachment_url(fields, self.definition.blended_field)
+        if self.definition.key.startswith("tips_edu_story"):
+            if not self._has_attachment(fields, TARGET_BLENDED_FIELD):
+                if self._has_attachment(fields, self.definition.blended_field):
+                    raw_blended_url = self._attachment_url(fields, self.definition.blended_field)
+                    raw_item_name = str(fields.get("Item Name") or fields.get("SKU") or record_id).strip()
+                    item_title, product_type = split_item_name(
+                        raw_item_name, fallback_product_type=str(fields.get("Product Type") or "")
+                    )
+                    print(
+                        f"\n  [ON-THE-FLY TAGGING] '{TARGET_BLENDED_FIELD}' missing on record {record_id}. "
+                        f"Auto-tagging '{item_title}' from '{self.definition.blended_field}'...",
+                        flush=True,
+                    )
+                    tag_and_upload_blended_image(
+                        airtable=self.airtable,
+                        record_id=record_id,
+                        blended_source=raw_blended_url,
+                        item_name=item_title,
+                        product_type=product_type,
+                        category=self.definition.category_code,
+                        target_field=TARGET_BLENDED_FIELD,
+                        output_filename_prefix=f"{self.definition.key}_tagged",
+                        fallback_if_undetected=True,
+                    )
+                    fields = self._record(record_id).get("fields", {})
+
+            target_blended_field = TARGET_BLENDED_FIELD if self._has_attachment(fields, TARGET_BLENDED_FIELD) else self.definition.blended_field
+            print(f"  [1/3] Reading '{target_blended_field}' and '{self.definition.layout_field}' attachments from Airtable...", flush=True)
+            blended_url = self._attachment_url(fields, target_blended_field)
+        else:
+            print(f"  [1/3] Reading '{self.definition.blended_field}' and '{self.definition.layout_field}' attachments from Airtable...", flush=True)
+            blended_url = self._attachment_url(fields, self.definition.blended_field)
+
         if not self._has_attachment(fields, self.definition.layout_field) and self.definition.layout_asset:
             layout_path = AssetCatalog(self.settings.workspace).path(self.definition.layout_asset)
             if layout_path.is_file():
@@ -1108,6 +1601,27 @@ class PhasedContentRunner:
                 fields = self._record(record_id).get("fields", {})
         layout_url = self._attachment_url(fields, self.definition.layout_field)
         prompt = AssetCatalog(self.settings.workspace).read_prompt(self.definition.final_prompt_asset)
+        if self.definition.key.startswith("tips_edu_story"):
+            try:
+                raw_item_name = str(fields.get("Item Name") or fields.get("SKU") or record_id).strip()
+                item_title, product_type = split_item_name(
+                    raw_item_name, fallback_product_type=str(fields.get("Product Type") or "")
+                )
+                prompt_data = json.loads(prompt)
+                prompt_data["specific_fixture_preservation"] = {
+                    "product_name": item_title,
+                    "product_type": product_type,
+                    "category": self.definition.category_code,
+                    "instruction": (
+                        f"The product advertised in Image 1 is '{item_title}' ({product_type}). "
+                        f"Image 1 shows the exact '{item_title}' installed in the room WITH its floating white name tag beside it. "
+                        f"You MUST preserve this exact '{item_title}' fixture and its floating white text tag with 100% precision. "
+                        f"DO NOT replace, redesign, or alter the chandelier/lighting fixture, and DO NOT erase the floating white text."
+                    ),
+                }
+                prompt = json.dumps(prompt_data)
+            except Exception as inject_err:
+                print(f"  [WARN] Dynamic prompt injection note: {inject_err}", flush=True)
 
         print(f"  [2/3] Sending layout conversion request to Fal AI Nano Banana Pro ({FAL_NANO_BANANA_MODEL}) at 9:16...", flush=True)
         result_url = self.fal.generate(
@@ -1121,6 +1635,46 @@ class PhasedContentRunner:
         destination = self._artifact_path(record_id, filename)
         self._download(result_url, destination)
         self._validate_9_16(destination, "Nano Banana Pro story converted image")
+
+        if self.definition.key.startswith("tips_edu_story"):
+            # Ensure the floating item name text is 100% sharp and visible on the final story conversion
+            try:
+                raw_item_name = str(fields.get("Item Name") or fields.get("SKU") or record_id).strip()
+                item_title, product_type = split_item_name(
+                    raw_item_name, fallback_product_type=str(fields.get("Product Type") or "")
+                )
+                tagged_conv, _ = tag_blended_image(
+                    image_input=destination,
+                    item_name=item_title,
+                    product_type=product_type,
+                    category=self.definition.category_code,
+                    destination=destination,
+                )
+                if tagged_conv is not None:
+                    print(f"  [OK] Guaranteed sharp floating item name text tag stamped onto final story conversion ({destination.name}).", flush=True)
+            except Exception as stamp_err:
+                print(f"  [WARN] Story conversion text tag guarantee note: {stamp_err}", flush=True)
+
+            # Local PIL Brand Logo Stamping (Story Top-Right: X=781.7, Y=108.0 | 190.3 x 63.5 px)
+            try:
+                logo_path = self._resolve_logo_path(fields)
+                if logo_path and logo_path.is_file():
+                    stamp_logo(
+                        base_path=destination,
+                        logo_path=logo_path,
+                        destination=destination,
+                        box=HOMECARTEL_STORY_LOGO_BOX,
+                    )
+                    print(
+                        f"  [OK] Stamped HomeCartel Story logo onto final story conversion "
+                        f"(Top-Right: X=781.7, Y=108.0 | 190.3 x 63.5 px) -> {destination.name}",
+                        flush=True,
+                    )
+                else:
+                    print("  [WARN] No brand logo asset found to stamp onto story conversion.", flush=True)
+            except Exception as logo_err:
+                print(f"  [WARN] Story conversion logo stamping note: {logo_err}", flush=True)
+
         print(f"  [3/3] Uploading converted story to '{self.definition.final_field}' on record {record_id}...", flush=True)
         self.airtable.upload_attachment(record_id, self.definition.final_field, destination, destination.name)
         self.logger.event(
@@ -1160,19 +1714,23 @@ class PhasedContentRunner:
         if not self.is_day_night:
             raise AutomationError("Tips & Edu Story has no phase 6")
         fields = self._record(record_id).get("fields", {})
-        source_url = self._attachment_url(fields, self.definition.blended_field)
+        if self._has_attachment(fields, TARGET_BLENDED_FIELD):
+            source_url = self._attachment_url(fields, TARGET_BLENDED_FIELD)
+        else:
+            source_url = self._attachment_url(fields, self.definition.blended_field)
         local_source = self._artifact_path(record_id, "fal_day_and_night_source.jpg")
         print(f"  [1/4] Downloading blended source image from Airtable...", flush=True)
         self._download(source_url, local_source)
         self._validate_9_16(local_source, "Day and Night blend")
         print(f"  [2/4] Uploading source image to Fal AI CDN...", flush=True)
         fal_source_url = self.fal.upload_file(local_source)
-        print(f"  [3/4] Requesting Kling 15s timelapse video from Fal AI ({FAL_KLING_MODEL})...", flush=True)
-        video_url = self.fal.generate_kling_video(
+        print(f"  [3/4] Requesting Grok Imagine Video 1.5 15s timelapse from Fal AI ({FAL_GROK_VIDEO_MODEL}) at {DAY_NIGHT_VIDEO_RESOLUTION}...", flush=True)
+        video_url = self.fal.generate_grok_video(
             DAY_NIGHT_TIMELAPSE_PROMPT,
             fal_source_url,
-            duration=15,
-            model=FAL_KLING_MODEL,
+            duration=int(DAY_NIGHT_VIDEO_DURATION),
+            resolution=DAY_NIGHT_VIDEO_RESOLUTION,
+            model=FAL_GROK_VIDEO_MODEL,
         )
         target_video_field = self.definition.video_field or "REEL - Day & Night"
         print(f"  [4/4] Video generated! Downloading & uploading to Airtable '{target_video_field}'...", flush=True)
@@ -1184,8 +1742,9 @@ class PhasedContentRunner:
             record_id=record_id,
             phase=6,
             provider="fal",
-            model=FAL_KLING_MODEL,
-            duration_seconds=15,
+            model=FAL_GROK_VIDEO_MODEL,
+            duration_seconds=int(DAY_NIGHT_VIDEO_DURATION),
+            resolution=DAY_NIGHT_VIDEO_RESOLUTION,
             attachment_filename=video_path.name,
         )
         append_audit_log(
@@ -1194,15 +1753,16 @@ class PhasedContentRunner:
                 "record_id": record_id,
                 "sku": str(fields.get("SKU") or ""),
                 "item_label": fields.get("Item Name") or fields.get("SKU") or record_id,
-                "phase": "Phase 6: Fal AI Kling Video Timelapse",
-                "api_provider": "Fal AI (Kling Video v3 Pro)",
-                "api_model": FAL_KLING_MODEL,
+                "phase": "Phase 6: xAI Grok Imagine Video 1.5 Timelapse",
+                "api_provider": "Fal AI (xAI Grok Imagine Video 1.5)",
+                "api_model": FAL_GROK_VIDEO_MODEL,
                 "raw_request": {
-                    "model": FAL_KLING_MODEL,
+                    "model": FAL_GROK_VIDEO_MODEL,
                     "prompt": DAY_NIGHT_TIMELAPSE_PROMPT,
                     "airtable_source_url": source_url,
                     "fal_source_url": fal_source_url,
-                    "duration_seconds": 15,
+                    "duration_seconds": int(DAY_NIGHT_VIDEO_DURATION),
+                    "resolution": DAY_NIGHT_VIDEO_RESOLUTION,
                 },
                 "raw_response": {
                     "video_url": video_url,
@@ -1210,12 +1770,15 @@ class PhasedContentRunner:
                     "target_field": target_video_field,
                 },
             },
-            self.audit_log_dir / f"{self.definition.key}_fal_kling_logs.json",
+            self.audit_log_dir / f"{self.definition.key}_fal_grok_logs.json",
         )
 
     def _phase_7(self, record_id: str) -> None:
         if not self.is_day_night:
             raise AutomationError("Tips & Edu Story has no phase 7")
+        if not ENABLE_DAY_NIGHT_MUSIC:
+            print("  [INFO] Music generation is currently disabled (ENABLE_DAY_NIGHT_MUSIC=False). Skipping Phase 7.", flush=True)
+            return
         fields = self._record(record_id).get("fields", {})
         blended_url = self._attachment_url(fields, self.definition.blended_field)
         print(f"  [1/3] Analyzing Day and Night Blended photo with Claude Sonnet 5 ({FAL_VISION_MODEL}) for smooth jazz music prompt...", flush=True)
@@ -1238,11 +1801,11 @@ class PhasedContentRunner:
         if not jazz_prompt or len(jazz_prompt) < 5:
             jazz_prompt = "Smooth relaxing lounge jazz with warm piano, subtle saxophone, and gentle acoustic rhythm"
 
-        print(f"  [2/3] Generating 18s background jazz music via Fal AI Stable Audio 3 (Prompt: '{jazz_prompt}')...", flush=True)
-        audio_url = self.fal.generate_stable_audio_music(
+        print(f"  [2/3] Generating 18s background jazz music via Fal AI ElevenLabs Music (Prompt: '{jazz_prompt}')...", flush=True)
+        audio_url = self.fal.generate_elevenlabs_music(
             jazz_prompt,
-            duration=DAY_NIGHT_MUSIC_DURATION,
-            model=FAL_STABLE_AUDIO_MODEL,
+            duration=int(DAY_NIGHT_MUSIC_DURATION),
+            model=FAL_ELEVENLABS_MUSIC_MODEL,
         )
         target_music_field = self.definition.music_field or "Music Generated"
         print(f"  [3/3] Audio generated! Downloading & uploading to Airtable '{target_music_field}'...", flush=True)
@@ -1254,8 +1817,8 @@ class PhasedContentRunner:
             record_id=record_id,
             phase=7,
             provider="fal",
-            model=FAL_STABLE_AUDIO_MODEL,
-            duration_seconds=DAY_NIGHT_MUSIC_DURATION,
+            model=FAL_ELEVENLABS_MUSIC_MODEL,
+            duration_seconds=int(DAY_NIGHT_MUSIC_DURATION),
             music_prompt=jazz_prompt,
             attachment_filename=music_path.name,
         )
@@ -1265,14 +1828,14 @@ class PhasedContentRunner:
                 "record_id": record_id,
                 "sku": str(fields.get("SKU") or ""),
                 "item_label": fields.get("Item Name") or fields.get("SKU") or record_id,
-                "phase": "Phase 7: Fal AI Stable Audio 3 Jazz Music (Claude Sonnet 5 Prompt)",
-                "api_provider": "Fal AI (Stable Audio 3 + Claude Sonnet 5)",
-                "api_model": f"{FAL_STABLE_AUDIO_MODEL} + {FAL_VISION_MODEL}",
+                "phase": "Phase 7: Fal AI ElevenLabs Jazz Music (Claude Sonnet 5 Prompt)",
+                "api_provider": "Fal AI (ElevenLabs Music + Claude Sonnet 5)",
+                "api_model": f"{FAL_ELEVENLABS_MUSIC_MODEL} + {FAL_VISION_MODEL}",
                 "raw_request": {
                     "vision_model": FAL_VISION_MODEL,
-                    "audio_model": FAL_STABLE_AUDIO_MODEL,
+                    "audio_model": FAL_ELEVENLABS_MUSIC_MODEL,
                     "prompt": jazz_prompt,
-                    "duration_seconds": DAY_NIGHT_MUSIC_DURATION,
+                    "duration_seconds": int(DAY_NIGHT_MUSIC_DURATION),
                 },
                 "raw_response": {
                     "audio_url": audio_url,
@@ -1280,7 +1843,7 @@ class PhasedContentRunner:
                     "target_field": target_music_field,
                 },
             },
-            self.audit_log_dir / f"{self.definition.key}_stable_audio_logs.json",
+            self.audit_log_dir / f"{self.definition.key}_elevenlabs_logs.json",
         )
 
     def _phase_8(self, record_id: str) -> None:
@@ -1295,12 +1858,16 @@ class PhasedContentRunner:
         print(f"  [1/4] Downloading '{video_field}' from Airtable...", flush=True)
         self._download(video_url, local_video)
 
-        # 2. Download Music Generated
+        # 2. Download Music Generated (if present)
         music_field = self.definition.music_field or "Music Generated"
-        music_url = self._attachment_url(fields, music_field)
-        local_music = self._artifact_path(record_id, "day_and_night_music.mp3")
-        print(f"  [2/4] Downloading '{music_field}' from Airtable...", flush=True)
-        self._download(music_url, local_music)
+        local_music: Path | None = None
+        if self._has_attachment(fields, music_field):
+            music_url = self._attachment_url(fields, music_field)
+            local_music = self._artifact_path(record_id, "day_and_night_music.mp3")
+            print(f"  [2/4] Downloading '{music_field}' from Airtable...", flush=True)
+            self._download(music_url, local_music)
+        else:
+            print(f"  [2/4] No '{music_field}' attachment found, proceeding without background audio...", flush=True)
 
         # 3. Locate / Download Outro image
         outro_field = self.definition.outro_field or "Outro"
@@ -1310,17 +1877,36 @@ class PhasedContentRunner:
             outro_url = self._attachment_url(fields, outro_field)
             self._download(outro_url, local_outro)
         else:
-            workspace_outro = self.settings.workspace / "Outro for All Reels/Outro.jpg"
-            if workspace_outro.is_file():
-                print(f"  [3/4] Using workspace Outro image: {workspace_outro}...", flush=True)
+            outro_source: Path | None = None
+            if self.definition.outro_asset:
+                candidate = AssetCatalog(self.settings.workspace).path(self.definition.outro_asset)
+                if candidate.is_file():
+                    outro_source = candidate
+            if not outro_source:
+                workspace_outro = self.settings.workspace / "Outro for All Reels/Outro.jpg"
+                if workspace_outro.is_file():
+                    outro_source = workspace_outro
+            if outro_source:
+                print(f"  [3/4] Auto-attaching Outro image ({outro_source.name}) to Airtable '{outro_field}'...", flush=True)
                 import shutil
                 local_outro.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(workspace_outro, local_outro)
+                shutil.copy2(outro_source, local_outro)
+                try:
+                    self.airtable.upload_attachment(
+                        record_id,
+                        outro_field,
+                        local_outro,
+                        outro_source.name,
+                    )
+                    print(f"  [OK] Outro attached to record {record_id} in Airtable.", flush=True)
+                except Exception as upload_err:
+                    print(f"  [WARN] Failed to upload Outro to Airtable ({upload_err}), proceeding with local file.", flush=True)
             else:
                 local_outro = None
 
         # 4. Merge Video + Outro + Audio
-        print(f"  [4/4] Merging 15s Kling video + 3s Outro + Jazz Music into 18s vertical reel...", flush=True)
+        audio_desc = " + ElevenLabs Jazz Music" if local_music else " (Video Only)"
+        print(f"  [4/4] Merging 15s Grok video + 3s Outro{audio_desc} into 18s vertical reel...", flush=True)
         from .video import merge_video_with_outro_and_audio
         final_video_path = self._artifact_path(record_id, "day_and_night_reel_with_music_and_outro.mp4")
         merge_video_with_outro_and_audio(
@@ -1363,7 +1949,7 @@ class PhasedContentRunner:
                 "api_provider": "FFmpeg (local)",
                 "raw_request": {
                     "video_field": video_field,
-                    "music_field": music_field,
+                    "music_field": music_field if local_music else None,
                     "outro_field": outro_field,
                 },
                 "raw_response": {

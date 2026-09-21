@@ -4,10 +4,12 @@ from ..models import CallEstimate
 from .base import BaseWorkflow
 
 
+import os
+
 NANO_BANANA_PRO = "nano-banana-pro"
 SEEDANCE_2_FAST = "bytedance/seedance-2-fast"
 DAY_NIGHT_REEL_DURATION = 15
-DAY_NIGHT_REEL_GENERATE_AUDIO = True
+DAY_NIGHT_REEL_GENERATE_AUDIO = os.getenv("DAY_NIGHT_GENERATE_MUSIC", "false").strip().lower() in ("true", "1", "yes")
 DAY_NIGHT_TIMELAPSE_PROMPT = (
     "do a timelapse of this day photo starting from 9am then make it to 9pm "
     "as the time of day. apply appropriate lighting and shadow changes while "

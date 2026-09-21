@@ -1,5 +1,7 @@
 # ⚖️ This or That Story Automation (9:16 Vertical Story)
 
+> **Master Specification**: For complete architecture, model stack, Foreign Key conventions, and layout specs, see [`../docs/stories/THIS_OR_THAT_STORY.md`](../docs/stories/THIS_OR_THAT_STORY.md) and [`../AGENTS.md`](../AGENTS.md).
+
 Kumpletong gabay at koleksyon ng mga script para sa **This or That Story** (1080 x 1920 px Instagram Story) gamit ang **Fal AI Nano Banana Pro**.
 
 ---
@@ -81,6 +83,15 @@ python "This or That Story/3_Scrape_Akeneo_Chandeliers.py" --rows 1
 python "This or That Story/3_Scrape_Akeneo_Pendant_Lights.py" --rows 1
 ```
 
+### 5. I-backfill ang Nawawalang 'This or That Layout' sa mga Pending Rows:
+```bash
+# Lahat ng kategorya:
+python generate_this_or_that_pipeline.py --target all --mode backfill-layout
+
+# Partikular na kategorya (hal. Wall Lights):
+python generate_this_or_that_pipeline.py --target wall_lights --mode backfill-layout
+```
+
 ---
 
 ## 🎯 Mga Detalye ng Table IDs, Prompts & Settings
@@ -96,6 +107,6 @@ python "This or That Story/3_Scrape_Akeneo_Pendant_Lights.py" --rows 1
 ### 🎨 Model & Prompt Specs:
 - **AI Model**: Fal AI Nano Banana Pro (`fal-ai/nano-banana-pro/edit`)
 - **Aspect Ratio**: `9:16` (1080 x 1920 px vertical story)
-- **Watermark Layout**: `JSON Prompts/This or That/thisorthatlayout.jpg`
+- **Watermark Layout**: `assets/thisorthatlayout.jpg` (fallback: `JSON Prompts/This or That/thisorthatlayout.jpg`)
 - **JSON Prompt Template**: `JSON Prompts/This or That/this_or_that_json_prompt.json`
 - **Airtable Output Field**: `Story This or That (1)` o `This or That Converted`

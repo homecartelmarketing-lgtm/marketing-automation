@@ -1,0 +1,11 @@
+{
+  "appsail": [
+    {
+      "name": "homecartel-marketing-studio",
+      "source": ".",
+      "build_type": "docker",
+      "dockerfile": "Dockerfile",
+      "memory": 2048
+    }
+  ]
+}
