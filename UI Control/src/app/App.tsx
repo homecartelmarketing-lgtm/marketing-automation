@@ -63,6 +63,11 @@ const CONTENT_CONFIG: Record<TabType, { name: string; ratio: string; items: stri
       '1 Product, 3 Styles',
     ],
   },
+  adcover: {
+    name: 'Ad Covers',
+    ratio: '1:1 (1080 × 1080 px)',
+    items: ['Ad Cover Chandelier'],
+  },
 };
 
 // The 5 CTA Story fixtures with actual Airtable Table IDs & Default Krea Moodboard IDs
@@ -234,6 +239,17 @@ const ONE_PRODUCT_THREE_STYLES_REEL_FIXTURES: Omit<FixtureData, 'completed'>[] =
   { id: 'chandelier', name: 'Chandelier', total: 100, tableId: 'tbl6ls4AWcEcynBpZ', moodboardId: 'de6ad512-870d-4ab7-a48c-3f3ca85faf24', prompt: 'Generate me a modern luxury living room with high ceiling for chandelier' },
 ];
 
+// Ad Covers (1:1). Only Chandelier is wired to a real Airtable table today; the
+// remaining fixtures are scaffolded placeholders rendered as disabled "Coming soon".
+const AD_COVER_FIXTURES: Omit<FixtureData, 'completed'>[] = [
+  { id: 'chandelier', name: 'Chandelier', total: 100, tableId: 'tblwIsDGZBPuYJV2Z', moodboardId: 'de6ad512-870d-4ab7-a48c-3f3ca85faf24', prompt: 'Generate me a modern living room', runnable: true },
+  { id: 'floor-lamp', name: 'Floor Lamp', total: 0, runnable: false },
+  { id: 'table-lamp', name: 'Table Lamp', total: 0, runnable: false },
+  { id: 'cluster-chandelier', name: 'Cluster Chandelier', total: 0, runnable: false },
+  { id: 'pendant', name: 'Pendant Light', total: 0, runnable: false },
+  { id: 'wall-light', name: 'Wall Light', total: 0, runnable: false },
+];
+
 const DEFAULT_FIXTURES: Omit<FixtureData, 'completed'>[] = [
   { id: 'chandelier', name: 'Chandelier', total: 100 },
   { id: 'pendant', name: 'Pendant Lights', total: 100 },
@@ -281,6 +297,7 @@ const getFixturesForSubtab = (tab: TabType, subtabIdx: number): Omit<FixtureData
       default: return DEFAULT_FIXTURES;
     }
   }
+  if (tab === 'adcover') return AD_COVER_FIXTURES;
   return DEFAULT_FIXTURES;
 };
 
@@ -322,6 +339,7 @@ export default function App() {
     | 'style-reel-slideshow'
     | 'moodboard-reel'
     | 'one-product-three-styles-reel'
+    | 'ad-cover'
     | null
   >(null);
 
@@ -544,6 +562,13 @@ export default function App() {
   const [moodboardReelStatusCounts, setMoodboardReelStatusCounts] = useState<StatusCountMap>({});
   const [oneProductThreeStylesReelStatusCounts, setOneProductThreeStylesReelStatusCounts] = useState<StatusCountMap>({});
 
+  // Ad Covers (1:1) moodboards, Krea prompts and 5-badge status counts
+  const [adCoverMoodboards, setAdCoverMoodboards] = useState<Record<string, string>>({});
+  const [adCoverPrompts, setAdCoverPrompts] = useState<Record<string, string>>({
+    'chandelier': 'Generate me a modern living room',
+  });
+  const [adCoverStatusCounts, setAdCoverStatusCounts] = useState<StatusCountMap>({});
+
   // Row Inspector Modal state
   const [inspectFixture, setInspectFixture] = useState<FixtureData | null>(null);
   const [inspectStatusFilter, setInspectStatusFilter] = useState<string>('all');
@@ -592,7 +617,9 @@ export default function App() {
   const isMoodboardReelActive = activeTab === 'reel' && activeSubTab === 4;
   const isOneProductThreeStylesReelActive = activeTab === 'reel' && activeSubTab === 5;
 
-  const isInteractivePipelineActive = activeTab === 'story' || activeTab === 'feed' || activeTab === 'reel';
+  const isAdCoverActive = activeTab === 'adcover';
+
+  const isInteractivePipelineActive = activeTab === 'story' || activeTab === 'feed' || activeTab === 'reel' || isAdCoverActive;
   const activeFormat = CONTENT_CONFIG[activeTab];
 
   const getActivePipelineConfig = () => {
@@ -872,6 +899,18 @@ export default function App() {
         subtabIndex: 5,
       };
     }
+    if (isAdCoverActive) {
+      return {
+        type: 'ad-cover' as const,
+        name: 'Ad Cover',
+        runEndpoint: '/api/ad-cover/run',
+        statusEndpoint: '/api/ad-cover/status',
+        stopEndpoint: '/api/ad-cover/stop',
+        totalPhases: 5,
+        phaseSummary: 'Akeneo Scrape ➔ Krea 1:1 Interior ➔ Claude Blending Prompt ➔ Nano Banana Pro Blend ➔ Local Pillow Ad Cover',
+        subtabIndex: 0,
+      };
+    }
     return null;
   };
 
@@ -885,7 +924,7 @@ export default function App() {
         ctaRes, tipsRes, collecRes, dayNightRes, mbRes, specsRes, styleRes, mfRes, prodDescRes, totRes,
         oneProdRes, tipsEduFeedRes, collecFeedRes, mb1FeedRes, mb2FeedRes, dayNightFeedRes, prodShowcaseFeedRes,
         prodCloseupReelRes, dayNightReelRes, beforeAfterReelRes, styleReelRes, mbReelRes, oneProdReelRes,
-        tunnelStatusRes
+        adCoverRes, tunnelStatusRes
       ] = await Promise.all([
         fetch('/api/cta/counts?refresh=true').catch(() => null),
         fetch('/api/tips-edu/counts?refresh=true').catch(() => null),
@@ -910,6 +949,7 @@ export default function App() {
         fetch('/api/style-reel-slideshow/counts?refresh=true').catch(() => null),
         fetch('/api/moodboard-reel/counts?refresh=true').catch(() => null),
         fetch('/api/one-product-3-styles-reel/counts?refresh=true').catch(() => null),
+        fetch('/api/ad-cover/counts?refresh=true').catch(() => null),
         fetch('/api/tunnel/status').catch(() => null),
       ]);
 
@@ -1309,6 +1349,26 @@ export default function App() {
         }
       }
 
+      if (adCoverRes && adCoverRes.ok) {
+        const data = await adCoverRes.json();
+        if (data.counts) {
+          const mbUpdates: Record<string, string> = {};
+          const prUpdates: Record<string, string> = {};
+          const statusUpdates: Record<string, { P: number; S?: number; C: number; D: number; FM: number }> = {};
+          Object.entries(data.counts).forEach(([key, fix]: [string, any]) => {
+            // Placeholders report completed: null — they contribute 0 so the tab
+            // badge still reflects the runnable Chandelier count.
+            updates[`adcover-0-${key}`] = typeof fix.status_counts?.C === 'number' ? fix.status_counts.C : 0;
+            if (fix.moodboard_id) mbUpdates[key] = fix.moodboard_id;
+            if (fix.prompt) prUpdates[key] = fix.prompt;
+            if (fix.status_counts) statusUpdates[key] = fix.status_counts;
+          });
+          if (Object.keys(mbUpdates).length > 0) setAdCoverMoodboards(prev => ({ ...prev, ...mbUpdates }));
+          if (Object.keys(prUpdates).length > 0) setAdCoverPrompts(prev => ({ ...prev, ...prUpdates }));
+          if (Object.keys(statusUpdates).length > 0) setAdCoverStatusCounts(prev => ({ ...prev, ...statusUpdates }));
+        }
+      }
+
       if (Object.keys(updates).length > 0) {
         setProgressState(prev => ({ ...prev, ...updates }));
         if (showToast) {
@@ -1331,7 +1391,7 @@ export default function App() {
         const [
           ctaRes, tipsRes, collecRes, dayNightRes, mbRes, specsRes, styleRes, mfRes, prodDescRes, totRes, oneProdRes,
           tipsEduFeedRes, collecFeedRes, mb1FeedRes, mb2FeedRes, dayNightFeedRes, prodShowcaseFeedRes,
-          prodCloseupReelRes, dayNightReelRes, beforeAfterReelRes, styleReelRes, mbReelRes, oneProdReelRes
+          prodCloseupReelRes, dayNightReelRes, beforeAfterReelRes, styleReelRes, mbReelRes, oneProdReelRes, adCoverRes
         ] = await Promise.all([
           fetch('/api/cta/status').catch(() => null),
           fetch('/api/tips-edu/status').catch(() => null),
@@ -1356,6 +1416,7 @@ export default function App() {
           fetch('/api/style-reel-slideshow/status').catch(() => null),
           fetch('/api/moodboard-reel/status').catch(() => null),
           fetch('/api/one-product-3-styles-reel/status').catch(() => null),
+          fetch('/api/ad-cover/status').catch(() => null),
         ]);
 
         if (ctaRes && ctaRes.ok) {
@@ -1542,6 +1603,14 @@ export default function App() {
             return;
           }
         }
+        if (adCoverRes && adCoverRes.ok) {
+          const data = await adCoverRes.json();
+          if (data.status === 'running') {
+            setRunningPipelineType('ad-cover');
+            setPipelineState(prev => ({ ...prev, ...data }));
+            return;
+          }
+        }
       } catch (e) {
         // silent
       }
@@ -1578,6 +1647,7 @@ export default function App() {
       else if (runningPipelineType === 'style-reel-slideshow') endpoint = '/api/style-reel-slideshow/status';
       else if (runningPipelineType === 'moodboard-reel') endpoint = '/api/moodboard-reel/status';
       else if (runningPipelineType === 'one-product-three-styles-reel') endpoint = '/api/one-product-3-styles-reel/status';
+      else if (runningPipelineType === 'ad-cover') endpoint = '/api/ad-cover/status';
 
       try {
         const res = await fetch(endpoint);
@@ -1671,6 +1741,10 @@ export default function App() {
                   subtabIdx = 5;
                   label = '1 Product, 3 Styles Reel';
                   tabPrefix = 'reel';
+                } else if (runningPipelineType === 'ad-cover') {
+                  subtabIdx = 0;
+                  label = 'Ad Cover Chandelier';
+                  tabPrefix = 'adcover';
                 }
 
                 toast.success(`${label} pipeline finished for ${finishedFixtureId}! Refreshing Airtable completion counts.`, {
@@ -1918,6 +1992,9 @@ export default function App() {
     } else if (isOneProductThreeStylesReelActive) {
       dynMoodboard = oneProductThreeStylesReelMoodboards[fixture.id] || fixture.moodboardId;
       dynPrompt = oneProductThreeStylesReelPrompts[fixture.id] || fixture.prompt;
+    } else if (isAdCoverActive) {
+      dynMoodboard = adCoverMoodboards[fixture.id] || fixture.moodboardId;
+      dynPrompt = adCoverPrompts[fixture.id] || fixture.prompt;
     }
 
     setConfirmModalFixture({
@@ -1948,6 +2025,7 @@ export default function App() {
     else if (isStyleReelActive) currentMb = styleReelMoodboards[fixture.id] || fixture.moodboardId || '';
     else if (isMoodboardReelActive) currentMb = moodboardReelMoodboards[fixture.id] || fixture.moodboardId || '';
     else if (isOneProductThreeStylesReelActive) currentMb = oneProductThreeStylesReelMoodboards[fixture.id] || fixture.moodboardId || '';
+    else if (isAdCoverActive) currentMb = adCoverMoodboards[fixture.id] || fixture.moodboardId || '';
 
     setEditMoodboardFixture(fixture);
     setEditMoodboardInput(currentMb);
@@ -2021,6 +2099,8 @@ export default function App() {
           setMoodboardReelMoodboards(prev => ({ ...prev, [editMoodboardFixture.id]: newId }));
         } else if (isOneProductThreeStylesReelActive) {
           setOneProductThreeStylesReelMoodboards(prev => ({ ...prev, [editMoodboardFixture.id]: newId }));
+        } else if (isAdCoverActive) {
+          setAdCoverMoodboards(prev => ({ ...prev, [editMoodboardFixture.id]: newId }));
         }
         toast.success(`Updated Moodboard ID for ${editMoodboardFixture.name} in .env`);
         setEditMoodboardFixture(null);
@@ -2055,6 +2135,7 @@ export default function App() {
     else if (isStyleReelActive) currentPr = styleReelPrompts[fixture.id] || fixture.prompt || '';
     else if (isMoodboardReelActive) currentPr = moodboardReelPrompts[fixture.id] || fixture.prompt || '';
     else if (isOneProductThreeStylesReelActive) currentPr = oneProductThreeStylesReelPrompts[fixture.id] || fixture.prompt || '';
+    else if (isAdCoverActive) currentPr = adCoverPrompts[fixture.id] || fixture.prompt || '';
 
     setEditPromptFixture(fixture);
     setEditPromptInput(currentPr);
@@ -2128,6 +2209,8 @@ export default function App() {
           setMoodboardReelPrompts(prev => ({ ...prev, [editPromptFixture.id]: newPr }));
         } else if (isOneProductThreeStylesReelActive) {
           setOneProductThreeStylesReelPrompts(prev => ({ ...prev, [editPromptFixture.id]: newPr }));
+        } else if (isAdCoverActive) {
+          setAdCoverPrompts(prev => ({ ...prev, [editPromptFixture.id]: newPr }));
         }
         toast.success(`Updated Krea Prompt for ${editPromptFixture.name} in .env`);
         setEditPromptFixture(null);
@@ -2184,6 +2267,8 @@ export default function App() {
         setMoodboardReelMoodboards(prev => ({ ...prev, [confirmModalFixture.id]: customMoodboardId }));
       } else if (config.type === 'one-product-three-styles-reel') {
         setOneProductThreeStylesReelMoodboards(prev => ({ ...prev, [confirmModalFixture.id]: customMoodboardId }));
+      } else if (config.type === 'ad-cover') {
+        setAdCoverMoodboards(prev => ({ ...prev, [confirmModalFixture.id]: customMoodboardId }));
       }
     }
 
@@ -2224,6 +2309,8 @@ export default function App() {
         setMoodboardReelPrompts(prev => ({ ...prev, [confirmModalFixture.id]: customPrompt }));
       } else if (config.type === 'one-product-three-styles-reel') {
         setOneProductThreeStylesReelPrompts(prev => ({ ...prev, [confirmModalFixture.id]: customPrompt }));
+      } else if (config.type === 'ad-cover') {
+        setAdCoverPrompts(prev => ({ ...prev, [confirmModalFixture.id]: customPrompt }));
       }
     }
 
@@ -2344,6 +2431,8 @@ export default function App() {
       stopEndpoint = '/api/moodboard-reel/stop';
     } else if (runningPipelineType === 'one-product-three-styles-reel' || (!runningPipelineType && isOneProductThreeStylesReelActive)) {
       stopEndpoint = '/api/one-product-3-styles-reel/stop';
+    } else if (runningPipelineType === 'ad-cover' || (!runningPipelineType && isAdCoverActive)) {
+      stopEndpoint = '/api/ad-cover/stop';
     }
 
     const pin = studioPin || localStorage.getItem('hc_studio_pin') || '';
@@ -2420,7 +2509,9 @@ export default function App() {
                                               ? MOODBOARD_REEL_FIXTURES
                                               : isOneProductThreeStylesReelActive
                                                 ? ONE_PRODUCT_THREE_STYLES_REEL_FIXTURES
-                                                : DEFAULT_FIXTURES;
+                                                : isAdCoverActive
+                                                  ? AD_COVER_FIXTURES
+                                                  : DEFAULT_FIXTURES;
 
   const currentFixtures: FixtureData[] = baseFixtures.map(base => {
     const key = `${activeTab}-${activeSubTab}-${base.id}`;
@@ -2480,6 +2571,9 @@ export default function App() {
     } else if (isOneProductThreeStylesReelActive) {
       dynamicMoodboard = oneProductThreeStylesReelMoodboards[base.id] || base.moodboardId;
       dynamicPrompt = oneProductThreeStylesReelPrompts[base.id] || base.prompt;
+    } else if (isAdCoverActive) {
+      dynamicMoodboard = adCoverMoodboards[base.id] || base.moodboardId;
+      dynamicPrompt = adCoverPrompts[base.id] || base.prompt;
     }
     let dynamicTableId = base.tableId;
     if (isTipsEduStoryActive && tipsTableIds[base.id]) {
@@ -2537,6 +2631,8 @@ export default function App() {
         ? moodboardReelStatusCounts[base.id]
         : isOneProductThreeStylesReelActive
         ? oneProductThreeStylesReelStatusCounts[base.id]
+        : isAdCoverActive
+        ? adCoverStatusCounts[base.id]
         : undefined,
     };
   });
@@ -2596,6 +2692,7 @@ export default function App() {
     feed: getFormatTotals('feed'),
     story: getFormatTotals('story'),
     reel: getFormatTotals('reel'),
+    adcover: getFormatTotals('adcover'),
   };
   const activeFormatSubtabCounts = activeFormat.items.map((_, index) =>
     getSubtabTotals(activeTab, index)
@@ -2632,6 +2729,7 @@ export default function App() {
     if (runningPipelineType === 'style-reel-slideshow') return { tab: 'reel', subTab: 3 };
     if (runningPipelineType === 'moodboard-reel') return { tab: 'reel', subTab: 4 };
     if (runningPipelineType === 'one-product-three-styles-reel') return { tab: 'reel', subTab: 5 };
+    if (runningPipelineType === 'ad-cover') return { tab: 'adcover', subTab: 0 };
 
     return { tab: null, subTab: null };
   };
@@ -2659,7 +2757,8 @@ export default function App() {
     isBeforeAfterReelActive ||
     isStyleReelActive ||
     isMoodboardReelActive ||
-    isOneProductThreeStylesReelActive;
+    isOneProductThreeStylesReelActive ||
+    isAdCoverActive;
 
   const isPromptEditable =
     isCtaStoryActive ||
@@ -2679,7 +2778,8 @@ export default function App() {
     isBeforeAfterReelActive ||
     isStyleReelActive ||
     isMoodboardReelActive ||
-    isOneProductThreeStylesReelActive;
+    isOneProductThreeStylesReelActive ||
+    isAdCoverActive;
 
   const getPipelineFixtures = (pipelineType: string | null): Omit<FixtureData, 'completed'>[] => {
     if (!pipelineType) return DEFAULT_FIXTURES;
@@ -2707,6 +2807,7 @@ export default function App() {
       case 'style-reel-slideshow': return STYLE_REEL_SLIDESHOW_FIXTURES;
       case 'moodboard-reel': return MOODBOARD_REEL_FIXTURES;
       case 'one-product-three-styles-reel': return ONE_PRODUCT_THREE_STYLES_REEL_FIXTURES;
+      case 'ad-cover': return AD_COVER_FIXTURES;
       default: return DEFAULT_FIXTURES;
     }
   };
@@ -2737,6 +2838,7 @@ export default function App() {
       case 'style-reel-slideshow': return { format: 'Reel', subTab: 'Style Reel Slideshow' };
       case 'moodboard-reel': return { format: 'Reel', subTab: 'Moodboard' };
       case 'one-product-three-styles-reel': return { format: 'Reel', subTab: '1 Product, 3 Styles' };
+      case 'ad-cover': return { format: 'Ad Covers', subTab: 'Chandelier' };
       default: return { format: '', subTab: '' };
     }
   };
@@ -2782,6 +2884,7 @@ export default function App() {
     if (isStyleReelActive) return 'Style Reel Slideshow Fixtures & Airtable Progress';
     if (isMoodboardReelActive) return 'Moodboard Reel Fixtures & Airtable Progress';
     if (isOneProductThreeStylesReelActive) return '1 Product, 3 Styles Reel Fixtures & Airtable Progress';
+    if (isAdCoverActive) return 'Ad Covers Fixtures & Airtable Progress';
     return 'Lighting Fixtures Progress';
   };
 
@@ -2801,15 +2904,17 @@ export default function App() {
           runningTab={runningTab}
         />
 
-        {/* Minimalist Sub-Tab Rail for Content Items */}
-        <SubTabRail
-          activeTab={activeTab}
-          items={activeFormat.items}
-          activeSubTab={activeSubTab}
-          onSelectSubTab={idx => setActiveSubTab(idx)}
-          runningSubTab={activeTab === runningTab ? runningSubTab : null}
-          counts={activeFormatSubtabCounts}
-        />
+        {/* Minimalist Sub-Tab Rail for Content Items (Ad Covers uses its fixture cards as the control row) */}
+        {!isAdCoverActive && (
+          <SubTabRail
+            activeTab={activeTab}
+            items={activeFormat.items}
+            activeSubTab={activeSubTab}
+            onSelectSubTab={idx => setActiveSubTab(idx)}
+            runningSubTab={activeTab === runningTab ? runningSubTab : null}
+            counts={activeFormatSubtabCounts}
+          />
+        )}
 
         {/* Section Header with Subtle Inline Refresh */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-6 mb-3">

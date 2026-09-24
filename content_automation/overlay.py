@@ -1708,3 +1708,82 @@ def overlay_centered_headline(
         if close_base:
             source_base.close()
 
+
+# ---------------------------------------------------------------------------
+# Ad Cover (1:1, 1080x1080) local composite
+# ---------------------------------------------------------------------------
+
+# Per-fixture transparent PNG overlays carrying the tagline + HomeCartel mark.
+# Rendered 100% locally so no API call is ever made for Ad Cover typography.
+AD_COVER_FIXTURE_ASSETS: dict[str, str] = {
+    "chandelier": "ad-covers-chandelier.png",
+}
+
+AD_COVER_CANVAS_SIZE = (1080, 1080)
+
+
+def overlay_ad_cover_layout(
+    base_image: Path | str | Image.Image,
+    fixture: str = "chandelier",
+    destination: Path | str | None = None,
+    *,
+    asset_name: str | None = None,
+    canvas_size: tuple[int, int] = AD_COVER_CANVAS_SIZE,
+) -> Path | Image.Image:
+    """Composite the fixture's transparent Ad Cover overlay over a room photo.
+
+    The overlay asset already contains the tagline and the HomeCartel brand mark
+    on a transparent background, so this is a pure local Pillow composite with
+    zero API cost. The room photo is centre-cropped to ``canvas_size`` (default
+    1080x1080) so the result is always a clean 1:1 ad cover.
+
+    Returns the saved ``Path`` when ``destination`` is given, otherwise the
+    in-memory ``Image`` (RGB).
+    """
+    resolved_name = asset_name or AD_COVER_FIXTURE_ASSETS.get(fixture)
+    if not resolved_name:
+        raise ValueError(
+            f"No Ad Cover overlay asset registered for fixture {fixture!r}. "
+            f"Known fixtures: {sorted(AD_COVER_FIXTURE_ASSETS)}"
+        )
+
+    overlay_path = _resolve_asset_file(resolved_name)
+    if overlay_path is None:
+        raise FileNotFoundError(
+            f"Ad Cover overlay asset {resolved_name!r} was not found in any known asset directory."
+        )
+
+    if isinstance(base_image, (str, Path)):
+        source_base = Image.open(base_image)
+        close_base = True
+    else:
+        source_base = base_image
+        close_base = False
+
+    overlay_src = Image.open(overlay_path)
+    try:
+        canvas = ImageOps.fit(
+            source_base.convert("RGB"),
+            canvas_size,
+            method=Image.LANCZOS,
+            centering=(0.5, 0.5),
+        ).convert("RGBA")
+
+        overlay = overlay_src.convert("RGBA")
+        if overlay.size != canvas_size:
+            overlay = overlay.resize(canvas_size, Image.LANCZOS)
+
+        composited = Image.alpha_composite(canvas, overlay).convert("RGB")
+
+        if destination is not None:
+            dest_path = Path(destination)
+            dest_path.parent.mkdir(parents=True, exist_ok=True)
+            composited.save(dest_path, "JPEG", quality=95, optimize=True)
+            return dest_path
+
+        return composited
+    finally:
+        overlay_src.close()
+        if close_base:
+            source_base.close()
+

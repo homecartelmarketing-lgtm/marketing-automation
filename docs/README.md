@@ -51,6 +51,9 @@ docs/
 │   ├── STYLE_REEL_SLIDESHOW.md
 │   └── ONE_PRODUCT_THREE_STYLES_REEL.md
 │
+├── ads/                                 # Ad Cover Pipeline (1:1 square, 1080 x 1080 px)
+│   └── AD_COVER.md
+│
 ├── superpowers/                         # Planned-but-NOT-implemented designs (reference only)
 │   ├── plans/2026-09-16-studio-new-record-run-scope.md
 │   └── specs/2026-09-16-studio-new-record-run-scope-design.md
@@ -115,7 +118,18 @@ docs/
 
 ---
 
-## 🌐 4. Operations, Scheduling & Team Sharing
+## 🖼️ 4. Ad Covers (`docs/ads/`, 1:1 Square)
+
+| Fixture | Pipeline Documentation | Primary Airtable Table ID | Foreign Key Prefix | Output Description |
+| :--- | :--- | :--- | :--- | :--- |
+| **Chandelier** | [`AD_COVER.md`](ads/AD_COVER.md) | `tblwIsDGZBPuYJV2Z` (Chandelier) | `ADC-ADS-CH-<ID>` | Highest-priced newest chandelier blended into a Krea 1:1 living room + local Pillow ad-cover overlay (tagline + logo). |
+| Pendant / Floor Lamp / Table Lamp / Cluster / Wall Light | [`AD_COVER.md`](ads/AD_COVER.md) | — (scaffolded) | `ADC-ADS-<FIXTURE>-<ID>` | Reserved prefixes; rendered as disabled "Coming soon" cards in the Studio until their tables are wired. |
+
+Ad Covers is a **standalone 4th top-level Studio tab** (not a sub-tab family): each fixture is its own run button. See [`AD_COVER.md`](ads/AD_COVER.md) for the 5-phase flow, status vocabulary, and CLI flags.
+
+---
+
+## 🌐 5. Operations, Scheduling & Team Sharing
 
 | Guide | Description |
 | :--- | :--- |
@@ -123,7 +137,7 @@ docs/
 | [`AUTO_POST_SCHEDULER.md`](AUTO_POST_SCHEDULER.md) | The Instagram auto-publish worker — what it does, its `CRON_SECRET` auth, and its dependency on a separate scheduling app outside this repo. |
 | [`OPERATIONS_AND_UTILITIES.md`](OPERATIONS_AND_UTILITIES.md) | Catalog of the Airtable data-maintenance, item-tagging, and diagnostic scripts that aren't Story/Feed/Reel pipelines. |
 
-## 🧠 5. Project Memory
+## 🧠 6. Project Memory
 
 | Guide | Description |
 | :--- | :--- |

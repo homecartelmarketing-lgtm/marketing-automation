@@ -31,7 +31,7 @@ cd "UI Control"
 python api_server.py
 ```
 Open **`http://localhost:5200`** to access:
-- **Interactive Format Tabs**: Switch between **Feed** (7 subtabs), **Story** (10 subtabs), and **Reel** (6 subtabs), with summed completed counts on each format and subtab.
+- **Interactive Format Tabs**: Switch between **Feed** (7 subtabs), **Story** (10 subtabs), **Reel** (6 subtabs), and **Ad Covers** (per-fixture run cards), with summed completed counts on each format and subtab.
 - **Live Airtable Synchronization**: Real-time `P, S, C, D, FM` status badges on every lighting fixture card.
 - **Row Inspector Modal**: Instant search, status filtering, one-click Foreign Key ID copying, and direct deep links into Airtable rows (`Open in Airtable ↗`).
 - **Inline Settings & Security**: Krea moodboard and interior-prompt edits persist in `output/config_overrides.json` and `.env`; `DASHBOARD_PIN` protects edits when configured. See the [UI configuration map](docs/UI_CONTROL_CONFIG.md).
@@ -93,6 +93,15 @@ Open **`http://localhost:5200`** to access:
 | [**`MOODBOARD_REEL.md`**](docs/reels/MOODBOARD_REEL.md) | 15s | Texture montage reel cycling between room view, fabric swatches, and lighting details. | Fal Kling Video, FFmpeg |
 | [**`STYLE_REEL_SLIDESHOW.md`**](docs/reels/STYLE_REEL_SLIDESHOW.md) | 12s | Fast-cut lifestyle slideshow with dynamic audio beat synchronization. | Local FFmpeg, Pillow |
 | [**`ONE_PRODUCT_THREE_STYLES_REEL.md`**](docs/reels/ONE_PRODUCT_THREE_STYLES_REEL.md) | 18s | Chandelier blended-photo Reel with 5s, 4s, 4s photo holds and a 5s outro. | Krea, Fal, local FFmpeg |
+
+---
+
+### 4. Ad Covers (1:1 Square, `1080 x 1080 px`)
+
+| Fixture | Pipeline Guide | Ratio | Description | Foreign Key Prefix | Studio State |
+| :--- | :--- | :---: | :--- | :---: | :--- |
+| **Chandelier** | [**`AD_COVER.md`**](docs/ads/AD_COVER.md) | 1:1 (1 image) | Highest-priced newest chandelier blended into a Krea 1:1 living room, then locally composited with the transparent ad-cover overlay. | `ADC-ADS-CH` | **Runnable** |
+| Pendant Light, Floor Lamp, Table Lamp, Cluster Chandelier, Wall Light | [**`AD_COVER.md`**](docs/ads/AD_COVER.md) | 1:1 (1 image) | Same 5-phase flow, scaffolded as disabled "Coming soon" cards in the Studio. | `ADC-ADS-<FIXTURE>` (reserved) | Coming soon |
 
 ---
 

@@ -443,6 +443,12 @@ TABLES: dict[str, TableConfig] = {
             "AIRTABLE_TABLE_ID_FLOOR_LAMPS_DAY_AND_NIGHT_REEL",
             "KREA_MOODBOARD_ID_FLOOR_LAMPS",
         ),
+        # Ad Cover destinations (1:1 1080x1080 local Pillow composite).
+        _table(
+            "chandelier_ad_cover", "Ad Cover Chandelier", "tblwIsDGZBPuYJV2Z",
+            "AIRTABLE_TABLE_ID_CHANDELIER_AD_COVER",
+            "KREA_MOODBOARD_ID_CHANDELIER_AD_COVER",
+        ),
     )
 }
 

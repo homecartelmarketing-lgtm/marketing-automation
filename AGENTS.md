@@ -46,6 +46,7 @@ marketing-automation/
 │   ├── stories/                             # 10 Story pipeline specs (9:16 vertical)
 │   ├── feeds/                               # 7 Feed pipeline specs (4:5 vertical)
 │   ├── reels/                               # 6 Reel pipeline specs (9:16 video)
+│   ├── ads/                                 # 1 Ad Cover pipeline spec (1:1 square, 1080 x 1080 px)
 │   ├── AUTO_POST_SCHEDULER.md               # Instagram auto-publish worker (external, cross-repo dependency)
 │   ├── OPERATIONS_AND_UTILITIES.md          # Airtable maintenance / tagging / diagnostic scripts
 │   ├── UI_CONTROL_CONFIG.md                 # Studio moodboard/prompt overrides & config keys
@@ -85,7 +86,7 @@ marketing-automation/
 ├── UI Control/                              # Full-stack Web Dashboard ("Studio")
 │   ├── api_server.py                        # THE Flask backend server (port 5200). NOTE: there is NO
 │   │                                        #   root-level api_server.py.
-│   ├── routes/                              # 25 pipeline blueprints + infrastructure:
+│   ├── routes/                              # 26 pipeline blueprints + infrastructure:
 │   │   ├── cta_story.py                     # Story: /api/cta/*          tips_edu_story.py  /api/tips-edu/*
 │   │   ├── collection_story.py              # /api/collection-story/*    day_night_story.py  /api/day-night-story/*
 │   │   ├── moodboard_story.py               # /api/moodboard-story/*     product_specs_story.py /api/product-specs/*
@@ -98,6 +99,7 @@ marketing-automation/
 │   │   ├── day_night_reel.py                # Reel: /api/day-night-reel/* product_closeup_reel.py
 │   │   ├── before_after_reel.py             # /api/before-after-reel/*    moodboard_reel.py
 │   │   ├── style_reel_slideshow.py          # /api/style-reel-slideshow/* one_product_three_styles_reel.py
+│   │   ├── ad_cover.py                      # Ad Cover: /api/ad-cover/* (1:1 square, per-fixture run)
 │   │   ├── queue_manager.py                 # In-memory FIFO job queue (/api/queue/*) — see §3
 │   │   ├── rows.py                          # Row Inspector & Airtable deep links (/api/rows)
 │   │   └── common.py                        # PIN verification, config overrides, helpers
@@ -184,8 +186,8 @@ Every record in every Story and Feed table must have a unique, human-readable Fo
 
 $$\text{Foreign Key ID} = \langle\text{Idea Abbr}\rangle\text{-}\langle\text{Format}\rangle\text{-}\langle\text{Fixture Code}\rangle\text{-}\langle\text{Row ID}\rangle$$
 
-- **Idea Abbr**: `CTA`, `TNE`, `CC`, `DN`, `MB`, `MB1`, `MB2`, `PCS`, `PCD`, `ST`, `MNF`, `TOT`, `OP3S`, `PS`, `PCR`, `BA`, `SRS`
-- **Format**: `STORY` (9:16), `FEEDS` (4:5), or `REEL` (9:16 video)
+- **Idea Abbr**: `CTA`, `TNE`, `CC`, `DN`, `MB`, `MB1`, `MB2`, `PCS`, `PCD`, `ST`, `MNF`, `TOT`, `OP3S`, `PS`, `PCR`, `BA`, `SRS`, `ADC`
+- **Format**: `STORY` (9:16), `FEEDS` (4:5), `REEL` (9:16 video), or `ADS` (1:1 square ad cover)
 - **Fixture Code**: `CH` (Chandelier), `PE` (Pendant), `FL` (Floor Lamp), `TL` (Table Lamp), `CL` (Cluster Chandelier), `WL` (Wall Light), `CM` (Ceiling Mounted), `SET` (Multi-room / Carousel), plus `LC` (Linear Chandelier) and `WS` (Wall Sconce) which appear only in `MB-REEL` table entries
 - **Examples**: `CTA-STORY-CH-24`, `TNE-FEEDS-FL-1`, `CC-FEEDS-SET-22`, `OP3S-FEEDS-PE-4`, `PCR-REEL-TL-1`
 
@@ -297,6 +299,9 @@ All local layout rendering lives in **`content_automation/overlay.py`** (plus `i
 4. **Moodboard Reel** ([`docs/reels/MOODBOARD_REEL.md`](docs/reels/MOODBOARD_REEL.md)) — 15-second swatch and texture video reel.
 5. **Style Reel Slideshow** ([`docs/reels/STYLE_REEL_SLIDESHOW.md`](docs/reels/STYLE_REEL_SLIDESHOW.md)) — Fast-paced lifestyle video slideshow.
 6. **1 Product, 3 Styles Reel** ([`docs/reels/ONE_PRODUCT_THREE_STYLES_REEL.md`](docs/reels/ONE_PRODUCT_THREE_STYLES_REEL.md)) — Chandelier-only blended photo Reel with 5s, 4s, 4s holds and 5s outro.
+
+### Ad Cover Pipeline (1 Pipeline, 1:1 Square)
+1. **Ad Cover** ([`docs/ads/AD_COVER.md`](docs/ads/AD_COVER.md), prefix: `ADC-ADS`) — Standalone 4th top-level Studio tab (not a sub-tab family): one run button per fixture. Chandelier is the only runnable fixture (`tblwIsDGZBPuYJV2Z`); Pendant / Floor Lamp / Table Lamp / Cluster Chandelier / Wall Light are scaffolded as disabled "Coming soon" cards. 5 phases: highest-priced newest Akeneo chandelier → Krea 1:1 interior → Claude blending prompt → Nano Banana Pro blend → **local Pillow** composite of `assets/ad-covers-chandelier.png` (tagline + logo baked in, zero API cost).
 
 Studio moodboard/prompt pencils, persistent config keys, and completed count behavior are mapped in [`docs/UI_CONTROL_CONFIG.md`](docs/UI_CONTROL_CONFIG.md). Use the `C` badge alone for completed totals; `P` includes posted, pending, and processing rows. The optional Studio PIN is `DASHBOARD_PIN`.
 

@@ -103,6 +103,8 @@ ITEMS_PER_ROW: dict[str, int] = {
     "chandeliers_one_product_three_styles": 1,
     "pendant_lights_one_product_three_styles": 1,
     "floor_lamps_one_product_three_styles": 1,
+    # Ad Cover destinations (one product per 1:1 ad cover)
+    "chandelier_ad_cover": 1,
 }
 
 # Some Airtable destinations are subsets of a broader Akeneo category and have
@@ -190,6 +192,8 @@ AKENEO_SOURCE_CATEGORY: dict[str, str] = {
     "chandeliers_one_product_three_styles": "chandeliers",
     "pendant_lights_one_product_three_styles": "pendant_lights",
     "floor_lamps_one_product_three_styles": "floor_lamps",
+    # Ad Cover Chandelier reads from the same Akeneo chandeliers category.
+    "chandelier_ad_cover": "chandeliers",
     # Singular aliases
     "chandelier": "chandeliers",
     "floor_lamp": "floor_lamps",
@@ -218,6 +222,10 @@ CATEGORY_EXCLUSIONS: dict[str, dict[str, set[str]]] = {
         "keywords": {"cluster", "linear"},
     },
     "chandelier_modern": {
+        "categories": {"cluster_chandeliers", "linear_chandeliers"},
+        "keywords": {"cluster", "linear"},
+    },
+    "chandelier_ad_cover": {
         "categories": {"cluster_chandeliers", "linear_chandeliers"},
         "keywords": {"cluster", "linear"},
     },

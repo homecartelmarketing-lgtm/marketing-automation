@@ -168,6 +168,9 @@ TABLE_PREFIX_MAP: dict[str, str] = {
 
     # 1 Product 3 Styles Reel
     "tbl6ls4AWcEcynBpZ": "OP3S-REEL-CH",
+
+    # 13. Ad Cover Tables
+    "tblwIsDGZBPuYJV2Z": "ADC-ADS-CH",
 }
 
 
@@ -216,8 +219,12 @@ def resolve_table_prefix(table_id: str, table_name: str = "") -> str:
         idea = "BA"
     elif "style reel" in t_lower or "slideshow" in t_lower:
         idea = "SRS"
+    elif "ad cover" in t_lower:
+        idea = "ADC"
 
-    if "reel" in t_lower:
+    if "ad cover" in t_lower:
+        content_type = "ADS"
+    elif "reel" in t_lower:
         content_type = "REEL"
     elif "feed" in t_lower:
         content_type = "FEEDS"

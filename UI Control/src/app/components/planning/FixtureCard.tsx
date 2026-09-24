@@ -9,6 +9,7 @@ export interface FixtureData {
   tableId?: string;
   moodboardId?: string;
   prompt?: string;
+  runnable?: boolean;
   statusCounts?: {
     P: number;
     S?: number;
@@ -53,6 +54,7 @@ export function FixtureCard({
   isAnyPipelineRunning = false,
   hideProgressBar = false,
 }: FixtureCardProps) {
+  const isComingSoon = fixture.runnable === false;
   const percentage = fixture.completed === null ? 0 : Math.round((fixture.completed / fixture.total) * 100);
   const isComplete = fixture.completed === fixture.total;
 
@@ -76,6 +78,12 @@ export function FixtureCard({
           bar: 'bg-rose-500',
           btn: 'text-rose-700 bg-rose-50 hover:bg-rose-100 active:bg-rose-200 border-rose-200 shadow-2xs hover:shadow-xs',
         };
+      case 'adcover':
+        return {
+          pill: 'bg-violet-50 text-violet-700 border-violet-200',
+          bar: 'bg-violet-500',
+          btn: 'text-violet-700 bg-violet-50 hover:bg-violet-100 active:bg-violet-200 border-violet-200 shadow-2xs hover:shadow-xs',
+        };
       default:
         return {
           pill: 'bg-gray-50 text-gray-700 border-gray-200',
@@ -88,6 +96,14 @@ export function FixtureCard({
   const theme = getThemeClasses();
 
   const getPillBadge = () => {
+    if (isComingSoon) {
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
+          <Clock className="w-3 h-3 text-gray-500" />
+          <span>Coming soon</span>
+        </span>
+      );
+    }
     if (isRunning) {
       return (
         <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200 animate-pulse">
@@ -125,7 +141,9 @@ export function FixtureCard({
   return (
     <div
       className={`bg-white rounded-xl border p-4 transition-all duration-200 flex flex-col justify-between ${
-        isRunning
+        isComingSoon
+          ? 'border-dashed border-gray-200 bg-gray-50/60 opacity-70'
+          : isRunning
           ? 'border-sky-300 ring-2 ring-sky-100 shadow-md'
           : isComplete
           ? 'border-emerald-200 shadow-xs'
@@ -149,7 +167,7 @@ export function FixtureCard({
         </div>
 
         {/* Moodboard ID Row (Editable) */}
-        {fixture.moodboardId !== undefined && (
+        {!isComingSoon && fixture.moodboardId !== undefined && (
           <div className="my-1.5 p-1.5 rounded-md bg-gray-50/80 border border-gray-100 text-[11px] flex items-center justify-between gap-1 group/mb">
             <div className="flex items-center gap-1 min-w-0 flex-1">
               <span className="text-gray-400 shrink-0 font-medium">MB:</span>
@@ -174,7 +192,7 @@ export function FixtureCard({
         )}
 
         {/* Prompt Row (Editable) */}
-        {fixture.prompt !== undefined && (
+        {!isComingSoon && fixture.prompt !== undefined && (
           <div className="my-1.5 p-1.5 rounded-md bg-purple-50/50 border border-purple-100/60 text-[11px] flex items-center justify-between gap-1 group/pr">
             <div className="flex items-center gap-1 min-w-0 flex-1">
               <span className="text-purple-400 shrink-0 font-medium">Prompt:</span>
@@ -267,7 +285,7 @@ export function FixtureCard({
         )}
 
         {/* Ultra-Slim Minimalist Progress Bar */}
-        {!hideProgressBar && (fixture.completed !== null || isRunning) && (
+        {!isComingSoon && !hideProgressBar && (fixture.completed !== null || isRunning) && (
           <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden mt-2">
             <div
               className={`h-1.5 rounded-full transition-all duration-500 ${
@@ -342,14 +360,20 @@ export function FixtureCard({
             <>
               {!hideProgressBar ? (
                 <span className="text-[11px] text-gray-500 font-medium">
-                  {fixture.completed === null ? 'Counts loading' : isComplete ? 'Target Reached' : `${percentage}% done`}
+                  {isComingSoon
+                    ? 'Not available yet'
+                    : fixture.completed === null
+                    ? 'Counts loading'
+                    : isComplete
+                    ? 'Target Reached'
+                    : `${percentage}% done`}
                 </span>
               ) : (
                 <span className="text-[11px] text-gray-400 font-medium" />
               )}
 
               <div className="flex items-center gap-1.5">
-                {onViewRows && (
+                {onViewRows && !isComingSoon && (
                   <button
                     type="button"
                     onClick={() => onViewRows(fixture, 'all')}
@@ -361,7 +385,7 @@ export function FixtureCard({
                   </button>
                 )}
 
-                {onRun && (
+                {onRun && !isComingSoon && (
                   <button
                     type="button"
                     onClick={() => onRun(fixture)}
@@ -379,6 +403,18 @@ export function FixtureCard({
                         <span>Run</span>
                       </>
                     )}
+                  </button>
+                )}
+
+                {isComingSoon && (
+                  <button
+                    type="button"
+                    disabled
+                    title="This Ad Cover fixture is not wired up yet"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold border border-gray-200 text-gray-400 bg-gray-50 cursor-not-allowed"
+                  >
+                    <Play className="w-3 h-3" />
+                    <span>Run</span>
                   </button>
                 )}
               </div>

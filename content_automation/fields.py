@@ -59,6 +59,11 @@ def product_type_field(slot: int) -> str:
     return _slot_name(PRODUCT_TYPE_FIELD, slot)
 
 
+def price_field(slot: int) -> str:
+    """"Item Price" for slot 0, "Item Price2".. for later slots."""
+    return _slot_name("Item Price", slot)
+
+
 def interior_field(slot: int) -> str:
     """"Interior" for slot 0, "Interior2".."Interior24" for later slots."""
     return _slot_name("Interior", slot)

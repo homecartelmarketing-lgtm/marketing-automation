@@ -1,4 +1,4 @@
-export type TabType = 'feed' | 'story' | 'reel';
+export type TabType = 'feed' | 'story' | 'reel' | 'adcover';
 
 export interface FormatTabCount {
   completed: number | null;
@@ -27,6 +27,7 @@ export function FormatTabs({ activeTab, counts, onSelectTab, runningTab }: Forma
   const feedDisplay = getCountDisplay('feed');
   const storyDisplay = getCountDisplay('story');
   const reelDisplay = getCountDisplay('reel');
+  const adCoverDisplay = getCountDisplay('adcover');
   return (
     <div className="mb-4">
       <div className="flex gap-2 border-b border-gray-200">
@@ -109,6 +110,34 @@ export function FormatTabs({ activeTab, counts, onSelectTab, runningTab }: Forma
           {runningTab === 'reel' && (
             <span className="flex items-center gap-1.5 ml-1 px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full animate-pulse border border-emerald-300">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              Running
+            </span>
+          )}
+        </button>
+
+        {/* Ad Covers Tab (Violet) */}
+        <button
+          onClick={() => onSelectTab('adcover')}
+          className={`flex items-center gap-2 px-6 py-3 font-medium transition border-b-2 cursor-pointer ${
+            activeTab === 'adcover'
+              ? 'border-violet-600 text-violet-600'
+              : 'border-transparent text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <span>Ad Covers</span>
+          <span
+            title={adCoverDisplay.tooltip}
+            className={`text-xs px-2 py-0.5 rounded-full font-medium tabular-nums ${
+              activeTab === 'adcover'
+                ? 'bg-violet-100/80 text-violet-800'
+                : 'bg-gray-100 text-gray-600'
+            }`}
+          >
+            {adCoverDisplay.label}
+          </span>
+          {runningTab === 'adcover' && (
+            <span className="flex items-center gap-1.5 ml-1 px-2 py-0.5 bg-violet-100 text-violet-800 text-[10px] font-bold rounded-full animate-pulse border border-violet-300">
+              <span className="w-1.5 h-1.5 rounded-full bg-violet-500"></span>
               Running
             </span>
           )}
