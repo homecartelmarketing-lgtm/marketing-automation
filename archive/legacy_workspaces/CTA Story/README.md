@@ -2,6 +2,10 @@
 
 > **Master Specification**: For complete architecture, model stack, Foreign Key conventions, and Canva coordinates, see [`../docs/stories/CTA_STORY.md`](../docs/stories/CTA_STORY.md) and [`../AGENTS.md`](../AGENTS.md).
 
+> [!CAUTION]
+> ### MANDATORY OPERATING RULE (AGENTS.md Tenet #2)
+> Every pipeline execution MUST scrape fresh active products into a **brand-new Airtable row** and process that row **end-to-end**. AI agents must **NEVER search for, pick up, re-run, or loop over existing/remaining/unprocessed/incomplete rows in Airtable**. Production runs must execute end-to-end (Option `[7]` in CLI or via Web Studio).
+
 Generates branded 9:16 vertical Instagram Stories (1080 x 1920 px) with AI-generated photorealistic interiors, Nano Banana Pro blending, Claude Vision headline analysis, and local Python Pillow CTA text watermark stamping.
 
 ---

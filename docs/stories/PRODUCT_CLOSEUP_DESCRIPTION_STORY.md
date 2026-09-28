@@ -19,7 +19,7 @@ The **Product Closeup w/ Description Story Automation Pipeline** generates edito
 | Phase | Phase Name | Provider / Engine | Model / Settings | Input Fields / Triggers | Output Fields / Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Ingestion** | **Akeneo Scraper** | Akeneo PIM API | Active Ingestion (`enabled=true`) + layout auto-fill & cross-table dedup | Akeneo Catalog (`chandeliers`, `pendants`, etc.) | `Furniture Item`, `Item Name`, `SKU`, `Product Closeup Description Layout` -> Status: `Pending` (`P`) |
-| **Phase 1** | **Story Card Blending** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | `Furniture Item` + `Product Closeup Description Layout` | `Product Closeup Description Converted` -> Status: `Completed` (`C`) |
+| **Phase 1** | **Story Card Blending** | Fal AI | `openai/gpt-image-2` (via Fal AI)<br>Aspect Ratio: `9:16`, Resolution: `1K` | `Furniture Item` + `Product Closeup Description Layout` | `Product Closeup Description Converted` -> Status: `Completed` (`C`) |
 
 ---
 
@@ -47,32 +47,32 @@ $$\text{Format: } \mathbf{PCD\text{-}STORY\text{-}\langle FIXTURE\rangle\text{-}
 
 | Category Name | Fixture Code | Airtable Table ID | Foreign Key Prefix | Primary Environment Variable |
 | :--- | :--- | :--- | :--- | :--- |
-| **Chandeliers** | `CH` | `tblDcT6jovdAbKnfw` | `PCD-STORY-CH` | `AIRTABLE_TABLE_ID_PCD_STORY_CHANDELIER` |
-| **Pendant Lights** | `PE` | `tblDD2w4v0Idb4jAZ` | `PCD-STORY-PE` | `AIRTABLE_TABLE_ID_PCD_STORY_PENDANT` |
-| **Floor Lamps** | `FL` | `tblPvHyKGByWJCMtY` | `PCD-STORY-FL` | `AIRTABLE_TABLE_ID_PCD_STORY_FLOOR_LAMP` |
-| **Cluster Chandeliers** | `CL` | `tblnIOQVywHcTgAtv` | `PCD-STORY-CL` | `AIRTABLE_TABLE_ID_PCD_STORY_CLUSTER` |
-| **Table Lamps** | `TL` | `tbl5S9JEHSrjrLwxA` | `PCD-STORY-TL` | `AIRTABLE_TABLE_ID_PCD_STORY_TABLE_LAMP` |
-| **Wall Lights** | `WL` | `tblYqudlgjYMNRROM` | `PCD-STORY-WL` | `AIRTABLE_TABLE_ID_PCD_STORY_WALL_LIGHT` |
+| **Chandeliers** | `CH` | `tblDcT6jovdAbKnfw` | `PCD-STORY-CH` | `AIRTABLE_TABLE_ID_CHANDELIER_PRODUCT_DESCRIPTION` |
+| **Pendant Lights** | `PE` | `tblDD2w4v0Idb4jAZ` | `PCD-STORY-PE` | `AIRTABLE_TABLE_ID_PENDANT_LIGHTS_PRODUCT_DESCRIPTION` |
+| **Floor Lamps** | `FL` | `tblPvHyKGByWJCMtY` | `PCD-STORY-FL` | `AIRTABLE_TABLE_ID_FLOOR_LAMP_PRODUCT_DESCRIPTION` |
+| **Cluster Chandeliers** | `CL` | `tblnIOQVywHcTgAtv` | `PCD-STORY-CL` | `AIRTABLE_TABLE_ID_CLUSTER_CHANDELIER_PRODUCT_DESCRIPTION` |
+| **Table Lamps** | `TL` | `tbl5S9JEHSrjrLwxA` | `PCD-STORY-TL` | `AIRTABLE_TABLE_ID_TABLE_LAMPS_PRODUCT_DESCRIPTION` |
+| **Wall Lights** | `WL` | `tblYqudlgjYMNRROM` | `PCD-STORY-WL` | `AIRTABLE_TABLE_ID_WALL_LIGHTS_PRODUCT_DESCRIPTION` |
 
 ---
 
 ## 5. 5-Status Lifecycle & PHT Timestamps
 
-```
-[ P ] Pending  ──►  [ S ] Scheduled  ──►  [ D ] Drafting  ──►  [ FM ] For Modification  ──►  [ C ] Completed
-```
+The Airtable single-select Status field tracks records across 5 lifecycle stages:
 
-- **`Pending` (`P`)**: Scraped product awaiting layout blending.
-- **`Scheduled` (`S`)**: Queued for batch execution.
-- **`Drafting` (`D`)**: Processing through Fal AI generation.
-- **`For Modification` (`FM`)**: Flagged for layout or crop adjustment.
-- **`Completed` (`C`)**: Story card generated and attached to Airtable.
+| Badge | Color | Lifecycle State | Airtable Status Value | Operational Meaning |
+| :---: | :---: | :--- | :--- | :--- |
+| **P** | Sky Blue | **Posted / Processing** | Posted, Processing, Pending, In Progress, intermediate phase statuses | Record is actively queued or being processed. |
+| **S** | Purple | **Scheduled** | Scheduled, Schedule | Approved and scheduled for publishing. |
+| **C** | Emerald | **Complete / Done** | Complete, Completed, Done | All phases complete; deliverables attached. |
+| **D** | Rose | **Discarded** | Discard, Discarded | Archived or rejected candidate. |
+| **FM** | Amber | **For Manual / Revision** | For Manual, Minor revision, FM | Flagged for manual review or adjustment. |
 
 ### Execution Timestamp
-Pipeline execution automatically writes the Philippine Standard Time timestamp (UTC+8) into the `Date & Time Run (PHT)` field:
-```
+When a row reaches Complete (C), the pipeline automatically writes the Philippine Standard Time timestamp (UTC+8, ISO 8601) into the **Date and Time Generated** field:
+`
 2026-09-07T13:12:00+08:00
-```
+`
 
 ---
 
@@ -89,22 +89,22 @@ Pipeline execution automatically writes the Philippine Standard Time timestamp (
 
 ```powershell
 # Interactive terminal menu
-python "Product Closeup Description Story/4_Interactive_Menu.py"
+python "archive/legacy_workspaces/Product Closeup Description Story/4_Interactive_Menu.py"
 
 # Run 1 item end-to-end for Chandeliers
-python "Product Closeup Description Story/1_Run_Full_Story_Automation.py" --target chandeliers
+python "archive/legacy_workspaces/Product Closeup Description Story/1_Run_Full_Story_Automation.py" --target chandeliers
 
 # Run all 6 categories end-to-end
-python "Product Closeup Description Story/1_Run_Full_Story_Automation.py" --target all
+python "archive/legacy_workspaces/Product Closeup Description Story/1_Run_Full_Story_Automation.py" --target all
 
 # Generate pending image cards only
-python "Product Closeup Description Story/2_Generate_Pending_Stories.py" --target chandeliers
+python "archive/legacy_workspaces/Product Closeup Description Story/2_Generate_Pending_Stories.py" --target chandeliers
 ```
 
 ### Web UI Dashboard Execution
-1. Open `http://localhost:5200`
-2. Enter PIN: `1234`
-3. Click the **Story** tab.
-4. Select **Product Closeup Description Stories**.
-5. Pick fixture category (**Chandelier**, **Pendant**, **Floor Lamp**, **Cluster**, **Table Lamp**, or **Wall Light**).
-6. Select rows and trigger generation.
+1. Open http://localhost:5200 in your web browser.
+2. Enter the Studio PIN if DASHBOARD_PIN is configured.
+3. Click the **Story** tab in the main navigation.
+4. Select the **Product Description Story** subtab.
+5. Pick an active fixture category.
+6. Click the **Run** button on the fixture card, confirm the batch count (default 1) in the confirmation modal, and the pipeline will scrape a fresh active product and process it end-to-end.

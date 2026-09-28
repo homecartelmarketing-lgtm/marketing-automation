@@ -51,7 +51,7 @@ docs/
 │   ├── STYLE_REEL_SLIDESHOW.md
 │   └── ONE_PRODUCT_THREE_STYLES_REEL.md
 │
-├── ads/                                 # Ad Cover Pipeline (1:1 square, 1080 x 1080 px)
+├── ads/                                 # Ad Cover Pipeline (1:1 1080 x 1080 + 9:16 Story 1080 x 1920)
 │   └── AD_COVER.md
 │
 ├── superpowers/                         # Planned-but-NOT-implemented designs (reference only)
@@ -111,21 +111,25 @@ docs/
 | :--- | :--- | :--- | :--- |
 | [`DAY_NIGHT_REEL.md`](reels/DAY_NIGHT_REEL.md) | `tbl35JySlNuWh61tL` (Chandelier) | 18.0s | Day-to-night video timelapse + jazz music + brand outro. |
 | [`PRODUCT_CLOSEUP_REEL.md`](reels/PRODUCT_CLOSEUP_REEL.md) | `tblqBZ946hVdOpmDV` (Table Lamp) | ~13.0s | 4-product slideshow + Poppins titles + brand outro. |
-| [`BEFORE_AND_AFTER_REEL.md`](reels/BEFORE_AND_AFTER_REEL.md) | `tbloMhCOngGDWFS2y` (Chandelier) | ~15.0s | Room transformation reel across multiple angles. (Pendant table live; Floor Lamp table removed from base.) |
+| [`BEFORE_AND_AFTER_REEL.md`](reels/BEFORE_AND_AFTER_REEL.md) | `tbloMhCOngGDWFS2y` (Chandelier) | ~15.0s | Room transformation reel (Before room $\rightarrow$ Nano Banana blend $\rightarrow$ YOLO tagging $\rightarrow$ FFmpeg video). (Pendant table live; Floor Lamp table removed from base.) |
 | [`MOODBOARD_REEL.md`](reels/MOODBOARD_REEL.md) | `tbl026zbECJJ9FRfj` (Chandelier) | 20.0s | 4-product moodboard video + 20s ElevenLabs audio. |
 | [`ONE_PRODUCT_THREE_STYLES_REEL.md`](reels/ONE_PRODUCT_THREE_STYLES_REEL.md) | `tbl6ls4AWcEcynBpZ` (Chandelier) | 18.0s | Three blended photos at 5s, 4s, 4s plus 5s outro. |
 | [`STYLE_REEL_SLIDESHOW.md`](reels/STYLE_REEL_SLIDESHOW.md) | `tblFFEvkHb3jLKrcv` (5-Room Set) | 11.0s | 5-room whole-home slideshow tour. |
 
 ---
 
-## 🖼️ 4. Ad Covers (`docs/ads/`, 1:1 Square)
+## 🖼️ 4. Ad Covers (`docs/ads/`, 1:1 Square + 9:16 Story)
 
 | Fixture | Pipeline Documentation | Primary Airtable Table ID | Foreign Key Prefix | Output Description |
 | :--- | :--- | :--- | :--- | :--- |
-| **Chandelier** | [`AD_COVER.md`](ads/AD_COVER.md) | `tblwIsDGZBPuYJV2Z` (Chandelier) | `ADC-ADS-CH-<ID>` | Highest-priced newest chandelier blended into a Krea 1:1 living room + local Pillow ad-cover overlay (tagline + logo). |
-| Pendant / Floor Lamp / Table Lamp / Cluster / Wall Light | [`AD_COVER.md`](ads/AD_COVER.md) | — (scaffolded) | `ADC-ADS-<FIXTURE>-<ID>` | Reserved prefixes; rendered as disabled "Coming soon" cards in the Studio until their tables are wired. |
+| **Chandelier** | [`AD_COVER.md`](ads/AD_COVER.md) | `tblwIsDGZBPuYJV2Z` (Chandelier) | `ADC-ADS-CH-<ID>` | Highest-priced newest chandelier blended into a Krea 1:1 living room + local Pillow ad-cover overlay, then extended to a 9:16 Story twin (`Ad Cover Converted Image Story`). |
+| **Floor Lamp** | [`AD_COVER.md`](ads/AD_COVER.md) | `tbl27FKuDUD4FdJUR` (Floor Lamp) | `ADC-ADS-FL-<ID>` | Highest-priced newest floor lamp blended into a Krea 1:1 living room + local Pillow ad-cover overlay, then extended to a 9:16 Story twin. |
+| **Table Lamp** | [`AD_COVER.md`](ads/AD_COVER.md) | `tblk3RfFqawHZ5Wrk` (Table Lamp) | `ADC-ADS-TL-<ID>` | Highest-priced newest table lamp blended into a Krea 1:1 bedroom + local Pillow ad-cover overlay, then extended to a 9:16 Story twin. |
+| **Cluster Chandelier** | [`AD_COVER.md`](ads/AD_COVER.md) | `tbltouegkjgQwdr1u` (Cluster Chandelier) | `ADC-ADS-CL-<ID>` | Highest-priced newest cluster chandelier blended into a high-ceiling Krea 1:1 room + local Pillow ad-cover overlay, then extended to a 9:16 Story twin. |
+| **Pendant Light** | [`AD_COVER.md`](ads/AD_COVER.md) | `tbl99Cwda2Xn93giT` (Pendant Light) | `ADC-ADS-PE-<ID>` | Highest-priced newest pendant light blended into a dining room Krea 1:1 room + local Pillow ad-cover overlay, then extended to a 9:16 Story twin. |
+| **Wall Light** | [`AD_COVER.md`](ads/AD_COVER.md) | `tblUO5nybG9fIkhTT` (Wall Light) | `ADC-ADS-WL-<ID>` | Highest-priced newest wall light blended into a modern living room Krea 1:1 room + local Pillow ad-cover overlay, then extended to a 9:16 Story twin. |
 
-Ad Covers is a **standalone 4th top-level Studio tab** (not a sub-tab family): each fixture is its own run button. See [`AD_COVER.md`](ads/AD_COVER.md) for the 5-phase flow, status vocabulary, and CLI flags.
+Ad Covers is a **standalone 4th top-level Studio tab** (not a sub-tab family): each of the 6 fixtures has its own run button, and one run produces both the 1:1 cover and its 9:16 Story twin. See [`AD_COVER.md`](ads/AD_COVER.md) for the 7-phase flow, status vocabulary, and CLI flags.
 
 ---
 
@@ -135,7 +139,7 @@ Ad Covers is a **standalone 4th top-level Studio tab** (not a sub-tab family): e
 | :--- | :--- |
 | [`CLOUDFLARE_TUNNEL_GUIDE.md`](CLOUDFLARE_TUNNEL_GUIDE.md) | 100% free, zero-config Cloudflare Quick Tunnel guide to share the live studio with coworkers. |
 | [`AUTO_POST_SCHEDULER.md`](AUTO_POST_SCHEDULER.md) | The Instagram auto-publish worker — what it does, its `CRON_SECRET` auth, and its dependency on a separate scheduling app outside this repo. |
-| [`OPERATIONS_AND_UTILITIES.md`](OPERATIONS_AND_UTILITIES.md) | Catalog of the Airtable data-maintenance, item-tagging, and diagnostic scripts that aren't Story/Feed/Reel pipelines. |
+| [`OPERATIONS_AND_UTILITIES.md`](OPERATIONS_AND_UTILITIES.md) | Catalog of the Airtable data-maintenance, item-tagging, and diagnostic scripts that aren't Story/Feed/Reel/Ad Cover pipelines — including the `scratch/` Ad Cover schema and geometry verifiers. |
 
 ## 🧠 6. Project Memory
 
@@ -146,18 +150,22 @@ Ad Covers is a **standalone 4th top-level Studio tab** (not a sub-tab family): e
 | [`memory/decisions/strict-shopify-verification-policy.md`](memory/decisions/strict-shopify-verification-policy.md) | Why every scraped product is cross-verified against Shopify before ingestion, not just Akeneo's `enabled` flag. |
 | [`memory/decisions/moodboard-1-feed-yolo-tagging.md`](memory/decisions/moodboard-1-feed-yolo-tagging.md) | Design decision behind YOLO item tagging in the Moodboard #1 Feed. |
 | [`memory/decisions/2026-09-19-foreign-key-map-purge.md`](memory/decisions/2026-09-19-foreign-key-map-purge.md) | Why 7 dead table IDs were removed from `TABLE_PREFIX_MAP`, and the missing Before & After Floor Lamp table follow-up. |
+| [`memory/decisions/ad-cover-complete-status-belongs-to-phase-7.md`](memory/decisions/ad-cover-complete-status-belongs-to-phase-7.md) | Why `Complete` moved off Phase 5 onto Phase 7 (Airtable `singleSelect` overwrites), why a story-branch failure still leaves the row `Complete`, and why Phase 6 needs its own outpaint prompt. |
 | [`memory/incidents/2026-09-17-floor-lamp-shopify-draft-inactive.md`](memory/incidents/2026-09-17-floor-lamp-shopify-draft-inactive.md) | Root cause of a Floor Lamp Shopify draft/inactive scraping incident and how it was diagnosed. |
 | [`memory/incidents/2026-09-19-control-ui-infinite-running-status.md`](memory/incidents/2026-09-19-control-ui-infinite-running-status.md) | Why the Control UI can show a pipeline as running forever, and how it was fixed. |
 | [`memory/incidents/2026-09-19-one-product-3-styles-tagging-nameerror.md`](memory/incidents/2026-09-19-one-product-3-styles-tagging-nameerror.md) | NameError incident in the 1 Product 3 Styles tagging step. |
 | [`memory/incidents/2026-09-19-shopify-catalog-truncation-429.md`](memory/incidents/2026-09-19-shopify-catalog-truncation-429.md) | Shopify catalog truncation / HTTP 429 incident and mitigation. |
+| [`memory/incidents/2026-09-21-shopify-429-partial-cache.md`](memory/incidents/2026-09-21-shopify-429-partial-cache.md) | Follow-up to the 429 incident: throttling from page 27 onward made the crawler save a truncated catalog over the 12-hour disk cache, wrongly rejecting live products. Fix adds `Retry-After` parsing, staggered workers, and a partial-crawl guard that refuses to overwrite a good cache. |
+| [`memory/incidents/2026-09-21-day-night-feed-stamp-lost-in-refactor.md`](memory/incidents/2026-09-21-day-night-feed-stamp-lost-in-refactor.md) | Why Day & Night Feed rows shipped with an un-watermarked Day image and an empty `STORY - Day & Night (2)` field: the stamped temp file was consumed by YOLO tagging then deleted, and a refactor dropped the final slide upload. |
+| [`memory/incidents/2026-09-21-item-name-stamp-inconsistencies.md`](memory/incidents/2026-09-21-item-name-stamp-inconsistencies.md) | One symptom family — missing item-name stamps — across 1 Product 3 Styles Feed, Collection Category Feed, Moodboard Reel and Style This Story, with three distinct root causes. |
 
-## 🚧 6. Planned but NOT Implemented (`docs/superpowers/`)
+## 🚧 7. Planned but NOT Implemented (`docs/superpowers/`)
 
 | Doc | Status |
 | :--- | :--- |
 | [`superpowers/plans/2026-09-16-studio-new-record-run-scope.md`](superpowers/plans/2026-09-16-studio-new-record-run-scope.md) | Design/plan only. The modules it names (`content_automation/studio_run_scope.py`, `UI Control/routes/studio_runs.py`) do **not** exist in the codebase. |
 | [`superpowers/specs/2026-09-16-studio-new-record-run-scope-design.md`](superpowers/specs/2026-09-16-studio-new-record-run-scope-design.md) | Same — spec for an unimplemented run-scope feature. Do not assume it is active behavior. |
 
-## 📂 7. Legacy Per-Folder Notes
+## 📂 8. Legacy Per-Folder Notes
 
-Each manual-workspace folder keeps its own README describing its step scripts (e.g. `CTA Story/README.md`, `Style This Story/README.md`, `Moodboard Feed/README.md`, `This or That Story/README.md`, `1 Product 3 Styles Feed/README.md`, `Before and After Reel/README.md`, `Product Closeup Description Story/README.md`, `Product Closeup Specs Story/README.md`, `Tips and Edu Feeds/README.md`, `UI Control/README.md`). These are **manual/legacy references** — the automated source of truth is the pipeline docs in sections 1–3 above plus [`../AGENTS.md`](../AGENTS.md).
+Each legacy manual-workspace folder (now preserved under `archive/legacy_workspaces/`) keeps its own README describing its step scripts (e.g. `archive/legacy_workspaces/CTA Story/README.md`, `archive/legacy_workspaces/Style This Story/README.md`, `archive/legacy_workspaces/Moodboard Feed/README.md`, `archive/legacy_workspaces/This or That Story/README.md`, `archive/legacy_workspaces/1 Product 3 Styles Feed/README.md`, `archive/legacy_workspaces/Before and After Reel/README.md`, `archive/legacy_workspaces/Product Closeup Description Story/README.md`, `archive/legacy_workspaces/Product Closeup Specs Story/README.md`, `UI Control/README.md`). These are **manual/legacy references** — the automated source of truth is the pipeline docs in sections 1–3 above plus [`../AGENTS.md`](../AGENTS.md).

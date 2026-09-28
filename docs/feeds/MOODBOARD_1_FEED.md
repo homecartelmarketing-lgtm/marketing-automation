@@ -63,21 +63,21 @@ $$\text{Format: } \mathbf{MB1\text{-}FEEDS\text{-}\langle FIXTURE\rangle\text{-}
 
 ## 5. 5-Status Lifecycle & PHT Timestamps
 
-```
-[ P ] Pending  ──►  [ S ] Scheduled  ──►  [ D ] Drafting  ──►  [ FM ] For Modification  ──►  [ C ] Completed
-```
+The Airtable single-select Status field tracks records across 5 lifecycle stages:
 
-- **`Pending` (`P`)**: Scraped Akeneo product awaiting initial interior generation.
-- **`Scheduled` (`S`)**: Queued for batch generation.
-- **`Drafting` (`D`)**: Processing through Krea generation, Claude vision prompt analysis, or Fal blending.
-- **`For Modification` (`FM`)**: Flagged for visual review or prompt regeneration.
-- **`Completed` (`C`)**: All 4 carousel slides generated, watermarked, converted, and attached.
+| Badge | Color | Lifecycle State | Airtable Status Value | Operational Meaning |
+| :---: | :---: | :--- | :--- | :--- |
+| **P** | Sky Blue | **Posted / Processing** | Posted, Processing, Pending, In Progress, intermediate phase statuses | Record is actively queued or being processed. |
+| **S** | Purple | **Scheduled** | Scheduled, Schedule | Approved and scheduled for publishing. |
+| **C** | Emerald | **Complete / Done** | Complete, Completed, Done | All phases complete; deliverables attached. |
+| **D** | Rose | **Discarded** | Discard, Discarded | Archived or rejected candidate. |
+| **FM** | Amber | **For Manual / Revision** | For Manual, Minor revision, FM | Flagged for manual review or adjustment. |
 
 ### Execution Timestamp
-Pipeline execution automatically writes the Philippine Standard Time timestamp (UTC+8) into the `Date & Time Run (PHT)` field:
-```
+When a row reaches Complete (C), the pipeline automatically writes the Philippine Standard Time timestamp (UTC+8, ISO 8601) into the **Date and Time Generated** field:
+`
 2026-09-07T13:12:00+08:00
-```
+`
 
 ---
 
@@ -122,12 +122,13 @@ python scrape_moodboard_1_feed.py --category chandeliers --max-items 5
 
 # One-shot: scrape N new products then run the full 6-phase pipeline end-to-end
 python run_full_moodboard_1_feed.py --category pendant_lights --max-items 3
-# Also available as: python "Moodboard Feed/1_Run_Full_Moodboard_Feed.py"
+# Also available as: python "archive/legacy_workspaces/Moodboard Feed/1_Run_Full_Moodboard_Feed.py"
 ```
 
 ### Web UI Dashboard Execution
-1. Open `http://localhost:5200`
-2. Enter security PIN: `1234`
-3. Click the **Feed** tab in the top navigation.
+1. Open http://localhost:5200 in your web browser.
+2. Enter the Studio PIN if DASHBOARD_PIN is configured.
+3. Click the **Feed** tab in the main navigation.
 4. Select the **Moodboard #1 Feeds** subtab.
-5. Filter by status (`P`, `S`, `D`, `FM`, `C`) and click **Run Selected**.
+5. Pick an active fixture category.
+6. Click the **Run** button on the fixture card, confirm the batch count (default 1) in the confirmation modal, and the pipeline will scrape a fresh active product and process it end-to-end.

@@ -58,21 +58,21 @@ $$\text{Format: } \mathbf{TOT\text{-}STORY\text{-}\langle FIXTURE\rangle\text{-}
 
 ## 5. 5-Status Lifecycle & PHT Timestamps
 
-```
-[ P ] Pending  ──►  [ S ] Scheduled  ──►  [ D ] Drafting  ──►  [ FM ] For Modification  ──►  [ C ] Completed
-```
+The Airtable single-select Status field tracks records across 5 lifecycle stages:
 
-- **`Pending` (`P`)**: Scraped 2-product pair awaiting generation.
-- **`Scheduled` (`S`)**: Queued for batch execution.
-- **`Drafting` (`D`)**: Processing through Fal AI Nano Banana Pro.
-- **`For Modification` (`FM`)**: Flagged for layout or product pairing adjustment.
-- **`Completed` (`C`)**: Story voting graphic generated and attached to Airtable.
+| Badge | Color | Lifecycle State | Airtable Status Value | Operational Meaning |
+| :---: | :---: | :--- | :--- | :--- |
+| **P** | Sky Blue | **Posted / Processing** | Posted, Processing, Pending, In Progress, intermediate phase statuses | Record is actively queued or being processed. |
+| **S** | Purple | **Scheduled** | Scheduled, Schedule | Approved and scheduled for publishing. |
+| **C** | Emerald | **Complete / Done** | Complete, Completed, Done | All phases complete; deliverables attached. |
+| **D** | Rose | **Discarded** | Discard, Discarded | Archived or rejected candidate. |
+| **FM** | Amber | **For Manual / Revision** | For Manual, Minor revision, FM | Flagged for manual review or adjustment. |
 
 ### Execution Timestamp
-Pipeline execution automatically writes the Philippine Standard Time timestamp (UTC+8) into the `Date & Time Run (PHT)` field:
-```
+When a row reaches Complete (C), the pipeline automatically writes the Philippine Standard Time timestamp (UTC+8, ISO 8601) into the **Date and Time Generated** field:
+`
 2026-09-07T13:12:00+08:00
-```
+`
 
 ---
 
@@ -89,25 +89,25 @@ Pipeline execution automatically writes the Philippine Standard Time timestamp (
 
 ```powershell
 # Interactive console menu
-python "This or That Story/4_Interactive_Menu.py"
+python "archive/legacy_workspaces/This or That Story/4_Interactive_Menu.py"
 
 # Run 1 row end-to-end for Wall Lights
-python "This or That Story/1_Run_Full_Story_Automation.py" --target wall_lights
+python "archive/legacy_workspaces/This or That Story/1_Run_Full_Story_Automation.py" --target wall_lights
 
 # Run all 6 categories end-to-end
-python "This or That Story/1_Run_Full_Story_Automation.py" --target all
+python "archive/legacy_workspaces/This or That Story/1_Run_Full_Story_Automation.py" --target all
 
 # Generate pending records only
-python "This or That Story/2_Generate_Pending_Stories.py" --target wall_lights
+python "archive/legacy_workspaces/This or That Story/2_Generate_Pending_Stories.py" --target wall_lights
 
 # Backfill layout watermark on pending records
 python generate_this_or_that_pipeline.py --target all --mode backfill-layout
 ```
 
 ### Web UI Dashboard Execution
-1. Open `http://localhost:5200`
-2. Enter PIN: `1234`
-3. Click the **Story** tab.
-4. Select **This or That Stories**.
-5. Pick fixture category (**Chandelier**, **Pendant**, **Floor Lamp**, **Cluster**, **Table Lamp**, or **Wall Light**).
-6. Select rows and trigger generation.
+1. Open http://localhost:5200 in your web browser.
+2. Enter the Studio PIN if DASHBOARD_PIN is configured.
+3. Click the **Story** tab in the main navigation.
+4. Select the **This or That Story** subtab.
+5. Pick an active fixture category.
+6. Click the **Run** button on the fixture card, confirm the batch count (default 1) in the confirmation modal, and the pipeline will scrape a fresh active product and process it end-to-end.

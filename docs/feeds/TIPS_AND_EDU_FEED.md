@@ -61,23 +61,21 @@ $$\text{Format: } \mathbf{\langle IDEA\rangle\text{-}\langle FORMAT\rangle\text{
 
 ## 5. 5-Status Lifecycle & PHT Timestamps
 
-All records adhere to the 5 standard single-select lifecycle statuses, visualized as single-character badges in the Web UI:
+The Airtable single-select Status field tracks records across 5 lifecycle stages:
 
-```
-[ P ] Pending  ──►  [ S ] Scheduled  ──►  [ D ] Drafting  ──►  [ FM ] For Modification  ──►  [ C ] Completed
-```
+| Badge | Color | Lifecycle State | Airtable Status Value | Operational Meaning |
+| :---: | :---: | :--- | :--- | :--- |
+| **P** | Sky Blue | **Posted / Processing** | Posted, Processing, Pending, In Progress, intermediate phase statuses | Record is actively queued or being processed. |
+| **S** | Purple | **Scheduled** | Scheduled, Schedule | Approved and scheduled for publishing. |
+| **C** | Emerald | **Complete / Done** | Complete, Completed, Done | All phases complete; deliverables attached. |
+| **D** | Rose | **Discarded** | Discard, Discarded | Archived or rejected candidate. |
+| **FM** | Amber | **For Manual / Revision** | For Manual, Minor revision, FM | Flagged for manual review or adjustment. |
 
-1. **`Pending` (`P`)**: Raw product slots scraped from Akeneo, waiting for interior generation.
-2. **`Scheduled` (`S`)**: Queued for execution in batch automation runners.
-3. **`Drafting` (`D`)**: Processing through Krea generation, Claude prompt analysis, or Fal blending.
-4. **`For Modification` (`FM`)**: Flagged by marketing team for regeneration or manual prompt tweaking.
-5. **`Completed` (`C`)**: All 3 carousel slides and thumbnail successfully generated, validated, and stamped.
-
-### Timestamp Tracking
-Every pipeline run writes the exact execution timestamp in Philippine Time (UTC+8) into the `Date & Time Run (PHT)` field in ISO 8601 format:
-```
+### Execution Timestamp
+When a row reaches Complete (C), the pipeline automatically writes the Philippine Standard Time timestamp (UTC+8, ISO 8601) into the **Date and Time Generated** field:
+`
 2026-09-07T13:12:00+08:00
-```
+`
 
 ---
 
@@ -109,14 +107,14 @@ python run_tips_and_edu_feed.py --phase 1 --max-rows 1 --execute
 # Target Pendant Lights table
 python run_tips_and_edu_feed.py --target pendant_lights --phase all --execute
 
-# Scrape new active products from Akeneo
-python scrape_tips_and_edu_feed.py --category chandeliers --max-rows 4 --execute
+# Scrape new active products from Akeneo (moved to scripts/scrapers/ — run from repo root)
+PYTHONPATH=. python scripts/scrapers/scrape_tips_and_edu_feed.py --category chandeliers --max-rows 4 --execute
 ```
 
 ### Web UI Dashboard Execution
-1. Navigate to `http://localhost:5200`
-2. Enter security PIN: `1234`
-3. Select the **Feed** tab from the top navigation bar.
-4. Click on **Tips & Edu Feeds** subtab.
-5. Choose your target category (**Chandelier**, **Pendant**, **Floor Lamp**, or **Cluster**).
-6. Select rows and click **Run Selected** or **Run All Pending**.
+1. Open http://localhost:5200 in your web browser.
+2. Enter the Studio PIN if DASHBOARD_PIN is configured.
+3. Click the **Feed** tab in the main navigation.
+4. Select the **Tips & Educational Feeds** subtab.
+5. Pick an active fixture category.
+6. Click the **Run** button on the fixture card, confirm the batch count (default 1) in the confirmation modal, and the pipeline will scrape a fresh active product and process it end-to-end.

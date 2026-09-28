@@ -2,6 +2,10 @@
 
 > **Master Specification**: For complete architecture, model stack, Foreign Key conventions, and layout specs, see [`../docs/feeds/MOODBOARD_1_FEED.md`](../docs/feeds/MOODBOARD_1_FEED.md), [`../docs/feeds/MOODBOARD_2_FEED.md`](../docs/feeds/MOODBOARD_2_FEED.md), and [`../AGENTS.md`](../AGENTS.md).
 
+> [!CAUTION]
+> ### MANDATORY OPERATING RULE (AGENTS.md Tenet #2)
+> Every pipeline execution MUST scrape fresh active products into a **brand-new Airtable row** and process that row **end-to-end**. AI agents must **NEVER search for, pick up, re-run, or loop over existing/remaining/unprocessed/incomplete rows in Airtable**. The `--skip-scrape` flag is reserved for manual local developer diagnostics only; production runs must execute end-to-end with fresh ingestion or via the Web Studio dashboard.
+
 Thin wrapper scripts for the **Moodboard #1** and **Moodboard #2** Feed pipelines (`1080 x 1350 px` Instagram Feed / Carousel). Both scripts here just call the equivalent root-level `run_full_moodboard_*_feed.py` entrypoint — they exist so the two Moodboard feed pipelines can be launched from one dedicated folder alongside the other per-pipeline folders in this repo.
 
 ---
@@ -30,7 +34,7 @@ python "Moodboard Feed/2_Run_Full_Moodboard_2_Feed.py"
 # Moodboard #2 Feed, specific category & count
 python "Moodboard Feed/2_Run_Full_Moodboard_2_Feed.py" --category wall_lights --max-items 3
 
-# Process existing Standby records only, without scraping new ones
+# Manual developer debug only: process existing Standby records without scraping
 python "Moodboard Feed/2_Run_Full_Moodboard_2_Feed.py" --skip-scrape
 ```
 
@@ -45,4 +49,4 @@ See [`../docs/feeds/MOODBOARD_1_FEED.md`](../docs/feeds/MOODBOARD_1_FEED.md) (Ch
 ### 🎨 Model & Prompt Specs:
 - **Moodboard #1**: Krea AI room interior $\rightarrow$ Claude Sonnet 5 prompt $\rightarrow$ Fal AI Nano Banana Pro (blend, 3-swatch conversion, macro closeup) $\rightarrow$ local Pillow logo watermark. Foreign Key prefix `MB1-FEEDS`.
 - **Moodboard #2**: Krea AI room interior $\rightarrow$ Claude Sonnet 5 prompt $\rightarrow$ Fal AI Nano Banana Pro (blend + editorial flat-lay conversion). Foreign Key prefix `MB2-FEEDS`.
-- **Status Progression**: `Standby`/`Pending` $\rightarrow$ `Drafting` $\rightarrow$ `Complete`/`Done`.
+- **Status Progression**: `Standby`/`Pending` $\rightarrow$ `In Progress` $\rightarrow$ `Complete`/`Done`.

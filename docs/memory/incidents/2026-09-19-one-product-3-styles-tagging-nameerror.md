@@ -17,7 +17,7 @@ The console logged:
 
 ## How it was diagnosed
 
-1. Inspected line 677 of [`run_1_product_3_styles_feed.py`](../../run_1_product_3_styles_feed.py):
+1. Inspected line 677 of [`run_1_product_3_styles_feed.py`](../../../run_1_product_3_styles_feed.py):
    ```python
    item_title, product_type = split_item_name(raw_item_name, item_type or target_fixture)
    ```
@@ -33,9 +33,9 @@ The console logged:
 
 ## Resolution
 
-1. **Import Fixed**: Added `split_item_name` to the import list in [`run_1_product_3_styles_feed.py`](../../run_1_product_3_styles_feed.py).
+1. **Import Fixed**: Added `split_item_name` to the import list in [`run_1_product_3_styles_feed.py`](../../../run_1_product_3_styles_feed.py).
 2. **Category Fallbacks**: Added fallback defaults for product categories (`Chandelier`, `Pendant Light`, `Floor Lamp`) so rows with missing `Product Type` fields still receive clean, accurate 2-line tags.
-3. **Automated Backfill**: Developed and executed [`backfill_1_product_3_styles_tags.py`](../../backfill_1_product_3_styles_tags.py), which audited all 3 tables:
+3. **Automated Backfill**: Developed and executed [`backfill_1_product_3_styles_tags.py`](../../../scripts/ops/backfill_1_product_3_styles_tags.py), which audited all 3 tables:
    - `tblrlfqBGe5EjS5PI` (Chandeliers): 4 records backfilled (`rec5NlHXJzXh3fAlJ`, `rec5YlcAV2N8BdZsW`, `rec9WrLcg6SSsGqeb`, `recFR1ZfwXaIOcJwW`).
    - `tblRy52kCasisCWzd` (Pendant Lights): 5 records backfilled (`recAaLnxVlpOBORpp`, `recIxm4lzlw2QXtMC`, `recOhYMIYBr4AKICG`, `recj60WkrU9JJQZva`, `recoZyH2y3E7bAwtb`).
    - `tbl9GIq2QeYCwMhWU` (Floor Lamps): 0 untagged records found.

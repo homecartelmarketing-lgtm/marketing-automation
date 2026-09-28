@@ -2,6 +2,10 @@
 
 > **Master Specification**: For complete architecture, model stack, Foreign Key conventions, and layout specs, see [`../docs/stories/STYLE_THIS_STORY.md`](../docs/stories/STYLE_THIS_STORY.md) and [`../AGENTS.md`](../AGENTS.md).
 
+> [!CAUTION]
+> ### MANDATORY OPERATING RULE (AGENTS.md Tenet #2)
+> Every pipeline execution MUST scrape fresh active products into a **brand-new Airtable row** and process that row **end-to-end**. AI agents must **NEVER search for, pick up, re-run, or loop over existing/remaining/unprocessed/incomplete rows in Airtable**. The script `2_Convert_Blended_Photos_To_Story_Cards.py` is reserved for manual local developer diagnostics only; production runs must execute end-to-end via `1_Run_Full_Story_Automation.py` or the Web Studio dashboard.
+
 Kumpletong gabay at koleksyon ng mga script para sa **Style This Story** (1080 x 1920 px Instagram Story).
 
 ---
@@ -13,10 +17,10 @@ Lahat ng scripts para sa Style This Story ay nakaayos na dito sa folder na ito:
 | Script File | Ano ang ginagawa nito? (Simplified Description) | Kailan ito gagamitin? |
 | :--- | :--- | :--- |
 | **`1_Run_Full_Story_Automation.py`** | Patatakbuhin ang buong automation mula simula hanggang upload sa Airtable (Scrape $\rightarrow$ Krea 4 interiors $\rightarrow$ Claude Prompts $\rightarrow$ Fal Blending $\rightarrow$ Story Cards $\rightarrow$ Complete). | Kapag nais mag-produce ng bagong kumpletong Style This Story. |
-| **`2_Convert_Blended_Photos_To_Story_Cards.py`** | Kukuhain ang mga na-blend nang images sa `"Style This Blended"` (`style_this01..04`), ia-analyze ni Claude ang kulay at vibe, ise-save sa Airtable, at ilalapat ang layout ng Story Cards nang libre (walang Fal image API cost). | Kapag may blended images na sa Airtable at gusto na lang gawing Story Cards. |
+| **`2_Convert_Blended_Photos_To_Story_Cards.py`** | *(Developer Diagnostic Only)* Kukuhain ang mga na-blend nang images sa `"Style This Blended"` (`style_this01..04`), ia-analyze ni Claude ang kulay at vibe, ise-save sa Airtable, at ilalapat ang layout ng Story Cards nang libre (walang Fal image API cost). | Para sa manual local debugging lamang. |
 | **`3_Scrape_Akeneo_Floor_Lamps.py`** | Kukuha ng mga **Active** na Floor Lamps (`tblvSAzXasTVI85r9`) mula **bago hanggang luma** at may cross-table deduplication. | Para sa Floor Lamps. |
 | **`3_Scrape_Akeneo_Pendant_Lights.py`** | Kukuha ng mga **Active** na Pendant Lights (`tblWdz71nULR0TZx7`) mula **bago hanggang luma** at may cross-table deduplication. | Para sa Pendant Lights. |
-| **`3_Scrape_Akeneo_Chandeliers.py`** | Kukuha ng mga **Active** na Chandeliers (`tblp6AMYb13NPqkuT`), **awtomatikong ini-skip ang Linear Chandeliers**, mula bago hanggang luma. | Para sa Chandeliers. |
+| **`3_Scrape_Akeneo_Chandeliers.py`** | Kukuha ng mga **Active** na Chandeliers (`tblYge5R7LwTJkEHC`), **awtomatikong ini-skip ang Linear Chandeliers**, mula bago hanggang luma. | Para sa Chandeliers. |
 | **`3_Scrape_Akeneo_Wall_Lights.py`** | Kukuha ng mga **Active** na Wall Lights (`tblXJrvSBkJNhRHLa`) mula **bago hanggang luma** at may cross-table deduplication. | Para sa Wall Lights. |
 | **`4_Preview_Story_Cards_Locally.py`** | Mag-ge-generate ng preview images sa iyong computer (`output/style_this_preview/`) para makita ang hitsura ng Slide 1 at Slide 2 bago i-upload. | Kapag nais i-check ang posisyon ng text, logo, at kulay ng pill badge. |
 | **`5_Interactive_Menu.py`** | Magbubukas ng madaling menu sa terminal kung saan mamimili ka muna ng Category/Table ID, tapos pipili ng aksyon (1 hanggang 6). | Kapag nais mamili ng category at action gamit ang interactive menu. |

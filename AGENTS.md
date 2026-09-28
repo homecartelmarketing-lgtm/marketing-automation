@@ -38,7 +38,12 @@ marketing-automation/
 ├── run_*.py                                 # CLI runners: thin aliases delegating to a monolith's
 │                                            #   main(), OR orchestrators calling run_content_automation.py
 ├── run_content_automation.py                # Registry-driven runner (content_automation/workflows/)
-├── scrape_*.py / backfill_*.py / preview_*.py / standalone_*.py  # Ops & one-off utility scripts
+├── scripts/                                 # Organized ops, scrapers, and visual previewers
+│   ├── ops/                                 # Maintenance, backfills, migrations, video tools
+│   ├── scrapers/                            # Standalone Akeneo and category scrapers
+│   └── previews/                            # Local Pillow layout and thumbnail previewers
+├── archive/                                 # Preserved legacy workspace menus & spec files
+│   └── legacy_workspaces/                   # 9 archived interactive-menu folders (CTA Story, etc.)
 ├── launch_studio_cloudflare.py / .bat       # Studio + free Cloudflare quick-tunnel launcher
 │
 ├── docs/                                    # Centralized documentation hub
@@ -46,7 +51,7 @@ marketing-automation/
 │   ├── stories/                             # 10 Story pipeline specs (9:16 vertical)
 │   ├── feeds/                               # 7 Feed pipeline specs (4:5 vertical)
 │   ├── reels/                               # 6 Reel pipeline specs (9:16 video)
-│   ├── ads/                                 # 1 Ad Cover pipeline spec (1:1 square, 1080 x 1080 px)
+│   ├── ads/                                 # 1 Ad Cover pipeline spec (1:1 1080x1080 + 9:16 Story 1080x1920)
 │   ├── AUTO_POST_SCHEDULER.md               # Instagram auto-publish worker (external, cross-repo dependency)
 │   ├── OPERATIONS_AND_UTILITIES.md          # Airtable maintenance / tagging / diagnostic scripts
 │   ├── UI_CONTROL_CONFIG.md                 # Studio moodboard/prompt overrides & config keys
@@ -99,7 +104,7 @@ marketing-automation/
 │   │   ├── day_night_reel.py                # Reel: /api/day-night-reel/* product_closeup_reel.py
 │   │   ├── before_after_reel.py             # /api/before-after-reel/*    moodboard_reel.py
 │   │   ├── style_reel_slideshow.py          # /api/style-reel-slideshow/* one_product_three_styles_reel.py
-│   │   ├── ad_cover.py                      # Ad Cover: /api/ad-cover/* (1:1 square, per-fixture run)
+│   │   ├── ad_cover.py                      # Ad Cover: /api/ad-cover/* (1:1 + 9:16 Story, per-fixture run)
 │   │   ├── queue_manager.py                 # In-memory FIFO job queue (/api/queue/*) — see §3
 │   │   ├── rows.py                          # Row Inspector & Airtable deep links (/api/rows)
 │   │   └── common.py                        # PIN verification, config overrides, helpers
@@ -108,16 +113,19 @@ marketing-automation/
 │   │   └── app/components/planning/         # FixtureCard, RowInspectorModal, RunConfirmModal
 │   └── dist/                                # Compiled production assets served by Flask
 │
-├── assets/                                  # homecartel_logo.png, *_layout.jpg watermark templates, emojis
+├── assets/                                  # homecartel_logo.png, *_layout.jpg watermark templates, emojis,
+│                                            #   chand-collection.png, trending.png, etc. (1:1) + ad-cover-*-story.png (9:16)
 ├── JSON Prompts/                            # Per-format layout JSON + moodboard templates (Canva exports)
 ├── output/                                  # Generated local image composites & exports
 └── scratch/                                 # Temporary test scripts & verification utilities
 ```
 
 > [!IMPORTANT]
-> The root folder contains ~70 `.py` scripts. The naming pattern matters:
-> - `generate_*_pipeline.py` — self-contained monoliths that actually run Phases 1..N. **Flask routes spawn these directly as subprocesses.**
+> The root folder contains the active generators and runners (~46 `.py` scripts). The naming pattern matters:
+> - `generate_*` (e.g. `generate_*_pipeline.py`) — self-contained monoliths that actually run Phases 1..N. **Flask routes spawn these directly as subprocesses.**
 > - `run_*.py` — CLI entrypoints: either *thin aliases* that call a monolith's `main()`, or *orchestrators* that scrape and then invoke `run_content_automation.py`.
+> - Root utilities with internal pipeline callers (`standalone_scrape_akeneo.py`, `photo_video_maker.py`, `standalone_item_tagger.py`, and category scrapers imported by runners) remain in root to guarantee zero breaking changes.
+> - One-off utility scripts, standalone test scrapers, and layout previews live organized under `scripts/ops/`, `scripts/scrapers/`, and `scripts/previews/`.
 > - There is **no** `content_automation/text_overlays/` and **no** root `api_server.py` — Pillow rendering lives in `content_automation/overlay.py` and the server lives in `UI Control/api_server.py`.
 
 ---
@@ -187,7 +195,7 @@ Every record in every Story and Feed table must have a unique, human-readable Fo
 $$\text{Foreign Key ID} = \langle\text{Idea Abbr}\rangle\text{-}\langle\text{Format}\rangle\text{-}\langle\text{Fixture Code}\rangle\text{-}\langle\text{Row ID}\rangle$$
 
 - **Idea Abbr**: `CTA`, `TNE`, `CC`, `DN`, `MB`, `MB1`, `MB2`, `PCS`, `PCD`, `ST`, `MNF`, `TOT`, `OP3S`, `PS`, `PCR`, `BA`, `SRS`, `ADC`
-- **Format**: `STORY` (9:16), `FEEDS` (4:5), `REEL` (9:16 video), or `ADS` (1:1 square ad cover)
+- **Format**: `STORY` (9:16), `FEEDS` (4:5), `REEL` (9:16 video), or `ADS` (Ad Cover row: carries the 1:1 cover and its 9:16 Story twin; the FK token stays `ADS`)
 - **Fixture Code**: `CH` (Chandelier), `PE` (Pendant), `FL` (Floor Lamp), `TL` (Table Lamp), `CL` (Cluster Chandelier), `WL` (Wall Light), `CM` (Ceiling Mounted), `SET` (Multi-room / Carousel), plus `LC` (Linear Chandelier) and `WS` (Wall Sconce) which appear only in `MB-REEL` table entries
 - **Examples**: `CTA-STORY-CH-24`, `TNE-FEEDS-FL-1`, `CC-FEEDS-SET-22`, `OP3S-FEEDS-PE-4`, `PCR-REEL-TL-1`
 
@@ -236,7 +244,7 @@ The Row Inspector modal queries `/api/rows?table_id=<table_id>` and constructs d
 > - If an item is **Draft, Inactive, Archived, or Not Published on Shopify**, it MUST be skipped immediately:
 >   `[SHOPIFY DRAFT/INACTIVE SKIP] Item '<name>' (SKU: <sku>) is not active on Shopify -> skipping`
 > - **Strict Matching Only**: Matching against Shopify MUST use exact normalized SKU equality or exact Title equality (or pre-pipe title). Substring matching (e.g. `s in clean_sku`, which mistakenly matches short tokens like `'dl'`) is strictly banned.
-> - **Catalog Cache Refresh & Zero Partial-Cache Guarantee**: The Shopify catalog index cache auto-refreshes every 12 hours from `https://homecartel.net/products.json`. If a storefront crawl experiences unrecovered failed pages or catalog shrinkage (<75% of previous cache SKUs), the disk cache is NEVER overwritten, falling back safely to the existing cache to prevent false product rejections. The crawler uses 4 workers with per-slot initial delays (0.35s/worker), 1.0s inter-batch pauses, `Retry-After` header parsing (or jittered exponential backoff up to 7 attempts capped at 30s), and a final sequential single-threaded retry pass for failed pages.
+> - **Catalog Cache Refresh & Zero Partial-Cache Guarantee**: The Shopify catalog index cache auto-refreshes every 24 hours (configurable via `SHOPIFY_CACHE_TTL_HOURS`) from `https://homecartel.net/products.json`. To prevent Cloudflare bot challenges, `ShopifyClient` uses `curl_cffi` with Chrome 120 TLS fingerprint impersonation (falling back to `requests`), with instant fast-fail detection on Cloudflare challenge mitigations. If a storefront crawl experiences unrecovered failed pages or catalog shrinkage (<75% of previous cache SKUs), the disk cache is NEVER overwritten, falling back safely to the existing cache to prevent false product rejections. The crawler uses 4 workers with per-slot initial delays (0.35s/worker), 1.0s inter-batch pauses, `Retry-After` header parsing (or jittered exponential backoff up to 7 attempts capped at 30s), and a sequential single-threaded retry pass for failed pages. You can check status or force-refresh the cache anytime with `python -m content_automation.shopify_client [--status|--refresh]`.
 
 ### 3. Base-Wide Cross-Table Deduplication
 - Before inserting any product into ANY Story, Feed, or Reel table, cross-check its SKU and Item Name against ALL 60+ tables across the entire Airtable base using `fetch_all_base_existing_identities`.
@@ -255,6 +263,7 @@ All local layout rendering lives in **`content_automation/overlay.py`** (plus `i
 - **Canvas Dimensions**:
   - **Story (9:16)**: `1080 x 1920 px`
   - **Feed (4:5)**: `1080 x 1350 px`
+  - **Ad Cover (1:1)**: `1080 x 1080 px`, plus its 9:16 Story twin at `1080 x 1920 px` (`overlay.py::AD_COVER_STORY_CANVAS_SIZE`)
 - **Typography Engine**:
   - Fonts are resolved by `overlay.py::_resolve_font_path` from **`content_automation/fonts/Poppins-Bold.ttf`, `Poppins-Regular.ttf`, `Poppins-Light.ttf`** (not `assets/fonts/`).
   - Always implement auto-scaling font protection (e.g. scale font down from 48px to 24px if text width exceeds bounding box).
@@ -300,8 +309,8 @@ All local layout rendering lives in **`content_automation/overlay.py`** (plus `i
 5. **Style Reel Slideshow** ([`docs/reels/STYLE_REEL_SLIDESHOW.md`](docs/reels/STYLE_REEL_SLIDESHOW.md)) — Fast-paced lifestyle video slideshow.
 6. **1 Product, 3 Styles Reel** ([`docs/reels/ONE_PRODUCT_THREE_STYLES_REEL.md`](docs/reels/ONE_PRODUCT_THREE_STYLES_REEL.md)) — Chandelier-only blended photo Reel with 5s, 4s, 4s holds and 5s outro.
 
-### Ad Cover Pipeline (1 Pipeline, 1:1 Square)
-1. **Ad Cover** ([`docs/ads/AD_COVER.md`](docs/ads/AD_COVER.md), prefix: `ADC-ADS`) — Standalone 4th top-level Studio tab (not a sub-tab family): one run button per fixture. Chandelier is the only runnable fixture (`tblwIsDGZBPuYJV2Z`); Pendant / Floor Lamp / Table Lamp / Cluster Chandelier / Wall Light are scaffolded as disabled "Coming soon" cards. 5 phases: highest-priced newest Akeneo chandelier → Krea 1:1 interior → Claude blending prompt → Nano Banana Pro blend → **local Pillow** composite of `assets/ad-covers-chandelier.png` (tagline + logo baked in, zero API cost).
+### Ad Cover Pipeline (1 Pipeline, 1:1 Square + 9:16 Story)
+1. **Ad Cover** ([`docs/ads/AD_COVER.md`](docs/ads/AD_COVER.md), prefix: `ADC-ADS`) — Standalone 4th top-level Studio tab (not a sub-tab family): one run button per fixture. All 6 fixtures are fully runnable with dedicated Airtable tables (Chandelier: `tblwIsDGZBPuYJV2Z`, Floor Lamp: `tbl27FKuDUD4FdJUR`, Table Lamp: `tblk3RfFqawHZ5Wrk`, Cluster Chandelier: `tbltouegkjgQwdr1u`, Pendant Light: `tbl99Cwda2Xn93giT`, Wall Light: `tblUO5nybG9fIkhTT`). 7 phases: highest-priced newest Akeneo fixture → Krea 1:1 interior → Claude blending prompt → Nano Banana Pro blend → **local Pillow** composite of the transparent ad-cover overlay → Nano Banana Pro **9:16 extension** of that blend → **local Pillow** composite of the 9:16 story overlay (tagline + logo baked into PNG overlays, zero API cost for typography). One run produces **both** the 1:1 `Ad Cover Converted Image` and the 9:16 `Ad Cover Converted Image Story`; `Complete` is written by Phase 7 only.
 
 Studio moodboard/prompt pencils, persistent config keys, and completed count behavior are mapped in [`docs/UI_CONTROL_CONFIG.md`](docs/UI_CONTROL_CONFIG.md). Use the `C` badge alone for completed totals; `P` includes posted, pending, and processing rows. The optional Studio PIN is `DASHBOARD_PIN`.
 
@@ -366,9 +375,18 @@ python run_content_automation.py --phase stories --assignment <table_code> --bat
 # Run Style This Story Pipeline (CLI)
 python run_style_this_story.py --category chandeliers
 
+# Run the Ad Cover pipeline — modes: scrape|interior|prompt|blend|conversion|story-blend|story-conversion|all
+# One --mode all run produces BOTH the 1:1 cover and the 9:16 Story twin; see docs/ads/AD_COVER.md §7
+python generate_ad_cover_pipeline.py --fixture chandelier --mode all --max-items 1
+
 # Test API Endpoints & Airtable Counts
 python scratch/test_feed_apis.py
 python scratch/audit_all_feed_subtabs.py
+
+# Ad Cover schema provisioning (idempotent) + row/image verification (read-only)
+python scratch/ensure_ad_cover_fields.py --table-id tblwIsDGZBPuYJV2Z
+python scratch/_verify_ad_cover_row.py [record_id]
+python scratch/_verify_ad_cover_image.py [record_id]
 ```
 
 ---

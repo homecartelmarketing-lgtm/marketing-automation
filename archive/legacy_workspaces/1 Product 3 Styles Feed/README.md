@@ -2,6 +2,10 @@
 
 > **Master Specification**: For complete architecture, model stack, Foreign Key conventions, and Canva coordinates, see [`../docs/feeds/ONE_PRODUCT_THREE_STYLES_FEED.md`](../docs/feeds/ONE_PRODUCT_THREE_STYLES_FEED.md) and [`../AGENTS.md`](../AGENTS.md).
 
+> [!CAUTION]
+> ### MANDATORY OPERATING RULE (AGENTS.md Tenet #2)
+> Every pipeline execution MUST scrape fresh active products into a **brand-new Airtable row** and process that row **end-to-end**. AI agents must **NEVER search for, pick up, re-run, or loop over existing/remaining/unprocessed/incomplete rows in Airtable**. The script `2_Generate_Pending_Feeds.py` is reserved for manual developer emergency diagnostics only; production runs must execute end-to-end via `1_Run_Full_Feed_Automation.py` or the Web Studio dashboard.
+
 The **1 Product, 3 Styles Feed Automation** is an automated marketing pipeline designed to take **1 lighting/furniture product** and blend it into **3 distinct luxury room interior styles** (e.g., Grand Living Room, Luxury Dining Room, High Ceiling Foyer) at **4:5 vertical Instagram Feed format (1K Resolution)**, with the **official HomeCartel® logo stamped onto the first blended image**.
 
 ---
@@ -12,7 +16,7 @@ The **1 Product, 3 Styles Feed Automation** is an automated marketing pipeline d
 | :--- | :--- | :--- |
 | **`4_Interactive_Menu.py`** | Interactive console menu with one-key options for all tasks. | Pinakamadaling paraan para patakbuhin ang automation. |
 | **`1_Run_Full_Feed_Automation.py`** | Runs full Phase 1 to Phase 4 end-to-end pipeline. | Kapag nais mag-scrape at mag-generate mula simula hanggang dulo. |
-| **`2_Generate_Pending_Feeds.py`** | Processes existing rows in Airtable from Phase 2 onwards. | Kapag may mga Standby rows na at nais lamang mag-generate ng images. |
+| **`2_Generate_Pending_Feeds.py`** | *(Emergency Ops Only)* Processes existing rows in Airtable from Phase 2 onwards. | Manual developer diagnostics lamang. |
 | **`3_Scrape_Akeneo_Chandeliers.py`** | Dedicated Akeneo scraper for Chandeliers (`tblrlfqBGe5EjS5PI`). | Para mag-scrape ng Chandeliers with Cross-Table Deduplication. |
 | **`3_Scrape_Akeneo_Pendant_Lights.py`** | Dedicated Akeneo scraper for Pendant Lights (`tblRy52kCasisCWzd`). | Para mag-scrape ng Pendant Lights with Cross-Table Deduplication. |
 | **`3_Scrape_Akeneo_Floor_Lamps.py`** | Dedicated Akeneo scraper for Floor Lamps (`tbl9GIq2QeYCwMhWU`). | Para mag-scrape ng Floor Lamps with Cross-Table Deduplication. |
@@ -35,8 +39,9 @@ The **1 Product, 3 Styles Feed Automation** is an automated marketing pipeline d
    - Bago mag-create ng bagong row sa Airtable, ini-scan ang **lahat ng tables sa buong Airtable base** upang suriin ang existing SKUs, Item Names, at image filenames.
    - Hindi ma-u-upload ang product kung nagamit na ito sa ibang feed/story table.
 
-2. **Active & Scoped Products Only**:
-   - Tanging ang mga produktong `enabled: True` sa Akeneo at kabilang sa configured channel (`CHANNEL_NAME`) ang kinukuha.
+2. **Strict Shopify "Active & Published" Ingestion**:
+   - Tanging ang mga produktong `enabled: True` sa Akeneo at **Active & Published sa Shopify** (`homecartel.net/products.json`) ang kinukuha.
+   - Ang mga produktong Draft, Archived, o Inactive sa Shopify ay agarang ini-skip upang maiwasan ang marketing ng out-of-stock o unlisted items.
    - Newest products are prioritized first with price sorting.
 
 ---

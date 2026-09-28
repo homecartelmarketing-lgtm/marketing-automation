@@ -2,6 +2,10 @@
 
 > **Master Specification**: For complete architecture, model stack, Foreign Key conventions, and FFmpeg specs, see [`../docs/reels/BEFORE_AND_AFTER_REEL.md`](../docs/reels/BEFORE_AND_AFTER_REEL.md) and [`../AGENTS.md`](../AGENTS.md).
 
+> [!CAUTION]
+> ### MANDATORY OPERATING RULE (AGENTS.md Tenet #2)
+> Every pipeline execution MUST scrape fresh active products into a **brand-new Airtable row** and process that row **end-to-end**. AI agents must **NEVER search for, pick up, re-run, or loop over existing/remaining/unprocessed/incomplete rows in Airtable**. The script `2_Generate_Videos_Only.py` is reserved for manual local developer verification only; production runs must execute end-to-end via `1_Run_Full_Reel_Automation.py` or the Web Studio dashboard.
+
 Kumpletong gabay at koleksyon ng mga script para sa **Before & After Reel** (1080 x 1920 px Instagram Reel / TikTok / Facebook Video).
 
 ---
@@ -12,9 +16,9 @@ Lahat ng scripts para sa Before & After Reel ay nakaayos na dito sa folder na it
 
 | Script File | Ano ang ginagawa nito? (Simplified Description) | Kailan ito gagamitin? |
 | :--- | :--- | :--- |
-| **`1_Run_Full_Reel_Automation.py`** | **One-Click End-to-End Automation (5-Phase AI)**.<br>Kukuha ng produkto sa Akeneo $\rightarrow$ gagawa ng Before room sa Krea $\rightarrow$ susuriin ni Claude para sa blending prompt $\rightarrow$ ibe-blend ni Nano Banana ang produkto $\rightarrow$ kukuha ng 4 na camera angles $\rightarrow$ bubuuin ang 9:16 Video Reel na may ElevenLabs music, dynamic title, at outro $\rightarrow$ ise-sync sa Google Drive at Airtable. | Kapag nais mag-produce ng bagong kumpletong Before & After Video Reel. |
-| **`2_Generate_Videos_Only.py`** | **Video Compiler Lang (Libre / Walang Image API Cost)**.<br>Kukunin ang mga na-generate nang photos sa Airtable at bubuuin agad ang Video Reel gamit ang ElevenLabs music. | Kapag may photos na sa Airtable at gusto mo lang i-compile ulit ang video. |
-| **`3_Scrape_Akeneo_Floor_Lamps.py`** | *(WALANG FILE — at ang Floor Lamp table `tbl2VoWOt7sSut4E2` ay tinanggal na sa live Airtable base, 2026-09-19. Kailangan muna i-recreate ang table bago ma-enable ulit ang Floor Lamps target.)* | Para mag-scrape ng Floor Lamps (pag nag-recreate ng table). |
+| **`1_Run_Full_Reel_Automation.py`** | **One-Click End-to-End Automation (5-Phase AI)**.<br>Kukuha ng produkto sa Akeneo $\rightarrow$ gagawa ng Before room sa Krea $\rightarrow$ susuriin ni Claude para sa blending prompt $\rightarrow$ ibe-blend ni Nano Banana ang produkto $\rightarrow$ open-vocabulary YOLO-World product tagging $\rightarrow$ bubuuin ang 9:16 Video Reel na may ElevenLabs music, dynamic title, at outro $\rightarrow$ ise-sync sa Google Drive at Airtable. | Kapag nais mag-produce ng bagong kumpletong Before & After Video Reel. |
+| **`2_Generate_Videos_Only.py`** | **Video Compiler Lang (Developer Diagnostic Only)**.<br>Kukunin ang mga na-generate nang photos sa Airtable at bubuuin agad ang Video Reel gamit ang ElevenLabs music nang walang image API call. | Para sa manual local debugging lamang. |
+| **`3_Scrape_Akeneo_Floor_Lamps.py`** | *(DELETED TABLE — ang Floor Lamp table `tbl2VoWOt7sSut4E2` ay tinanggal na sa live Airtable base noong 2026-09-19. Huwag gamitin hanggang hindi nare-recreate.)* | Hindi aktibo. |
 | **`3_Scrape_Akeneo_Pendant_Lights.py`** | Kukuha ng mga **Active** na Pendant Lights (`tbleUP86Kw36G8Hdw`) mula bago hanggang luma at may cross-table deduplication. | Para mag-scrape ng Pendant Lights. |
 | **`3_Scrape_Akeneo_Chandeliers.py`** | Kukuha ng mga **Active** na Chandeliers (`tbloMhCOngGDWFS2y`) mula bago hanggang luma at may cross-table deduplication. | Para mag-scrape ng Chandeliers. |
 | **`4_Interactive_Menu.py`** | **Madaling Terminal Menu**.<br>Magbubukas ng menu sa terminal kung saan pipili ka lang ng number [1-7] nang walang tinatype na mahahabang command. | Kapag nais mamili gamit ang interactive terminal menu. |
@@ -30,8 +34,8 @@ python "Before and After Reel/4_Interactive_Menu.py"
 
 ### 2. Patakbuhin ang Buong Automation (End-to-End):
 ```bash
-# Floor Lamps (Default)
-python "Before and After Reel/1_Run_Full_Reel_Automation.py"
+# Pendant Lights (Active Target)
+python "Before and After Reel/1_Run_Full_Reel_Automation.py" --target pendant_lights
 
 # Pendant Lights
 python "Before and After Reel/1_Run_Full_Reel_Automation.py" --target pendant_lights

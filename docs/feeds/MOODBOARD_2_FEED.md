@@ -20,8 +20,8 @@ The **Moodboard #2 Feed Automation Pipeline** generates luxury **4:5 vertical In
 | Phase | Phase Name | Provider / Engine | Model / Settings | Input Fields / Triggers | Output Fields / Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Ingestion** | **Akeneo Scraper** | Akeneo PIM API | Active Ingestion (`enabled=true`) + layout auto-fill & cross-table dedup | Akeneo Catalog (`chandeliers`, `pendant_lights`, `floor_lamps`, `wall_lights`) | `Furniture Item`, `SKU`, `Item Name`, `Moodboard #2 Layout`, `Moodboard Converstion Fixed Prompt` -> Status: `Pending` (`P`) |
-| **Phase 1** | **Krea Room Interior** | Krea AI | `krea-2-medium` (4:5, 1K)<br>Preset category Moodboard ID | Standby record + Category Room Prompt | `Interior Photo` -> Status: `Drafting` (`D`) |
-| **Phase 2** | **Claude Vision Analysis** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `Interior Photo` + `Furniture Item` | `Blending Prompt` -> Status: `Drafting` (`D`) |
+| **Phase 1** | **Krea Room Interior** | Krea AI | `krea-2-medium` (4:5, 1K)<br>Preset category Moodboard ID | Standby record + Category Room Prompt | `Interior Photo` -> Status: `In Progress` (`P`) |
+| **Phase 2** | **Claude Vision Analysis** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `Interior Photo` + `Furniture Item` | `Blending Prompt` -> Status: `In Progress` (`P`) |
 | **Phase 3** | **Nano Banana Pro Blending & Brand Stamping** | Fal AI + **Local Python Pillow** | `fal-ai/nano-banana-pro/edit` + `HOMECARTEL_LOGO_BOX` ($190.3 \times 63.5\text{ px}$ @ $(108.0, 1178.5)$) | `Interior Photo` + `Furniture Item` + `Blending Prompt` | `Blended Image` (Watermarked) & `Blended Image with Name text` (YOLO-World tagged) -> Status: `In progress` |
 | **Phase 4** | **Layout Verification** | Local Storage | Zero-API Local Template Ingestion | Local assets: `referencephoto_moodboard.png` & `second_moodboard.json` | Verifies attachment integrity |
 | **Phase 5** | **Flat-Lay Conversion** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `4:5`, Resolution: `1K` | `Moodboard #2 Layout` + `Blended Image` | `Moodboard #2 Converted` -> Status: `Completed` (`C`) |
@@ -59,21 +59,21 @@ $$\text{Format: } \mathbf{MB2\text{-}FEEDS\text{-}\langle FIXTURE\rangle\text{-}
 
 ## 5. 5-Status Lifecycle & PHT Timestamps
 
-```
-[ P ] Pending  ──►  [ S ] Scheduled  ──►  [ D ] Drafting  ──►  [ FM ] For Modification  ──►  [ C ] Completed
-```
+The Airtable single-select Status field tracks records across 5 lifecycle stages:
 
-- **`Pending` (`P`)**: Freshly scraped record awaiting generation.
-- **`Scheduled` (`S`)**: Queued for batch runner execution.
-- **`Drafting` (`D`)**: Under active processing through Krea, Claude, or Fal.
-- **`For Modification` (`FM`)**: Flagged for aesthetic adjustments.
-- **`Completed` (`C`)**: Both `Blended Image` and `Moodboard #2 Converted` generated and attached.
+| Badge | Color | Lifecycle State | Airtable Status Value | Operational Meaning |
+| :---: | :---: | :--- | :--- | :--- |
+| **P** | Sky Blue | **Posted / Processing** | Posted, Processing, Pending, In Progress, intermediate phase statuses | Record is actively queued or being processed. |
+| **S** | Purple | **Scheduled** | Scheduled, Schedule | Approved and scheduled for publishing. |
+| **C** | Emerald | **Complete / Done** | Complete, Completed, Done | All phases complete; deliverables attached. |
+| **D** | Rose | **Discarded** | Discard, Discarded | Archived or rejected candidate. |
+| **FM** | Amber | **For Manual / Revision** | For Manual, Minor revision, FM | Flagged for manual review or adjustment. |
 
 ### Execution Timestamp
-Pipeline execution automatically writes the Philippine Standard Time timestamp (UTC+8) into the `Date & Time Run (PHT)` field:
-```
+When a row reaches Complete (C), the pipeline automatically writes the Philippine Standard Time timestamp (UTC+8, ISO 8601) into the **Date and Time Generated** field:
+`
 2026-09-07T13:12:00+08:00
-```
+`
 
 ---
 
@@ -114,16 +114,16 @@ python run_full_moodboard_2_feed.py --category wall_lights
 
 # Process multiple products (e.g. 3 items)
 python run_full_moodboard_2_feed.py --category chandeliers --max-items 3
-# Also available as: python "Moodboard Feed/2_Run_Full_Moodboard_2_Feed.py"
+# Also available as: python "archive/legacy_workspaces/Moodboard Feed/2_Run_Full_Moodboard_2_Feed.py"
 
 # Scrape new products only, without generating (e.g. 3 wall lights)
 python scrape_moodboard_2_feed.py --category wall_lights --max-items 3
 ```
 
 ### Web UI Dashboard Execution
-1. Open `http://localhost:5200`
-2. Enter security PIN: `1234`
-3. Click the **Feed** tab.
-4. Select **Moodboard #2 Feeds**.
-5. Select fixture category from dropdown (**Chandelier**, **Pendant**, **Floor Lamp**, or **Wall Light**).
-6. Review rows and trigger batch runs.
+1. Open http://localhost:5200 in your web browser.
+2. Enter the Studio PIN if DASHBOARD_PIN is configured.
+3. Click the **Feed** tab in the main navigation.
+4. Select the **Moodboard #2 Feeds** subtab.
+5. Pick an active fixture category.
+6. Click the **Run** button on the fixture card, confirm the batch count (default 1) in the confirmation modal, and the pipeline will scrape a fresh active product and process it end-to-end.

@@ -2,6 +2,10 @@
 
 > **Master Specification**: For complete architecture, model stack, Foreign Key conventions, and layout specs, see [`../docs/stories/PRODUCT_CLOSEUP_DESCRIPTION_STORY.md`](../docs/stories/PRODUCT_CLOSEUP_DESCRIPTION_STORY.md) and [`../AGENTS.md`](../AGENTS.md).
 
+> [!CAUTION]
+> ### MANDATORY OPERATING RULE (AGENTS.md Tenet #2)
+> Every pipeline execution MUST scrape fresh active products into a **brand-new Airtable row** and process that row **end-to-end**. AI agents must **NEVER search for, pick up, re-run, or loop over existing/remaining/unprocessed/incomplete rows in Airtable**. The script `2_Generate_Pending_Stories.py` is reserved for manual local developer diagnostics only; production runs must execute end-to-end via `1_Run_Full_Story_Automation.py` or the Web Studio dashboard.
+
 Kumpletong gabay at koleksyon ng mga script para sa **Product Closeup w/ Description Story** (1080 x 1920 px Instagram Story) gamit ang **Fal AI GPT Image 2** (`openai/gpt-image-2`).
 
 ---
@@ -13,7 +17,7 @@ Lahat ng scripts para sa Product Closeup Description Story ay nakaayos na dito s
 | Script File | Ano ang ginagawa nito? (Simplified Description) | Kailan ito gagamitin? |
 | :--- | :--- | :--- |
 | **`1_Run_Full_Story_Automation.py`** | **One-Click End-to-End Automation**.<br>Mag-i-scrape ng produkto mula Akeneo (may cross-table dedup) $\rightarrow$ ilalapat ang layout $\rightarrow$ bubuuin ang 9:16 story card image gamit ang Fal AI $\rightarrow$ ia-upload sa Airtable (`Product Closeup Description Converted`). | Kapag nais mag-produce ng bagong kumpletong Product Closeup Story Card mula simula hanggang dulo. |
-| **`2_Generate_Pending_Stories.py`** | **Story Card Generator Lamang (Pending Rows sa Airtable)**.<br>Kukunin ang mga rows na may scraped product pero wala pang converted card image, at bubuuin ang final image. | Kapag may rows na sa Airtable at gusto mo lang i-generate ang mga Story Card images. |
+| **`2_Generate_Pending_Stories.py`** | **Story Card Generator Lamang (Developer Diagnostic Only)**.<br>Kukunin ang mga rows na may scraped product pero wala pang converted card image, at bubuuin ang final image. | Para sa manual local debugging lamang. |
 | **`3_Scrape_Akeneo_Chandeliers.py`** | Kukuha ng mga active na Chandeliers (`tblDcT6jovdAbKnfw`) mula Akeneo na may cross-table deduplication. | Para mag-scrape ng Chandeliers. |
 | **`3_Scrape_Akeneo_Pendant_Lights.py`** | Kukuha ng mga active na Pendant Lights (`tblDD2w4v0Idb4jAZ`) mula Akeneo na may cross-table deduplication. | Para mag-scrape ng Pendant Lights. |
 | **`3_Scrape_Akeneo_Floor_Lamps.py`** | Kukuha ng mga active na Floor Lamps (`tblPvHyKGByWJCMtY`) mula Akeneo na may cross-table deduplication. | Para mag-scrape ng Floor Lamps. |

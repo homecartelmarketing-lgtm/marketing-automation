@@ -20,9 +20,9 @@ The **Style This Story Automation Pipeline** generates high-engagement interacti
 | Phase       | Phase Name                                | Provider / Engine       | Model / Settings                                                                                                                                                                                                                           | Input Fields / Triggers                       | Output Fields / Status                                                                                            |
 | :---------- | :---------------------------------------- | :---------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------- | :---------------------------------------------------------------------------------------------------------------- |
 | **Phase 0** | **Akeneo Scraper (always brand-new row)** | Akeneo PIM API          | Active Ingestion (`enabled=true`) + strict Shopify-active check + cross-table dedup. Every run scrapes fresh products into a brand-new row; existing/pending rows are never re-processed (only an explicit `--record-id` may target a row) | Akeneo Catalog (`chandeliers`, `floor_lamps`) | `Furniture Item`, `Item Name`, `SKU` -> Status: `Pending` (`P`)                                                   |
-| **Phase 1** | **Krea 4-Slot Interiors**                 | Krea AI                 | `krea-2-medium` (9:16, 1K)<br>Preset category Moodboard                                                                                                                                                                                    | 4 Category Room Prompts                       | `Interior`, `Interior2`, `Interior3`, `Interior4` -> Status: `Drafting` (`D`)                                     |
-| **Phase 2** | **Claude Prompt Analysis**                | Fal AI / OpenRouter     | `anthropic/claude-sonnet-5`                                                                                                                                                                                                                | 4 Interiors + `Furniture Item`                | `Prompt`, `Prompt2`, `Prompt3`, `Prompt4` -> Status: `Drafting` (`D`)                                             |
-| **Phase 3** | **Nano Banana Pro Blending**              | Fal AI                  | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K`                                                                                                                                                                    | 4 Interiors + `Furniture Item` + Prompts      | `Style This Blended` (4 images) -> Status: `Drafting` (`D`)                                                       |
+| **Phase 1** | **Krea 4-Slot Interiors**                 | Krea AI                 | `krea-2-medium` (9:16, 1K)<br>Preset category Moodboard                                                                                                                                                                                    | 4 Category Room Prompts                       | `Interior`, `Interior2`, `Interior3`, `Interior4` -> Status: `In Progress` (`P`)                                 |
+| **Phase 2** | **Claude Prompt Analysis**                | Fal AI / OpenRouter     | `anthropic/claude-sonnet-5`                                                                                                                                                                                                                | 4 Interiors + `Furniture Item`                | `Prompt`, `Prompt2`, `Prompt3`, `Prompt4` -> Status: `In Progress` (`P`)                                         |
+| **Phase 3** | **Nano Banana Pro Blending**              | Fal AI                  | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K`                                                                                                                                                                    | 4 Interiors + `Furniture Item` + Prompts      | `Style This Blended` (4 images) -> Status: `In Progress` (`P`)                                                   |
 | **Phase 4** | **Claude Vibe & Color Vision**            | Fal AI / OpenRouter     | `anthropic/claude-sonnet-5`                                                                                                                                                                                                                | `style_this02.jpg`, `03.jpg`, `04.jpg`        | Populates `Style This Text Generated[1-3]` & `Style This Auto Generated Color[1-3]`                               |
 | **Phase 5** | **Local PIL Typography Engine**           | **Local Python Pillow** | **Zero-API Local Python Script**<br>Dynamic Pill & Typography                                                                                                                                                                              | `Style This Blended` + Vibe Fields + `Logo`   | Uploads 3 cards to `Double Tap Converted` & all 4 cards to `STORY - Style This? (4)` -> Status: `Completed` (`C`) |
 
@@ -56,21 +56,21 @@ $$\text{Format: } \mathbf{ST\text{-}STORY\text{-}\langle FIXTURE\rangle\text{-}\
 
 ## 5. 5-Status Lifecycle & PHT Timestamps
 
-```
-[ P ] Pending  ──►  [ S ] Scheduled  ──►  [ D ] Drafting  ──►  [ FM ] For Modification  ──►  [ C ] Completed
-```
+The Airtable single-select Status field tracks records across 5 lifecycle stages:
 
-- **`Pending` (`P`)**: Scraped product awaiting interior generation.
-- **`Scheduled` (`S`)**: Queued for batch execution.
-- **`Drafting` (`D`)**: Processing through Krea, Claude, or Fal.
-- **`For Modification` (`FM`)**: Flagged for vibe color or typography re-rendering.
-- **`Completed` (`C`)**: All 4 story cards stamped and attached to Airtable.
+| Badge | Color | Lifecycle State | Airtable Status Value | Operational Meaning |
+| :---: | :---: | :--- | :--- | :--- |
+| **P** | Sky Blue | **Posted / Processing** | Posted, Processing, Pending, In Progress, intermediate phase statuses | Record is actively queued or being processed. |
+| **S** | Purple | **Scheduled** | Scheduled, Schedule | Approved and scheduled for publishing. |
+| **C** | Emerald | **Complete / Done** | Complete, Completed, Done | All phases complete; deliverables attached. |
+| **D** | Rose | **Discarded** | Discard, Discarded | Archived or rejected candidate. |
+| **FM** | Amber | **For Manual / Revision** | For Manual, Minor revision, FM | Flagged for manual review or adjustment. |
 
 ### Execution Timestamp
-Pipeline execution automatically writes the Philippine Standard Time timestamp (UTC+8) into the `Date & Time Run (PHT)` field:
-```
+When a row reaches Complete (C), the pipeline automatically writes the Philippine Standard Time timestamp (UTC+8, ISO 8601) into the **Date and Time Generated** field:
+`
 2026-09-07T13:12:00+08:00
-```
+`
 
 ---
 
@@ -101,7 +101,7 @@ Phase 5 executes **Zero-API Local Python Pillow** typography & card composition 
 
 ```powershell
 # Interactive console menu
-python "Style This Story/5_Interactive_Menu.py"
+python "archive/legacy_workspaces/Style This Story/5_Interactive_Menu.py"
 # or
 python generate_style_this_story_pipeline.py --mode menu
 
@@ -116,9 +116,9 @@ python generate_style_this_story_pipeline.py --mode conversion
 ```
 
 ### Web UI Dashboard Execution
-1. Open `http://localhost:5200`
-2. Enter PIN: `1234`
-3. Click the **Story** tab.
-4. Select **Style This Stories**.
-5. Pick fixture category (**Floor Lamp** or **Chandelier**).
-6. Select rows and trigger generation.
+1. Open http://localhost:5200 in your web browser.
+2. Enter the Studio PIN if DASHBOARD_PIN is configured.
+3. Click the **Story** tab in the main navigation.
+4. Select the **Style This Story** subtab.
+5. Pick an active fixture category.
+6. Click the **Run** button on the fixture card, confirm the batch count (default 1) in the confirmation modal, and the pipeline will scrape a fresh active product and process it end-to-end.

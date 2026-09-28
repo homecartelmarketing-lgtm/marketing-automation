@@ -2,6 +2,10 @@
 
 > **Master Specification**: For complete architecture, model stack, Foreign Key conventions, and layout specs, see [`../docs/stories/PRODUCT_CLOSEUP_SPECS_STORY.md`](../docs/stories/PRODUCT_CLOSEUP_SPECS_STORY.md) and [`../AGENTS.md`](../AGENTS.md).
 
+> [!CAUTION]
+> ### MANDATORY OPERATING RULE (AGENTS.md Tenet #2)
+> Every pipeline execution MUST scrape fresh active products into a **brand-new Airtable row** and process that row **end-to-end**. AI agents must **NEVER search for, pick up, re-run, or loop over existing/remaining/unprocessed/incomplete rows in Airtable**. The script `2_Generate_Pending_Stories.py` is reserved for manual local developer diagnostics only; production runs must execute end-to-end via `1_Run_Full_Story_Automation.py` or the Web Studio dashboard.
+
 End-to-end automated pipeline para sa **Product Closeup w/ Specs Story** (1080 x 1920 px vertical 9:16 Instagram Story) gamit ang **Fal AI Nano Banana Pro** (`fal-ai/nano-banana-pro/edit`).
 
 ---
@@ -10,8 +14,8 @@ End-to-end automated pipeline para sa **Product Closeup w/ Specs Story** (1080 x
 
 | Phase | Action | Engine | Target Airtable Field | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **Phase 1** | Auto-Scrape Akeneo Product (Shopify & Base Deduplication) | `AkeneoClient` + `FurnitureItemScrapeRunner` | `Furniture item`, `Item Name`, `Product Closeup w/ Specs Layout` | `Standby` |
-| **Phase 2** | 9:16 Story Card Generation & Blending | `FalClient` (`fal-ai/nano-banana-pro/edit`) | `PCS Story` | `Done` |
+| **Phase 1** | Auto-Scrape Akeneo Product (Shopify & Base Deduplication) | `AkeneoClient` + `FurnitureItemScrapeRunner` | `Furniture item`, `Item Name`, `Product Closeup w/ Specs Layout` | `Pending` (`P`) |
+| **Phase 2** | 9:16 Story Card Generation & Blending | `FalClient` (`fal-ai/nano-banana-pro/edit`) | `PCS Story` | `Done` (`C`) |
 
 ---
 
@@ -28,7 +32,7 @@ End-to-end automated pipeline para sa **Product Closeup w/ Specs Story** (1080 x
 ## 📁 Dedicated Scripts Folder (`Product Closeup Specs Story/`)
 
 - **`1_Run_Full_Story_Automation.py`**: Full end-to-end automation (Akeneo scrape $\rightarrow$ Fal AI Nano Banana Pro $\rightarrow$ `PCS Story` upload $\rightarrow$ Status: Done).
-- **`2_Generate_Pending_Stories.py`**: I-generate ang story cards para sa mga existing pending rows nang hindi nag-i-scrape ng panibago.
+- **`2_Generate_Pending_Stories.py`**: *(Developer Diagnostic Only)* I-generate ang story cards para sa mga existing pending rows nang hindi nag-i-scrape ng panibago.
 - **`3_Scrape_Akeneo_Chandeliers.py`**: Scrape Chandeliers lamang na may layout attachment at Shopify deduplication.
 - **`4_Interactive_Menu.py`**: Console interactive menu para sa madaling pagpapatakbo.
 

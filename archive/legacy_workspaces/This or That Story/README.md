@@ -2,6 +2,10 @@
 
 > **Master Specification**: For complete architecture, model stack, Foreign Key conventions, and layout specs, see [`../docs/stories/THIS_OR_THAT_STORY.md`](../docs/stories/THIS_OR_THAT_STORY.md) and [`../AGENTS.md`](../AGENTS.md).
 
+> [!CAUTION]
+> ### MANDATORY OPERATING RULE (AGENTS.md Tenet #2)
+> Every pipeline execution MUST scrape fresh active products into a **brand-new Airtable row** and process that row **end-to-end**. AI agents must **NEVER search for, pick up, re-run, or loop over existing/remaining/unprocessed/incomplete rows in Airtable**. The script `2_Generate_Pending_Stories.py` is reserved for manual local developer diagnostics only; production runs must execute end-to-end via `1_Run_Full_Story_Automation.py` or the Web Studio dashboard.
+
 Kumpletong gabay at koleksyon ng mga script para sa **This or That Story** (1080 x 1920 px Instagram Story) gamit ang **Fal AI Nano Banana Pro**.
 
 ---
@@ -13,7 +17,7 @@ Lahat ng scripts para sa This or That Story ay nakaayos na dito sa folder na ito
 | Script File | Ano ang ginagawa nito? (Simplified Description) | Kailan ito gagamitin? |
 | :--- | :--- | :--- |
 | **`1_Run_Full_Story_Automation.py`** | **One-Click End-to-End Automation**.<br>Mag-i-scrape ng 2 produkto mula Akeneo $\rightarrow$ ilalapat ang layout watermark $\rightarrow$ ia-analyze at bubuuin ang 9:16 vertical Instagram Story via Fal AI Nano Banana Pro $\rightarrow$ ia-upload sa Airtable (`Story This or That (1)`). | Kapag nais mag-produce ng bagong kumpletong This or That Story mula simula hanggang dulo. |
-| **`2_Generate_Pending_Stories.py`** | **Story Generator Lamang (Pending Rows sa Airtable)**.<br>Kukunin ang mga rows sa Airtable na may scraped products na pero wala pang generated Story Card, at bubuuin ang final image gamit ang Fal AI Nano Banana Pro. | Kapag may rows na sa Airtable at gusto mo lang i-generate ang mga Story Cards nang hindi nag-i-scrape ng bagong items. |
+| **`2_Generate_Pending_Stories.py`** | **Story Generator Lamang (Developer Diagnostic Only)**.<br>Kukunin ang mga rows sa Airtable na may scraped products na pero wala pang generated Story Card, at bubuuin ang final image gamit ang Fal AI Nano Banana Pro. | Para sa manual local debugging lamang. |
 | **`3_Scrape_Akeneo_Wall_Lights.py`** | Kukuha ng mga active na Wall Lights (`tblZw6jvSa27oZDiN`) mula Akeneo (2 products per row + layout watermark). | Para mag-scrape ng Wall Lights pairs. |
 | **`3_Scrape_Akeneo_Table_Lamps.py`** | Kukuha ng mga active na Table Lamps (`tblm1Ty2QkAlUcHJt`) mula Akeneo (2 products per row + layout watermark). | Para mag-scrape ng Table Lamps pairs. |
 | **`3_Scrape_Akeneo_Cluster_Chandeliers.py`** | Kukuha ng mga active na Cluster Chandeliers (`tblYAhjKckXtjUayx`) mula Akeneo (2 products per row + layout watermark). | Para mag-scrape ng Cluster Chandeliers pairs. |
