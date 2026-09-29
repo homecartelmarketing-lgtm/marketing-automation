@@ -7,14 +7,15 @@ export interface FormatTabCount {
 
 interface FormatTabsProps {
   activeTab: TabType;
-  counts: Record<TabType, number | FormatTabCount>;
+  counts?: Partial<Record<TabType, number | FormatTabCount>>;
   onSelectTab: (tab: TabType) => void;
   runningTab?: TabType | null;
 }
 
-export function FormatTabs({ activeTab, counts, onSelectTab, runningTab }: FormatTabsProps) {
+export function FormatTabs({ activeTab, counts = {}, onSelectTab, runningTab }: FormatTabsProps) {
   const getCountDisplay = (tab: TabType) => {
-    const val = counts[tab];
+    const val = counts?.[tab];
+    if (val === undefined || val === null) return { label: '—', tooltip: 'Loading counts...' };
     if (typeof val === 'number') return { label: `${val}`, tooltip: `${val} items` };
     return {
       label: val.completed === null ? '—' : `${val.completed}`,

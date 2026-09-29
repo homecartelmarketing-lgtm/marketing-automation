@@ -1,0 +1,174 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { toast } from 'sonner';
+import { QueueJob, QueueHistoryItem } from '../components/planning/QueueDock';
+import { FixtureData } from '../components/planning/FixtureCard';
+import { PipelineType } from '../types';
+
+export interface UseQueueResult {
+  activeQueueJob: QueueJob | null;
+  pendingQueue: QueueJob[];
+  queueHistory: QueueHistoryItem[];
+  getQueueInfo: (fixtureId: string, activePipelineType?: PipelineType) => { isQueued: boolean; position: number };
+  handleCancelQueueFixture: (fixture: FixtureData, studioPin: string) => Promise<void>;
+  handleCancelQueueItem: (jobId: string, fixtureName: string, studioPin: string) => Promise<void>;
+  handleClearQueue: (studioPin: string) => Promise<void>;
+  handleStopActiveJob: (studioPin: string, fallbackStop?: () => Promise<void>) => Promise<void>;
+  setPendingQueue: React.Dispatch<React.SetStateAction<QueueJob[]>>;
+}
+
+export function useQueue(
+  onJobTransition?: (activeJob: QueueJob | null, wasActive: boolean) => void
+): UseQueueResult {
+  const [activeQueueJob, setActiveQueueJob] = useState<QueueJob | null>(null);
+  const [pendingQueue, setPendingQueue] = useState<QueueJob[]>([]);
+  const [queueHistory, setQueueHistory] = useState<QueueHistoryItem[]>([]);
+  const activeQueueJobRef = useRef<QueueJob | null>(null);
+
+  useEffect(() => {
+    const pollQueue = async () => {
+      try {
+        const res = await fetch('/api/queue/status');
+        if (res.ok) {
+          const data = await res.json();
+          const wasActive = !!activeQueueJobRef.current;
+          activeQueueJobRef.current = data.active_job || null;
+          setActiveQueueJob(data.active_job || null);
+          setPendingQueue(data.queue || []);
+          setQueueHistory(data.history || []);
+
+          if (onJobTransition) {
+            onJobTransition(data.active_job || null, wasActive);
+          }
+        }
+      } catch {
+        // silent fail
+      }
+    };
+
+    pollQueue();
+    const interval = setInterval(pollQueue, 1500);
+    return () => clearInterval(interval);
+  }, [onJobTransition]);
+
+  const getQueueInfo = useCallback(
+    (fixtureId: string, activePipelineType?: PipelineType) => {
+      if (!activePipelineType) return { isQueued: false, position: 0 };
+      const idx = pendingQueue.findIndex(
+        j => j.pipeline_type === activePipelineType && j.fixture_id === fixtureId
+      );
+      if (idx >= 0) {
+        return { isQueued: true, position: idx + 1 };
+      }
+      return { isQueued: false, position: 0 };
+    },
+    [pendingQueue]
+  );
+
+  const handleCancelQueueFixture = useCallback(async (fixture: FixtureData, studioPin: string) => {
+    const pin = studioPin || localStorage.getItem('hc_studio_pin') || '';
+    try {
+      const res = await fetch('/api/queue/cancel', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(pin ? { Authorization: `Bearer ${pin}`, 'X-Dashboard-PIN': pin } : {}),
+        },
+        body: JSON.stringify({ fixture_id: fixture.id, pin }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(data.message || `Removed ${fixture.name} from queue`);
+        setPendingQueue(prev => prev.filter(j => j.fixture_id !== fixture.id));
+      } else {
+        toast.error(data.error || 'Failed to cancel queued item');
+      }
+    } catch (err) {
+      toast.error(`Error: ${err}`);
+    }
+  }, []);
+
+  const handleCancelQueueItem = useCallback(async (jobId: string, fixtureName: string, studioPin: string) => {
+    const pin = studioPin || localStorage.getItem('hc_studio_pin') || '';
+    try {
+      const res = await fetch('/api/queue/cancel', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(pin ? { Authorization: `Bearer ${pin}`, 'X-Dashboard-PIN': pin } : {}),
+        },
+        body: JSON.stringify({ job_id: jobId, pin }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(data.message || `Removed ${fixtureName} from queue`);
+        setPendingQueue(prev => prev.filter(j => j.id !== jobId));
+      } else {
+        toast.error(data.error || 'Failed to cancel queued item');
+      }
+    } catch (err) {
+      toast.error(`Error: ${err}`);
+    }
+  }, []);
+
+  const handleClearQueue = useCallback(async (studioPin: string) => {
+    const pin = studioPin || localStorage.getItem('hc_studio_pin') || '';
+    try {
+      const res = await fetch('/api/queue/clear', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(pin ? { Authorization: `Bearer ${pin}`, 'X-Dashboard-PIN': pin } : {}),
+        },
+        body: JSON.stringify({ pin }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(data.message || 'Generation queue cleared');
+        setPendingQueue([]);
+      } else {
+        toast.error(data.error || 'Failed to clear queue');
+      }
+    } catch (err) {
+      toast.error(`Error: ${err}`);
+    }
+  }, []);
+
+  const handleStopActiveJob = useCallback(
+    async (studioPin: string, fallbackStop?: () => Promise<void>) => {
+      const pin = studioPin || localStorage.getItem('hc_studio_pin') || '';
+      try {
+        const res = await fetch('/api/queue/stop-current', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(pin ? { Authorization: `Bearer ${pin}`, 'X-Dashboard-PIN': pin } : {}),
+          },
+          body: JSON.stringify({ pin }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          toast.info(data.message || 'Stop request sent');
+        } else if (fallbackStop) {
+          await fallbackStop();
+        }
+      } catch {
+        if (fallbackStop) {
+          await fallbackStop();
+        }
+      }
+    },
+    []
+  );
+
+  return {
+    activeQueueJob,
+    pendingQueue,
+    queueHistory,
+    getQueueInfo,
+    handleCancelQueueFixture,
+    handleCancelQueueItem,
+    handleClearQueue,
+    handleStopActiveJob,
+    setPendingQueue,
+  };
+}

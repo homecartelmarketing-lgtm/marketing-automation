@@ -46,20 +46,22 @@ export interface QueueHistoryItem {
 
 interface QueueDockProps {
   activeJob: QueueJob | null;
-  queue: QueueJob[];
+  pendingQueue: QueueJob[];
   history: QueueHistoryItem[];
-  onCancelQueueItem: (jobId: string, fixtureName: string) => void;
+  onCancelJob: (jobId: string, fixtureName: string) => void;
   onClearQueue: () => void;
   onStopActiveJob: () => void;
+  onJumpToJob?: (format: string, subtabIndex: number) => void;
 }
 
 export function QueueDock({
   activeJob,
-  queue,
+  pendingQueue,
   history,
-  onCancelQueueItem,
+  onCancelJob,
   onClearQueue,
   onStopActiveJob,
+  onJumpToJob,
 }: QueueDockProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
@@ -88,8 +90,6 @@ export function QueueDock({
     }
   };
 
-  const hasItems = !!activeJob || queue.length > 0;
-
   return (
     <div className="fixed bottom-4 inset-x-0 mx-auto max-w-4xl z-40 px-4 pointer-events-none">
       <div className="relative pointer-events-auto">
@@ -102,11 +102,11 @@ export function QueueDock({
                 <ListOrdered className="w-4 h-4 text-sky-400" />
                 <span className="font-semibold text-sm">Sequential Generation Queue</span>
                 <span className="text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-300 border border-gray-700">
-                  {queue.length} upcoming
+                  {pendingQueue.length} upcoming
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                {queue.length > 0 && (
+                {pendingQueue.length > 0 && (
                   <button
                     type="button"
                     onClick={onClearQueue}
@@ -128,13 +128,13 @@ export function QueueDock({
 
             {/* Queue List */}
             <div className="py-3 max-h-60 overflow-y-auto space-y-2 pr-1">
-              {queue.length === 0 ? (
+              {pendingQueue.length === 0 ? (
                 <div className="py-6 text-center text-xs text-gray-400 flex flex-col items-center gap-2">
                   <Clock className="w-5 h-5 text-gray-500" />
                   <span>No upcoming items in the queue. Click &quot;Run&quot; or &quot;+ Queue&quot; on any card to schedule.</span>
                 </div>
               ) : (
-                queue.map((item, idx) => (
+                pendingQueue.map((item, idx) => (
                   <div
                     key={item.id}
                     className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-gray-900/80 border border-gray-800/80 hover:border-gray-700 transition-colors"
@@ -143,13 +143,16 @@ export function QueueDock({
                       <span className="flex items-center justify-center w-5 h-5 rounded-full bg-gray-800 text-[11px] font-bold text-gray-300">
                         {idx + 1}
                       </span>
-                      <span
-                        className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md border ${formatBadgeColor(
+                      <button
+                        type="button"
+                        onClick={() => onJumpToJob?.(item.format_tab, item.subtab_index)}
+                        title="Jump to this pipeline tab"
+                        className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md border cursor-pointer ${formatBadgeColor(
                           item.format_tab
                         )}`}
                       >
                         {item.format_tab}
-                      </span>
+                      </button>
                       <div className="truncate">
                         <span className="font-semibold text-xs text-gray-200">{item.fixture_name}</span>
                         <span className="text-[11px] text-gray-400 ml-1.5 truncate">
@@ -160,7 +163,7 @@ export function QueueDock({
 
                     <button
                       type="button"
-                      onClick={() => onCancelQueueItem(item.id, item.fixture_name)}
+                      onClick={() => onCancelJob(item.id, item.fixture_name)}
                       className="p-1 rounded-lg text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors shrink-0"
                       title="Remove from queue"
                     >
@@ -261,13 +264,13 @@ export function QueueDock({
             type="button"
             onClick={() => setIsOpen((prev) => !prev)}
             className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all shrink-0 ${
-              queue.length > 0
+              pendingQueue.length > 0
                 ? 'bg-purple-600/20 text-purple-300 border-purple-500/40 hover:bg-purple-600/30 shadow-xs'
                 : 'bg-gray-900 text-gray-300 border-gray-800 hover:bg-gray-850 hover:text-white'
             }`}
           >
             <ListOrdered className="w-3.5 h-3.5 text-purple-400" />
-            <span>Queue ({queue.length})</span>
+            <span>Queue ({pendingQueue.length})</span>
             {isOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
           </button>
         </div>
