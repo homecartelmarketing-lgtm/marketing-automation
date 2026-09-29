@@ -90,9 +90,8 @@ def field_id_of(schema_value: object) -> str:
     return ""
 
 
-# Airtable treats these as interchangeable for our purposes, so a column typed
-# either way satisfies a requirement for the other.
 _TEXT_TYPES = frozenset({"singleLineText", "multilineText"})
+_NUMERIC_TYPES = frozenset({"number", "autoNumber"})
 
 
 def type_is_compatible(actual: str, expected: str) -> bool:
@@ -101,4 +100,6 @@ def type_is_compatible(actual: str, expected: str) -> bool:
         return False
     if expected in _TEXT_TYPES:
         return actual in _TEXT_TYPES
+    if expected in _NUMERIC_TYPES:
+        return actual in _NUMERIC_TYPES
     return actual == expected

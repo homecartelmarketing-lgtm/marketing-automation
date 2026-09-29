@@ -45,6 +45,8 @@ CATEGORY_DETECTION_MAP: dict[str, list[str]] = {
     "wall_sconce": ["wall lamp", "wall sconce", "sconce light"],
     "flush_mounts": ["flush mount light", "ceiling light fixture"],
     "flush_mount": ["flush mount light", "ceiling light fixture"],
+    "ceiling_lights": ["ceiling light fixture", "ceiling light", "flush mount light", "ceiling lamp", "chandelier"],
+    "ceiling_light": ["ceiling light fixture", "ceiling light", "flush mount light", "ceiling lamp", "chandelier"],
     "dining_tables": ["dining table", "table"],
     "dining_table": ["dining table", "table"],
     "coffee_tables": ["coffee table", "low table"],

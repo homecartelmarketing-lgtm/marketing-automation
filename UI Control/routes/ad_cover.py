@@ -1,15 +1,16 @@
 """Ad Cover Pipeline API Blueprint (/api/ad-cover/*).
 
-Serves the Studio "Ad Covers" tab: 1:1 (1080x1080) local-Pillow ad covers built
-from a Krea interior + Nano Banana Pro product blend. Chandelier is the only
-runnable fixture today; the rest are scaffolded placeholders that the frontend
-renders in a disabled "Coming soon" state.
+Serves the Studio "Ad Covers" tab: a 1:1 (1080x1080) ad cover plus its 9:16
+(1080x1920) Story twin, both built locally from a Krea interior + Nano Banana Pro
+product blend. Chandelier is the only runnable fixture today; the rest are
+scaffolded placeholders that the frontend renders in a disabled "Coming soon" state.
 """
 
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -19,6 +20,11 @@ from typing import Any
 from flask import Blueprint, jsonify, request
 
 from content_automation.airtable_client import fetch_status_breakdown
+from content_automation.overlay import (
+    AD_COVER_FIXTURE_ASSETS,
+    AD_COVER_STORY_ASSETS,
+    _resolve_asset_file,
+)
 
 from .common import (
     MARKETING_DIR,
@@ -37,6 +43,38 @@ AD_COVER_MOODBOARD_CONFIG: dict[str, dict[str, str]] = {
         "env_key": "KREA_MOODBOARD_ID_CHANDELIER_AD_COVER",
         "default": "de6ad512-870d-4ab7-a48c-3f3ca85faf24",
     },
+    "floor-lamp": {
+        "env_key": "KREA_MOODBOARD_ID_FLOOR_LAMP_AD_COVER",
+        "default": "c4c15a18-a92d-4465-924f-c85cfe1958bc",
+    },
+    "table-lamp": {
+        "env_key": "KREA_MOODBOARD_ID_TABLE_LAMP_AD_COVER",
+        "default": "fb2487fb-2895-4d2c-9758-805aaf1bac69",
+    },
+    "cluster-chandelier": {
+        "env_key": "KREA_MOODBOARD_ID_CLUSTER_CHANDELIER_AD_COVER",
+        "default": "b5ffdcbb-192e-4528-8d86-d1a4cf496887",
+    },
+    "pendant": {
+        "env_key": "KREA_MOODBOARD_ID_PENDANT_AD_COVER",
+        "default": "0844ad92-c34a-4dc8-9d70-d09498dc098c",
+    },
+    "wall-light": {
+        "env_key": "KREA_MOODBOARD_ID_WALL_LIGHT_AD_COVER",
+        "default": "20c3beaf-0995-44bf-a7a3-ac790fe8f315",
+    },
+    "new-collection": {
+        "env_key": "KREA_MOODBOARD_ID_NEW_COLLECTION_AD_COVER",
+        "default": "de6ad512-870d-4ab7-a48c-3f3ca85faf24",
+    },
+    "on-sale": {
+        "env_key": "KREA_MOODBOARD_ID_ON_SALE_AD_COVER",
+        "default": "de6ad512-870d-4ab7-a48c-3f3ca85faf24",
+    },
+    "on-stock": {
+        "env_key": "KREA_MOODBOARD_ID_ON_STOCK_AD_COVER",
+        "default": "de6ad512-870d-4ab7-a48c-3f3ca85faf24",
+    },
 }
 
 AD_COVER_PROMPT_CONFIG: dict[str, dict[str, str]] = {
@@ -44,17 +82,57 @@ AD_COVER_PROMPT_CONFIG: dict[str, dict[str, str]] = {
         "env_key": "AD_COVER_PROMPT_CHANDELIER",
         "default": "Generate me a modern living room",
     },
+    "floor-lamp": {
+        "env_key": "AD_COVER_PROMPT_FLOOR_LAMP",
+        "default": "Generate me a modern living room with a standing floor lamp beside a sofa or lounge chair",
+    },
+    "table-lamp": {
+        "env_key": "AD_COVER_PROMPT_TABLE_LAMP",
+        "default": "Generate me a modern luxury bedroom bedside table or console with a table lamp",
+    },
+    "cluster-chandelier": {
+        "env_key": "AD_COVER_PROMPT_CLUSTER_CHANDELIER",
+        "default": "Generate me a luxury modern room with high ceiling featuring a cluster chandelier",
+    },
+    "pendant": {
+        "env_key": "AD_COVER_PROMPT_PENDANT",
+        "default": "Generate me a modern luxury dining room with hanging pendant light",
+    },
+    "wall-light": {
+        "env_key": "AD_COVER_PROMPT_WALL_LIGHT",
+        "default": "Generate me a modern luxury living room with wall sconce mounted on the wall",
+    },
+    "new-collection": {
+        "env_key": "AD_COVER_PROMPT_NEW_COLLECTION",
+        "default": "Generate me a modern luxury living room",
+    },
+    "on-sale": {
+        "env_key": "AD_COVER_PROMPT_ON_SALE",
+        "default": "Generate me a modern luxury living room with chandelier",
+    },
+    "on-stock": {
+        "env_key": "AD_COVER_PROMPT_ON_STOCK",
+        "default": "Generate me a modern interior with ambient lighting",
+    },
 }
 
-# Fixtures without a table/asset yet. They render as disabled cards in the UI so
-# no placeholder table id is ever written to Airtable.
-AD_COVER_PLACEHOLDER_FIXTURES: tuple[tuple[str, str], ...] = (
-    ("pendant", "Pendant Light"),
-    ("floor-lamp", "Floor Lamp"),
-    ("table-lamp", "Table Lamp"),
-    ("cluster-chandelier", "Cluster Chandelier"),
-    ("wall-light", "Wall Light"),
-)
+# Scaffolded placeholder list kept for backward compatibility (all 6 are now runnable).
+AD_COVER_PLACEHOLDER_FIXTURES: tuple[tuple[str, str], ...] = ()
+
+# Phases 1-5 build the 1:1 ad cover; 6-7 rebuild it as a 9:16 Story.
+AD_COVER_TOTAL_PHASES = 7
+
+AD_COVER_PHASE_LABELS: dict[int, str] = {
+    1: "Phase 1/7: Akeneo Product Scraping",
+    2: "Phase 2/7: Krea AI 1:1 Interior Generation",
+    3: "Phase 3/7: Claude Blending Prompt Analysis",
+    4: "Phase 4/7: Nano Banana Pro Image Blending",
+    5: "Phase 5/7: Local Pillow 1:1 Ad Cover Composite",
+    6: "Phase 6/7: Nano Banana Pro 9:16 Story Extension",
+    7: "Phase 7/7: Local Pillow 9:16 Story Composite",
+}
+
+_AD_COVER_PHASE_RE = re.compile(r"phase\s+(\d+)\s*/\s*\d+")
 
 
 def resolve_ad_cover_moodboard_id(fixture_id: str) -> str:
@@ -77,9 +155,24 @@ def resolve_ad_cover_prompt(fixture_id: str) -> str:
     return cfg.get("default", "")
 
 
+def resolve_ad_cover_asset(fixture_id: str) -> str:
+    if fixture_id == "floor-lamp":
+        if _resolve_asset_file("floor-lamp-collection.png") is not None:
+            return "floor-lamp-collection.png"
+        return AD_COVER_FIXTURE_ASSETS.get("floor-lamp", "trending.png")
+    return AD_COVER_FIXTURE_ASSETS.get(fixture_id, "")
+
+
+def resolve_ad_cover_story_asset(fixture_id: str) -> str:
+    candidate = AD_COVER_STORY_ASSETS.get(fixture_id, "")
+    if candidate and _resolve_asset_file(candidate) is not None:
+        return candidate
+    return ""
+
+
 def get_ad_cover_fixtures() -> dict[str, dict[str, Any]]:
-    """The 6 Ad Cover fixtures; only Chandelier is runnable."""
-    fixtures: dict[str, dict[str, Any]] = {
+    """The 6 Ad Cover fixtures, all wired to dedicated Airtable tables and runnable."""
+    return {
         "chandelier": {
             "id": "chandelier",
             "name": "Chandelier",
@@ -89,26 +182,124 @@ def get_ad_cover_fixtures() -> dict[str, dict[str, Any]]:
             "category_code": "chandelier_ad_cover",
             "moodboard_id": resolve_ad_cover_moodboard_id("chandelier"),
             "prompt": resolve_ad_cover_prompt("chandelier"),
-            "asset": "ad-covers-chandelier.png",
+            "asset": resolve_ad_cover_asset("chandelier"),
+            "story_asset": resolve_ad_cover_story_asset("chandelier"),
             "runnable": True,
             "total": 100,
-        }
-    }
-
-    for fixture_id, label in AD_COVER_PLACEHOLDER_FIXTURES:
-        fixtures[fixture_id] = {
-            "id": fixture_id,
-            "name": label,
-            "table_id": "",
-            "category_code": "",
-            "moodboard_id": "",
-            "prompt": "",
-            "asset": "",
-            "runnable": False,
+        },
+        "floor-lamp": {
+            "id": "floor-lamp",
+            "name": "Trending Lights",
+            "table_id": (
+                os.getenv("AIRTABLE_TABLE_ID_FLOOR_LAMP_AD_COVER") or "tbl27FKuDUD4FdJUR"
+            ).strip(),
+            "category_code": "floor_lamp_ad_cover",
+            "moodboard_id": resolve_ad_cover_moodboard_id("floor-lamp"),
+            "prompt": resolve_ad_cover_prompt("floor-lamp"),
+            "asset": resolve_ad_cover_asset("floor-lamp"),
+            "story_asset": resolve_ad_cover_story_asset("floor-lamp"),
+            "runnable": True,
             "total": 100,
-        }
-
-    return fixtures
+        },
+        "table-lamp": {
+            "id": "table-lamp",
+            "name": "Table Lamp",
+            "table_id": (
+                os.getenv("AIRTABLE_TABLE_ID_TABLE_LAMP_AD_COVER") or "tblk3RfFqawHZ5Wrk"
+            ).strip(),
+            "category_code": "table_lamp_ad_cover",
+            "moodboard_id": resolve_ad_cover_moodboard_id("table-lamp"),
+            "prompt": resolve_ad_cover_prompt("table-lamp"),
+            "asset": resolve_ad_cover_asset("table-lamp"),
+            "story_asset": resolve_ad_cover_story_asset("table-lamp"),
+            "runnable": True,
+            "total": 100,
+        },
+        "cluster-chandelier": {
+            "id": "cluster-chandelier",
+            "name": "Cluster Chandelier",
+            "table_id": (
+                os.getenv("AIRTABLE_TABLE_ID_CLUSTER_CHANDELIER_AD_COVER") or "tbltouegkjgQwdr1u"
+            ).strip(),
+            "category_code": "cluster_chandelier_ad_cover",
+            "moodboard_id": resolve_ad_cover_moodboard_id("cluster-chandelier"),
+            "prompt": resolve_ad_cover_prompt("cluster-chandelier"),
+            "asset": resolve_ad_cover_asset("cluster-chandelier"),
+            "story_asset": resolve_ad_cover_story_asset("cluster-chandelier"),
+            "runnable": True,
+            "total": 100,
+        },
+        "pendant": {
+            "id": "pendant",
+            "name": "Pendant Light",
+            "table_id": (
+                os.getenv("AIRTABLE_TABLE_ID_PENDANT_AD_COVER") or "tbl99Cwda2Xn93giT"
+            ).strip(),
+            "category_code": "pendant_ad_cover",
+            "moodboard_id": resolve_ad_cover_moodboard_id("pendant"),
+            "prompt": resolve_ad_cover_prompt("pendant"),
+            "asset": resolve_ad_cover_asset("pendant"),
+            "story_asset": resolve_ad_cover_story_asset("pendant"),
+            "runnable": True,
+            "total": 100,
+        },
+        "wall-light": {
+            "id": "wall-light",
+            "name": "Wall Light",
+            "table_id": (
+                os.getenv("AIRTABLE_TABLE_ID_WALL_LIGHT_AD_COVER") or "tblUO5nybG9fIkhTT"
+            ).strip(),
+            "category_code": "wall_light_ad_cover",
+            "moodboard_id": resolve_ad_cover_moodboard_id("wall-light"),
+            "prompt": resolve_ad_cover_prompt("wall-light"),
+            "asset": resolve_ad_cover_asset("wall-light"),
+            "story_asset": resolve_ad_cover_story_asset("wall-light"),
+            "runnable": True,
+            "total": 100,
+        },
+        "new-collection": {
+            "id": "new-collection",
+            "name": "New Collection",
+            "table_id": (
+                os.getenv("AIRTABLE_TABLE_ID_NEW_COLLECTION_AD_COVER") or "tbluMexgzcWE1pDZJ"
+            ).strip(),
+            "category_code": "new_collection_ad_cover",
+            "moodboard_id": resolve_ad_cover_moodboard_id("new-collection"),
+            "prompt": resolve_ad_cover_prompt("new-collection"),
+            "asset": resolve_ad_cover_asset("new-collection"),
+            "story_asset": resolve_ad_cover_story_asset("new-collection"),
+            "runnable": True,
+            "total": 100,
+        },
+        "on-sale": {
+            "id": "on-sale",
+            "name": "On Sale Designs",
+            "table_id": (
+                os.getenv("AIRTABLE_TABLE_ID_ON_SALE_AD_COVER") or "tbleQIVBooVazAyk3"
+            ).strip(),
+            "category_code": "on_sale_ad_cover",
+            "moodboard_id": resolve_ad_cover_moodboard_id("on-sale"),
+            "prompt": resolve_ad_cover_prompt("on-sale"),
+            "asset": resolve_ad_cover_asset("on-sale"),
+            "story_asset": resolve_ad_cover_story_asset("on-sale"),
+            "runnable": True,
+            "total": 100,
+        },
+        "on-stock": {
+            "id": "on-stock",
+            "name": "On Stock Designs",
+            "table_id": (
+                os.getenv("AIRTABLE_TABLE_ID_ON_STOCK_AD_COVER") or "tblX7tpTJhfH0UXmm"
+            ).strip(),
+            "category_code": "on_stock_ad_cover",
+            "moodboard_id": resolve_ad_cover_moodboard_id("on-stock"),
+            "prompt": resolve_ad_cover_prompt("on-stock"),
+            "asset": resolve_ad_cover_asset("on-stock"),
+            "story_asset": resolve_ad_cover_story_asset("on-stock"),
+            "runnable": True,
+            "total": 100,
+        },
+    }
 
 
 AD_COVER_FIXTURES = get_ad_cover_fixtures()
@@ -119,7 +310,7 @@ STATE: dict[str, Any] = {
     "active_table_id": None,
     "current_phase": "",
     "current_phase_index": 0,
-    "total_phases": 5,
+    "total_phases": AD_COVER_TOTAL_PHASES,
     "proc": None,
     "logs": [],
     "started_at": None,
@@ -137,18 +328,49 @@ CACHE_TTL_SECONDS = 10
 
 
 def detect_phase(line: str) -> tuple[str, int] | None:
-    """Infer the current Ad Cover phase from a stdout line."""
+    """Infer the current Ad Cover phase from a stdout line.
+
+    The generator prints an explicit ``[Phase N/7]`` marker, so the numeric match
+    runs first: since the 9:16 branch also says "Nano Banana", "blending",
+    "Pillow" and "compositing", the loose keyword rules alone would keep phases 6
+    and 7 pinned to phases 4 and 5.
+    """
     lower = line.lower()
-    if "phase 1" in lower or ("scraping" in lower and "akeneo" in lower):
-        return "Phase 1/5: Akeneo Product Scraping", 1
-    if "phase 2" in lower or ("krea" in lower and "interior" in lower):
-        return "Phase 2/5: Krea AI 1:1 Interior Generation", 2
-    if "phase 3" in lower or ("claude" in lower and "prompt" in lower) or "blending prompt" in lower:
-        return "Phase 3/5: Claude Blending Prompt Analysis", 3
-    if "phase 4" in lower or "nano banana" in lower or "blending" in lower:
-        return "Phase 4/5: Nano Banana Pro Image Blending", 4
-    if "phase 5" in lower or "compositing" in lower or "pillow" in lower or "ad cover" in lower:
-        return "Phase 5/5: Local Pillow Ad Cover Composite", 5
+
+    # The startup banner names every asset and must not be read as progress.
+    if "ad cover runner" in lower:
+        return None
+
+    numeric = _AD_COVER_PHASE_RE.search(lower)
+    if numeric:
+        number = int(numeric.group(1))
+        label = AD_COVER_PHASE_LABELS.get(number)
+        if label:
+            return label, number
+
+    # Story lines must be claimed before the generic 1:1 keyword rules.
+    if "story" in lower:
+        if any(
+            needle in lower
+            for needle in ("converted image story", "composit", "pillow", "complete")
+        ):
+            return AD_COVER_PHASE_LABELS[7], 7
+        return AD_COVER_PHASE_LABELS[6], 6
+
+    if "9:16" in lower and ("nano banana" in lower or "extend" in lower):
+        return AD_COVER_PHASE_LABELS[6], 6
+    if "converted image" in lower:
+        return AD_COVER_PHASE_LABELS[5], 5
+    if "scraping" in lower and "akeneo" in lower:
+        return AD_COVER_PHASE_LABELS[1], 1
+    if "krea" in lower and "interior" in lower:
+        return AD_COVER_PHASE_LABELS[2], 2
+    if ("claude" in lower and "prompt" in lower) or "blending prompt" in lower:
+        return AD_COVER_PHASE_LABELS[3], 3
+    if "nano banana" in lower or "blending" in lower or "blended image" in lower:
+        return AD_COVER_PHASE_LABELS[4], 4
+    if "compositing" in lower or "pillow" in lower:
+        return AD_COVER_PHASE_LABELS[5], 5
     return None
 
 
@@ -184,6 +406,7 @@ def get_ad_cover_counts():
                 "moodboard_id": fix.get("moodboard_id") or resolve_ad_cover_moodboard_id(key),
                 "prompt": fix.get("prompt") or resolve_ad_cover_prompt(key),
                 "asset": fix.get("asset", ""),
+                "story_asset": fix.get("story_asset", ""),
                 "runnable": fix.get("runnable", False),
                 "completed": breakdown.get("C", 0),
                 "total": fix["total"],
@@ -214,6 +437,7 @@ def get_ad_cover_counts():
                 "moodboard_id": "",
                 "prompt": "",
                 "asset": "",
+                "story_asset": "",
                 "runnable": False,
                 "completed": None,
                 "total": fix["total"],
@@ -358,7 +582,7 @@ def run_ad_cover_pipeline():
         STATE["status"] = "running"
         STATE["active_fixture"] = fixture_id
         STATE["active_table_id"] = table_id
-        STATE["current_phase"] = "Phase 1/5: Initializing Pipeline..."
+        STATE["current_phase"] = "Phase 1/7: Initializing Pipeline..."
         STATE["current_phase_index"] = 1
         STATE["logs"] = [
             f"[START] Triggered Ad Cover Pipeline for {fix['name']} ({table_id}, {max_items} item)..."
@@ -425,7 +649,7 @@ def run_ad_cover_pipeline():
                 if proc.returncode == 0:
                     STATE["status"] = "completed"
                     STATE["current_phase"] = "Pipeline Finished Successfully ✓"
-                    STATE["current_phase_index"] = 5
+                    STATE["current_phase_index"] = AD_COVER_TOTAL_PHASES
                     STATE["logs"].append("[COMPLETE] Pipeline finished with exit code 0.")
                     COUNTS_CACHE["timestamp"] = 0
                 else:

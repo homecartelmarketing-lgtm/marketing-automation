@@ -179,6 +179,7 @@ def merge_video_with_outro_and_audio(
     video_duration: float = 15.0,
     outro_duration: float = 3.0,
     fade_duration: float = 1.0,
+    fade_in_seconds: float = 0.0,
     audio_fade_duration: float = 3.0,
     width: int = 1080,
     height: int = 1920,
@@ -189,11 +190,18 @@ def merge_video_with_outro_and_audio(
     Applies a 1.0s fade-to-black at the end of the main video, a 0.5s fade-in on the outro
     image, concatenates both into a seamless 18s 9:16 vertical MP4, and mixes in the audio
     with a smooth fade-out on the outro (if audio_path is provided).
+
+    When ``fade_in_seconds`` is > 0, the main video also fades IN from pure black at its
+    opening, so the first frame of the output is fully black (default 0.0 = no fade-in).
     """
     if output_path is None:
         raise ValueError("output_path is required")
     if not video_path.is_file():
         raise FileNotFoundError(f"Main video not found: {video_path}")
+    if not 0 <= fade_in_seconds < video_duration:
+        raise AutomationError(
+            "Fade-in duration must be >= 0 and shorter than the main video duration"
+        )
     has_audio = audio_path is not None
     if has_audio and not Path(audio_path).is_file():
         raise FileNotFoundError(f"Audio file not found: {audio_path}")
@@ -202,12 +210,16 @@ def merge_video_with_outro_and_audio(
     total_duration = (video_duration + outro_duration) if has_outro else video_duration
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
+    fade_in_filter = (
+        f",fade=t=in:st=0:d={fade_in_seconds:g}" if fade_in_seconds > 0 else ""
+    )
+
     ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
 
     if has_outro:
         fade_start = video_duration - fade_duration
         filters = [
-            f"[0:v]scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps={fps},format=yuv420p,trim=duration={video_duration:g},setpts=PTS-STARTPTS,fade=t=out:st={fade_start:g}:d={fade_duration:g}[mainv]",
+            f"[0:v]scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps={fps},format=yuv420p,trim=duration={video_duration:g},setpts=PTS-STARTPTS{fade_in_filter},fade=t=out:st={fade_start:g}:d={fade_duration:g}[mainv]",
             f"[1:v]scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps={fps},format=yuv420p,trim=duration={outro_duration:g},setpts=PTS-STARTPTS,fade=t=in:st=0:d=0.5[outrov]",
             "[mainv][outrov]concat=n=2:v=1:a=0[v]",
         ]
@@ -246,7 +258,7 @@ def merge_video_with_outro_and_audio(
             ])
     else:
         filters = [
-            f"[0:v]scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps={fps},format=yuv420p,trim=duration={total_duration:g},setpts=PTS-STARTPTS[v]",
+            f"[0:v]scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps={fps},format=yuv420p,trim=duration={total_duration:g},setpts=PTS-STARTPTS{fade_in_filter}[v]",
         ]
         cmd = [
             ffmpeg_exe, "-y",

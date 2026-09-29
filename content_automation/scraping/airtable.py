@@ -166,6 +166,8 @@ class ScrapeAirtableClient:
         # Map required fields to existing fields case-insensitively
         normalized_required: dict[str, str] = {}
         for name, expected in required.items():
+            if expected == "longText":
+                expected = "multilineText"
             matched_name = None
             target_lower = name.strip().lower()
             for ex in existing:
@@ -198,8 +200,31 @@ class ScrapeAirtableClient:
         if missing:
             print(f"[INFO] Creating {len(missing)} missing Airtable product fields...")
             for position, (name, kind) in enumerate(missing, start=1):
+                payload: dict[str, Any] = {"name": name, "type": kind}
+                if kind == "dateTime":
+                    payload["options"] = {
+                        "dateFormat": {"name": "local", "format": "l"},
+                        "timeFormat": {"name": "12hour", "format": "h:mma"},
+                        "timeZone": "client",
+                    }
+                elif kind == "singleSelect":
+                    payload["options"] = {
+                        "choices": [
+                            {"name": "Standby"},
+                            {"name": "In progress"},
+                            {"name": "Processing"},
+                            {"name": "Complete"},
+                            {"name": "Done"},
+                            {"name": "Discard"},
+                            {"name": "For Manual"},
+                            {"name": "Scheduled"},
+                        ]
+                    }
+                elif kind == "number":
+                    payload["options"] = {"precision": 0}
+
                 response = self._request(
-                    "POST", self.fields_url, json={"name": name, "type": kind}
+                    "POST", self.fields_url, json=payload
                 )
                 if not response.ok:
                     raise response_error(response, f"Create Airtable field {name}")

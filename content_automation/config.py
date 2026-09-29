@@ -449,6 +449,46 @@ TABLES: dict[str, TableConfig] = {
             "AIRTABLE_TABLE_ID_CHANDELIER_AD_COVER",
             "KREA_MOODBOARD_ID_CHANDELIER_AD_COVER",
         ),
+        _table(
+            "floor_lamp_ad_cover", "Ad Cover Floor Lamp", "tbl27FKuDUD4FdJUR",
+            "AIRTABLE_TABLE_ID_FLOOR_LAMP_AD_COVER",
+            "KREA_MOODBOARD_ID_FLOOR_LAMP_AD_COVER",
+        ),
+        _table(
+            "table_lamp_ad_cover", "Ad Cover Table Lamp", "tblk3RfFqawHZ5Wrk",
+            "AIRTABLE_TABLE_ID_TABLE_LAMP_AD_COVER",
+            "KREA_MOODBOARD_ID_TABLE_LAMP_AD_COVER",
+        ),
+        _table(
+            "cluster_chandelier_ad_cover", "Ad Cover Cluster Chandelier", "tbltouegkjgQwdr1u",
+            "AIRTABLE_TABLE_ID_CLUSTER_CHANDELIER_AD_COVER",
+            "KREA_MOODBOARD_ID_CLUSTER_CHANDELIER_AD_COVER",
+        ),
+        _table(
+            "pendant_ad_cover", "Ad Cover Pendant Light", "tbl99Cwda2Xn93giT",
+            "AIRTABLE_TABLE_ID_PENDANT_AD_COVER",
+            "KREA_MOODBOARD_ID_PENDANT_AD_COVER",
+        ),
+        _table(
+            "wall_light_ad_cover", "Ad Cover Wall Light", "tblUO5nybG9fIkhTT",
+            "AIRTABLE_TABLE_ID_WALL_LIGHT_AD_COVER",
+            "KREA_MOODBOARD_ID_WALL_LIGHT_AD_COVER",
+        ),
+        _table(
+            "new_collection_ad_cover", "Ad Cover New Collection", "tbluMexgzcWE1pDZJ",
+            "AIRTABLE_TABLE_ID_NEW_COLLECTION_AD_COVER",
+            "KREA_MOODBOARD_ID_NEW_COLLECTION_AD_COVER",
+        ),
+        _table(
+            "on_sale_ad_cover", "Ad Cover On Sale Designs", "tbleQIVBooVazAyk3",
+            "AIRTABLE_TABLE_ID_ON_SALE_AD_COVER",
+            "KREA_MOODBOARD_ID_ON_SALE_AD_COVER",
+        ),
+        _table(
+            "on_stock_ad_cover", "Ad Cover On Stock Designs", "tblX7tpTJhfH0UXmm",
+            "AIRTABLE_TABLE_ID_ON_STOCK_AD_COVER",
+            "KREA_MOODBOARD_ID_ON_STOCK_AD_COVER",
+        ),
     )
 }
 

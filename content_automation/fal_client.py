@@ -330,6 +330,72 @@ class FalClient:
             on_task_created(request_id)
         return self.poll_queue(model_code, request_id)
 
+    def generate_seedance_video(
+        self,
+        prompt: str,
+        image_url: str,
+        *,
+        duration: int | str = 10,
+        aspect_ratio: str = "9:16",
+        model: str = "bytedance/seedance-2.0/reference-to-video",
+        on_task_created: Callable[[str], None] | None = None,
+    ) -> str:
+        """Generate a Seedance 2.0 reference-to-video result on fal.ai."""
+        if not self.api_key:
+            raise ProviderError("FAL_KEY is required for Seedance video generation")
+        dur_int = int(duration)
+        if dur_int not in (5, 10):
+            raise ValueError("Seedance 2.0 reference-to-video duration must be 5 or 10 seconds")
+        model_code = model.strip()
+        payload = {
+            "prompt": prompt,
+            "image_urls": [image_url],
+            "duration": str(dur_int),
+            "aspect_ratio": aspect_ratio,
+        }
+
+        # 0. Try official fal_client Python SDK if available
+        try:
+            import fal_client
+            previous = os.environ.get("FAL_KEY")
+            os.environ["FAL_KEY"] = self.api_key
+            try:
+                sdk_result = fal_client.subscribe(
+                    model_code,
+                    arguments=payload,
+                    with_logs=True,
+                )
+                if isinstance(sdk_result, dict):
+                    video_url = self._extract_result_url(sdk_result)
+                    if video_url:
+                        return video_url
+            finally:
+                if previous is None:
+                    os.environ.pop("FAL_KEY", None)
+                else:
+                    os.environ["FAL_KEY"] = previous
+        except ImportError:
+            pass
+
+        # 1. Fallback to direct Fal AI queue REST API
+        queue_response = request_with_retry(
+            self.session,
+            "POST",
+            f"{self.queue_base}/{model_code}",
+            headers=self._headers(),
+            json=payload,
+            retry_server_errors=True,
+            timeout=60,
+        )
+        if not queue_response.ok:
+            raise response_error(queue_response, f"fal.ai Seedance video ({model_code})")
+        request_id = str(queue_response.json().get("request_id") or "")
+        if not request_id:
+            raise ProviderError("fal.ai Seedance submission returned no request_id")
+        if on_task_created:
+            on_task_created(request_id)
+        return self.poll_queue(model_code, request_id)
+
     def generate_grok_video(
         self,
         prompt: str,

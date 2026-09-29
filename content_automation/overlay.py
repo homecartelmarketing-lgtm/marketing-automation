@@ -1710,16 +1710,39 @@ def overlay_centered_headline(
 
 
 # ---------------------------------------------------------------------------
-# Ad Cover (1:1, 1080x1080) local composite
+# Ad Cover local composite (1:1 1080x1080 and 9:16 1080x1920 Story)
 # ---------------------------------------------------------------------------
 
 # Per-fixture transparent PNG overlays carrying the tagline + HomeCartel mark.
 # Rendered 100% locally so no API call is ever made for Ad Cover typography.
 AD_COVER_FIXTURE_ASSETS: dict[str, str] = {
-    "chandelier": "ad-covers-chandelier.png",
+    "chandelier": "chand-collection.png",
+    "floor-lamp": "trending.png",
+    "table-lamp": "table-lamps-collection.png",
+    "cluster-chandelier": "clsuter-collec.png",
+    "pendant": "pendant-light-collec.png",
+    "wall-light": "wall-collec.png",
+    "new-collection": "new-collection.png",
+    "on-sale": "on-sale.png",
+    "on-stock": "on-stock-feed.png",
+}
+
+# The 9:16 Story variant of the same overlay, kept in its own registry so a
+# fixture that has no story PNG can never fall back onto the square one and get
+# stretched across a 1080x1920 canvas.
+AD_COVER_STORY_ASSETS: dict[str, str] = {
+    "chandelier": "ad-cover-chandelier-story.png",
+    "table-lamp": "table-lamps-collection.story.png",
+    "floor-lamp": "trending-lights-collection-story.png",
+    "cluster-chandelier": "cluster-chandelier-collection-story.png",
+    "pendant": "pendant-light-collect-story.png",
+    "new-collection": "new-collection-story.png",
+    "on-sale": "on-sale-story-collection.png",
+    "on-stock": "on-stock-collection-story.png",
 }
 
 AD_COVER_CANVAS_SIZE = (1080, 1080)
+AD_COVER_STORY_CANVAS_SIZE = (1080, 1920)
 
 
 def overlay_ad_cover_layout(
@@ -1734,20 +1757,33 @@ def overlay_ad_cover_layout(
 
     The overlay asset already contains the tagline and the HomeCartel brand mark
     on a transparent background, so this is a pure local Pillow composite with
-    zero API cost. The room photo is centre-cropped to ``canvas_size`` (default
-    1080x1080) so the result is always a clean 1:1 ad cover.
+    zero API cost. The room photo is centre-cropped to ``canvas_size`` (1080x1080
+    for the square feed cover, 1080x1920 for the 9:16 Story variant) so the
+    result always fills the requested canvas cleanly.
 
     Returns the saved ``Path`` when ``destination`` is given, otherwise the
     in-memory ``Image`` (RGB).
     """
-    resolved_name = asset_name or AD_COVER_FIXTURE_ASSETS.get(fixture)
-    if not resolved_name:
-        raise ValueError(
-            f"No Ad Cover overlay asset registered for fixture {fixture!r}. "
-            f"Known fixtures: {sorted(AD_COVER_FIXTURE_ASSETS)}"
+    if fixture == "floor-lamp" and canvas_size == AD_COVER_CANVAS_SIZE and not asset_name:
+        fl_custom = _resolve_asset_file("floor-lamp-collection.png")
+        if fl_custom is not None:
+            resolved_name = "floor-lamp-collection.png"
+        else:
+            resolved_name = AD_COVER_FIXTURE_ASSETS.get(fixture)
+    else:
+        resolved_name = asset_name or (
+            AD_COVER_STORY_ASSETS.get(fixture)
+            if canvas_size == AD_COVER_STORY_CANVAS_SIZE
+            else AD_COVER_FIXTURE_ASSETS.get(fixture)
         )
+    overlay_path = _resolve_asset_file(resolved_name) if resolved_name else None
+    if overlay_path is None:
+        if canvas_size == AD_COVER_STORY_CANVAS_SIZE:
+            fallback_name = AD_COVER_STORY_ASSETS.get("chandelier") if fixture == "chandelier" else None
+        else:
+            fallback_name = AD_COVER_FIXTURE_ASSETS.get(fixture) or AD_COVER_FIXTURE_ASSETS.get("chandelier")
+        overlay_path = _resolve_asset_file(fallback_name) if fallback_name else None
 
-    overlay_path = _resolve_asset_file(resolved_name)
     if overlay_path is None:
         raise FileNotFoundError(
             f"Ad Cover overlay asset {resolved_name!r} was not found in any known asset directory."

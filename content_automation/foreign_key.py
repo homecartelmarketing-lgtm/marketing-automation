@@ -40,6 +40,15 @@ FIXTURE_ABBREVIATIONS = {
     "wall_sconces": "WL",
     "ceiling_mounted": "CM",
     "ceiling mounted": "CM",
+    "new_collection": "NEW",
+    "new-collection": "NEW",
+    "new collection": "NEW",
+    "on_sale": "SALE",
+    "on-sale": "SALE",
+    "on sale": "SALE",
+    "on_stock": "STOCK",
+    "on-stock": "STOCK",
+    "on stock": "STOCK",
 }
 
 # Table ID to Prefix Mapping
@@ -169,8 +178,19 @@ TABLE_PREFIX_MAP: dict[str, str] = {
     # 1 Product 3 Styles Reel
     "tbl6ls4AWcEcynBpZ": "OP3S-REEL-CH",
 
+    # One at a time Lights Reel
+    "tblJpEtBudQZda319": "OATL-REEL-LR",
+
     # 13. Ad Cover Tables
     "tblwIsDGZBPuYJV2Z": "ADC-ADS-CH",
+    "tbl27FKuDUD4FdJUR": "ADC-ADS-FL",
+    "tblk3RfFqawHZ5Wrk": "ADC-ADS-TL",
+    "tbltouegkjgQwdr1u": "ADC-ADS-CL",
+    "tbl99Cwda2Xn93giT": "ADC-ADS-PE",
+    "tblUO5nybG9fIkhTT": "ADC-ADS-WL",
+    "tbluMexgzcWE1pDZJ": "ADC-ADS-NEW",
+    "tbleQIVBooVazAyk3": "ADC-ADS-SALE",
+    "tblX7tpTJhfH0UXmm": "ADC-ADS-STOCK",
 }
 
 

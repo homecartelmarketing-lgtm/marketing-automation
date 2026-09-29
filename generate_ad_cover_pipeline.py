@@ -1,6 +1,6 @@
-"""Ad Cover AI Generation Pipeline (1:1, 1080x1080).
+"""Ad Cover AI Generation Pipeline (1:1 1080x1080 + 9:16 1080x1920 Story).
 
-Runs the complete 5-phase pipeline for the Ad Covers Studio tab on Airtable:
+Runs the complete 7-phase pipeline for the Ad Covers Studio tab on Airtable:
 1. Akeneo scrape (highest-priced modern chandelier of the newest 50 candidates,
    strictly cross-verified against live Shopify) -> brand-new Airtable row,
    Status -> 'Standby'
@@ -11,16 +11,25 @@ Runs the complete 5-phase pipeline for the Ad Covers Studio tab on Airtable:
 4. Fal AI Nano Banana Pro blend (1:1) -> 'Ad Cover Blended Image',
    Status -> 'Ad Cover Blended Image Generated'
 5. Local Python Pillow composite of the fixture's transparent ad-cover overlay
-   -> 'Ad Cover Converted Image', Status -> 'Complete' (+ PHT timestamp)
+   -> 'Ad Cover Converted Image',
+   Status -> 'Ad Cover Converted Image Generated'
+6. Fal AI Nano Banana Pro re-extension of the 1:1 blend to 9:16 ->
+   'Ad Cover Blended Image Story', Status -> 'Ad Cover Blended Image Story Generated'
+7. Local Python Pillow composite of the 9:16 story overlay ->
+   'Ad Cover Converted Image Story', Status -> 'Complete' (+ PHT timestamp)
 
-Phase 5 makes zero API calls: the tagline and HomeCartel mark already live in
-``assets/ad-covers-<fixture>.png``.
+Phases 5 and 7 make zero API calls: the collection banner and HomeCartel mark
+already live in 1:1 collection overlays (e.g. ``assets/chand-collection.png``,
+``assets/trending.png``, etc.) and ``assets/ad-cover-<fixture>-story.png``.
+Phase 7 is the only terminal phase; a failing story branch leaves the finished
+1:1 ad cover 'Complete' rather than parking the row on an unbadged status.
 
 Usage::
 
     python generate_ad_cover_pipeline.py --fixture chandelier --mode all
     python generate_ad_cover_pipeline.py --fixture chandelier --mode scrape
-    python generate_ad_cover_pipeline.py --fixture chandelier --mode conversion --record-id recXXXX
+    python generate_ad_cover_pipeline.py --fixture chandelier --mode story-blend --record-id recXXXX
+    python generate_ad_cover_pipeline.py --fixture chandelier --mode story-conversion --record-id recXXXX
 """
 
 from __future__ import annotations
@@ -39,7 +48,12 @@ from content_automation.fal_client import FalClient
 from content_automation.fields import price_field
 from content_automation.krea_client import KreaClient
 from content_automation.media import download_url_to_temp_file
-from content_automation.overlay import AD_COVER_FIXTURE_ASSETS, overlay_ad_cover_layout
+from content_automation.overlay import (
+    AD_COVER_FIXTURE_ASSETS,
+    AD_COVER_STORY_ASSETS,
+    AD_COVER_STORY_CANVAS_SIZE,
+    overlay_ad_cover_layout,
+)
 from content_automation.prompts import build_vision_blending_instruction
 from content_automation.scraping import (
     FurnitureItemScrapeRunner,
@@ -62,11 +76,110 @@ AD_COVER_FIXTURES: dict[str, dict[str, Any]] = {
     "chandelier": {
         "label": "Ad Cover Chandelier",
         "category_code": "chandelier_ad_cover",
+        "fixture_code": "CH",
         "moodboard_env": "KREA_MOODBOARD_ID_CHANDELIER_AD_COVER",
         "prompt_env": "AD_COVER_PROMPT_CHANDELIER",
         "default_moodboard_id": "de6ad512-870d-4ab7-a48c-3f3ca85faf24",
         "default_prompt": "Generate me a modern living room",
         "asset": AD_COVER_FIXTURE_ASSETS["chandelier"],
+        "story_asset": AD_COVER_STORY_ASSETS.get("chandelier", ""),
+        "story_canvas_size": AD_COVER_STORY_CANVAS_SIZE,
+    },
+    "floor-lamp": {
+        "label": "Ad Cover Trending Lights",
+        "category_code": "floor_lamp_ad_cover",
+        "fixture_code": "FL",
+        "moodboard_env": "KREA_MOODBOARD_ID_FLOOR_LAMP_AD_COVER",
+        "prompt_env": "AD_COVER_PROMPT_FLOOR_LAMP",
+        "default_moodboard_id": "c4c15a18-a92d-4465-924f-c85cfe1958bc",
+        "default_prompt": "Generate me a modern living room with a standing floor lamp beside a sofa or lounge chair",
+        "asset": AD_COVER_FIXTURE_ASSETS["floor-lamp"],
+        "story_asset": AD_COVER_STORY_ASSETS.get("floor-lamp", ""),
+        "story_canvas_size": AD_COVER_STORY_CANVAS_SIZE,
+    },
+    "table-lamp": {
+        "label": "Ad Cover Table Lamp",
+        "category_code": "table_lamp_ad_cover",
+        "fixture_code": "TL",
+        "moodboard_env": "KREA_MOODBOARD_ID_TABLE_LAMP_AD_COVER",
+        "prompt_env": "AD_COVER_PROMPT_TABLE_LAMP",
+        "default_moodboard_id": "fb2487fb-2895-4d2c-9758-805aaf1bac69",
+        "default_prompt": "Generate me a modern luxury bedroom bedside table or console with a table lamp",
+        "asset": AD_COVER_FIXTURE_ASSETS["table-lamp"],
+        "story_asset": AD_COVER_STORY_ASSETS.get("table-lamp", ""),
+        "story_canvas_size": AD_COVER_STORY_CANVAS_SIZE,
+    },
+    "cluster-chandelier": {
+        "label": "Ad Cover Cluster Chandelier",
+        "category_code": "cluster_chandelier_ad_cover",
+        "fixture_code": "CL",
+        "moodboard_env": "KREA_MOODBOARD_ID_CLUSTER_CHANDELIER_AD_COVER",
+        "prompt_env": "AD_COVER_PROMPT_CLUSTER_CHANDELIER",
+        "default_moodboard_id": "b5ffdcbb-192e-4528-8d86-d1a4cf496887",
+        "default_prompt": "Generate me a luxury modern room with high ceiling featuring a cluster chandelier",
+        "asset": AD_COVER_FIXTURE_ASSETS["cluster-chandelier"],
+        "story_asset": AD_COVER_STORY_ASSETS.get("cluster-chandelier", ""),
+        "story_canvas_size": AD_COVER_STORY_CANVAS_SIZE,
+    },
+    "pendant": {
+        "label": "Ad Cover Pendant Light",
+        "category_code": "pendant_ad_cover",
+        "fixture_code": "PE",
+        "moodboard_env": "KREA_MOODBOARD_ID_PENDANT_AD_COVER",
+        "prompt_env": "AD_COVER_PROMPT_PENDANT",
+        "default_moodboard_id": "0844ad92-c34a-4dc8-9d70-d09498dc098c",
+        "default_prompt": "Generate me a modern luxury dining room with hanging pendant light",
+        "asset": AD_COVER_FIXTURE_ASSETS["pendant"],
+        "story_asset": AD_COVER_STORY_ASSETS.get("pendant", ""),
+        "story_canvas_size": AD_COVER_STORY_CANVAS_SIZE,
+    },
+    "wall-light": {
+        "label": "Ad Cover Wall Light",
+        "category_code": "wall_light_ad_cover",
+        "fixture_code": "WL",
+        "moodboard_env": "KREA_MOODBOARD_ID_WALL_LIGHT_AD_COVER",
+        "prompt_env": "AD_COVER_PROMPT_WALL_LIGHT",
+        "default_moodboard_id": "20c3beaf-0995-44bf-a7a3-ac790fe8f315",
+        "default_prompt": "Generate me a modern luxury living room with wall sconce mounted on the wall",
+        "asset": AD_COVER_FIXTURE_ASSETS["wall-light"],
+        "story_asset": AD_COVER_STORY_ASSETS.get("wall-light", ""),
+        "story_canvas_size": AD_COVER_STORY_CANVAS_SIZE,
+    },
+    "new-collection": {
+        "label": "Ad Cover New Collection",
+        "category_code": "new_collection_ad_cover",
+        "fixture_code": "NEW",
+        "moodboard_env": "KREA_MOODBOARD_ID_NEW_COLLECTION_AD_COVER",
+        "prompt_env": "AD_COVER_PROMPT_NEW_COLLECTION",
+        "default_moodboard_id": "de6ad512-870d-4ab7-a48c-3f3ca85faf24",
+        "default_prompt": "Generate me a modern luxury living room",
+        "asset": AD_COVER_FIXTURE_ASSETS["new-collection"],
+        "story_asset": AD_COVER_STORY_ASSETS.get("new-collection", ""),
+        "story_canvas_size": AD_COVER_STORY_CANVAS_SIZE,
+    },
+    "on-sale": {
+        "label": "Ad Cover On Sale Designs",
+        "category_code": "on_sale_ad_cover",
+        "fixture_code": "SALE",
+        "moodboard_env": "KREA_MOODBOARD_ID_ON_SALE_AD_COVER",
+        "prompt_env": "AD_COVER_PROMPT_ON_SALE",
+        "default_moodboard_id": "de6ad512-870d-4ab7-a48c-3f3ca85faf24",
+        "default_prompt": "Generate me a modern luxury living room with chandelier",
+        "asset": AD_COVER_FIXTURE_ASSETS["on-sale"],
+        "story_asset": AD_COVER_STORY_ASSETS.get("on-sale", ""),
+        "story_canvas_size": AD_COVER_STORY_CANVAS_SIZE,
+    },
+    "on-stock": {
+        "label": "Ad Cover On Stock Designs",
+        "category_code": "on_stock_ad_cover",
+        "fixture_code": "STOCK",
+        "moodboard_env": "KREA_MOODBOARD_ID_ON_STOCK_AD_COVER",
+        "prompt_env": "AD_COVER_PROMPT_ON_STOCK",
+        "default_moodboard_id": "de6ad512-870d-4ab7-a48c-3f3ca85faf24",
+        "default_prompt": "Generate me a modern interior with ambient lighting",
+        "asset": AD_COVER_FIXTURE_ASSETS["on-stock"],
+        "story_asset": AD_COVER_STORY_ASSETS.get("on-stock", ""),
+        "story_canvas_size": AD_COVER_STORY_CANVAS_SIZE,
     },
 }
 
@@ -84,12 +197,16 @@ PROMPT_FIELD = "Prompt"
 INTERIOR_FIELD = "Ad Cover Interior"
 BLENDED_FIELD = "Ad Cover Blended Image"
 CONVERTED_FIELD = "Ad Cover Converted Image"
+BLENDED_STORY_FIELD = "Ad Cover Blended Image Story"
+CONVERTED_STORY_FIELD = "Ad Cover Converted Image Story"
 
 STATUS_STANDBY = "Standby"
 STATUS_INTERIOR_GENERATED = "Ad Cover Interior Generated"
 STATUS_PROMPT_GENERATED = "Blending Prompt Generated"
 STATUS_BLENDED_GENERATED = "Ad Cover Blended Image Generated"
 STATUS_CONVERTED_GENERATED = "Ad Cover Converted Image Generated"
+STATUS_BLENDED_STORY_GENERATED = "Ad Cover Blended Image Story Generated"
+STATUS_CONVERTED_STORY_GENERATED = "Ad Cover Converted Image Story Generated"
 STATUS_COMPLETE = "Complete"
 
 AD_COVER_FIELDS: dict[str, str] = {
@@ -101,6 +218,8 @@ AD_COVER_FIELDS: dict[str, str] = {
     INTERIOR_FIELD: "multipleAttachments",
     BLENDED_FIELD: "multipleAttachments",
     CONVERTED_FIELD: "multipleAttachments",
+    BLENDED_STORY_FIELD: "multipleAttachments",
+    CONVERTED_STORY_FIELD: "multipleAttachments",
 }
 
 # Strict Shopify check + base-wide cross-table dedup are on by default. Price
@@ -110,10 +229,45 @@ SORT_BY_PRICE = True
 PRICE_POOL_SIZE = 50
 
 ASPECT_RATIO = "1:1"
+STORY_ASPECT_RATIO = "9:16"
+STORY_RESOLUTION = "1K"
+TOTAL_PHASES = 7
 OUTPUT_DIR = Path("output/ad_cover")
 
 FAL_VISION_MODEL = os.getenv("CLAUDE_VISION_MODEL", "").strip() or "anthropic/claude-sonnet-5"
 FAL_BLENDING_MODEL = os.getenv("FAL_BLENDING_MODEL", "").strip() or "fal-ai/nano-banana-pro/edit"
+FAL_STORY_MODEL = os.getenv("FAL_STORY_MODEL", "").strip() or FAL_BLENDING_MODEL
+
+# Phase 6 is a frame-extension job, not a second blend: it must keep the room the
+# Phase 4 output already produced and only grow it vertically. Reusing the Phase 3
+# 'Prompt' text here would let the model redesign the space instead.
+FAL_STORY_CONVERSION_PROMPT = (
+    os.getenv("AD_COVER_STORY_CONVERSION_PROMPT", "").strip()
+    or (
+        "Convert the supplied 1:1 photograph into a vertical 9:16 version of the "
+        "EXACT SAME room. This is an outpainting / frame-extension task, not a "
+        "redesign: keep the original framing pixel-accurate in the centre and "
+        "seamlessly continue the architecture above and below it.\n"
+        "STRICT RULES:\n"
+        "1. The lighting fixture must remain IDENTICAL: same model, silhouette, arm "
+        "count, metal finish, glass/crystal/stone material, canopy, cord length, "
+        "illuminated state, colour temperature and glow. Do not restyle, resize, "
+        "reposition, duplicate or replace it. Keep it on the same vertical axis "
+        "(horizontally centred) in the upper third of the new frame.\n"
+        "2. Preserve exactly: camera angle, lens and perspective, wall and floor "
+        "colours, all furniture, textiles, art, decor, daylight direction, "
+        "artificial light pools, exposure, white balance, grain and photorealistic "
+        "8K interior-photography render style.\n"
+        "3. Extend the ceiling, cornice and upper wall upward so the fixture keeps "
+        "its natural suspension height, and extend the floor and lower furniture "
+        "downward, so the composition fills a full 9:16 frame. Fill every new area "
+        "by continuing the existing materials, lighting and geometry plausibly.\n"
+        "4. Add no new objects, no people, no animals, no text, no typography, no "
+        "logos, no watermarks, no borders, no second light source. No visible "
+        "seams, no stretched or smeared regions. The result must be one seamless, "
+        "uninterrupted 9:16 luxury interior photograph, sharp edge to edge."
+    )
+)
 
 
 # ---------------------------------------------------------------------------
@@ -171,6 +325,8 @@ def ensure_ad_cover_fields(airtable: ScrapeAirtableClient) -> None:
             STATUS_PROMPT_GENERATED,
             STATUS_BLENDED_GENERATED,
             STATUS_CONVERTED_GENERATED,
+            STATUS_BLENDED_STORY_GENERATED,
+            STATUS_CONVERTED_STORY_GENERATED,
             STATUS_COMPLETE,
         ),
     )
@@ -181,7 +337,16 @@ def resolve_fixture_config(fixture: str) -> dict[str, Any]:
         raise SystemExit(
             f"Unknown fixture {fixture!r}. Known fixtures: {sorted(AD_COVER_FIXTURES)}"
         )
-    return AD_COVER_FIXTURES[fixture]
+    cfg = dict(AD_COVER_FIXTURES[fixture])
+    if fixture == "floor-lamp":
+        from content_automation.overlay import _resolve_asset_file
+        if _resolve_asset_file("floor-lamp-collection.png") is not None:
+            cfg["asset"] = "floor-lamp-collection.png"
+        else:
+            cfg["asset"] = AD_COVER_FIXTURE_ASSETS.get("floor-lamp", "trending.png")
+    else:
+        cfg["asset"] = AD_COVER_FIXTURE_ASSETS.get(fixture, cfg.get("asset", ""))
+    return cfg
 
 
 def resolve_table_id(fixture: str, override: str | None = None) -> str:
@@ -244,12 +409,82 @@ class AdCoverScrapeRunner(FurnitureItemScrapeRunner):
     price in 'Item Price' -- the base runner only exposes record ids.
     """
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args: Any, fixture: str = "chandelier", **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+        self.fixture = fixture
         self.selected_items: list[ProductItem] = []
         self.uploaded_items: list[ProductItem] = []
         self.pool_size = 0
         self.pool_priced = 0
+        self.csv_rates: dict[str, float] = {}
+
+    def _fetch_candidates(self) -> list[dict]:
+        if self.fixture in ("new-collection", "on-sale", "on-stock"):
+            return self._fetch_csv_products()
+        return super()._fetch_candidates()
+
+    def _fetch_csv_products(self) -> list[dict]:
+        import csv
+        import glob
+        import random
+        exports_dir = Path(r"C:\Users\User\Desktop\Auto Export Inventory\exports")
+        if self.fixture == "on-sale":
+            # 15% off chandelier
+            matches = glob.glob(str(exports_dir / "*Long_Duration_Sale*Chandelier*.csv"))
+            if not matches:
+                matches = glob.glob(str(exports_dir / "*Long_Duration_Sale*ALL*.csv"))
+            target_cat = "Chandelier"
+        elif self.fixture == "on-stock":
+            # 10% off any item
+            matches = glob.glob(str(exports_dir / "*10__Off*.csv"))
+            target_cat = None
+        else:  # new-collection
+            # 15% off any lighting fixture
+            matches = glob.glob(str(exports_dir / "*Long_Duration_Sale*ALL*.csv"))
+            target_cat = None
+
+        if not matches:
+            print(f"[WARN] No CSV export files found for {self.fixture} in {exports_dir}")
+            return super()._fetch_products()
+
+        latest_csv = max(matches, key=os.path.getmtime)
+        print(f"[INFO] [{self.fixture.upper()}] Reading candidate items from latest CSV: {Path(latest_csv).name}")
+
+        with open(latest_csv, encoding="utf-8-sig") as f:
+            rows = list(csv.DictReader(f))
+
+        candidate_skus: list[str] = []
+        for r in rows:
+            if target_cat and r.get("Category", "").strip().lower() != target_cat.lower():
+                continue
+            sku = r.get("SKU", "").strip()
+            if sku:
+                candidate_skus.append(sku)
+                try:
+                    self.csv_rates[normalize_sku(sku)] = float(r.get("Selling Rate", 0) or 0)
+                except Exception:
+                    pass
+
+        if not candidate_skus:
+            print(f"[WARN] No matching SKUs found in {latest_csv}")
+            return super()._fetch_products()
+
+        # Shuffle candidates so every execution selects a fresh candidate
+        random.shuffle(candidate_skus)
+        pool_skus = candidate_skus[:100]
+
+        products: list[dict] = []
+        chunk_size = 50
+        for i in range(0, len(pool_skus), chunk_size):
+            chunk = pool_skus[i : i + chunk_size]
+            try:
+                found = self.akeneo.fetch_products({"identifier": [{"operator": "IN", "value": chunk}]})
+                products.extend(found)
+            except Exception as err:
+                print(f"[WARN] Akeneo fetch error: {err}")
+
+        print(f"[INFO] Fetched {len(products)} products from Akeneo for {len(pool_skus)} candidate CSV SKUs.")
+        return products
 
     def _new_items(
         self,
@@ -269,7 +504,12 @@ class AdCoverScrapeRunner(FurnitureItemScrapeRunner):
         finally:
             self.max_items, self.sort_by_price, self.starting_letter = saved
 
-        chosen = self._highest_price_in_newest_pool(products, items)
+        if self.fixture in ("new-collection", "on-stock"):
+            # For random items that passed dedup & Shopify check
+            chosen = items[0] if items else None
+        else:
+            chosen = self._highest_price_in_newest_pool(products, items)
+
         self.selected_items = [chosen] if chosen else []
         return self.selected_items, stats, already_attached
 
@@ -331,7 +571,7 @@ def phase_scrape(
     )
 
     print(
-        f"[INFO] [Phase 1/5] Scraping the highest-priced {style_code} chandelier "
+        f"[INFO] [Phase 1/{TOTAL_PHASES}] Scraping the highest-priced {style_code} {cfg.get('label', fixture)} "
         f"from the newest {PRICE_POOL_SIZE} Akeneo candidates..."
     )
 
@@ -340,6 +580,7 @@ def phase_scrape(
     runner = AdCoverScrapeRunner(
         akeneo=_build_akeneo_client(scrape_settings),
         airtable=airtable,
+        fixture=fixture,
         category_code=scrape_settings.category_code,
         style_code=scrape_settings.style_code,
         field_name=FIELD_NAME,
@@ -363,16 +604,23 @@ def phase_scrape(
         return None
 
     record_id = new_ids[0]
+    rec_data = airtable.get_record(record_id) or {}
+    row_id = rec_data.get("fields", {}).get("ID", "")
+    fk_prefix = f"ADC-ADS-{cfg.get('fixture_code', 'CH')}"
     fields: dict[str, Any] = {
+        "Foreign Key ID": f"{fk_prefix}-{row_id}" if row_id else fk_prefix,
         MOODBOARD_FIELD: resolve_moodboard_id(fixture),
         PROMPT_FIELD: resolve_prompt(fixture),
     }
     if runner.selected_items:
         item = runner.selected_items[0]
-        fields[PRICE_FIELD] = item.cost_value
+        price_val = item.cost_value
+        if price_val <= 0:
+            price_val = runner.csv_rates.get(normalize_sku(item.sku), 0.0)
+        fields[PRICE_FIELD] = price_val
         print(
             f"[INFO] Selected '{item.item_name}' (SKU {item.sku}) | "
-            f"price {item.cost_value} from '{item.cost or 'no Costing value'}' | "
+            f"price {price_val} from '{item.cost or 'no Costing value'}' | "
             f"pool {runner.pool_priced}/{runner.pool_size} priced"
         )
     airtable.update_records([(record_id, fields)])
@@ -408,10 +656,10 @@ def phase_interior(
     prompt: str,
 ) -> bool:
     print(
-        f"[INFO] [Phase 2/5] Generating a {ASPECT_RATIO} interior with Krea AI "
+        f"[INFO] [Phase 2/{TOTAL_PHASES}] Generating a {ASPECT_RATIO} interior with Krea AI "
         f"(moodboard {moodboard_id})..."
     )
-    print(f'[INFO] [Phase 2/5] Krea prompt: "{prompt}"')
+    print(f'[INFO] [Phase 2/{TOTAL_PHASES}] Krea prompt: "{prompt}"')
 
     downloaded = None
     try:
@@ -458,7 +706,7 @@ def phase_prompt(
         print(f"[ERROR] {record_id} has no accessible source images for the prompt phase.")
         return False
 
-    print(f"[INFO] [Phase 3/5] Analyzing photos with Claude Sonnet 5 ({FAL_VISION_MODEL})...")
+    print(f"[INFO] [Phase 3/{TOTAL_PHASES}] Analyzing photos with Claude Sonnet 5 ({FAL_VISION_MODEL})...")
     try:
         generated = fal.generate_vision_prompt(
             image_urls=image_urls,
@@ -504,7 +752,7 @@ def phase_blend(
         print(f"[ERROR] {record_id} has no accessible source images for the blend phase.")
         return False
 
-    print(f"[INFO] [Phase 4/5] Blending with Fal AI Nano Banana Pro ({FAL_BLENDING_MODEL})...")
+    print(f"[INFO] [Phase 4/{TOTAL_PHASES}] Blending with Fal AI Nano Banana Pro ({FAL_BLENDING_MODEL})...")
     downloaded = None
     try:
         image_url = fal.generate(
@@ -559,7 +807,7 @@ def phase_conversion(
         return False
 
     print(
-        f"[INFO] [Phase 5/5] Compositing '{cfg['asset']}' locally with Python Pillow "
+        f"[INFO] [Phase 5/{TOTAL_PHASES}] Compositing '{cfg['asset']}' locally with Python Pillow "
         f"(no API call)..."
     )
     blended_file = None
@@ -581,9 +829,11 @@ def phase_conversion(
             dest,
             f"ad_cover_converted_{record_id}.jpg",
         )
+        # 'Complete' belongs to Phase 7, the last phase. Status is a singleSelect,
+        # so stamping it here would be overwritten by Phase 6 and lost for good if
+        # the story branch then failed.
         safe_update_status(airtable, record_id, STATUS_CONVERTED_GENERATED)
-        safe_update_status(airtable, record_id, STATUS_COMPLETE)
-        print(f"[OK] Attached final 1:1 ad cover to '{CONVERTED_FIELD}' and set Status 'Complete'.")
+        print(f"[OK] Attached final 1:1 ad cover to '{CONVERTED_FIELD}' on {record_id}.")
         return True
     except Exception as error:
         print(f"[ERROR] Local Ad Cover composite failed for {record_id}: {error}")
@@ -591,6 +841,146 @@ def phase_conversion(
     finally:
         if blended_file:
             blended_file.cleanup()
+
+
+# ---------------------------------------------------------------------------
+# Phase 6 -- Nano Banana Pro 9:16 extension of the 1:1 blend
+# ---------------------------------------------------------------------------
+
+
+def phase_story_blend(
+    fal: FalClient,
+    airtable: ScrapeAirtableClient,
+    *,
+    fixture: str,
+    record_id: str,
+) -> bool:
+    cfg = resolve_fixture_config(fixture)
+    if not cfg.get("story_asset"):
+        print(
+            f"[WARN] [Phase 6/{TOTAL_PHASES}] Fixture {fixture!r} has no 9:16 story overlay "
+            "registered; skipping the story branch."
+        )
+        return True
+
+    record = airtable.get_record(record_id)
+    fields = record.get("fields", {}) if record else {}
+    blended_url = extract_attachment_url(fields.get(BLENDED_FIELD))
+    if not blended_url:
+        print(
+            f"[ERROR] {record_id} has no '{BLENDED_FIELD}' to extend to "
+            f"{STORY_ASPECT_RATIO}."
+        )
+        return False
+
+    print(
+        f"[INFO] [Phase 6/{TOTAL_PHASES}] Extending the 1:1 blend to "
+        f"{STORY_ASPECT_RATIO} with Fal AI Nano Banana Pro ({FAL_STORY_MODEL})..."
+    )
+    downloaded = None
+    try:
+        image_url = fal.generate(
+            prompt=FAL_STORY_CONVERSION_PROMPT,
+            image_urls=[blended_url],
+            aspect_ratio=STORY_ASPECT_RATIO,
+            resolution=STORY_RESOLUTION,
+            model=FAL_STORY_MODEL,
+        )
+        downloaded = download_url_to_temp_file(
+            requests.Session(),
+            image_url,
+            prefix="ad_cover_story_blend_",
+            suffix=".jpg",
+            context=f"Download Ad Cover 9:16 story blend from {image_url}",
+        )
+        airtable.upload_attachment(
+            record_id,
+            BLENDED_STORY_FIELD,
+            downloaded,
+            f"ad_cover_blended_story_{record_id}.jpg",
+        )
+        safe_update_status(airtable, record_id, STATUS_BLENDED_STORY_GENERATED)
+        print(f"[OK] Attached 9:16 story blend to '{BLENDED_STORY_FIELD}' on {record_id}.")
+        return True
+    except Exception as error:
+        print(f"[ERROR] Nano Banana Pro 9:16 story extension failed for {record_id}: {error}")
+        return False
+    finally:
+        if downloaded:
+            downloaded.cleanup()
+
+
+# ---------------------------------------------------------------------------
+# Phase 7 -- local Pillow 9:16 story composite (zero API cost, terminal)
+# ---------------------------------------------------------------------------
+
+
+def phase_story_conversion(
+    airtable: ScrapeAirtableClient,
+    *,
+    fixture: str,
+    record_id: str,
+) -> bool:
+    cfg = resolve_fixture_config(fixture)
+    if not cfg.get("story_asset"):
+        print(
+            f"[WARN] [Phase 7/{TOTAL_PHASES}] Fixture {fixture!r} has no 9:16 story overlay "
+            "registered; skipping the story composite."
+        )
+        return True
+
+    record = airtable.get_record(record_id)
+    fields = record.get("fields", {}) if record else {}
+    story_url = extract_attachment_url(fields.get(BLENDED_STORY_FIELD))
+    if not story_url:
+        print(
+            f"[ERROR] {record_id} has no '{BLENDED_STORY_FIELD}' to composite over. "
+            "Run --mode story-blend first."
+        )
+        return False
+
+    print(
+        f"[INFO] [Phase 7/{TOTAL_PHASES}] Compositing '{cfg['story_asset']}' over the "
+        f"{STORY_ASPECT_RATIO} story blend locally with Python Pillow (no API call)..."
+    )
+    story_file = None
+    try:
+        story_file = download_url_to_temp_file(
+            requests.Session(),
+            story_url,
+            prefix="ad_cover_story_src_",
+            suffix=".jpg",
+            context=f"Download Ad Cover 9:16 story blend for local composite ({record_id})",
+        )
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        dest = OUTPUT_DIR / f"ad_cover_converted_story_{record_id}.jpg"
+        overlay_ad_cover_layout(
+            story_file.path,
+            fixture,
+            dest,
+            asset_name=cfg["story_asset"],
+            canvas_size=cfg["story_canvas_size"],
+        )
+
+        airtable.upload_attachment(
+            record_id,
+            CONVERTED_STORY_FIELD,
+            dest,
+            f"ad_cover_converted_story_{record_id}.jpg",
+        )
+        safe_update_status(airtable, record_id, STATUS_CONVERTED_STORY_GENERATED)
+        safe_update_status(airtable, record_id, STATUS_COMPLETE)
+        print(
+            f"[OK] Attached final 9:16 ad cover story to '{CONVERTED_STORY_FIELD}' "
+            "and set Status 'Complete'."
+        )
+        return True
+    except Exception as error:
+        print(f"[ERROR] Local Ad Cover 9:16 story composite failed for {record_id}: {error}")
+        return False
+    finally:
+        if story_file:
+            story_file.cleanup()
 
 
 # ---------------------------------------------------------------------------
@@ -631,9 +1021,10 @@ def run_pipeline(
     print(f" [AD COVER RUNNER] Fixture:     {cfg['label']} ({fixture})")
     print(f" [AD COVER RUNNER] Table:       {table_id}")
     print(f" [AD COVER RUNNER] Overlay:     assets/{cfg['asset']}")
+    print(f" [AD COVER RUNNER] Story:       assets/{cfg.get('story_asset') or 'not registered'}")
     print(f" [AD COVER RUNNER] Moodboard:   {moodboard_id}")
     print(f' [AD COVER RUNNER] Krea prompt: "{interior_prompt}"')
-    print(f" [AD COVER RUNNER] Aspect:      {ASPECT_RATIO}")
+    print(f" [AD COVER RUNNER] Aspect:      {ASPECT_RATIO} + {STORY_ASPECT_RATIO}")
     print(f" [AD COVER RUNNER] Base:        {scrape_settings.airtable_base_id}")
     print("=" * 70 + "\n")
 
@@ -650,11 +1041,27 @@ def run_pipeline(
     if record_id:
         ensure_ad_cover_fields(airtable)
         target_ids = [record_id]
-    elif mode in ("interior", "prompt", "blend", "conversion"):
+    elif mode in (
+        "interior",
+        "prompt",
+        "blend",
+        "conversion",
+        "story-blend",
+        "story-conversion",
+    ):
         ensure_ad_cover_fields(airtable)
         latest = newest_record(
             airtable,
-            [INTERIOR_FIELD, PROMPT_FIELD, BLENDED_FIELD, CONVERTED_FIELD, ITEM_NAME_FIELD, SKU_FIELD],
+            [
+                INTERIOR_FIELD,
+                PROMPT_FIELD,
+                BLENDED_FIELD,
+                CONVERTED_FIELD,
+                BLENDED_STORY_FIELD,
+                CONVERTED_STORY_FIELD,
+                ITEM_NAME_FIELD,
+                SKU_FIELD,
+            ],
         )
         if not latest:
             print("[WARN] The Ad Cover table has no rows to resume.")
@@ -691,8 +1098,21 @@ def run_pipeline(
             phase_conversion(airtable, fixture=fixture, record_id=rid) for rid in target_ids
         ) else 1
 
-    # mode == "all": one brand-new row, processed end-to-end (1 through 5).
+    if mode == "story-blend":
+        return 0 if all(
+            phase_story_blend(fal, airtable, fixture=fixture, record_id=rid)
+            for rid in target_ids
+        ) else 1
+
+    if mode == "story-conversion":
+        return 0 if all(
+            phase_story_conversion(airtable, fixture=fixture, record_id=rid)
+            for rid in target_ids
+        ) else 1
+
+    # mode == "all": one brand-new row, processed end-to-end (1 through 7).
     failures = 0
+    story_failures = 0
     for row_idx in range(1, count + 1):
         print(f"\n{'=' * 28} ROW {row_idx}/{count} {'=' * 28}")
 
@@ -731,24 +1151,70 @@ def run_pipeline(
             failures += 1
             continue
 
-        print(f"[ROW {row_idx} COMPLETE] Record {target_record_id} is 100% COMPLETE.")
+        # The 1:1 deliverable is finished in Phase 5.
+        # Check if this fixture has an actual 9:16 story overlay file on disk:
+        cfg = resolve_fixture_config(fixture)
+        story_asset_name = cfg.get("story_asset", "")
+        from content_automation.overlay import _resolve_asset_file
+        has_story_file = bool(story_asset_name and _resolve_asset_file(story_asset_name) is not None)
 
-    return 1 if failures else 0
+        if not has_story_file:
+            # Fixtures with only 1:1 collection overlays complete cleanly here
+            safe_update_status(airtable, target_record_id, STATUS_COMPLETE)
+            print(
+                f"[ROW {row_idx} COMPLETE] Record {target_record_id} is 100% COMPLETE "
+                f"({ASPECT_RATIO} 1:1 Ad Cover)."
+            )
+        else:
+            story_ok = phase_story_blend(fal, airtable, fixture=fixture, record_id=target_record_id)
+            if story_ok:
+                story_ok = phase_story_conversion(
+                    airtable, fixture=fixture, record_id=target_record_id
+                )
+
+            if story_ok:
+                print(
+                    f"[ROW {row_idx} COMPLETE] Record {target_record_id} is 100% COMPLETE "
+                    f"({ASPECT_RATIO} + {STORY_ASPECT_RATIO})."
+                )
+            else:
+                story_failures += 1
+                safe_update_status(airtable, target_record_id, STATUS_COMPLETE)
+                print(
+                    f"[WARN] The {STORY_ASPECT_RATIO} story branch failed for "
+                    f"{target_record_id}; the {ASPECT_RATIO} ad cover is finished, so Status "
+                    f"is 'Complete'. Re-run with --mode story-blend / story-conversion "
+                    f"--record-id {target_record_id}."
+                )
+
+    return 1 if (failures or story_failures) else 0
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Ad Cover AI Generation Pipeline (1:1)")
+    parser = argparse.ArgumentParser(
+        description="Ad Cover AI Generation Pipeline (1:1 + 9:16 Story)"
+    )
     parser.add_argument(
         "--fixture",
         default=DEFAULT_FIXTURE,
+        choices=list(AD_COVER_FIXTURES.keys()),
         help=f"Ad Cover fixture (default: {DEFAULT_FIXTURE})",
     )
     parser.add_argument(
         "--mode",
         "-m",
-        choices=["scrape", "interior", "prompt", "blend", "conversion", "all"],
+        choices=[
+            "scrape",
+            "interior",
+            "prompt",
+            "blend",
+            "conversion",
+            "story-blend",
+            "story-conversion",
+            "all",
+        ],
         default="all",
-        help="Which phase to run (default: all)",
+        help="Which phase to run (default: all, i.e. phases 1 through 7)",
     )
     parser.add_argument(
         "--table-id",
