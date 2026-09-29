@@ -1,6 +1,6 @@
 # 🎬 Before & After Reel Automation (9:16 Vertical Video Reel)
 
-> **Master Specification**: For complete architecture, model stack, Foreign Key conventions, and FFmpeg specs, see [`../docs/reels/BEFORE_AND_AFTER_REEL.md`](../docs/reels/BEFORE_AND_AFTER_REEL.md) and [`../AGENTS.md`](../AGENTS.md).
+> **Master Specification**: For complete architecture, model stack, Foreign Key conventions, and FFmpeg specs, see [`../docs/reels/BEFORE_AND_AFTER_REEL.md`](../../../docs/reels/BEFORE_AND_AFTER_REEL.md) and [`../AGENTS.md`](../../../AGENTS.md).
 
 > [!CAUTION]
 > ### MANDATORY OPERATING RULE (AGENTS.md Tenet #2)

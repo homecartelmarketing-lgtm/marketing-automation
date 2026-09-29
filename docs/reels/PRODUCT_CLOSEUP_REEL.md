@@ -21,9 +21,9 @@ The **Product Closeup Reel Automation Pipeline** generates premium **9:16 vertic
 | Phase | Phase Name | Provider / Engine | Model / Settings | Input Fields / Triggers | Output Fields / Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Phase 1** | **Akeneo 4-Product Scrape** | Akeneo PIM API | Active Ingestion (`enabled=true`) + cross-table dedup | Akeneo Catalog (`table_lamps`) | `Furniture Item1..4`, `Item Name1..4` -> Status: `Pending` (`P`) |
-| **Phase 2** | **Krea Bedroom Interiors** | Krea AI | `krea-2-medium` (9:16, 1K)<br>Moodboard: `fb2487fb-2895-4d2c-9758-805aaf1bac69` | Room prompt ("Modern bedroom nightstand") | `Interior1..4` -> Status: `Drafting` (`D`) |
-| **Phase 3** | **Claude Prompt Analysis** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `Interior1..4` + `Furniture Item1..4` | `Generated Prompt1..4` -> Status: `Drafting` (`D`) |
-| **Phase 4** | **Nano Banana Pro Blending** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | `Interior` + `Product` + `Prompt` | 4 local blended stills -> Status: `Drafting` (`D`) |
+| **Phase 2** | **Krea Bedroom Interiors** | Krea AI | `krea-2-medium` (9:16, 1K)<br>Moodboard: `fb2487fb-2895-4d2c-9758-805aaf1bac69` | Room prompt ("Modern bedroom nightstand") | `Interior1..4` -> Status: `In Progress` (`P`) |
+| **Phase 3** | **Claude Prompt Analysis** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `Interior1..4` + `Furniture Item1..4` | `Generated Prompt1..4` -> Status: `In Progress` (`P`) |
+| **Phase 4** | **Nano Banana Pro Blending** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | `Interior` + `Product` + `Prompt` | 4 local blended stills -> Status: `In Progress` (`P`) |
 | **Phase 4.5** | **Outro Attachment** | Local Storage | Zero-API Local Outro Sync | `assets/outro_layout.jpg` | `Outro` |
 | **Phase 5** | **FFmpeg Video Reel Assembly** | Local FFmpeg | Zero-API Video Engine + Poppins Typography | 4 stills + Item Names + Outro | `Final Video` -> Status: `Completed` (`C`) |
 
@@ -56,21 +56,21 @@ $$\text{Format: } \mathbf{PCR\text{-}REEL\text{-}\langle FIXTURE\rangle\text{-}\
 
 ## 5. 5-Status Lifecycle & PHT Timestamps
 
-```
-[ P ] Pending  ──►  [ S ] Scheduled  ──►  [ D ] Drafting  ──►  [ FM ] For Modification  ──►  [ C ] Completed
-```
+The Airtable single-select Status field tracks records across 5 lifecycle stages:
 
-- **`Pending` (`P`)**: Scraped 4-lamp pack awaiting interior generation.
-- **`Scheduled` (`S`)**: Queued for batch video generation.
-- **`Drafting` (`D`)**: Processing through Krea, Fal Nano, or FFmpeg compilation.
-- **`For Modification` (`FM`)**: Flagged for vignette re-rendering.
-- **`Completed` (`C`)**: `Final Video` attached to Airtable.
+| Badge | Color | Lifecycle State | Airtable Status Value | Operational Meaning |
+| :---: | :---: | :--- | :--- | :--- |
+| **P** | Sky Blue | **Posted / Processing** | Posted, Processing, Pending, In Progress, intermediate phase statuses | Record is actively queued or being processed. |
+| **S** | Purple | **Scheduled** | Scheduled, Schedule | Approved and scheduled for publishing. |
+| **C** | Emerald | **Complete / Done** | Complete, Completed, Done | All phases complete; deliverables attached. |
+| **D** | Rose | **Discarded** | Discard, Discarded | Archived or rejected candidate. |
+| **FM** | Amber | **For Manual / Revision** | For Manual, Minor revision, FM | Flagged for manual review or adjustment. |
 
 ### Execution Timestamp
-Pipeline execution automatically writes the Philippine Standard Time timestamp (UTC+8) into the `Date & Time Run (PHT)` field:
-```
+When a row reaches Complete (C), the pipeline automatically writes the Philippine Standard Time timestamp (UTC+8, ISO 8601) into the **Date and Time Generated** field:
+`
 2026-09-07T13:12:00+08:00
-```
+`
 
 ---
 
@@ -117,3 +117,12 @@ python run_product_closeup_reel.py --phase scrape --max-rows 1
 # Process a specific Record ID
 python run_product_closeup_reel.py --record-id recXXXXXXXXXXXXXX
 ```
+
+
+### Web UI Dashboard Execution
+1. Open http://localhost:5200 in your web browser.
+2. Enter the Studio PIN if DASHBOARD_PIN is configured.
+3. Click the **Reel** tab in the main navigation.
+4. Select the **Product Closeup Reel** subtab.
+5. Select the **Table Lamp** fixture card.
+6. Click the **Run** button on the fixture card, confirm the batch count (default 1) in the confirmation modal, and the pipeline will scrape 4 fresh active table lamps into a brand-new row and process them end-to-end.

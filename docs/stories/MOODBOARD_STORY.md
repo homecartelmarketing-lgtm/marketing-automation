@@ -19,9 +19,9 @@ The **Moodboard Story Automation Pipeline** produces editorial **9:16 vertical I
 | Phase | Phase Name | Provider / Engine | Model / Settings | Input Fields / Triggers | Output Fields / Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Ingestion** | **Akeneo Scraper** | Akeneo PIM API | Active Ingestion (`enabled=true`) + cross-table dedup | Akeneo Catalog (`chandeliers`, `pendants`, `floor_lamps`) | `Furniture Item`, `SKU`, `Item Name` -> Status: `Pending` (`P`) |
-| **Phase 1** | **Krea Room Interior** | Krea AI | `krea-2-medium` (9:16, 1K)<br>Preset category Moodboard | Standby record + Room Prompt | `Interior Generated` -> Status: `Drafting` (`D`) |
-| **Phase 2** | **Claude Prompt Analysis** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `Interior Generated` + `Furniture Item` | `Generated Prompt` -> Status: `Drafting` (`D`) |
-| **Phase 3** | **Nano Banana Pro Blending & Brand Stamping** | Fal AI + **Local Python Pillow** | `fal-ai/nano-banana-pro/edit` + `HOMECARTEL_STORY_LOGO_BOX`<br>Top-right: $X=781.7, Y=108.0$ ($190.3 \times 63.5\text{ px}$) | `Interior Generated` + `Furniture Item` + `Generated Prompt` | `Blended Image` (Watermarked), `Homecartel Logo Overlay`, and `Blended Image with Name text` (YOLO Tagged) -> Status: `Drafting` (`D`) |
+| **Phase 1** | **Krea Room Interior** | Krea AI | `krea-2-medium` (9:16, 1K)<br>Preset category Moodboard | Standby record + Room Prompt | `Interior Generated` -> Status: `In Progress` (`P`) |
+| **Phase 2** | **Claude Prompt Analysis** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `Interior Generated` + `Furniture Item` | `Generated Prompt` -> Status: `In Progress` (`P`) |
+| **Phase 3** | **Nano Banana Pro Blending & Brand Stamping** | Fal AI + **Local Python Pillow** | `fal-ai/nano-banana-pro/edit` + `HOMECARTEL_STORY_LOGO_BOX`<br>Top-right: $X=781.7, Y=108.0$ ($190.3 \times 63.5\text{ px}$) | `Interior Generated` + `Furniture Item` + `Generated Prompt` | `Blended Image` (Watermarked), `Homecartel Logo Overlay`, and `Blended Image with Name text` (YOLO Tagged) -> Status: `In Progress` (`P`) |
 | **Phase 4** | **Brand Overlay Verification** | Local Python Engine | Zero-API Local Verification | `Blended Image` + `Logo` | Verifies brand watermark & YOLO badge attachment |
 | **Phase 5** | **Moodboard Card Conversion** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | Clean room blend + `Moodboard Layout` | `Moodboard Converted` -> Status: `Completed` (`C`) |
 
@@ -48,29 +48,29 @@ $$\text{Format: } \mathbf{MB\text{-}STORY\text{-}\langle FIXTURE\rangle\text{-}\
 
 | Category Name | Fixture Code | Airtable Table ID | Foreign Key Prefix | Default Krea Moodboard ID | Primary Environment Variable |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Chandeliers** | `CH` | `tblHQrci8d1K9ws2M` | `MB-STORY-CH` | `b5ffdcbb-192e-4528-8d86-d1a4cf496887` | `AIRTABLE_TABLE_ID_MB_STORY_CHANDELIER` |
-| **Pendant Lights** | `PE` | `tblkm119i48y0M1IQ` | `MB-STORY-PE` | `0844ad92-c34a-4dc8-9d70-d09498dc098c` | `AIRTABLE_TABLE_ID_MB_STORY_PENDANT` |
-| **Floor Lamps** | `FL` | `tblBaNeiSZeYrUawW` | `MB-STORY-FL` | `c4c15a18-a92d-4465-924f-c85cfe1958bc` | `AIRTABLE_TABLE_ID_MB_STORY_FLOOR_LAMP` |
+| **Chandeliers** | `CH` | `tblHQrci8d1K9ws2M` | `MB-STORY-CH` | `b5ffdcbb-192e-4528-8d86-d1a4cf496887` | `AIRTABLE_TABLE_ID_CHANDELIERS_MOODBOARD_STORY` |
+| **Pendant Lights** | `PE` | `tblkm119i48y0M1IQ` | `MB-STORY-PE` | `0844ad92-c34a-4dc8-9d70-d09498dc098c` | `AIRTABLE_TABLE_ID_PENDANT_LIGHTS_MOODBOARD_STORY` |
+| **Floor Lamps** | `FL` | `tblBaNeiSZeYrUawW` | `MB-STORY-FL` | `c4c15a18-a92d-4465-924f-c85cfe1958bc` | `AIRTABLE_TABLE_ID_FLOOR_LAMPS_MOODBOARD_STORY` |
 
 ---
 
 ## 5. 5-Status Lifecycle & PHT Timestamps
 
-```
-[ P ] Pending  ──►  [ S ] Scheduled  ──►  [ D ] Drafting  ──►  [ FM ] For Modification  ──►  [ C ] Completed
-```
+The Airtable single-select Status field tracks records across 5 lifecycle stages:
 
-- **`Pending` (`P`)**: Scraped Akeneo product awaiting generation.
-- **`Scheduled` (`S`)**: Queued for batch execution.
-- **`Drafting` (`D`)**: Processing through Krea, Claude, or Fal.
-- **`For Modification` (`FM`)**: Flagged for moodboard palette refinement.
-- **`Completed` (`C`)**: `Moodboard Converted` card generated and attached.
+| Badge | Color | Lifecycle State | Airtable Status Value | Operational Meaning |
+| :---: | :---: | :--- | :--- | :--- |
+| **P** | Sky Blue | **Posted / Processing** | Posted, Processing, Pending, In Progress, intermediate phase statuses | Record is actively queued or being processed. |
+| **S** | Purple | **Scheduled** | Scheduled, Schedule | Approved and scheduled for publishing. |
+| **C** | Emerald | **Complete / Done** | Complete, Completed, Done | All phases complete; deliverables attached. |
+| **D** | Rose | **Discarded** | Discard, Discarded | Archived or rejected candidate. |
+| **FM** | Amber | **For Manual / Revision** | For Manual, Minor revision, FM | Flagged for manual review or adjustment. |
 
 ### Execution Timestamp
-Pipeline execution automatically writes the Philippine Standard Time timestamp (UTC+8) into the `Date & Time Run (PHT)` field:
-```
+When a row reaches Complete (C), the pipeline automatically writes the Philippine Standard Time timestamp (UTC+8, ISO 8601) into the **Date and Time Generated** field:
+`
 2026-09-07T13:12:00+08:00
-```
+`
 
 ---
 
@@ -109,9 +109,9 @@ python run_moodboard_story.py --record-id recXXXXXXXXXXXXXX
 ```
 
 ### Web UI Dashboard Execution
-1. Open `http://localhost:5200`
-2. Enter PIN: `1234`
-3. Click the **Story** tab.
-4. Select **Moodboard Stories**.
-5. Pick fixture category (**Chandelier**, **Pendant**, or **Floor Lamp**).
-6. Select rows and trigger generation.
+1. Open http://localhost:5200 in your web browser.
+2. Enter the Studio PIN if DASHBOARD_PIN is configured.
+3. Click the **Story** tab in the main navigation.
+4. Select the **Moodboard Story** subtab.
+5. Pick an active fixture category.
+6. Click the **Run** button on the fixture card, confirm the batch count (default 1) in the confirmation modal, and the pipeline will scrape a fresh active product and process it end-to-end.

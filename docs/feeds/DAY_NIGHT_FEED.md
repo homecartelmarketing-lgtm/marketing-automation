@@ -20,10 +20,10 @@ The **Day & Night Feed Automation Pipeline** generates high-engagement 4:5 Insta
 | Phase | Phase Name | Provider / Engine | Model / Settings | Input Fields / Triggers | Output Fields / Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Ingestion** | **Akeneo Scraper** | Akeneo PIM API | Active Ingestion (`enabled=true`) + cross-table dedup | Akeneo Catalog (`chandeliers`) | `Furniture Item`, `SKU`, `Item Name` -> Status: `Pending` (`P`) |
-| **Phase 1** | **Krea Day Interior** | Krea AI | `krea-2-medium` (4:5, 1K)<br>Moodboard: `de6ad512-870d-4ab7-a48c-3f3ca85faf24` | Room prompt ("Generate me a modern bright sunlit living room") | `Interior Generated Photo` -> Status: `Drafting` (`D`) |
-| **Phase 2** | **Claude Day & Night Vision Analysis** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `Interior Generated Photo` + `Furniture Item` | `Blending Prompt` -> Status: `Drafting` (`D`) |
+| **Phase 1** | **Krea Day Interior** | Krea AI | `krea-2-medium` (4:5, 1K)<br>Moodboard: `de6ad512-870d-4ab7-a48c-3f3ca85faf24` | Room prompt ("Generate me a modern bright sunlit living room") | `Interior Generated Photo` -> Status: `In Progress` (`P`) |
+| **Phase 2** | **Claude Day & Night Vision Analysis** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `Interior Generated Photo` + `Furniture Item` | `Blending Prompt` -> Status: `In Progress` (`P`) |
 | **Phase 3** | **Nano Banana Pro Day Blending** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `4:5`, Resolution: `1K` | `Interior Generated Photo` + `Furniture Item` + `Blending Prompt` | `Day Image` -> Status: `Processing Day Image` |
-| **Phase 4** | **Nano Banana Pro Night Transformation** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `4:5`, Resolution: `1K` | `Day Image` | `Night Image` -> Status: `Drafting` (`D`) |
+| **Phase 4** | **Nano Banana Pro Night Transformation** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `4:5`, Resolution: `1K` | `Day Image` | `Night Image` -> Status: `In Progress` (`P`) |
 | **Phase 5** | **Feed Logo Stamping & Local YOLO-World Tagging** | **Local Python (Pillow + YOLO-World)** | **Zero-API Local Overlay Engines** (`content_automation/overlay.py` + `content_automation/item_tagger.py`) | `Day Image` + `Night Image` + `Item Name`/`SKU` | `Day Image`, `STORY - Day & Night (2)`, `Blended Image with Name text` -> Status: `Completed` (`C`) |
 
 > 🏷️ **Logo & Item-Name Watermark**: Slide 1 (`Day Mode`) receives the floating open-vocabulary YOLO-World item-name tag (`Item Name` + `Product Type`), followed by the HomeCartel brand logo stamped at the standard Canva 4:5 bottom-left position (`HOMECARTEL_LOGO_BOX`: `X=108.0, Y=1178.5, W=190.3, H=63.5`). This stamped and tagged Day photo is uploaded over `Day Image` and paired with the clean `Night Image` into the deliverable multi-attachment field `STORY - Day & Night (2)`. Both are also mirrored to `Blended Image with Name text`.
@@ -61,21 +61,21 @@ $$\text{Format: } \mathbf{DN\text{-}FEEDS\text{-}\langle FIXTURE\rangle\text{-}\
 
 ## 5. 5-Status Lifecycle & PHT Timestamps
 
-```
-[ P ] Pending  ──►  [ S ] Scheduled  ──►  [ D ] Drafting  ──►  [ FM ] For Modification  ──►  [ C ] Completed
-```
+The Airtable single-select Status field tracks records across 5 lifecycle stages:
 
-- **`Pending` (`P`)**: Freshly scraped product awaiting day interior generation.
-- **`Scheduled` (`S`)**: Queued for batch generation.
-- **`Drafting` (`D`)**: Under active generation through Krea or Fal AI.
-- **`For Modification` (`FM`)**: Flagged for lighting re-balance or prompt adjustment.
-- **`Completed` (`C`)**: Both Day and Night slides successfully generated and attached.
+| Badge | Color | Lifecycle State | Airtable Status Value | Operational Meaning |
+| :---: | :---: | :--- | :--- | :--- |
+| **P** | Sky Blue | **Posted / Processing** | Posted, Processing, Pending, In Progress, intermediate phase statuses | Record is actively queued or being processed. |
+| **S** | Purple | **Scheduled** | Scheduled, Schedule | Approved and scheduled for publishing. |
+| **C** | Emerald | **Complete / Done** | Complete, Completed, Done | All phases complete; deliverables attached. |
+| **D** | Rose | **Discarded** | Discard, Discarded | Archived or rejected candidate. |
+| **FM** | Amber | **For Manual / Revision** | For Manual, Minor revision, FM | Flagged for manual review or adjustment. |
 
 ### Execution Timestamp
-Pipeline execution automatically writes the Philippine Standard Time timestamp (UTC+8) into the `Date & Time Run (PHT)` field:
-```
+When a row reaches Complete (C), the pipeline automatically writes the Philippine Standard Time timestamp (UTC+8, ISO 8601) into the **Date and Time Generated** field:
+`
 2026-09-07T13:12:00+08:00
-```
+`
 
 ---
 
@@ -112,8 +112,9 @@ python run_day_night_feed.py --scrape-only --max-items 3
 ```
 
 ### Web UI Dashboard Execution
-1. Open `http://localhost:5200`
-2. Enter PIN: `1234`
-3. Click the **Feed** tab.
-4. Select **Day & Night Feeds** (`tblSceuLVvLMQ6wWp`).
-5. Inspect day/night thumbnail columns and execute generation.
+1. Open http://localhost:5200 in your web browser.
+2. Enter the Studio PIN if DASHBOARD_PIN is configured.
+3. Click the **Feed** tab in the main navigation.
+4. Select the **Day & Night Feeds** subtab.
+5. Pick an active fixture category.
+6. Click the **Run** button on the fixture card, confirm the batch count (default 1) in the confirmation modal, and the pipeline will scrape a fresh active product and process it end-to-end.

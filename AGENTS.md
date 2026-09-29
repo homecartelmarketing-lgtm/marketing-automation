@@ -38,6 +38,7 @@ marketing-automation/
 ├── run_*.py                                 # CLI runners: thin aliases delegating to a monolith's
 │                                            #   main(), OR orchestrators calling run_content_automation.py
 ├── run_content_automation.py                # Registry-driven runner (content_automation/workflows/)
+├── tests/                                   # stdlib unittest suites (run: python -m unittest discover tests)
 ├── scripts/                                 # Organized ops, scrapers, and visual previewers
 │   ├── ops/                                 # Maintenance, backfills, migrations, video tools
 │   ├── scrapers/                            # Standalone Akeneo and category scrapers
@@ -50,10 +51,11 @@ marketing-automation/
 │   ├── README.md                            # Documentation index & navigation map
 │   ├── stories/                             # 10 Story pipeline specs (9:16 vertical)
 │   ├── feeds/                               # 7 Feed pipeline specs (4:5 vertical)
-│   ├── reels/                               # 6 Reel pipeline specs (9:16 video)
+│   ├── reels/                               # 7 Reel pipeline specs (9:16 video)
 │   ├── ads/                                 # 1 Ad Cover pipeline spec (1:1 1080x1080 + 9:16 Story 1080x1920)
 │   ├── AUTO_POST_SCHEDULER.md               # Instagram auto-publish worker (external, cross-repo dependency)
 │   ├── OPERATIONS_AND_UTILITIES.md          # Airtable maintenance / tagging / diagnostic scripts
+│   ├── GIT_PUSH_AND_DEPLOY.md               # Detailed AI commit/push/deploy walkthrough (expands §11)
 │   ├── UI_CONTROL_CONFIG.md                 # Studio moodboard/prompt overrides & config keys
 │   ├── CLOUDFLARE_TUNNEL_GUIDE.md           # Tunnel guide
 │   ├── superpowers/                         # Planned-but-NOT-implemented designs (see index note)
@@ -65,7 +67,7 @@ marketing-automation/
 │   ├── airtable_client.py                   # Airtable REST client, fetch_status_breakdown, current_pht_timestamp
 │   ├── foreign_key.py                       # TABLE_PREFIX_MAP & generate_foreign_key (FK IDs)
 │   ├── akeneo_client.py                     # Akeneo PIM API client (product scraping, split_item_name)
-│   ├── shopify_client.py                    # Strict Shopify live-catalog verification (products.json, 12h cache)
+│   ├── shopify_client.py                    # Strict Shopify live-catalog verification (products.json, 24h cache)
 │   ├── krea_client.py                       # Krea AI client (room interior generation)
 │   ├── fal_client.py                        # Fal AI client (Claude Sonnet 5, Nano Banana Pro, ElevenLabs, Grok)
 │   ├── kie_client.py                        # Kie AI client (video & other models)
@@ -91,7 +93,7 @@ marketing-automation/
 ├── UI Control/                              # Full-stack Web Dashboard ("Studio")
 │   ├── api_server.py                        # THE Flask backend server (port 5200). NOTE: there is NO
 │   │                                        #   root-level api_server.py.
-│   ├── routes/                              # 26 pipeline blueprints + infrastructure:
+│   ├── routes/                              # 25 pipeline blueprints + infrastructure:
 │   │   ├── cta_story.py                     # Story: /api/cta/*          tips_edu_story.py  /api/tips-edu/*
 │   │   ├── collection_story.py              # /api/collection-story/*    day_night_story.py  /api/day-night-story/*
 │   │   ├── moodboard_story.py               # /api/moodboard-story/*     product_specs_story.py /api/product-specs/*
@@ -104,13 +106,17 @@ marketing-automation/
 │   │   ├── day_night_reel.py                # Reel: /api/day-night-reel/* product_closeup_reel.py
 │   │   ├── before_after_reel.py             # /api/before-after-reel/*    moodboard_reel.py
 │   │   ├── style_reel_slideshow.py          # /api/style-reel-slideshow/* one_product_three_styles_reel.py
+│   │   ├── one_at_a_time_lights_reel.py     # /api/one-at-a-time-lights-reel/* (3-fixture progressive-lighting reel)
 │   │   ├── ad_cover.py                      # Ad Cover: /api/ad-cover/* (1:1 + 9:16 Story, per-fixture run)
 │   │   ├── queue_manager.py                 # In-memory FIFO job queue (/api/queue/*) — see §3
 │   │   ├── rows.py                          # Row Inspector & Airtable deep links (/api/rows)
 │   │   └── common.py                        # PIN verification, config overrides, helpers
 │   ├── src/                                 # React + TypeScript Vite frontend
-│   │   ├── app/App.tsx                      # Primary dashboard controller & state manager
-│   │   └── app/components/planning/         # FixtureCard, RowInspectorModal, RunConfirmModal
+│   │   ├── app/App.tsx                      # Dashboard shell (composes the hooks below; no per-pipeline wiring)
+│   │   ├── app/constants/                   # fixtures.ts (*_FIXTURES + subtab switch), pipelines.ts (PipelineConfig per pipeline)
+│   │   ├── app/hooks/                       # usePipelineData, usePipelineRunner, useQueue
+│   │   ├── app/types/index.ts               # PipelineType union, FixtureData, status-count types
+│   │   └── app/components/                  # planning/ (FixtureCard, RowInspectorModal, RunConfirmModal), modals/
 │   └── dist/                                # Compiled production assets served by Flask
 │
 ├── assets/                                  # homecartel_logo.png, *_layout.jpg watermark templates, emojis,
@@ -121,7 +127,7 @@ marketing-automation/
 ```
 
 > [!IMPORTANT]
-> The root folder contains the active generators and runners (~46 `.py` scripts). The naming pattern matters:
+> The root folder contains the active generators and runners (~54 `.py` scripts). The naming pattern matters:
 > - `generate_*` (e.g. `generate_*_pipeline.py`) — self-contained monoliths that actually run Phases 1..N. **Flask routes spawn these directly as subprocesses.**
 > - `run_*.py` — CLI entrypoints: either *thin aliases* that call a monolith's `main()`, or *orchestrators* that scrape and then invoke `run_content_automation.py`.
 > - Root utilities with internal pipeline callers (`standalone_scrape_akeneo.py`, `photo_video_maker.py`, `standalone_item_tagger.py`, and category scrapers imported by runners) remain in root to guarantee zero breaking changes.
@@ -179,7 +185,7 @@ Feed/Reel monoliths follow the same scrape → Krea → Claude → blend → loc
 
 ### Server & frontend
 
-- There is **no root `api_server.py`**. The only Flask app is `UI Control/api_server.py` (registers 25 blueprints + rows/queue infra), serving the SPA from `UI Control/dist`.
+- There is **no root `api_server.py`**. The only Flask app is `UI Control/api_server.py` (registers 25 pipeline blueprints + rows/queue infra), serving the SPA from `UI Control/dist`.
 - Dev: `python "UI Control/api_server.py"` — port resolution `X_ZOHO_CATALYST_LISTEN_PORT` → `PORT` → `5200`. Production (Dockerfile): `gunicorn --bind 0.0.0.0:${PORT:-5200} --workers 2 --threads 4 --timeout 600 api_server:app` from `UI Control/`.
 - Rebuild the frontend with `npm run build` (or `pnpm run build`) inside `UI Control/`.
 
@@ -194,9 +200,9 @@ Every record in every Story and Feed table must have a unique, human-readable Fo
 
 $$\text{Foreign Key ID} = \langle\text{Idea Abbr}\rangle\text{-}\langle\text{Format}\rangle\text{-}\langle\text{Fixture Code}\rangle\text{-}\langle\text{Row ID}\rangle$$
 
-- **Idea Abbr**: `CTA`, `TNE`, `CC`, `DN`, `MB`, `MB1`, `MB2`, `PCS`, `PCD`, `ST`, `MNF`, `TOT`, `OP3S`, `PS`, `PCR`, `BA`, `SRS`, `ADC`
+- **Idea Abbr**: `CTA`, `TNE`, `CC`, `DN`, `MB`, `MB1`, `MB2`, `PCS`, `PCD`, `ST`, `MNF`, `TOT`, `OP3S`, `PS`, `PCR`, `BA`, `SRS`, `ADC`, `OATL`
 - **Format**: `STORY` (9:16), `FEEDS` (4:5), `REEL` (9:16 video), or `ADS` (Ad Cover row: carries the 1:1 cover and its 9:16 Story twin; the FK token stays `ADS`)
-- **Fixture Code**: `CH` (Chandelier), `PE` (Pendant), `FL` (Floor Lamp), `TL` (Table Lamp), `CL` (Cluster Chandelier), `WL` (Wall Light), `CM` (Ceiling Mounted), `SET` (Multi-room / Carousel), plus `LC` (Linear Chandelier) and `WS` (Wall Sconce) which appear only in `MB-REEL` table entries
+- **Fixture Code**: `CH` (Chandelier), `PE` (Pendant), `FL` (Floor Lamp), `TL` (Table Lamp), `CL` (Cluster Chandelier), `WL` (Wall Light), `CM` (Ceiling Mounted), `SET` (Multi-room / Carousel), `LR` (Living Room / Bedroom, One at a time Lights Reel), `NEW` / `SALE` / `STOCK` (New Collection / On Sale Designs / On Stock Designs, Ad Cover only), plus `LC` (Linear Chandelier) and `WS` (Wall Sconce) which appear only in `MB-REEL` table entries
 - **Examples**: `CTA-STORY-CH-24`, `TNE-FEEDS-FL-1`, `CC-FEEDS-SET-22`, `OP3S-FEEDS-PE-4`, `PCR-REEL-TL-1`
 
 ### B. Timestamp Stamping (PHT, UTC+8)
@@ -301,16 +307,17 @@ All local layout rendering lives in **`content_automation/overlay.py`** (plus `i
 6. **Day & Night Feed** ([`docs/feeds/DAY_NIGHT_FEED.md`](docs/feeds/DAY_NIGHT_FEED.md), prefix: `DN-FEEDS`) — 4 tables (Chandelier, Pendant, Floor Lamp, Table Lamp). Day + Night 4:5 carousel slides.
 7. **Product Showcase Feed** ([`docs/feeds/PRODUCT_SHOWCASE_FEED.md`](docs/feeds/PRODUCT_SHOWCASE_FEED.md), prefix: `PS-FEEDS`) — 1 table. 3-podium group slide + 3 solo showcase slides (4 slides).
 
-### Reel Pipelines (6 Pipelines, 9:16 Video)
+### Reel Pipelines (7 Pipelines, 9:16 Video)
 1. **Day & Night Reel** ([`docs/reels/DAY_NIGHT_REEL.md`](docs/reels/DAY_NIGHT_REEL.md)) — 18-second day-to-night timelapse video with AI jazz audio.
 2. **Product Closeup Reel** ([`docs/reels/PRODUCT_CLOSEUP_REEL.md`](docs/reels/PRODUCT_CLOSEUP_REEL.md)) — 15-second product inspection reel.
 3. **Before & After Reel** ([`docs/reels/BEFORE_AND_AFTER_REEL.md`](docs/reels/BEFORE_AND_AFTER_REEL.md)) — 15-second transformation reel.
 4. **Moodboard Reel** ([`docs/reels/MOODBOARD_REEL.md`](docs/reels/MOODBOARD_REEL.md)) — 15-second swatch and texture video reel.
 5. **Style Reel Slideshow** ([`docs/reels/STYLE_REEL_SLIDESHOW.md`](docs/reels/STYLE_REEL_SLIDESHOW.md)) — Fast-paced lifestyle video slideshow.
 6. **1 Product, 3 Styles Reel** ([`docs/reels/ONE_PRODUCT_THREE_STYLES_REEL.md`](docs/reels/ONE_PRODUCT_THREE_STYLES_REEL.md)) — Chandelier-only blended photo Reel with 5s, 4s, 4s holds and 5s outro.
+7. **One at a time Lights Reel** ([`docs/reels/ONE_AT_A_TIME_LIGHTS_REEL.md`](docs/reels/ONE_AT_A_TIME_LIGHTS_REEL.md), prefix: `OATL-REEL`) — ~11-second silent bedroom reel: 3 fresh fixtures (Table Lamp, Ceiling Mounted, Pendant) blended into one Krea interior, three progressive "only this light is ON" Nano Banana Pro variations, then local FFmpeg crossfades + branded outro. Table `tblJpEtBudQZda319`.
 
 ### Ad Cover Pipeline (1 Pipeline, 1:1 Square + 9:16 Story)
-1. **Ad Cover** ([`docs/ads/AD_COVER.md`](docs/ads/AD_COVER.md), prefix: `ADC-ADS`) — Standalone 4th top-level Studio tab (not a sub-tab family): one run button per fixture. All 6 fixtures are fully runnable with dedicated Airtable tables (Chandelier: `tblwIsDGZBPuYJV2Z`, Floor Lamp: `tbl27FKuDUD4FdJUR`, Table Lamp: `tblk3RfFqawHZ5Wrk`, Cluster Chandelier: `tbltouegkjgQwdr1u`, Pendant Light: `tbl99Cwda2Xn93giT`, Wall Light: `tblUO5nybG9fIkhTT`). 7 phases: highest-priced newest Akeneo fixture → Krea 1:1 interior → Claude blending prompt → Nano Banana Pro blend → **local Pillow** composite of the transparent ad-cover overlay → Nano Banana Pro **9:16 extension** of that blend → **local Pillow** composite of the 9:16 story overlay (tagline + logo baked into PNG overlays, zero API cost for typography). One run produces **both** the 1:1 `Ad Cover Converted Image` and the 9:16 `Ad Cover Converted Image Story`; `Complete` is written by Phase 7 only.
+1. **Ad Cover** ([`docs/ads/AD_COVER.md`](docs/ads/AD_COVER.md), prefix: `ADC-ADS`) — Standalone 4th top-level Studio tab (not a sub-tab family): one run button per fixture. All 9 fixtures are fully runnable with dedicated Airtable tables (Chandelier: `tblwIsDGZBPuYJV2Z`, Floor Lamp: `tbl27FKuDUD4FdJUR`, Table Lamp: `tblk3RfFqawHZ5Wrk`, Cluster Chandelier: `tbltouegkjgQwdr1u`, Pendant Light: `tbl99Cwda2Xn93giT`, Wall Light: `tblUO5nybG9fIkhTT`, New Collection: `tbluMexgzcWE1pDZJ`, On Sale Designs: `tbleQIVBooVazAyk3`, On Stock Designs: `tblX7tpTJhfH0UXmm`). 7 phases: highest-priced newest Akeneo fixture → Krea 1:1 interior → Claude blending prompt → Nano Banana Pro blend → **local Pillow** composite of the transparent ad-cover overlay → Nano Banana Pro **9:16 extension** of that blend → **local Pillow** composite of the 9:16 story overlay (tagline + logo baked into PNG overlays, zero API cost for typography). One run produces **both** the 1:1 `Ad Cover Converted Image` and the 9:16 `Ad Cover Converted Image Story`; `Complete` is written by Phase 7 only.
 
 Studio moodboard/prompt pencils, persistent config keys, and completed count behavior are mapped in [`docs/UI_CONTROL_CONFIG.md`](docs/UI_CONTROL_CONFIG.md). Use the `C` badge alone for completed totals; `P` includes posted, pending, and processing rows. The optional Studio PIN is `DASHBOARD_PIN`.
 
@@ -329,16 +336,30 @@ When adding a new table or subtab, follow this strict checklist to prevent regre
    - Use `fetch_status_breakdown(table_id)` from `content_automation.airtable_client`.
 4. **Register Blueprint in `UI Control/api_server.py`**:
    - Import blueprint and register with `app.register_blueprint(bp)`.
-5. **Update Frontend `UI Control/src/app/App.tsx`**:
-   - Add fixture constants array (`id`, `name`, `tableId`, `moodboardId`, `prompt`).
-   - Add status counts state and active subtab boolean.
-   - Wire `fetchLiveCounts()`, `checkInitialRunning()`, `checkStatus()`, modal handlers, `baseFixtures`, `currentFixtures`, and header titles.
+5. **Wire the Frontend (data-driven — `App.tsx` needs no per-pipeline edits)** in `UI Control/src/app/`:
+   - `constants/fixtures.ts`: add the `*_FIXTURES` array (`id`, `name`, `tableId`, `moodboardId`, `prompt`) and return it from the subtab switch for its format/index.
+   - `constants/pipelines.ts`: add a `PipelineConfig` entry (`type`, `format`, `subtabIndex`, `subTabLabel`, run/status/stop/counts/moodboard/prompt endpoints, `totalPhases`, `phaseSummary`, `hasMoodboard`, `hasPrompt`).
+   - `types/index.ts`: add the new id to the `PipelineType` union.
+   - `hooks/usePipelineData.ts`: seed default moodboard/prompt overrides if the pipeline has pencils.
 6. **Compile Frontend**:
    - Run `npm run build` in `UI Control/` (must exit with code 0).
 7. **Restart Server**:
    - Kill previous server task, then run `python "UI Control/api_server.py"` as daemon (there is no root `api_server.py`).
 8. **Document in Workspace**:
    - Create or update dedicated pipeline `.md` document and link it in `README.md`.
+
+### Docs to update when you change X
+
+Read this file (auto-loaded) plus only the doc for the pipeline you touch — do **not** read every `.md`. But when you change the following, update the matching docs so this file stays trustworthy:
+
+| You changed… | Also update |
+| :--- | :--- |
+| A new Ad Cover fixture | `docs/ads/AD_COVER.md`, `docs/README.md` §4, this file §4A + §7, `docs/UI_CONTROL_CONFIG.md`, `README.md`, `UI Control/README.md`, `.env.example` |
+| A new pipeline / subtab | its own `docs/<format>/*.md`, this file §2 tree + §7 + §9, `docs/README.md`, `README.md`, `UI Control/README.md`, `docs/UI_CONTROL_CONFIG.md` |
+| A new env key or table ID | `.env.example`, `content_automation/foreign_key.py`, the pipeline doc's env table |
+| The frontend layout | `UI Control/README.md` and this file's §2 tree |
+| A design decision that isn't obvious from the diff | a note in `docs/memory/decisions/` (see §10) |
+| The git / push / deploy workflow (branches, Dockerfile, CI, hooks) | `docs/GIT_PUSH_AND_DEPLOY.md` and §11 of this file |
 
 ---
 
@@ -375,9 +396,15 @@ python run_content_automation.py --phase stories --assignment <table_code> --bat
 # Run Style This Story Pipeline (CLI)
 python run_style_this_story.py --category chandeliers
 
+# Run the One at a time Lights Reel (thin alias; --phase all|scrape|generate, --max-rows N, --record-id, --force, --with-music)
+python run_one_at_a_time_lights_reel.py --phase all --max-rows 1
+
 # Run the Ad Cover pipeline — modes: scrape|interior|prompt|blend|conversion|story-blend|story-conversion|all
 # One --mode all run produces BOTH the 1:1 cover and the 9:16 Story twin; see docs/ads/AD_COVER.md §7
 python generate_ad_cover_pipeline.py --fixture chandelier --mode all --max-items 1
+
+# Unit tests (stdlib unittest; live in tests/)
+python -m unittest discover tests
 
 # Test API Endpoints & Airtable Counts
 python scratch/test_feed_apis.py
@@ -409,7 +436,7 @@ Root scripts that migrate/backfill Airtable data, tag furniture in room photos, 
 
 ## 11. Git, Deployment & Push Protocol for AI Agents
 
-Every AI agent (and developer) working on this repository MUST strictly follow this Git & CI/CD deployment protocol before staging, committing, or pushing code:
+Every AI agent (and developer) working on this repository MUST strictly follow this Git & CI/CD deployment protocol before staging, committing, or pushing code. **Full step-by-step walkthrough (commands, failure handling, what the AI will never do): [`docs/GIT_PUSH_AND_DEPLOY.md`](docs/GIT_PUSH_AND_DEPLOY.md).** Commit/push only when the user asks; tell the user before pushing `main`, because that is a production deploy.
 
 ### 1. Working Directory & Remote Verification
 - Always verify the current working directory and remote origin before running any git commands:
@@ -451,7 +478,7 @@ Every AI agent (and developer) working on this repository MUST strictly follow t
 - Because Railway automatically builds and deploys the **`main`** branch by default:
   1. Commit and push to `genspark_ai_developer`:
      ```bash
-     git add .
+     git add <reviewed paths>   # check `git status` first; do not sweep in stray files (see the guide)
      git commit -m "feat: ..."
      git push origin genspark_ai_developer
      ```

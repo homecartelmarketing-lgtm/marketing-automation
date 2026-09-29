@@ -21,11 +21,11 @@ The **Collection Category Story Automation Pipeline** generates branded **9:16 v
 
 | Phase | Phase Name | Provider / Engine | Model / Settings | Input Fields / Triggers | Output Fields / Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Step 0** | **Akeneo Scrape + Layout** | Akeneo PIM API & Shopify | Active Ingestion (`enabled=true`) with cross-table dedup | Akeneo Catalog | `Furniture Item[1-3]`, `Collection Category Layout` -> Status: `Pending` (`P`) |
-| **Phase 1** | **Krea AI Room Interiors** | Krea AI | `krea-2-medium` (16:9, 1K)<br>Preset category Moodboard | 3 Room Prompts | `Interior1`, `Interior2`, `Interior3` -> Status: `Drafting` (`D`) |
-| **Phase 2** | **Claude Sonnet 5 Analysis** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | Interior + Product Photos | `Prompt1`, `Prompt2`, `Prompt3` -> Status: `Drafting` (`D`) |
-| **Phase 3** | **Nano Banana Pro Blending** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `16:9`, Resolution: `1K` | `Interior[1-3]` + `Furniture[1-3]` + `Prompt[1-3]` | `Collection Category Blended Image[1-3]` -> Status: `Drafting` (`D`) |
-| **Phase 4** | **9:16 Auto-Grid & Overlays** | **Local Python Pillow** | **Zero-API Local Python Script**<br>3-Row Stacking + Typography | `Blended Image 1/2/3` + `Logo` + `Item Names` | `Collection Category Converted` -> Status: `Completed` (`C`) |
+| **Step 0** | **Akeneo Scrape + Layout** | Akeneo PIM API & Shopify | Active Ingestion (`enabled=true`) with cross-table dedup | Akeneo Catalog | `Furniture Item[1-3]`, `Collection Category Layout` -> Status: `Standby` (`P`) |
+| **Phase 1** | **Krea AI Room Interiors** | Krea AI | `krea-2-medium` (16:9, 1K)<br>Preset category Moodboard | 3 Room Prompts | `Interior1`, `Interior2`, `Interior3` -> Status: `Processing` (`P`) |
+| **Phase 2** | **Claude Sonnet 5 Analysis** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | Interior + Product Photos | `Prompt1`, `Prompt2`, `Prompt3` -> Status: `Processing` (`P`) |
+| **Phase 3** | **Nano Banana Pro Blending** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `16:9`, Resolution: `1K` | `Interior[1-3]` + `Furniture[1-3]` + `Prompt[1-3]` | `Collection Category Blended Image[1-3]` -> Status: `Processing` (`P`) |
+| **Phase 4** | **9:16 Auto-Grid & Overlays** | **Local Python Pillow** | **Zero-API Local Python Script**<br>3-Row Stacking + Typography | `Blended Image 1/2/3` + `Logo` + `Item Names` | `Collection Category Converted` -> Status: `Complete` (`C`) |
 
 ---
 
@@ -52,31 +52,31 @@ $$\text{Format: } \mathbf{CC\text{-}STORY\text{-}\langle FIXTURE\rangle\text{-}\
 
 | Category Name | Fixture Code | Airtable Table ID | Foreign Key Prefix | Default Krea Moodboard ID | Primary Environment Variable |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Pendant Lights** | `PE` | `tblSSVJnubFk2yBm3` | `CC-STORY-PE` | `0844ad92-c34a-4dc8-9d70-d09498dc098c` | `AIRTABLE_TABLE_ID_CC_STORY_PENDANT` |
-| **Wall Lights** | `WL` | `tbl98UU0h4uFyFIlL` | `CC-STORY-WL` | `20c3beaf-0995-44bf-a7a3-ac790fe8f315` | `AIRTABLE_TABLE_ID_CC_STORY_WALL_LIGHT` |
-| **Chandeliers** | `CH` | `tblJMJQlrnlDb1GtN` | `CC-STORY-CH` | `de6ad512-870d-4ab7-a48c-3f3ca85faf24` | `AIRTABLE_TABLE_ID_CC_STORY_CHANDELIER` |
-| **Floor Lamps** | `FL` | `tblloZLRSKwOCg247` | `CC-STORY-FL` | `c4c15a18-a92d-4465-924f-c85cfe1958bc` | `AIRTABLE_TABLE_ID_CC_STORY_FLOOR_LAMP` |
-| **Cluster Chandeliers** | `CL` | `tblsXXcoZZD4q6WWt` | `CC-STORY-CL` | `b5ffdcbb-192e-4528-8d86-d1a4cf496887` | `AIRTABLE_TABLE_ID_CC_STORY_CLUSTER` |
+| **Pendant Lights** | `PE` | `tblSSVJnubFk2yBm3` | `CC-STORY-PE` | `0844ad92-c34a-4dc8-9d70-d09498dc098c` | `AIRTABLE_TABLE_ID_PENDANT_LIGHTS_COLLEC_STORY` |
+| **Wall Lights** | `WL` | `tbl98UU0h4uFyFIlL` | `CC-STORY-WL` | `20c3beaf-0995-44bf-a7a3-ac790fe8f315` | `AIRTABLE_TABLE_ID_WALL_LIGHTS_COLLEC_STORY` |
+| **Chandeliers** | `CH` | `tblJMJQlrnlDb1GtN` | `CC-STORY-CH` | `de6ad512-870d-4ab7-a48c-3f3ca85faf24` | `AIRTABLE_TABLE_ID_CHANDELIER_COLLEC_STORY` |
+| **Floor Lamps** | `FL` | `tblloZLRSKwOCg247` | `CC-STORY-FL` | `c4c15a18-a92d-4465-924f-c85cfe1958bc` | `AIRTABLE_TABLE_ID_FLOOR_LAMPS_COLLEC_STORY` |
+| **Cluster Chandeliers** | `CL` | `tblsXXcoZZD4q6WWt` | `CC-STORY-CL` | `b5ffdcbb-192e-4528-8d86-d1a4cf496887` | `AIRTABLE_TABLE_ID_CLUSTER_CHANDELIERS_COLLEC_STORY` |
 
 ---
 
 ## 5. 5-Status Lifecycle & PHT Timestamps
 
-```
-[ P ] Pending  ──►  [ S ] Scheduled  ──►  [ D ] Drafting  ──►  [ FM ] For Modification  ──►  [ C ] Completed
-```
+The Airtable single-select Status field tracks records across 5 lifecycle stages:
 
-- **`Pending` (`P`)**: Scraped Akeneo product awaiting generation.
-- **`Scheduled` (`S`)**: Queued for batch execution.
-- **`Drafting` (`D`)**: Processing through Krea 16:9 generation, Claude prompt analysis, or Fal blending.
-- **`For Modification` (`FM`)**: Flagged for collage re-alignment or item substitution.
-- **`Completed` (`C`)**: 3-row collage assembled, typography stamped, and attached.
+| Badge | Color | Lifecycle State | Airtable Status Value | Operational Meaning |
+| :---: | :---: | :--- | :--- | :--- |
+| **P** | Sky Blue | **Posted / Processing** | Posted, Processing, Pending, In Progress, intermediate phase statuses | Record is actively queued or being processed. |
+| **S** | Purple | **Scheduled** | Scheduled, Schedule | Approved and scheduled for publishing. |
+| **C** | Emerald | **Complete / Done** | Complete, Completed, Done | All phases complete; deliverables attached. |
+| **D** | Rose | **Discarded** | Discard, Discarded | Archived or rejected candidate. |
+| **FM** | Amber | **For Manual / Revision** | For Manual, Minor revision, FM | Flagged for manual review or adjustment. |
 
 ### Execution Timestamp
-Pipeline execution automatically writes the Philippine Standard Time timestamp (UTC+8) into the `Date & Time Run (PHT)` field:
-```
+When a row reaches Complete (C), the pipeline automatically writes the Philippine Standard Time timestamp (UTC+8, ISO 8601) into the **Date and Time Generated** field:
+`
 2026-09-07T13:12:00+08:00
-```
+`
 
 ---
 
@@ -114,9 +114,9 @@ python generate_collection_category_story_pipeline.py --mode conversion
 ```
 
 ### Web UI Dashboard Execution
-1. Open `http://localhost:5200`
-2. Enter PIN: `1234`
-3. Click the **Story** tab.
-4. Select **Collection Category Stories**.
-5. Select category (**Pendant**, **Wall Light**, **Chandelier**, **Floor Lamp**, or **Cluster**).
-6. Select rows and trigger generation.
+1. Open http://localhost:5200 in your web browser.
+2. Enter the Studio PIN if DASHBOARD_PIN is configured.
+3. Click the **Story** tab in the main navigation.
+4. Select the **Collection Category Story** subtab.
+5. Select a fixture category (**Pendant**, **Wall Light**, **Chandelier**, **Floor Lamp**, or **Cluster**).
+6. Click the **Run** button on the fixture card, confirm the batch count (default 1) in the confirmation modal, and the pipeline will scrape fresh active items and process them end-to-end.

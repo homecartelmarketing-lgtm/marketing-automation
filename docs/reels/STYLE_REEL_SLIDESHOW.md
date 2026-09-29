@@ -22,9 +22,9 @@ The **Style Reel Slideshow Automation Pipeline** generates an architectural **11
 | Phase | Phase Name | Provider / Engine | Model / Settings | Input Fields / Triggers | Output Fields / Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Phase 1** | **Multi-Category Akeneo Scrape**| Akeneo PIM API | Active Ingestion (`enabled=true`) + cross-table dedup | Akeneo Catalog (4 categories) | `Furniture Item[2-5]`, `Item Name[2-5]` -> Status: `Pending` (`P`) |
-| **Phase 2** | **Sequential Krea Generation** | Krea AI | `krea-2-medium` (9:16, 1K) with cumulative style referencing | Dedicated moodboard per room slot | `Interior[1-5]` -> Status: `Drafting` (`D`) |
-| **Phase 3** | **Claude Vision Prompting** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `Interior[2-5]` + `Furniture Item[2-5]` | `Blending Prompt[2-5]` -> Status: `Drafting` (`D`) |
-| **Phase 4** | **Nano Banana Pro Blending** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | `Interior[2-5]` + `Furniture[2-5]` + `Prompt[2-5]` | `Blended Image[2-5]` -> Status: `Drafting` (`D`) |
+| **Phase 2** | **Sequential Krea Generation** | Krea AI | `krea-2-medium` (9:16, 1K) with cumulative style referencing | Dedicated moodboard per room slot | `Interior[1-5]` -> Status: `In Progress` (`P`) |
+| **Phase 3** | **Claude Vision Prompting** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `Interior[2-5]` + `Furniture Item[2-5]` | `Blending Prompt[2-5]` -> Status: `In Progress` (`P`) |
+| **Phase 4** | **Nano Banana Pro Blending** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | `Interior[2-5]` + `Furniture[2-5]` + `Prompt[2-5]` | `Blended Image[2-5]` -> Status: `In Progress` (`P`) |
 | **Phase 5** | **FFmpeg Slideshow Video** | Local FFmpeg | Zero-API Local Video Engine | 5 photos in sequence | `Style Reel Slideshow` -> Status: `Completed` (`C`) |
 
 ---
@@ -56,21 +56,21 @@ $$\text{Format: } \mathbf{SRS\text{-}REEL\text{-}SET\text{-}\langle ROW\_ID\rang
 
 ## 5. 5-Status Lifecycle & PHT Timestamps
 
-```
-[ P ] Pending  ──►  [ S ] Scheduled  ──►  [ D ] Drafting  ──►  [ FM ] For Modification  ──►  [ C ] Completed
-```
+The Airtable single-select Status field tracks records across 5 lifecycle stages:
 
-- **`Pending` (`P`)**: Scraped 4-product bundle awaiting interior generation.
-- **`Scheduled` (`S`)**: Queued for batch video generation.
-- **`Drafting` (`D`)**: Processing through sequential Krea rooms, Claude prompts, or Fal blending.
-- **`For Modification` (`FM`)**: Flagged for room style re-alignment.
-- **`Completed` (`C`)**: `Style Reel Slideshow` MP4 video attached to Airtable.
+| Badge | Color | Lifecycle State | Airtable Status Value | Operational Meaning |
+| :---: | :---: | :--- | :--- | :--- |
+| **P** | Sky Blue | **Posted / Processing** | Posted, Processing, Pending, In Progress, intermediate phase statuses | Record is actively queued or being processed. |
+| **S** | Purple | **Scheduled** | Scheduled, Schedule | Approved and scheduled for publishing. |
+| **C** | Emerald | **Complete / Done** | Complete, Completed, Done | All phases complete; deliverables attached. |
+| **D** | Rose | **Discarded** | Discard, Discarded | Archived or rejected candidate. |
+| **FM** | Amber | **For Manual / Revision** | For Manual, Minor revision, FM | Flagged for manual review or adjustment. |
 
 ### Execution Timestamp
-Pipeline execution automatically writes the Philippine Standard Time timestamp (UTC+8) into the `Date & Time Run (PHT)` field:
-```
+When a row reaches Complete (C), the pipeline automatically writes the Philippine Standard Time timestamp (UTC+8, ISO 8601) into the **Date and Time Generated** field:
+`
 2026-09-07T13:12:00+08:00
-```
+`
 
 ---
 
@@ -102,3 +102,12 @@ python run_style_reel_slideshow.py --phase 1 --max-rows 1 --execute
 # Run Phase 5 (FFmpeg video compilation) only
 python run_style_reel_slideshow.py --phase 5 --execute
 ```
+
+
+### Web UI Dashboard Execution
+1. Open http://localhost:5200 in your web browser.
+2. Enter the Studio PIN if DASHBOARD_PIN is configured.
+3. Click the **Reel** tab in the main navigation.
+4. Select the **Style Reel Slideshow** subtab.
+5. Select the **5-Room Style Tour** fixture card.
+6. Click the **Run** button on the fixture card, confirm the batch count (default 1) in the confirmation modal, and the pipeline will scrape fresh active items across 4 categories and compile the 5-room slideshow tour end-to-end.

@@ -20,12 +20,12 @@ The **CTA Story Automation Pipeline** generates branded **9:16 vertical Instagra
 
 | Phase | Phase Name | Provider / Engine | Model / Settings | Input Fields / Triggers | Output Fields / Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Phase 1** | **Akeneo Scraper** | Akeneo PIM API | Active Ingestion (`enabled=true`) + cross-table dedup | Akeneo Catalog (`chandeliers`, `pendants`, etc.) | `Furniture Item`, `SKU`, `Item Name` -> Status: `Pending` (`P`) |
-| **Phase 2** | **Krea Room Interior** | Krea AI | `krea-2-medium` (9:16, 1K)<br>Preset category Moodboard ID | Standby record + Room Prompt | `CTA Interior` -> Status: `Drafting` (`D`) |
-| **Phase 3** | **Claude Vision Prompting** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `CTA Interior` + `Furniture Item` | `Blending Prompt` -> Status: `Drafting` (`D`) |
-| **Phase 4** | **Nano Banana Pro Blending** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | `CTA Interior` + `Furniture Item` + `Blending Prompt` | `CTA Blended Image` -> Status: `Drafting` (`D`) |
-| **Phase 5** | **Claude Headline Analysis** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `CTA Blended Image` | `Word Generated` -> Status: `Drafting` (`D`) |
-| **Phase 6** | **Local Logo & CTA Stamping** | **Local Python Pillow** | **Zero-API Local Python Script**<br>Canva Layout Box: $820.8 \times 304.6\text{ px}$ | `CTA Blended Image` + `Word Generated` + `Logo` | `CTA Converted Image` -> Status: `Completed` (`C`) |
+| **Phase 1** | **Akeneo Scraper** | Akeneo PIM API | Active Ingestion (`enabled=true`) + cross-table dedup | Akeneo Catalog (`chandeliers`, `pendants`, etc.) | `Furniture Item`, `SKU`, `Item Name` -> Status: `Standby` (`P`) |
+| **Phase 2** | **Krea Room Interior** | Krea AI | `krea-2-medium` (9:16, 1K)<br>Preset category Moodboard ID | Standby record + Room Prompt | `CTA Interior` -> Status: `CTA Interior Generated` (`P`) |
+| **Phase 3** | **Claude Vision Prompting** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `CTA Interior` + `Furniture Item` | `Blending Prompt` -> Status: `Blending Prompt Generated` (`P`) |
+| **Phase 4** | **Nano Banana Pro Blending** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | `CTA Interior` + `Furniture Item` + `Blending Prompt` | `CTA Blended Image` -> Status: `CTA Blended Image Generated` (`P`) |
+| **Phase 5** | **Claude Headline Analysis** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `CTA Blended Image` | `Word Generated` -> Status: `Processing` (`P`) |
+| **Phase 6** | **Local Logo & CTA Stamping** | **Local Python Pillow** | **Zero-API Local Python Script**<br>Canva Layout Box: $820.8 \times 304.6\text{ px}$ | `CTA Blended Image` + `Word Generated` + `Logo` | `CTA Converted Image` -> Status: `Complete` (`C`) |
 
 ---
 
@@ -62,18 +62,18 @@ $$\text{Format: } \mathbf{CTA\text{-}STORY\text{-}\langle FIXTURE\rangle\text{-}
 
 ## 5. 5-Status Lifecycle & PHT Timestamps
 
-```
-[ P ] Pending  ──►  [ S ] Scheduled  ──►  [ D ] Drafting  ──►  [ FM ] For Modification  ──►  [ C ] Completed
-```
+The Airtable single-select `Status` field tracks records across 5 lifecycle stages:
 
-- **`Pending` (`P`)**: Scraped product awaiting interior generation.
-- **`Scheduled` (`S`)**: Queued for batch generation.
-- **`Drafting` (`D`)**: Processing through Krea, Claude, or Fal AI.
-- **`For Modification` (`FM`)**: Flagged for headline revision or room re-rendering.
-- **`Completed` (`C`)**: Blended image generated, copy analyzed, stamped, and attached.
+| Badge | Color | Lifecycle State | Airtable Status Value | Operational Meaning |
+| :---: | :---: | :--- | :--- | :--- |
+| **`P`** | Sky Blue | **Posted / Processing** | `Posted`, `Processing`, `Pending`, `In Progress`, intermediate phase statuses | Record is actively queued or being processed. |
+| **`S`** | Purple | **Scheduled** | `Scheduled`, `Schedule` | Approved and scheduled for publishing. |
+| **`C`** | Emerald | **Complete / Done** | `Complete`, `Completed`, `Done` | All phases complete; deliverables attached. |
+| **`D`** | Rose | **Discarded** | `Discard`, `Discarded` | Archived or rejected candidate. |
+| **`FM`** | Amber | **For Manual / Revision** | `For Manual`, `Minor revision`, `FM` | Flagged for manual review or adjustment. |
 
 ### Execution Timestamp
-Pipeline execution automatically writes the Philippine Standard Time timestamp (UTC+8) into the `Date & Time Run (PHT)` field:
+When a row reaches `Complete` (`C`), the pipeline automatically writes the Philippine Standard Time timestamp (UTC+8, ISO 8601) into the **`Date and Time Generated`** field:
 ```
 2026-09-07T13:12:00+08:00
 ```
@@ -125,9 +125,9 @@ python run_cta_round_robin.py --menu
 ```
 
 ### Web UI Dashboard Execution
-1. Open `http://localhost:5200`
-2. Enter PIN: `1234`
+1. Open `http://localhost:5200` in your web browser.
+2. Enter the Studio PIN if `DASHBOARD_PIN` is configured.
 3. Click the **Story** tab in the main navigation.
-4. Select **CTA Stories**.
-5. Pick fixture category (**Chandelier**, **Pendant**, **Cluster**, **Table Lamp**, or **Floor Lamp**).
-6. Select rows and trigger generation.
+4. Select the **CTA Story** subtab.
+5. Pick a fixture category (**Chandelier**, **Pendant**, **Cluster**, **Table Lamp**, or **Floor Lamp**).
+6. Click the **Run** button on the fixture card, confirm the batch count (default 1) in the confirmation modal, and the pipeline will scrape a fresh active product and process it end-to-end.

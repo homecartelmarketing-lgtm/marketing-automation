@@ -4,7 +4,7 @@ tags: [architecture, overview]
 
 # System overview: how the pieces fit together
 
-A short map of the real data flow, for orientation before diving into a specific pipeline doc under [`docs/stories/`](../../stories/), [`docs/feeds/`](../../feeds/), or [`docs/reels/`](../../reels/).
+A short map of the real data flow, for orientation before diving into a specific pipeline doc under [`docs/stories/`](../../stories/), [`docs/feeds/`](../../feeds/), [`docs/reels/`](../../reels/), or [`docs/ads/`](../../ads/).
 
 ## 1. Content generation (per fixture, per pipeline)
 
@@ -34,11 +34,18 @@ Phased generation (content_automation/phased_content.py, PhasedContentRunner)
 Airtable row updated (Status: Complete/Done), stamped with PHT timestamp
 ```
 
-Every pipeline (Story/Feed/Reel) is a variation on this shape — see `AGENTS.md` §6 for the full subtab inventory and `docs/README.md` for per-pipeline detail.
+Every pipeline (Story/Feed/Reel/Ad Cover) is a variation on this shape — see `AGENTS.md` §7 for the full subtab inventory and `docs/README.md` for per-pipeline detail.
+
+**Ad Cover is the one pipeline that deviates**, in four ways worth knowing before reading the generic shape above:
+
+- It runs **7 phases, not 5–6**, and one run produces **two deliverables**: the 1:1 `Ad Cover Converted Image` and its 9:16 `Ad Cover Converted Image Story` twin.
+- Its API cost profile is **1 Krea call + 2 Fal image calls** (the second Fal call is the Nano Banana Pro 9:16 extension of the already-blended square image, not a fresh blend).
+- **`Complete` is written by Phase 7 only**, because Airtable `Status` is a `singleSelect` that overwrites — writing it earlier would make the story branch's failure invisible on the card. See [[../decisions/ad-cover-complete-status-belongs-to-phase-7]].
+- Phase lines stream as `[Phase N/7]`, and `detect_phase()` parses the number first rather than matching keywords, since two phases here share vocabulary ("blend", "converted").
 
 ## 2. Dashboard (observing & triggering the above)
 
-`UI Control/api_server.py` — Flask app on **port 5200** — registers one Blueprint per pipeline under `UI Control/routes/`. The React frontend (`UI Control/src/app/App.tsx`) polls each pipeline's `/status` endpoint, which returns live stdout (`pipelineState.logs`) and current phase/status. This is where [[../incidents/2026-09-17-floor-lamp-shopify-draft-inactive]] was actually diagnosed — the `/status` endpoint's in-memory log buffer had the detail the UI wasn't (at the time) rendering after a failure.
+`UI Control/api_server.py` — Flask app on **port 5200** — registers one Blueprint per pipeline under `UI Control/routes/`; Ad Covers is one Blueprint covering nine fixture cards rather than one per subtab. The React frontend (`UI Control/src/app/`; per-pipeline config lives in `constants/pipelines.ts` and polling in `hooks/usePipelineRunner.ts`, not in `App.tsx`) polls each pipeline's `/status` endpoint, which returns live stdout (`pipelineState.logs`) and current phase/status. This is where [[../incidents/2026-09-17-floor-lamp-shopify-draft-inactive]] was actually diagnosed — the `/status` endpoint's in-memory log buffer had the detail the UI wasn't (at the time) rendering after a failure.
 
 `launch_studio_cloudflare.py` can tunnel this same port-5200 dashboard to a public `*.trycloudflare.com` URL for sharing without deploying anywhere (see [`docs/CLOUDFLARE_TUNNEL_GUIDE.md`](../../CLOUDFLARE_TUNNEL_GUIDE.md)).
 

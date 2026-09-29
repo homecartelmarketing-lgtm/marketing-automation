@@ -20,10 +20,10 @@ The **Day & Night Story Automation Pipeline** generates high-converting **9:16 v
 | Phase | Phase Name | Provider / Engine | Model / Settings | Input Fields / Triggers | Output Fields / Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Ingestion** | **Akeneo Scraper** | Akeneo PIM API | Active Ingestion (`enabled=true`) + cross-table dedup | Akeneo Catalog (`chandeliers`, `pendants`, etc.) | `Furniture Item`, `SKU`, `Item Name` -> Status: `Pending` (`P`) |
-| **Phase 1** | **Krea Room Interior** | Krea AI | `krea-2-medium` (9:16, 1K)<br>Preset category Moodboard | Standby record + Room Prompt | `Interior Generated Photo` -> Status: `Drafting` (`D`) |
-| **Phase 2** | **Claude Prompt Analysis** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `Interior Generated Photo` + `Furniture Item` | `Blending Prompt` -> Status: `Drafting` (`D`) |
-| **Phase 3** | **Nano Banana Pro Day Blending** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | `Interior Photo` + `Furniture Item` + `Blending Prompt` | `day_photo_raw.jpg` -> Status: `Drafting` (`D`) |
-| **Phase 4** | **Nano Banana Pro Night Transform**| Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | `day_photo_raw.jpg` + Night Transformation Prompt | `night_photo.jpg` -> Status: `Drafting` (`D`) |
+| **Phase 1** | **Krea Room Interior** | Krea AI | `krea-2-medium` (9:16, 1K)<br>Preset category Moodboard | Standby record + Room Prompt | `Interior Generated Photo` -> Status: `In Progress` (`P`) |
+| **Phase 2** | **Claude Prompt Analysis** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `Interior Generated Photo` + `Furniture Item` | `Blending Prompt` -> Status: `In Progress` (`P`) |
+| **Phase 3** | **Nano Banana Pro Day Blending** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | `Interior Photo` + `Furniture Item` + `Blending Prompt` | `day_photo_raw.jpg` -> Status: `In Progress` (`P`) |
+| **Phase 4** | **Nano Banana Pro Night Transform**| Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | `day_photo_raw.jpg` + Night Transformation Prompt | `night_photo.jpg` -> Status: `In Progress` (`P`) |
 | **Phase 5** | **Local PIL Logo Stamping** | **Local Python Pillow** | **Zero-API Local Python Script**<br>Top-right margin: $108\text{ px}$ | `day_photo_raw.jpg` + `Logo` | Uploads both cards to `STORY - Day & Night (2)` -> Status: `Completed` (`C`) |
 
 ---
@@ -51,31 +51,31 @@ $$\text{Format: } \mathbf{DN\text{-}STORY\text{-}\langle FIXTURE\rangle\text{-}\
 
 | Category Name | Fixture Code | Airtable Table ID | Foreign Key Prefix | Default Krea Moodboard ID | Primary Environment Variable |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Chandeliers** | `CH` | `tblKkCf88UVQ3Yu07` | `DN-STORY-CH` | `de6ad512-870d-4ab7-a48c-3f3ca85faf24` | `AIRTABLE_TABLE_ID_DN_STORY_CHANDELIER` |
-| **Pendant Lights** | `PE` | `tblaNyYZCR7E6TXtv` | `DN-STORY-PE` | `0844ad92-c34a-4dc8-9d70-d09498dc098c` | `AIRTABLE_TABLE_ID_DN_STORY_PENDANT` |
-| **Floor Lamps** | `FL` | `tblr1hlsjGcs9QKCy` | `DN-STORY-FL` | `c4c15a18-a92d-4465-924f-c85cfe1958bc` | `AIRTABLE_TABLE_ID_DN_STORY_FLOOR_LAMP` |
-| **Table Lamps** | `TL` | `tblhvM9Saq18YqONB` | `DN-STORY-TL` | `257569e1-7be8-4412-a90f-acbc347e4646` | `AIRTABLE_TABLE_ID_DN_STORY_TABLE_LAMP` |
-| **Cluster Chandeliers** | `CL` | `tblgcvB4WFKOpSIQl` | `DN-STORY-CL` | `b5ffdcbb-192e-4528-8d86-d1a4cf496887` | `AIRTABLE_TABLE_ID_DN_STORY_CLUSTER` |
+| **Chandeliers** | `CH` | `tblKkCf88UVQ3Yu07` | `DN-STORY-CH` | `de6ad512-870d-4ab7-a48c-3f3ca85faf24` | `AIRTABLE_TABLE_ID_CHANDELIERS_DAY_NIGHT_STORY` |
+| **Pendant Lights** | `PE` | `tblaNyYZCR7E6TXtv` | `DN-STORY-PE` | `0844ad92-c34a-4dc8-9d70-d09498dc098c` | `AIRTABLE_TABLE_ID_PENDANT_LIGHTS_DAY_NIGHT_STORY` |
+| **Floor Lamps** | `FL` | `tblr1hlsjGcs9QKCy` | `DN-STORY-FL` | `c4c15a18-a92d-4465-924f-c85cfe1958bc` | `AIRTABLE_TABLE_ID_FLOOR_LAMPS_DAY_NIGHT_STORY` |
+| **Table Lamps** | `TL` | `tblhvM9Saq18YqONB` | `DN-STORY-TL` | `257569e1-7be8-4412-a90f-acbc347e4646` | `AIRTABLE_TABLE_ID_TABLE_LAMPS_DAY_NIGHT_STORY` |
+| **Cluster Chandeliers** | `CL` | `tblgcvB4WFKOpSIQl` | `DN-STORY-CL` | `b5ffdcbb-192e-4528-8d86-d1a4cf496887` | `AIRTABLE_TABLE_ID_CLUSTER_CHANDELIER_DAY_NIGHT_STORY` |
 
 ---
 
 ## 5. 5-Status Lifecycle & PHT Timestamps
 
-```
-[ P ] Pending  ──►  [ S ] Scheduled  ──►  [ D ] Drafting  ──►  [ FM ] For Modification  ──►  [ C ] Completed
-```
+The Airtable single-select Status field tracks records across 5 lifecycle stages:
 
-- **`Pending` (`P`)**: Scraped product awaiting daytime interior generation.
-- **`Scheduled` (`S`)**: Queued for batch execution.
-- **`Drafting` (`D`)**: Processing through Krea or Fal AI.
-- **`For Modification` (`FM`)**: Flagged for lighting re-balancing or atmosphere adjustment.
-- **`Completed` (`C`)**: Both daytime stamped card and night card attached to Airtable.
+| Badge | Color | Lifecycle State | Airtable Status Value | Operational Meaning |
+| :---: | :---: | :--- | :--- | :--- |
+| **P** | Sky Blue | **Posted / Processing** | Posted, Processing, Pending, In Progress, intermediate phase statuses | Record is actively queued or being processed. |
+| **S** | Purple | **Scheduled** | Scheduled, Schedule | Approved and scheduled for publishing. |
+| **C** | Emerald | **Complete / Done** | Complete, Completed, Done | All phases complete; deliverables attached. |
+| **D** | Rose | **Discarded** | Discard, Discarded | Archived or rejected candidate. |
+| **FM** | Amber | **For Manual / Revision** | For Manual, Minor revision, FM | Flagged for manual review or adjustment. |
 
 ### Execution Timestamp
-Pipeline execution automatically writes the Philippine Standard Time timestamp (UTC+8) into the `Date & Time Run (PHT)` field:
-```
+When a row reaches Complete (C), the pipeline automatically writes the Philippine Standard Time timestamp (UTC+8, ISO 8601) into the **Date and Time Generated** field:
+`
 2026-09-07T13:12:00+08:00
-```
+`
 
 ---
 
@@ -112,9 +112,9 @@ python run_day_night_story.py --dry-run
 ```
 
 ### Web UI Dashboard Execution
-1. Open `http://localhost:5200`
-2. Enter PIN: `1234`
-3. Click the **Story** tab.
-4. Select **Day & Night Stories**.
-5. Pick fixture category (**Chandelier**, **Pendant**, **Floor Lamp**, **Table Lamp**, or **Cluster**).
-6. Select rows and trigger generation.
+1. Open http://localhost:5200 in your web browser.
+2. Enter the Studio PIN if DASHBOARD_PIN is configured.
+3. Click the **Story** tab in the main navigation.
+4. Select the **Day & Night Story** subtab.
+5. Pick an active fixture category.
+6. Click the **Run** button on the fixture card, confirm the batch count (default 1) in the confirmation modal, and the pipeline will scrape a fresh active product and process it end-to-end.

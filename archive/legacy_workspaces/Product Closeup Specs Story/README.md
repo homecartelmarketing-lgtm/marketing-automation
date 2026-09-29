@@ -1,6 +1,6 @@
 # Product Closeup w/ Specs Story Automation
 
-> **Master Specification**: For complete architecture, model stack, Foreign Key conventions, and layout specs, see [`../docs/stories/PRODUCT_CLOSEUP_SPECS_STORY.md`](../docs/stories/PRODUCT_CLOSEUP_SPECS_STORY.md) and [`../AGENTS.md`](../AGENTS.md).
+> **Master Specification**: For complete architecture, model stack, Foreign Key conventions, and layout specs, see [`../docs/stories/PRODUCT_CLOSEUP_SPECS_STORY.md`](../../../docs/stories/PRODUCT_CLOSEUP_SPECS_STORY.md) and [`../AGENTS.md`](../../../AGENTS.md).
 
 > [!CAUTION]
 > ### MANDATORY OPERATING RULE (AGENTS.md Tenet #2)

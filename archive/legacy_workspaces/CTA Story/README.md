@@ -1,6 +1,6 @@
 # 🎯 CTA Story Automation
 
-> **Master Specification**: For complete architecture, model stack, Foreign Key conventions, and Canva coordinates, see [`../docs/stories/CTA_STORY.md`](../docs/stories/CTA_STORY.md) and [`../AGENTS.md`](../AGENTS.md).
+> **Master Specification**: For complete architecture, model stack, Foreign Key conventions, and Canva coordinates, see [`../docs/stories/CTA_STORY.md`](../../../docs/stories/CTA_STORY.md) and [`../AGENTS.md`](../../../AGENTS.md).
 
 > [!CAUTION]
 > ### MANDATORY OPERATING RULE (AGENTS.md Tenet #2)

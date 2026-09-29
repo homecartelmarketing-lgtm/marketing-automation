@@ -19,13 +19,14 @@ The **Day & Night Reel Automation Pipeline** generates high-engagement **18-seco
 
 | Phase | Phase Name | Provider / Engine | Model / Settings | Input Fields / Triggers | Output Fields / Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Phase 1** | **Akeneo Scrape & Outro Sync**| Akeneo PIM API | Active Ingestion (`enabled=true`) + cross-table dedup | Akeneo Catalog (`pendant_lights`, `chandeliers`, `floor_lamps`) | `Furniture Item`, `SKU`, `Item Name`, `Outro` -> Status: `Pending` (`P`) |
-| **Phase 2** | **Krea AI Room Interior** | Krea AI | `krea-2-medium` (9:16, 1K)<br>Preset category Moodboard | Standby record + Room Prompt | `Interior` -> Status: `Drafting` (`D`) |
-| **Phase 3** | **Claude Vision Prompting** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `Interior` + `Furniture Item` | `Prompt for Blending` -> Status: `Drafting` (`D`) |
-| **Phase 4** | **Nano Banana Pro Day Blending**| Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | `Interior` + `Furniture Item` + `Prompt for Blending` | `Day and Night Blended` -> Status: `Drafting` (`D`) |
-| **Phase 5** | **Grok Imagine Video Timelapse**| Fal AI | `xai/grok-imagine-video/v1.5/image-to-video`<br>Duration: `15s`, Resolution: `720p` | `Day and Night Blended` | `REEL - Day & Night` -> Status: `Drafting` (`D`) |
-| **Phase 6** | **Audio Generation** | Fal AI / ElevenLabs | `fal-ai/elevenlabs/music` (18s jazz) or default track | Video theme | `Music Generated` |
-| **Phase 7** | **FFmpeg Concat & Outro Merge** | Local FFmpeg | Zero-API Local Video Compositor | 15s video + 3s outro + 18s audio | `Day and Night Reel with Music and Outro` -> Status: `Completed` (`C`) |
+| **Phase 1** | **Akeneo Scrape & Outro Sync**| Akeneo PIM API | Active Ingestion (enabled=true) + cross-table dedup | Akeneo Catalog (pendant_lights, chandeliers, loor_lamps) | Furniture Item, SKU, Item Name, Outro -> Status: Standby (P) |
+| **Phase 2** | **Krea AI Room Interior** | Krea AI | krea-2-medium (9:16, 1K)<br>Preset category Moodboard | Standby record + Room Prompt | Interior -> Status: Phase 2 - Ready (P) |
+| **Phase 3** | **Claude Vision Prompting** | Fal AI / OpenRouter | nthropic/claude-sonnet-5 | Interior + Furniture Item | Prompt for Blending -> Status: Phase 3 - Ready (P) |
+| **Phase 4** | **Nano Banana Pro Day & Night Blending**| Fal AI | al-ai/nano-banana-pro/edit<br>Aspect Ratio: 9:16, Resolution: 1K | Interior + Furniture Item + Prompt for Blending | Day and Night Blended -> Status: Phase 4 - Ready (P) |
+| **Phase 5** | **Airtable Blended Image Sync**| Local / Airtable REST | Attachment Sync to Airtable | Day and Night Blended | Airtable attachment fields -> Status: Phase 5 - Ready (P) |
+| **Phase 6** | **Fal AI Kling Video Timelapse**| Fal AI | al-ai/kling-video/v3/turbo/pro/image-to-video<br>Duration: 15s, Resolution: 720p | Day and Night Blended | REEL - Day & Night -> Status: Phase 6 - Ready (P) |
+| **Phase 7** | **Fal AI Stable Audio 3 / ElevenLabs Jazz**| Fal AI / ElevenLabs | al-ai/elevenlabs/music (18s luxury jazz) | Claude music prompt | Music Generated -> Status: Phase 7 - Ready (P) |
+| **Phase 8** | **FFmpeg Concat & Outro Merge** | Local FFmpeg | Zero-API Local Video Compositor | 15s Kling video + 3s outro + 18s audio | Day and Night Reel with Music and Outro -> Status: Complete (C) |
 
 ---
 
@@ -58,21 +59,21 @@ $$\text{Format: } \mathbf{DN\text{-}REEL\text{-}\langle FIXTURE\rangle\text{-}\l
 
 ## 5. 5-Status Lifecycle & PHT Timestamps
 
-```
-[ P ] Pending  ──►  [ S ] Scheduled  ──►  [ D ] Drafting  ──►  [ FM ] For Modification  ──►  [ C ] Completed
-```
+The Airtable single-select Status field tracks records across 5 lifecycle stages:
 
-- **`Pending` (`P`)**: Scraped Akeneo product awaiting interior generation.
-- **`Scheduled` (`S`)**: Queued for batch video generation.
-- **`Drafting` (`D`)**: Processing through Krea, Fal Nano, Grok Video, or FFmpeg concat.
-- **`For Modification` (`FM`)**: Flagged for video transition or outro adjustment.
-- **`Completed` (`C`)**: Final 18s video reel attached to Airtable.
+| Badge | Color | Lifecycle State | Airtable Status Value | Operational Meaning |
+| :---: | :---: | :--- | :--- | :--- |
+| **P** | Sky Blue | **Posted / Processing** | Posted, Processing, Pending, In Progress, intermediate phase statuses | Record is actively queued or being processed. |
+| **S** | Purple | **Scheduled** | Scheduled, Schedule | Approved and scheduled for publishing. |
+| **C** | Emerald | **Complete / Done** | Complete, Completed, Done | All phases complete; deliverables attached. |
+| **D** | Rose | **Discarded** | Discard, Discarded | Archived or rejected candidate. |
+| **FM** | Amber | **For Manual / Revision** | For Manual, Minor revision, FM | Flagged for manual review or adjustment. |
 
 ### Execution Timestamp
-Pipeline execution automatically writes the Philippine Standard Time timestamp (UTC+8) into the `Date & Time Run (PHT)` field:
-```
+When a row reaches Complete (C), the pipeline automatically writes the Philippine Standard Time timestamp (UTC+8, ISO 8601) into the **Date and Time Generated** field:
+`
 2026-09-07T13:12:00+08:00
-```
+`
 
 ---
 
@@ -107,3 +108,12 @@ python run_day_night_reel.py --target floor_lamps
 # Resume an interrupted row
 python run_day_night_reel.py --target chandeliers --resume
 ```
+
+
+### Web UI Dashboard Execution
+1. Open http://localhost:5200 in your web browser.
+2. Enter the Studio PIN if DASHBOARD_PIN is configured.
+3. Click the **Reel** tab in the main navigation.
+4. Select the **Day & Night Reel** subtab.
+5. Pick an active fixture category (**Pendant Lights**, **Chandeliers**, or **Floor Lamps**).
+6. Click the **Run** button on the fixture card, confirm the batch count (default 1) in the confirmation modal, and the pipeline will scrape a fresh active product and process it end-to-end.

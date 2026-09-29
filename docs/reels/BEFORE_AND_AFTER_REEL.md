@@ -21,12 +21,11 @@ The **Before & After Reel Automation Pipeline** generates captivating **9:16 ver
 
 | Phase | Phase Name | Provider / Engine | Model / Settings | Input Fields / Triggers | Output Fields / Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Phase 1** | **Akeneo Scraper** | Akeneo PIM API | Active Ingestion (`enabled=true`) + cross-table dedup | Akeneo Catalog (`floor_lamps`, `pendant_lights`, `chandeliers`) | `Furniture Item`, `Item Name`, `SKU` -> Status: `Pending` (`P`) |
-| **Phase 2** | **Krea Room Interior** | Krea AI | `krea-2-medium` (9:16, 1K)<br>Preset category Moodboard | Room Prompt | `Interior Generated Photo` -> Status: `Drafting` (`D`) |
-| **Phase 3** | **Claude Vision Prompting** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | Interior + Product Photos | `Blending Prompt` -> Status: `Drafting` (`D`) |
-| **Phase 4** | **Nano Banana Pro Day Blend** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | Interior + Product + Prompt | `Blended Image` -> Status: `Drafting` (`D`) |
-| **Phase 5** | **Multiple Angle Generation** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16` | `Blended Image` | `Multiple Angle Blended Image` -> Status: `Drafting` (`D`) |
-| **Phase 6** | **FFmpeg Slideshow Reel Assembly**| Local FFmpeg | Zero-API Local Video Engine + Typography | All angles + Outro + Audio | `Slide Show Before and After Reel` -> Status: `Completed` (`C`) |
+| **Phase 1** | **Akeneo Scraper** | Akeneo PIM API | Active Ingestion (enabled=true) + cross-table dedup | Akeneo Catalog (pendant_lights, chandeliers) | Furniture Item, Item Name, SKU -> Status: Standby (P) |
+| **Phase 2** | **Krea Room Interior** | Krea AI | krea-2-medium (9:16, 1K)<br>Preset category Moodboard | Room Prompt | Interior Generated Photo -> Status: Processing (P) |
+| **Phase 3** | **Claude Vision Prompting** | Fal AI / OpenRouter | nthropic/claude-sonnet-5 | Interior + Product Photos | Blending Prompt -> Status: Processing (P) |
+| **Phase 4** | **Nano Banana Pro Day Blend** | Fal AI | al-ai/nano-banana-pro/edit<br>Aspect Ratio: 9:16, Resolution: 1K | Interior + Product + Prompt | Blended Image -> Status: Processing (P) |
+| **Phase 5** | **FFmpeg Slideshow Reel Assembly**| Local FFmpeg | Zero-API Local Video Engine + ElevenLabs Audio | Blended Stills + Outro + Audio | Slide Show Before and After Reel -> Status: Complete (C) |
 
 ---
 
@@ -51,7 +50,7 @@ $$\text{Format: } \mathbf{BA\text{-}REEL\text{-}\langle FIXTURE\rangle\text{-}\l
 
 | Category Name | Fixture Code | Airtable Table ID | Default Krea Moodboard ID | Primary Environment Variable |
 | :--- | :--- | :--- | :--- | :--- |
-| **Floor Lamps** | `FL` | `tbl2VoWOt7sSut4E2` ⚠️ *(table no longer exists in the live base as of 2026-09-19 — recreate it before running `--target floor_lamps`)* | `b1641228-beec-4823-8d01-1de3eec8410d` | `AIRTABLE_TABLE_ID_FLOORLAMP_BEFORE_AFTER_REEL` |
+| **Floor Lamps** | `FL` | `tbl2VoWOt7sSut4E2` ⚠️ *(table no longer exists in the live base as of 2026-09-19 — recreate it before running `--target floor_lamps`)* | `b1641228-beec-4823-8d01-1de3eec8410d` | `AIRTABLE_TABLE_ID_BEFORE_AFTER_FLOOR_LAMPS` *(defined only in `.env.example`; not exposed in Studio — CLI `--target floor_lamps` only, which falls back to `AIRTABLE_TABLE_ID_FLOORLAMP_DAY_AND_NIGHT_REEL`)* |
 | **Pendant Lights** | `PE` | `tbleUP86Kw36G8Hdw` | `de5f4ff8-518c-4d6b-b606-ce1d5dac51f3` | `AIRTABLE_TABLE_ID_PENDANT_LIGHTS_BEFORE_AFTER_REEL` |
 | **Chandeliers** | `CH` | `tbloMhCOngGDWFS2y` | `b5ffdcbb-192e-4528-8d86-d1a4cf496887` | `AIRTABLE_TABLE_ID_CHANDELIERS_BEFORE_AFTER_REEL` |
 
@@ -59,21 +58,21 @@ $$\text{Format: } \mathbf{BA\text{-}REEL\text{-}\langle FIXTURE\rangle\text{-}\l
 
 ## 5. 5-Status Lifecycle & PHT Timestamps
 
-```
-[ P ] Pending  ──►  [ S ] Scheduled  ──►  [ D ] Drafting  ──►  [ FM ] For Modification  ──►  [ C ] Completed
-```
+The Airtable single-select Status field tracks records across 5 lifecycle stages:
 
-- **`Pending` (`P`)**: Scraped product awaiting interior generation.
-- **`Scheduled` (`S`)**: Queued for batch video generation.
-- **`Drafting` (`D`)**: Processing through Krea, Fal Nano, or FFmpeg assembly.
-- **`For Modification` (`FM`)**: Flagged for angle or timing adjustment.
-- **`Completed` (`C`)**: `Slide Show Before and After Reel` attached to Airtable.
+| Badge | Color | Lifecycle State | Airtable Status Value | Operational Meaning |
+| :---: | :---: | :--- | :--- | :--- |
+| **P** | Sky Blue | **Posted / Processing** | Posted, Processing, Pending, In Progress, intermediate phase statuses | Record is actively queued or being processed. |
+| **S** | Purple | **Scheduled** | Scheduled, Schedule | Approved and scheduled for publishing. |
+| **C** | Emerald | **Complete / Done** | Complete, Completed, Done | All phases complete; deliverables attached. |
+| **D** | Rose | **Discarded** | Discard, Discarded | Archived or rejected candidate. |
+| **FM** | Amber | **For Manual / Revision** | For Manual, Minor revision, FM | Flagged for manual review or adjustment. |
 
 ### Execution Timestamp
-Pipeline execution automatically writes the Philippine Standard Time timestamp (UTC+8) into the `Date & Time Run (PHT)` field:
-```
+When a row reaches Complete (C), the pipeline automatically writes the Philippine Standard Time timestamp (UTC+8, ISO 8601) into the **Date and Time Generated** field:
+`
 2026-09-07T13:12:00+08:00
-```
+`
 
 ---
 
@@ -101,3 +100,12 @@ python run_before_after_reel.py --target pendant_lights
 # Target Chandeliers
 python run_before_after_reel.py --target chandeliers
 ```
+
+
+### Web UI Dashboard Execution
+1. Open http://localhost:5200 in your web browser.
+2. Enter the Studio PIN if DASHBOARD_PIN is configured.
+3. Click the **Reel** tab in the main navigation.
+4. Select the **Before & After Reel** subtab.
+5. Pick an active fixture category (**Pendant Lights** or **Chandeliers**).
+6. Click the **Run** button on the fixture card, confirm the batch count (default 1) in the confirmation modal, and the pipeline will scrape a fresh active product and process it end-to-end.

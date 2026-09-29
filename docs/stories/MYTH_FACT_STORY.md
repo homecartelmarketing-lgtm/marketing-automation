@@ -22,9 +22,9 @@ The **Myth & Fact Story Automation Pipeline** produces an educational, high-enga
 | Phase | Phase Name | Provider / Engine | Model / Settings | Input Fields / Triggers | Output Fields / Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Ingestion** | **Akeneo Scraper** | Akeneo PIM API | Active Ingestion (`enabled=true`) + cross-table dedup | Akeneo Catalog (`chandeliers`, `floor_lamps`, `pendants`) | `Furniture item`, `Item Name`, `SKU` -> Status: `Pending` (`P`) |
-| **Phase 1** | **Debunk Hook Cover** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16` | Debunk layout template + product | `debunk_layout.jpg` -> Status: `Drafting` (`D`) |
-| **Phase 2** | **Myth Generation** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16` | `myth_slide.json` prompt + product | `myth_blended.jpg` -> Status: `Drafting` (`D`) |
-| **Phase 3** | **Fact Generation** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16` | Fact lighting prompt + product | `fact_blended.jpg` -> Status: `Drafting` (`D`) |
+| **Phase 1** | **Debunk Hook Cover** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16` | Debunk layout template + product | `debunk_layout.jpg` -> Status: `In Progress` (`P`) |
+| **Phase 2** | **Myth Generation** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16` | `myth_slide.json` prompt + product | `myth_blended.jpg` -> Status: `In Progress` (`P`) |
+| **Phase 3** | **Fact Generation** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16` | Fact lighting prompt + product | `fact_blended.jpg` -> Status: `In Progress` (`P`) |
 | **Phase 4** | **Branded Outro & Assembly** | Local Storage / Pillow | Zero-API Local Compositor | `assets/Outro-Myth-Fact.png` | Uploads all 4 slides to `STORY - Myth & Fact (4)` -> Status: `Completed` (`C`) |
 
 ---
@@ -50,29 +50,29 @@ $$\text{Format: } \mathbf{MNF\text{-}STORY\text{-}\langle FIXTURE\rangle\text{-}
 
 | Category Name | Fixture Code | Airtable Table ID | Foreign Key Prefix | Primary Environment Variable |
 | :--- | :--- | :--- | :--- | :--- |
-| **Chandeliers** | `CH` | `tbl3OI7crWvN2Q7u6` | `MNF-STORY-CH` | `AIRTABLE_TABLE_ID_MNF_STORY_CHANDELIER` |
-| **Floor Lamps** | `FL` | `tblf5Yaki4ktwiLtx` | `MNF-STORY-FL` | `AIRTABLE_TABLE_ID_MNF_STORY_FLOOR_LAMP` |
-| **Pendant Lights** | `PE` | `tblwBnWYRGcV6as45` | `MNF-STORY-PE` | `AIRTABLE_TABLE_ID_MNF_STORY_PENDANT` |
+| **Chandeliers** | `CH` | `tbl3OI7crWvN2Q7u6` | `MNF-STORY-CH` | `AIRTABLE_TABLE_ID_CHANDELIER_MYTH_AND_FACT` |
+| **Floor Lamps** | `FL` | `tblf5Yaki4ktwiLtx` | `MNF-STORY-FL` | `AIRTABLE_TABLE_ID_FLOOR_LAMP_MYTH_AND_FACT` |
+| **Pendant Lights** | `PE` | `tblwBnWYRGcV6as45` | `MNF-STORY-PE` | `AIRTABLE_TABLE_ID_PENDANT_LIGHTS_MYTH_AND_FACT` |
 
 ---
 
 ## 5. 5-Status Lifecycle & PHT Timestamps
 
-```
-[ P ] Pending  ──►  [ S ] Scheduled  ──►  [ D ] Drafting  ──►  [ FM ] For Modification  ──►  [ C ] Completed
-```
+The Airtable single-select Status field tracks records across 5 lifecycle stages:
 
-- **`Pending` (`P`)**: Scraped product awaiting slide generation.
-- **`Scheduled` (`S`)**: Queued for batch execution.
-- **`Drafting` (`D`)**: Processing through Fal AI generation.
-- **`For Modification` (`FM`)**: Flagged for copy or visual adjustment.
-- **`Completed` (`C`)**: All 4 slides generated and attached to Airtable.
+| Badge | Color | Lifecycle State | Airtable Status Value | Operational Meaning |
+| :---: | :---: | :--- | :--- | :--- |
+| **P** | Sky Blue | **Posted / Processing** | Posted, Processing, Pending, In Progress, intermediate phase statuses | Record is actively queued or being processed. |
+| **S** | Purple | **Scheduled** | Scheduled, Schedule | Approved and scheduled for publishing. |
+| **C** | Emerald | **Complete / Done** | Complete, Completed, Done | All phases complete; deliverables attached. |
+| **D** | Rose | **Discarded** | Discard, Discarded | Archived or rejected candidate. |
+| **FM** | Amber | **For Manual / Revision** | For Manual, Minor revision, FM | Flagged for manual review or adjustment. |
 
 ### Execution Timestamp
-Pipeline execution automatically writes the Philippine Standard Time timestamp (UTC+8) into the `Date & Time Run (PHT)` field:
-```
+When a row reaches Complete (C), the pipeline automatically writes the Philippine Standard Time timestamp (UTC+8, ISO 8601) into the **Date and Time Generated** field:
+`
 2026-09-07T13:12:00+08:00
-```
+`
 
 ---
 
@@ -105,9 +105,9 @@ python run_myth_and_fact_story.py --dry-run
 ```
 
 ### Web UI Dashboard Execution
-1. Open `http://localhost:5200`
-2. Enter PIN: `1234`
-3. Click the **Story** tab.
-4. Select **Myth & Fact Stories**.
-5. Pick fixture category (**Chandelier**, **Floor Lamp**, or **Pendant**).
-6. Select rows and trigger generation.
+1. Open http://localhost:5200 in your web browser.
+2. Enter the Studio PIN if DASHBOARD_PIN is configured.
+3. Click the **Story** tab in the main navigation.
+4. Select the **Myth & Fact Story** subtab.
+5. Pick an active fixture category.
+6. Click the **Run** button on the fixture card, confirm the batch count (default 1) in the confirmation modal, and the pipeline will scrape a fresh active product and process it end-to-end.

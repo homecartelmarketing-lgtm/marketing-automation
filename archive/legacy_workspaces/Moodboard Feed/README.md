@@ -1,6 +1,6 @@
 # 🖼️ Moodboard Feed Automation (4:5 Instagram Carousel)
 
-> **Master Specification**: For complete architecture, model stack, Foreign Key conventions, and layout specs, see [`../docs/feeds/MOODBOARD_1_FEED.md`](../docs/feeds/MOODBOARD_1_FEED.md), [`../docs/feeds/MOODBOARD_2_FEED.md`](../docs/feeds/MOODBOARD_2_FEED.md), and [`../AGENTS.md`](../AGENTS.md).
+> **Master Specification**: For complete architecture, model stack, Foreign Key conventions, and layout specs, see [`../docs/feeds/MOODBOARD_1_FEED.md`](../../../docs/feeds/MOODBOARD_1_FEED.md), [`../docs/feeds/MOODBOARD_2_FEED.md`](../../../docs/feeds/MOODBOARD_2_FEED.md), and [`../AGENTS.md`](../../../AGENTS.md).
 
 > [!CAUTION]
 > ### MANDATORY OPERATING RULE (AGENTS.md Tenet #2)
@@ -38,13 +38,13 @@ python "Moodboard Feed/2_Run_Full_Moodboard_2_Feed.py" --category wall_lights --
 python "Moodboard Feed/2_Run_Full_Moodboard_2_Feed.py" --skip-scrape
 ```
 
-Both scripts accept the same flags as their root-level counterparts — see [`run_full_moodboard_1_feed.py`](../run_full_moodboard_1_feed.py) and [`run_full_moodboard_2_feed.py`](../run_full_moodboard_2_feed.py) (`--category`, `--style`, `--max-items`/`--count`, `--table-id`, `--skip-scrape`, `--no-backfill`, `--no-shopify-check`, `--moodboard-id`, `--prompt`).
+Both scripts accept the same flags as their root-level counterparts — see [`run_full_moodboard_1_feed.py`](../../../run_full_moodboard_1_feed.py) and [`run_full_moodboard_2_feed.py`](../../../run_full_moodboard_2_feed.py) (`--category`, `--style`, `--max-items`/`--count`, `--table-id`, `--skip-scrape`, `--no-backfill`, `--no-shopify-check`, `--moodboard-id`, `--prompt`).
 
 ---
 
 ## 🎯 Table IDs & Categories
 
-See [`../docs/feeds/MOODBOARD_1_FEED.md`](../docs/feeds/MOODBOARD_1_FEED.md) (Chandelier, Pendant, Floor Lamp) and [`../docs/feeds/MOODBOARD_2_FEED.md`](../docs/feeds/MOODBOARD_2_FEED.md) (Chandelier, Pendant, Floor Lamp, Wall Light) for the full category → Airtable table ID → Foreign Key prefix map.
+See [`../docs/feeds/MOODBOARD_1_FEED.md`](../../../docs/feeds/MOODBOARD_1_FEED.md) (Chandelier, Pendant, Floor Lamp) and [`../docs/feeds/MOODBOARD_2_FEED.md`](../../../docs/feeds/MOODBOARD_2_FEED.md) (Chandelier, Pendant, Floor Lamp, Wall Light) for the full category → Airtable table ID → Foreign Key prefix map.
 
 ### 🎨 Model & Prompt Specs:
 - **Moodboard #1**: Krea AI room interior $\rightarrow$ Claude Sonnet 5 prompt $\rightarrow$ Fal AI Nano Banana Pro (blend, 3-swatch conversion, macro closeup) $\rightarrow$ local Pillow logo watermark. Foreign Key prefix `MB1-FEEDS`.

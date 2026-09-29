@@ -63,21 +63,21 @@ $$\text{Format: } \mathbf{MB\text{-}REEL\text{-}\langle FIXTURE\rangle\text{-}\l
 
 ## 5. 5-Status Lifecycle & PHT Timestamps
 
-```
-[ P ] Pending  ──►  [ S ] Scheduled  ──►  [ D ] Drafting  ──►  [ FM ] For Modification  ──►  [ C ] Completed
-```
+The Airtable single-select Status field tracks records across 5 lifecycle stages:
 
-- **`Pending` (`P`)**: Scraped 4-product row awaiting generation.
-- **`Scheduled` (`S`)**: Queued for batch video generation.
-- **`Drafting` (`D`)**: Processing through Krea, Fal Nano, or FFmpeg video compilation.
-- **`For Modification` (`FM`)**: Flagged for moodboard palette refinement.
-- **`Completed` (`C`)**: Final MP4 video reel attached to Airtable.
+| Badge | Color | Lifecycle State | Airtable Status Value | Operational Meaning |
+| :---: | :---: | :--- | :--- | :--- |
+| **P** | Sky Blue | **Posted / Processing** | Posted, Processing, Pending, In Progress, intermediate phase statuses | Record is actively queued or being processed. |
+| **S** | Purple | **Scheduled** | Scheduled, Schedule | Approved and scheduled for publishing. |
+| **C** | Emerald | **Complete / Done** | Complete, Completed, Done | All phases complete; deliverables attached. |
+| **D** | Rose | **Discarded** | Discard, Discarded | Archived or rejected candidate. |
+| **FM** | Amber | **For Manual / Revision** | For Manual, Minor revision, FM | Flagged for manual review or adjustment. |
 
 ### Execution Timestamp
-Pipeline execution automatically writes the Philippine Standard Time timestamp (UTC+8) into the `Date & Time Run (PHT)` field:
-```
+When a row reaches Complete (C), the pipeline automatically writes the Philippine Standard Time timestamp (UTC+8, ISO 8601) into the **Date and Time Generated** field:
+`
 2026-09-07T13:12:00+08:00
-```
+`
 
 ---
 
@@ -105,3 +105,12 @@ python run_moodboard_reel.py --phase reel --limit 1
 # Process single row
 python run_moodboard_reel.py --limit 1
 ```
+
+
+### Web UI Dashboard Execution
+1. Open http://localhost:5200 in your web browser.
+2. Enter the Studio PIN if DASHBOARD_PIN is configured.
+3. Click the **Reel** tab in the main navigation.
+4. Select the **Moodboard Reel** subtab.
+5. Pick an active fixture category.
+6. Click the **Run** button on the fixture card, confirm the batch count (default 1) in the confirmation modal, and the pipeline will scrape fresh active products into a brand-new row and process them end-to-end.

@@ -24,8 +24,8 @@ The **1 Product, 3 Styles Feed Automation Pipeline** takes a single HomeCartel l
 | Phase | Phase Name | Provider / Engine | Model / Settings | Input Fields / Triggers | Output Fields / Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Phase 1** | **Akeneo Ingestion** | Akeneo PIM API | Active Ingestion (`enabled=true`) with cross-table deduplication | Akeneo Catalog (`chandeliers`, `pendant_lights`, `floor_lamps`) | `Furniture Item`, `SKU`, `Item Name` -> Status: `Pending` (`P`) |
-| **Phase 2** | **Krea 3-Style Interiors** | Krea AI | `krea-2-medium` (4:5, 1K)<br>Preset category Moodboards | 3 Category Room Prompts | `Interior1`, `Interior2`, `Interior3` -> Status: `Drafting` (`D`) |
-| **Phase 3** | **Claude Vision Analysis** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `Furniture Item` + 3 Room Interiors | `Prompt1`, `Prompt2`, `Prompt3` -> Status: `Drafting` (`D`) |
+| **Phase 2** | **Krea 3-Style Interiors** | Krea AI | `krea-2-medium` (4:5, 1K)<br>Preset category Moodboards | 3 Category Room Prompts | `Interior1`, `Interior2`, `Interior3` -> Status: `In Progress` (`P`) |
+| **Phase 3** | **Claude Vision Analysis** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `Furniture Item` + 3 Room Interiors | `Prompt1`, `Prompt2`, `Prompt3` -> Status: `In Progress` (`P`) |
 | **Phase 4** | **Nano Banana Pro Blending, YOLO Name Tagging & Logo Stamping** | Fal AI + Local YOLO-World + Local PIL | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `4:5`, Resolution: `1K`<br>In-place YOLO item-name tags on all 3 slides, then local Pillow logo on Slide 1 | `Furniture Item` + Interiors + Prompts + `Logo` | Uploads 3 stamped slides to `1 Product 3 Style Blended` |
 | **Phase 5** | **Tag Column Mirror** | Local (zero cost) | Copies the same stamped slides into the tagging column | 3 stamped slides + `Item Name` | Uploads 3 stamped slides to `Blended Image with Name text` -> Status: `Completed` (`C`) |
 
@@ -60,21 +60,21 @@ $$\text{Format: } \mathbf{OP3S\text{-}FEEDS\text{-}\langle FIXTURE\rangle\text{-
 
 ## 5. 5-Status Lifecycle & PHT Timestamps
 
-```
-[ P ] Pending  ──►  [ S ] Scheduled  ──►  [ D ] Drafting  ──►  [ FM ] For Modification  ──►  [ C ] Completed
-```
+The Airtable single-select Status field tracks records across 5 lifecycle stages:
 
-- **`Pending` (`P`)**: Freshly scraped product awaiting interior generation.
-- **`Scheduled` (`S`)**: Queued for batch generation.
-- **`Drafting` (`D`)**: Processing through Krea 3-style generation, Claude prompt analysis, or Fal blending.
-- **`For Modification` (`FM`)**: Flagged for aesthetic review or room re-rendering.
-- **`Completed` (`C`)**: All 3 slides generated, watermarked, and attached.
+| Badge | Color | Lifecycle State | Airtable Status Value | Operational Meaning |
+| :---: | :---: | :--- | :--- | :--- |
+| **P** | Sky Blue | **Posted / Processing** | Posted, Processing, Pending, In Progress, intermediate phase statuses | Record is actively queued or being processed. |
+| **S** | Purple | **Scheduled** | Scheduled, Schedule | Approved and scheduled for publishing. |
+| **C** | Emerald | **Complete / Done** | Complete, Completed, Done | All phases complete; deliverables attached. |
+| **D** | Rose | **Discarded** | Discard, Discarded | Archived or rejected candidate. |
+| **FM** | Amber | **For Manual / Revision** | For Manual, Minor revision, FM | Flagged for manual review or adjustment. |
 
 ### Execution Timestamp
-Pipeline execution automatically writes the Philippine Standard Time timestamp (UTC+8) into the `Date & Time Run (PHT)` field:
-```
+When a row reaches Complete (C), the pipeline automatically writes the Philippine Standard Time timestamp (UTC+8, ISO 8601) into the **Date and Time Generated** field:
+`
 2026-09-07T13:12:00+08:00
-```
+`
 
 ---
 
@@ -122,11 +122,9 @@ python run_1_product_3_styles_feed.py --target chandeliers --phase 1 --max-rows 
 ```
 
 ### Web UI Dashboard Execution
-1. Navigate to `http://localhost:5200`
-2. Enter PIN: `1234`
-3. Click the **Feed** tab.
-4. Select **1 Product 3 Styles Feeds** (Subtab 4).
-5. View or click **`PR: <prompt>`** on any fixture card to edit the Style 1 Krea interior prompt (persisted to `.env`).
-6. Click **`MB: <id>`** to edit the Krea Moodboard ID.
-7. Click **Run** to execute the 4-phase generation pipeline.
-
+1. Open http://localhost:5200 in your web browser.
+2. Enter the Studio PIN if DASHBOARD_PIN is configured.
+3. Click the **Feed** tab in the main navigation.
+4. Select the **1 Product 3 Styles Feeds** subtab.
+5. Pick an active fixture category.
+6. Click the **Run** button on the fixture card, confirm the batch count (default 1) in the confirmation modal, and the pipeline will scrape a fresh active product and process it end-to-end.

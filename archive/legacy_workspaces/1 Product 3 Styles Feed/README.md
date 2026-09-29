@@ -1,6 +1,6 @@
 # 1 Product, 3 Styles Feed Automation Pipeline
 
-> **Master Specification**: For complete architecture, model stack, Foreign Key conventions, and Canva coordinates, see [`../docs/feeds/ONE_PRODUCT_THREE_STYLES_FEED.md`](../docs/feeds/ONE_PRODUCT_THREE_STYLES_FEED.md) and [`../AGENTS.md`](../AGENTS.md).
+> **Master Specification**: For complete architecture, model stack, Foreign Key conventions, and Canva coordinates, see [`../docs/feeds/ONE_PRODUCT_THREE_STYLES_FEED.md`](../../../docs/feeds/ONE_PRODUCT_THREE_STYLES_FEED.md) and [`../AGENTS.md`](../../../AGENTS.md).
 
 > [!CAUTION]
 > ### MANDATORY OPERATING RULE (AGENTS.md Tenet #2)

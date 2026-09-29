@@ -19,9 +19,9 @@ The **Tips & Educational Story Automation Pipeline** generates branded **9:16 ve
 | Phase | Phase Name | Provider / Engine | Model / Settings | Input Fields / Triggers | Output Fields / Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Phase 1** | **Akeneo Scrape + Layout** | Akeneo PIM API | Active Ingestion (`enabled=true`) + cross-table dedup | Akeneo Catalog (`chandeliers`, `pendants`, etc.) | `Furniture Item`, `Tips and Edu Story Layout` -> Status: `Pending` (`P`) |
-| **Phase 2** | **Krea Room Interior** | Krea AI | `krea-2-medium` (9:16, 1K)<br>Category Moodboard ID | Standby record + Room Prompt | `Interior Photo Generated` -> Status: `Drafting` (`D`) |
-| **Phase 3** | **Claude Prompt Analysis** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | Interior + Product Photos | `Prompt` -> Status: `Drafting` (`D`) |
-| **Phase 4** | **Nano Banana Pro Blending** | Fal AI + Local YOLO | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | Interior + Product + Prompt | `Blended Image` & `Multiple Angle Blended Image` -> Status: `Drafting` (`D`) |
+| **Phase 2** | **Krea Room Interior** | Krea AI | `krea-2-medium` (9:16, 1K)<br>Category Moodboard ID | Standby record + Room Prompt | `Interior Photo Generated` -> Status: `In Progress` (`P`) |
+| **Phase 3** | **Claude Prompt Analysis** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | Interior + Product Photos | `Prompt` -> Status: `In Progress` (`P`) |
+| **Phase 4** | **Nano Banana Pro Blending** | Fal AI + Local YOLO | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | Interior + Product + Prompt | `Blended Image` & `Multiple Angle Blended Image` -> Status: `In Progress` (`P`) |
 | **Phase 5** | **Story Layout Conversion** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | `Blended Image` + `Tips and Edu Story Layout` | `Tips and Edu Story Converted` -> Status: `Completed` (`C`) |
 
 ---
@@ -50,32 +50,32 @@ $$\text{Format: } \mathbf{TNE\text{-}STORY\text{-}\langle FIXTURE\rangle\text{-}
 
 | Category Name | Fixture Code | Airtable Table ID | Foreign Key Prefix | Default Krea Moodboard ID | Primary Environment Variable |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Pendant Lights** | `PE` | `tblwnFN5a8fLzKuP4` | `TNE-STORY-PE` | `de5f4ff8-518c-4d6b-b606-ce1d5dac51f3` | `AIRTABLE_TABLE_ID_TNE_STORY_PENDANT` |
-| **Floor Lamps** | `FL` | `tblJxWwZexgBHl26B` | `TNE-STORY-FL` | `b1641228-beec-4823-8d01-1de3eec8410d` | `AIRTABLE_TABLE_ID_TNE_STORY_FLOOR_LAMP` |
-| **Chandeliers** | `CH` | `tblpFiaNn1Ym9fTTk` | `TNE-STORY-CH` | `b5ffdcbb-192e-4528-8d86-d1a4cf496887` | `AIRTABLE_TABLE_ID_TNE_STORY_CHANDELIER` |
-| **Ceiling Mounted** | `CM` | `tblGlRibUZXB9R3Gt` | `TNE-STORY-CM` | `b5ffdcbb-192e-4528-8d86-d1a4cf496887` | `AIRTABLE_TABLE_ID_TNE_STORY_CEILING_MOUNTED` |
-| **Table Lamps** | `TL` | `tblZtENqILDAekLv2` | `TNE-STORY-TL` | `257569e1-7be8-4412-a90f-acbc347e4646` | `AIRTABLE_TABLE_ID_TNE_STORY_TABLE_LAMP` |
-| **Cluster Chandeliers** | `CL` | `tbllzkE2prSyj9BaD` | `TNE-STORY-CL` | `b5ffdcbb-192e-4528-8d86-d1a4cf496887` | `AIRTABLE_TABLE_ID_TNE_STORY_CLUSTER` |
+| **Pendant Lights** | `PE` | `tblwnFN5a8fLzKuP4` | `TNE-STORY-PE` | `de5f4ff8-518c-4d6b-b606-ce1d5dac51f3` | `AIRTABLE_TABLE_ID_PENDANT_LIGHTS_TIPS_EDU_STORY` |
+| **Floor Lamps** | `FL` | `tblJxWwZexgBHl26B` | `TNE-STORY-FL` | `b1641228-beec-4823-8d01-1de3eec8410d` | `AIRTABLE_TABLE_ID_FLOOR_LAMPS_TIPS_EDU_STORY` |
+| **Chandeliers** | `CH` | `tblpFiaNn1Ym9fTTk` | `TNE-STORY-CH` | `b5ffdcbb-192e-4528-8d86-d1a4cf496887` | `AIRTABLE_TABLE_ID_CHANDELIERS_TIPS_EDU_STORY` |
+| **Ceiling Mounted** | `CM` | `tblGlRibUZXB9R3Gt` | `TNE-STORY-CM` | `b5ffdcbb-192e-4528-8d86-d1a4cf496887` | `AIRTABLE_TABLE_ID_CEILING_MOUNTED_TIPS_EDU_STORY` |
+| **Table Lamps** | `TL` | `tblZtENqILDAekLv2` | `TNE-STORY-TL` | `257569e1-7be8-4412-a90f-acbc347e4646` | `AIRTABLE_TABLE_ID_TABLE_LAMPS_TIPS_EDU_STORY` |
+| **Cluster Chandeliers** | `CL` | `tbllzkE2prSyj9BaD` | `TNE-STORY-CL` | `b5ffdcbb-192e-4528-8d86-d1a4cf496887` | `AIRTABLE_TABLE_ID_CLUSTER_CHANDELIERS_TIPS_EDU_STORY` |
 
 ---
 
 ## 5. 5-Status Lifecycle & PHT Timestamps
 
-```
-[ P ] Pending  ──►  [ S ] Scheduled  ──►  [ D ] Drafting  ──►  [ FM ] For Modification  ──►  [ C ] Completed
-```
+The Airtable single-select Status field tracks records across 5 lifecycle stages:
 
-- **`Pending` (`P`)**: Scraped Akeneo product awaiting generation.
-- **`Scheduled` (`S`)**: Queued for batch execution.
-- **`Drafting` (`D`)**: Processing through Krea room generation, Claude prompt analysis, or Fal blending.
-- **`For Modification` (`FM`)**: Flagged for layout adjustment or prompt tweaking.
-- **`Completed` (`C`)**: Story graphic converted and verified in Airtable.
+| Badge | Color | Lifecycle State | Airtable Status Value | Operational Meaning |
+| :---: | :---: | :--- | :--- | :--- |
+| **P** | Sky Blue | **Posted / Processing** | Posted, Processing, Pending, In Progress, intermediate phase statuses | Record is actively queued or being processed. |
+| **S** | Purple | **Scheduled** | Scheduled, Schedule | Approved and scheduled for publishing. |
+| **C** | Emerald | **Complete / Done** | Complete, Completed, Done | All phases complete; deliverables attached. |
+| **D** | Rose | **Discarded** | Discard, Discarded | Archived or rejected candidate. |
+| **FM** | Amber | **For Manual / Revision** | For Manual, Minor revision, FM | Flagged for manual review or adjustment. |
 
 ### Execution Timestamp
-Pipeline execution automatically writes the Philippine Standard Time timestamp (UTC+8) into the `Date & Time Run (PHT)` field:
-```
+When a row reaches Complete (C), the pipeline automatically writes the Philippine Standard Time timestamp (UTC+8, ISO 8601) into the **Date and Time Generated** field:
+`
 2026-09-07T13:12:00+08:00
-```
+`
 
 ---
 
@@ -115,9 +115,9 @@ python run_tips_and_edu_story.py --target pendant --phase 2
 ```
 
 ### Web UI Dashboard Execution
-1. Open `http://localhost:5200`
-2. Enter PIN: `1234`
-3. Click the **Story** tab.
-4. Select **Tips & Edu Stories**.
-5. Pick fixture category (**Pendant**, **Floor Lamp**, **Chandelier**, **Ceiling Mounted**, **Table Lamp**, or **Cluster**).
-6. Select rows and trigger generation.
+1. Open http://localhost:5200 in your web browser.
+2. Enter the Studio PIN if DASHBOARD_PIN is configured.
+3. Click the **Story** tab in the main navigation.
+4. Select the **Tips & Educational Story** subtab.
+5. Pick an active fixture category.
+6. Click the **Run** button on the fixture card, confirm the batch count (default 1) in the confirmation modal, and the pipeline will scrape a fresh active product and process it end-to-end.

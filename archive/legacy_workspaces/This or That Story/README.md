@@ -1,6 +1,6 @@
 # ⚖️ This or That Story Automation (9:16 Vertical Story)
 
-> **Master Specification**: For complete architecture, model stack, Foreign Key conventions, and layout specs, see [`../docs/stories/THIS_OR_THAT_STORY.md`](../docs/stories/THIS_OR_THAT_STORY.md) and [`../AGENTS.md`](../AGENTS.md).
+> **Master Specification**: For complete architecture, model stack, Foreign Key conventions, and layout specs, see [`../docs/stories/THIS_OR_THAT_STORY.md`](../../../docs/stories/THIS_OR_THAT_STORY.md) and [`../AGENTS.md`](../../../AGENTS.md).
 
 > [!CAUTION]
 > ### MANDATORY OPERATING RULE (AGENTS.md Tenet #2)

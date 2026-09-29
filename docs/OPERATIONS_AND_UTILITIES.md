@@ -20,7 +20,7 @@ Scripts that keep the system healthy but aren't Story/Feed/Reel/Ad Cover content
 | [`backfill_moodboard_1_feed_tags.py`](../scripts/ops/backfill_moodboard_1_feed_tags.py) | Backfills YOLO-World item name badges onto 'Moodboard V1 Blended' and 'Blended Image with Name text', and re-stamps the HomeCartel logo on 'Moodboard Added Watermark' across all Moodboard #1 Feed tables (Chandeliers, Pendants, Floor Lamps). |
 | [`create_missing_zoho_folders.py`](../scripts/ops/create_missing_zoho_folders.py) | Creates the per-style subfolders expected under each Zoho WorkDrive category. Re-run safe — an existing folder is skipped with a warning, not an error. |
 | [`content_automation/cleanup.py`](../content_automation/cleanup.py) | Scratchpad/temp-file lifecycle manager for containerized deploys (Zoho Catalyst / Docker) — purges `output/temp`, `output/temp_uploads`, and other scratch directories after upload, or on a scheduled age-based sweep, to prevent container disk exhaustion. |
-| [`scratch/ensure_ad_cover_fields.py`](../scratch/ensure_ad_cover_fields.py) | Provisions the Ad Cover Chandelier table schema (`tblwIsDGZBPuYJV2Z`): the standard columns (`Foreign Key ID`, `Moodboard ID`, `Prompt`, `Date and Time Generated`), the four product columns (`Furniture Item`, `SKU`, `Item Name`, `Item Price`), the five image attachment columns, the 8 `Status` choices, and the two 9:16 story attachment columns. Idempotent — creates only what is missing and reports the full field inventory. `--table-id` targets another fixture once one is wired. |
+| [`scratch/ensure_ad_cover_fields.py`](../scratch/ensure_ad_cover_fields.py) | Provisions an Ad Cover table schema (default Chandelier `tblwIsDGZBPuYJV2Z`; all 9 fixture tables are wired — see `docs/ads/AD_COVER.md` §4 for the IDs): the standard columns (`Foreign Key ID`, `Moodboard ID`, `Prompt`, `Date and Time Generated`), the four product columns (`Furniture Item`, `SKU`, `Item Name`, `Item Price`), the five image attachment columns, the 8 `Status` choices, and the two 9:16 story attachment columns. Idempotent — creates only what is missing and reports the full field inventory. `--table-id` targets any other Ad Cover fixture table. |
 
 ## Item tagging (YOLO-World)
 
@@ -53,6 +53,28 @@ Scripts that keep the system healthy but aren't Story/Feed/Reel/Ad Cover content
 | [`preview_style_this_overlay.py`](../scripts/previews/preview_style_this_overlay.py) | Renders a single test image of the Style This story layout text/pill overlay, without touching Airtable. |
 | [`scratch/_verify_ad_cover_row.py`](../scratch/_verify_ad_cover_row.py) | Prints every Ad Cover row's FK, status, PHT timestamp and the attachment filenames/sizes in all five image fields (`Ad Cover Interior`, `Ad Cover Blended Image`, `Ad Cover Blended Image Story`, `Ad Cover Converted Image`, `Ad Cover Converted Image Story`). Read-only `list_records`; optional `record_id` argv. |
 | [`scratch/_verify_ad_cover_image.py`](../scratch/_verify_ad_cover_image.py) | Downloads both Ad Cover deliverables and asserts exact geometry — `(1080, 1080)` for `Ad Cover Converted Image` and `(1080, 1920)` for `Ad Cover Converted Image Story` — then samples the top/bottom bands for near-white pixels to prove the brand overlay actually composited. Exits 1 on any mismatch and skips an empty story field instead of failing. |
+
+## Root entrypoints not covered by a pipeline doc
+
+| Script | Purpose |
+| :--- | :--- |
+| [`generate_krea_interiors.py`](../generate_krea_interiors.py) | CLI to scrape Akeneo products and/or generate Krea room-interior photos. Run with no arguments in a terminal for an interactive menu; the implementation lives in `content_automation.scraping`. |
+| [`run_dashboard.py`](../run_dashboard.py) | An older, separate web dashboard for Collection Category Feed automation. It reads from Google Drive (`G:/My Drive/Collection Category Feed`) and can open a free Cloudflare Tunnel (`--port`, `--no-tunnel`). It is **not** the Studio on port 5200 (`UI Control/api_server.py`). |
+| [`scrape_product_description_story.py`](../scrape_product_description_story.py) | Scrapes Akeneo products into the Product Closeup w/ Description Story tables (Chandelier, Pendant Light, Floor Lamp, and others); imported by that story's runners. |
+
+Thin aliases that only forward to another entrypoint: `generate_before_after_reel.py` → `generate_before_after_reel_pipeline.main`; `run_this_or_that.py` → `generate_this_or_that_pipeline.main`; `run_one_product_three_styles_feed.py` → `run_1_product_3_styles_feed.main`; `run_1_style_3_products_feed.py` → alias of `run_1_product_3_styles_feed.py`; `run_3_products_1_style_feed.py` → alias of `run_1_style_3_products_feed.py`.
+
+## Unit tests (`tests/`)
+
+Stdlib `unittest` suites; run all with `python -m unittest discover tests` from the repo root.
+
+| File | Covers |
+| :--- | :--- |
+| `tests/test_foreign_key.py` | Foreign Key ID generation and `TABLE_PREFIX_MAP` prefixes |
+| `tests/test_fal_client.py` | `FalClient.generate_seedance_video` (currently unused by any pipeline; see `docs/memory/decisions/one-at-a-time-lights-pivot-from-seedance.md`) |
+| `tests/test_one_at_a_time_lights_pipeline.py` / `test_one_at_a_time_lights_route.py` | One at a time Lights Reel monolith (blend prompt, variations, item tags, crossfade assembly) and its Studio blueprint |
+| `tests/test_generate_cta_story_pipeline.py`, `test_media_download_retry.py`, `test_studio_config_overrides.py` | CTA Story monolith, media download retry, Studio moodboard/prompt override persistence |
+| `scratch/test_ad_cover_assets.py` | Ad Cover overlay-asset registry resolution |
 
 ---
 

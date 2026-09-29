@@ -45,10 +45,10 @@ Discrepancy in status string naming conventions: `one_product_three_styles_feed.
 
 ## Resolution
 
-1. **Normalized Pipeline Status**: Updated [`UI Control/routes/one_product_three_styles_feed.py`](../../UI%20Control/routes/one_product_three_styles_feed.py) to set `STATE["status"] = "completed"`.
-2. **Defensive Queue Manager**: Updated [`UI Control/routes/queue_manager.py`](../../UI%20Control/routes/queue_manager.py) to accept `"success"` and `"done"` alongside `"completed"`, normalizing them to `"completed"` in the job history.
+1. **Normalized Pipeline Status**: Updated [`UI Control/routes/one_product_three_styles_feed.py`](../../../UI%20Control/routes/one_product_three_styles_feed.py) to set `STATE["status"] = "completed"`.
+2. **Defensive Queue Manager**: Updated [`UI Control/routes/queue_manager.py`](../../../UI%20Control/routes/queue_manager.py) to accept `"success"` and `"done"` alongside `"completed"`, normalizing them to `"completed"` in the job history.
 3. **Frontend Synchronization**:
-   - In [`UI Control/src/app/App.tsx`](../../UI%20Control/src/app/App.tsx), added support for `data.status === 'success'` in `checkStatus`.
+   - In [`UI Control/src/app/App.tsx`](../../../UI%20Control/src/app/App.tsx), added support for `data.status === 'success'` in `checkStatus`.
    - Added `activeQueueJobRef` in `pollQueue` to detect when the queue finishes and immediately transition the UI to `status: 'completed'` and trigger `fetchLiveCounts()`.
-   - In [`LiveLogViewer.tsx`](../../UI%20Control/src/app/components/planning/LiveLogViewer.tsx), added `case 'success':` to badge rendering.
+   - In [`LiveLogViewer.tsx`](../../../UI%20Control/src/app/components/planning/LiveLogViewer.tsx), added `case 'success':` to badge rendering.
 4. **Rebuilt & Restarted**: Rebuilt frontend with `npm run build` and restarted `api_server.py`. Verified that `/api/queue/status` returns `active_job: null` and the UI cleanly resets to idle on completion.

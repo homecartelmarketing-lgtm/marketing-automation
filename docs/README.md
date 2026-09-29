@@ -21,6 +21,7 @@ docs/
 ├── AUTO_POST_SCHEDULER.md               # Instagram auto-publish worker
 ├── OPERATIONS_AND_UTILITIES.md          # Maintenance / tagging / diagnostic scripts
 ├── CLOUDFLARE_TUNNEL_GUIDE.md           # Quick Tunnel sharing guide
+├── GIT_PUSH_AND_DEPLOY.md               # How the AI commits, pushes, and deploys to Railway (step by step)
 │
 ├── stories/                             # 10 Story Pipelines (9:16 vertical, 1080 x 1920 px)
 │   ├── CTA_STORY.md
@@ -43,7 +44,7 @@ docs/
 │   ├── DAY_NIGHT_FEED.md
 │   └── PRODUCT_SHOWCASE_FEED.md
 │
-├── reels/                               # 6 Reel Pipelines (9:16 video, 1080 x 1920 px)
+├── reels/                               # 7 Reel Pipelines (9:16 video, 1080 x 1920 px)
 │   ├── DAY_NIGHT_REEL.md
 │   ├── PRODUCT_CLOSEUP_REEL.md
 │   ├── BEFORE_AND_AFTER_REEL.md
@@ -115,6 +116,7 @@ docs/
 | [`MOODBOARD_REEL.md`](reels/MOODBOARD_REEL.md) | `tbl026zbECJJ9FRfj` (Chandelier) | 20.0s | 4-product moodboard video + 20s ElevenLabs audio. |
 | [`ONE_PRODUCT_THREE_STYLES_REEL.md`](reels/ONE_PRODUCT_THREE_STYLES_REEL.md) | `tbl6ls4AWcEcynBpZ` (Chandelier) | 18.0s | Three blended photos at 5s, 4s, 4s plus 5s outro. |
 | [`STYLE_REEL_SLIDESHOW.md`](reels/STYLE_REEL_SLIDESHOW.md) | `tblFFEvkHb3jLKrcv` (5-Room Set) | 11.0s | 5-room whole-home slideshow tour. |
+| [`ONE_AT_A_TIME_LIGHTS_REEL.md`](reels/ONE_AT_A_TIME_LIGHTS_REEL.md) | `tblJpEtBudQZda319` (One at a time Lights) | ~11.0s | Bedroom where 3 lights (table lamp, ceiling mounted, pendant) turn on one at a time via progressive Nano Banana Pro lighting blends, local FFmpeg crossfades, silent audio + brand outro. |
 
 ---
 
@@ -128,8 +130,11 @@ docs/
 | **Cluster Chandelier** | [`AD_COVER.md`](ads/AD_COVER.md) | `tbltouegkjgQwdr1u` (Cluster Chandelier) | `ADC-ADS-CL-<ID>` | Highest-priced newest cluster chandelier blended into a high-ceiling Krea 1:1 room + local Pillow ad-cover overlay, then extended to a 9:16 Story twin. |
 | **Pendant Light** | [`AD_COVER.md`](ads/AD_COVER.md) | `tbl99Cwda2Xn93giT` (Pendant Light) | `ADC-ADS-PE-<ID>` | Highest-priced newest pendant light blended into a dining room Krea 1:1 room + local Pillow ad-cover overlay, then extended to a 9:16 Story twin. |
 | **Wall Light** | [`AD_COVER.md`](ads/AD_COVER.md) | `tblUO5nybG9fIkhTT` (Wall Light) | `ADC-ADS-WL-<ID>` | Highest-priced newest wall light blended into a modern living room Krea 1:1 room + local Pillow ad-cover overlay, then extended to a 9:16 Story twin. |
+| **New Collection** | [`AD_COVER.md`](ads/AD_COVER.md) | `tbluMexgzcWE1pDZJ` (New Collection) | `ADC-ADS-NEW-<ID>` | Highest-priced newest chandelier blended into a Krea 1:1 living room + local Pillow "New Collection" overlay, then extended to a 9:16 Story twin. |
+| **On Sale Designs** | [`AD_COVER.md`](ads/AD_COVER.md) | `tbleQIVBooVazAyk3` (On Sale Designs) | `ADC-ADS-SALE-<ID>` | Highest-priced newest chandelier blended into a Krea 1:1 living room + local Pillow "On Sale" overlay, then extended to a 9:16 Story twin. |
+| **On Stock Designs** | [`AD_COVER.md`](ads/AD_COVER.md) | `tblX7tpTJhfH0UXmm` (On Stock Designs) | `ADC-ADS-STOCK-<ID>` | Highest-priced newest chandelier blended into a Krea 1:1 interior + local Pillow "On Stock" overlay, then extended to a 9:16 Story twin. |
 
-Ad Covers is a **standalone 4th top-level Studio tab** (not a sub-tab family): each of the 6 fixtures has its own run button, and one run produces both the 1:1 cover and its 9:16 Story twin. See [`AD_COVER.md`](ads/AD_COVER.md) for the 7-phase flow, status vocabulary, and CLI flags.
+Ad Covers is a **standalone 4th top-level Studio tab** (not a sub-tab family): each of the 9 fixtures has its own run button, and one run produces both the 1:1 cover and its 9:16 Story twin. See [`AD_COVER.md`](ads/AD_COVER.md) for the 7-phase flow, status vocabulary, and CLI flags.
 
 ---
 
@@ -140,6 +145,7 @@ Ad Covers is a **standalone 4th top-level Studio tab** (not a sub-tab family): e
 | [`CLOUDFLARE_TUNNEL_GUIDE.md`](CLOUDFLARE_TUNNEL_GUIDE.md) | 100% free, zero-config Cloudflare Quick Tunnel guide to share the live studio with coworkers. |
 | [`AUTO_POST_SCHEDULER.md`](AUTO_POST_SCHEDULER.md) | The Instagram auto-publish worker — what it does, its `CRON_SECRET` auth, and its dependency on a separate scheduling app outside this repo. |
 | [`OPERATIONS_AND_UTILITIES.md`](OPERATIONS_AND_UTILITIES.md) | Catalog of the Airtable data-maintenance, item-tagging, and diagnostic scripts that aren't Story/Feed/Reel/Ad Cover pipelines — including the `scratch/` Ad Cover schema and geometry verifiers. |
+| [`GIT_PUSH_AND_DEPLOY.md`](GIT_PUSH_AND_DEPLOY.md) | Detailed, step-by-step guide to how an AI agent commits, pushes `genspark_ai_developer`, fast-forwards `main`, and triggers the Railway deploy — what it checks, what it will never do, and what to do when a step fails. |
 
 ## 🧠 6. Project Memory
 
@@ -153,6 +159,7 @@ Ad Covers is a **standalone 4th top-level Studio tab** (not a sub-tab family): e
 | [`memory/decisions/ad-cover-complete-status-belongs-to-phase-7.md`](memory/decisions/ad-cover-complete-status-belongs-to-phase-7.md) | Why `Complete` moved off Phase 5 onto Phase 7 (Airtable `singleSelect` overwrites), why a story-branch failure still leaves the row `Complete`, and why Phase 6 needs its own outpaint prompt. |
 | [`memory/incidents/2026-09-17-floor-lamp-shopify-draft-inactive.md`](memory/incidents/2026-09-17-floor-lamp-shopify-draft-inactive.md) | Root cause of a Floor Lamp Shopify draft/inactive scraping incident and how it was diagnosed. |
 | [`memory/incidents/2026-09-19-control-ui-infinite-running-status.md`](memory/incidents/2026-09-19-control-ui-infinite-running-status.md) | Why the Control UI can show a pipeline as running forever, and how it was fixed. |
+| [`memory/incidents/2026-09-29-edit-modal-prop-mismatch-white-screen.md`](memory/incidents/2026-09-29-edit-modal-prop-mismatch-white-screen.md) | White screen when clicking the prompt/moodboard edit pencil: `App.tsx` passed stale prop names to the refactored modals (no type-check to catch it). |
 | [`memory/incidents/2026-09-19-one-product-3-styles-tagging-nameerror.md`](memory/incidents/2026-09-19-one-product-3-styles-tagging-nameerror.md) | NameError incident in the 1 Product 3 Styles tagging step. |
 | [`memory/incidents/2026-09-19-shopify-catalog-truncation-429.md`](memory/incidents/2026-09-19-shopify-catalog-truncation-429.md) | Shopify catalog truncation / HTTP 429 incident and mitigation. |
 | [`memory/incidents/2026-09-21-shopify-429-partial-cache.md`](memory/incidents/2026-09-21-shopify-429-partial-cache.md) | Follow-up to the 429 incident: throttling from page 27 onward made the crawler save a truncated catalog over the 12-hour disk cache, wrongly rejecting live products. Fix adds `Retry-After` parsing, staggered workers, and a partial-crawl guard that refuses to overwrite a good cache. |
@@ -165,6 +172,7 @@ Ad Covers is a **standalone 4th top-level Studio tab** (not a sub-tab family): e
 | :--- | :--- |
 | [`superpowers/plans/2026-09-16-studio-new-record-run-scope.md`](superpowers/plans/2026-09-16-studio-new-record-run-scope.md) | Design/plan only. The modules it names (`content_automation/studio_run_scope.py`, `UI Control/routes/studio_runs.py`) do **not** exist in the codebase. |
 | [`superpowers/specs/2026-09-16-studio-new-record-run-scope-design.md`](superpowers/specs/2026-09-16-studio-new-record-run-scope-design.md) | Same — spec for an unimplemented run-scope feature. Do not assume it is active behavior. |
+| [`superpowers/plans/2026-09-28-one-at-a-time-lights-reel.md`](superpowers/plans/2026-09-28-one-at-a-time-lights-reel.md) | **Superseded.** Describes a Seedance 2.0 / 4-fixture design. The shipped One at a time Lights Reel uses 3 fixtures + progressive Nano Banana blends + FFmpeg crossfade — see [`reels/ONE_AT_A_TIME_LIGHTS_REEL.md`](reels/ONE_AT_A_TIME_LIGHTS_REEL.md). |
 
 ## 📂 8. Legacy Per-Folder Notes
 

@@ -57,21 +57,21 @@ $$\text{Format: } \mathbf{CC\text{-}FEEDS\text{-}SET\text{-}\langle ROW\_ID\rang
 
 ## 5. 5-Status Lifecycle & PHT Timestamps
 
-```
-[ P ] Pending  ──►  [ S ] Scheduled  ──►  [ D ] Drafting  ──►  [ FM ] For Modification  ──►  [ C ] Completed
-```
+The Airtable single-select Status field tracks records across 5 lifecycle stages:
 
-- **`Pending` (`P`)**: Initial placeholder record created in Airtable.
-- **`Scheduled` (`S`)**: Queued for batch generation.
-- **`Drafting` (`D`)**: Under active processing through Krea rooms, Claude matching, or Fal blending.
-- **`For Modification` (`FM`)**: Set if image quality requires re-running a specific slot.
-- **`Completed` (`C`)**: All 5 slides generated, validated, and attached to Airtable.
+| Badge | Color | Lifecycle State | Airtable Status Value | Operational Meaning |
+| :---: | :---: | :--- | :--- | :--- |
+| **P** | Sky Blue | **Posted / Processing** | Posted, Processing, Pending, In Progress, intermediate phase statuses | Record is actively queued or being processed. |
+| **S** | Purple | **Scheduled** | Scheduled, Schedule | Approved and scheduled for publishing. |
+| **C** | Emerald | **Complete / Done** | Complete, Completed, Done | All phases complete; deliverables attached. |
+| **D** | Rose | **Discarded** | Discard, Discarded | Archived or rejected candidate. |
+| **FM** | Amber | **For Manual / Revision** | For Manual, Minor revision, FM | Flagged for manual review or adjustment. |
 
 ### Execution Timestamp
-Pipeline execution automatically writes the Philippine Standard Time timestamp (UTC+8) into the `Date & Time Run (PHT)` field:
-```
+When a row reaches Complete (C), the pipeline automatically writes the Philippine Standard Time timestamp (UTC+8, ISO 8601) into the **Date and Time Generated** field:
+`
 2026-09-07T13:12:00+08:00
-```
+`
 
 ---
 
@@ -99,7 +99,7 @@ Pipeline execution automatically writes the Philippine Standard Time timestamp (
 ### CLI Execution via PowerShell
 
 ```powershell
-# Run the complete 5-phase pipeline for all unprocessed rows
+# Run the complete 5-phase pipeline end-to-end
 python run_collection_category_feed.py --phase all --execute
 
 # Run specific phase for a targeted record ID
@@ -116,8 +116,9 @@ python run_collection_category_feed.py --phase 5 --execute
 ```
 
 ### Web UI Dashboard Execution
-1. Open `http://localhost:5200` in your web browser.
-2. Enter security PIN: `1234`
-3. Click the **Feed** tab in the main header.
-4. Select the **Collection Category Feeds** subtab (`tbl5o1j3XvUaUqmjs`).
-5. Review the 5-room progress columns and execute batch runs.
+1. Open http://localhost:5200 in your web browser.
+2. Enter the Studio PIN if DASHBOARD_PIN is configured.
+3. Click the **Feed** tab in the main navigation.
+4. Select the **Collection Category Feeds** subtab.
+5. Pick an active fixture category.
+6. Click the **Run** button on the fixture card, confirm the batch count (default 1) in the confirmation modal, and the pipeline will scrape a fresh active product and process it end-to-end.

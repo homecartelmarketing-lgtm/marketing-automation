@@ -31,7 +31,7 @@ cd "UI Control"
 python api_server.py
 ```
 Open **`http://localhost:5200`** to access:
-- **Interactive Format Tabs**: Switch between **Feed** (7 subtabs), **Story** (10 subtabs), **Reel** (6 subtabs), and **Ad Covers** (per-fixture run cards), with summed completed counts on each format and subtab.
+- **Interactive Format Tabs**: Switch between **Feed** (7 subtabs), **Story** (10 subtabs), **Reel** (7 subtabs), and **Ad Covers** — a standalone 4th top-level Studio tab (not a sub-tab family) of per-fixture run cards, one press producing both the 1:1 cover and its 9:16 Story twin — with summed completed counts on each format and subtab.
 - **Live Airtable Synchronization**: Real-time `P, S, C, D, FM` status badges on every lighting fixture card.
 - **Row Inspector Modal**: Instant search, status filtering, one-click Foreign Key ID copying, and direct deep links into Airtable rows (`Open in Airtable ↗`).
 - **Inline Settings & Security**: Krea moodboard and interior-prompt edits persist in `output/config_overrides.json` and `.env`; `DASHBOARD_PIN` protects edits when configured. See the [UI configuration map](docs/UI_CONTROL_CONFIG.md).
@@ -79,6 +79,7 @@ Open **`http://localhost:5200`** to access:
 | [`docs/AUTO_POST_SCHEDULER.md`](docs/AUTO_POST_SCHEDULER.md) | The always-on Instagram auto-publish worker that posts finished content at its scheduled PHT time. |
 | [`docs/CLOUDFLARE_TUNNEL_GUIDE.md`](docs/CLOUDFLARE_TUNNEL_GUIDE.md) | Free, zero-config Cloudflare Quick Tunnel setup (`launch_studio_cloudflare.py` / `.bat`) to share the live Studio with coworkers. |
 | [`docs/OPERATIONS_AND_UTILITIES.md`](docs/OPERATIONS_AND_UTILITIES.md) | Airtable maintenance, item-tagging, and diagnostic scripts that aren't part of the generation pipelines above. |
+| [`docs/GIT_PUSH_AND_DEPLOY.md`](docs/GIT_PUSH_AND_DEPLOY.md) | Step-by-step guide to how the AI commits, pushes to GitHub, and deploys to Railway (checks, guardrails, failure handling). |
 | [`docs/memory/README.md`](docs/memory/README.md) | Incidents, decisions, and architecture notes — why things broke and why choices were made. |
 
 ---
@@ -88,20 +89,28 @@ Open **`http://localhost:5200`** to access:
 | Pipeline Guide | Duration | Description | Key Tech / Models |
 | :--- | :---: | :--- | :--- |
 | [**`DAY_NIGHT_REEL.md`**](docs/reels/DAY_NIGHT_REEL.md) | 18s | Day-to-night timelapse video with AI jazz background audio and branded outro. | Fal Kling Video, Stable Audio, FFmpeg |
-| [**`PRODUCT_CLOSEUP_REEL.md`**](docs/reels/PRODUCT_CLOSEUP_REEL.md) | 15s | Cinematic camera zoom and 360 inspection reel highlighting craftsmanship. | Fal Kling Video, FFmpeg |
-| [**`BEFORE_AND_AFTER_REEL.md`**](docs/reels/BEFORE_AND_AFTER_REEL.md) | 15s | Room renovation transformation reel transitioning from bare room to styled interior. | Fal Kling Video, FFmpeg |
-| [**`MOODBOARD_REEL.md`**](docs/reels/MOODBOARD_REEL.md) | 15s | Texture montage reel cycling between room view, fabric swatches, and lighting details. | Fal Kling Video, FFmpeg |
-| [**`STYLE_REEL_SLIDESHOW.md`**](docs/reels/STYLE_REEL_SLIDESHOW.md) | 12s | Fast-cut lifestyle slideshow with dynamic audio beat synchronization. | Local FFmpeg, Pillow |
-| [**`ONE_PRODUCT_THREE_STYLES_REEL.md`**](docs/reels/ONE_PRODUCT_THREE_STYLES_REEL.md) | 18s | Chandelier blended-photo Reel with 5s, 4s, 4s photo holds and a 5s outro. | Krea, Fal, local FFmpeg |
+| [**`PRODUCT_CLOSEUP_REEL.md`**](docs/reels/PRODUCT_CLOSEUP_REEL.md) | ~13s | 4-product slideshow with Poppins titles and branded outro. | Local FFmpeg, Pillow, ElevenLabs |
+| [**`BEFORE_AND_AFTER_REEL.md`**](docs/reels/BEFORE_AND_AFTER_REEL.md) | ~15s | Room renovation transformation reel from bare room to styled interior. | Krea, Fal Nano Banana Pro, local FFmpeg |
+| [**`MOODBOARD_REEL.md`**](docs/reels/MOODBOARD_REEL.md) | 20s | 4-product moodboard video with luxury lounge background audio. | Fal Nano Banana Pro, ElevenLabs, local FFmpeg |
+| [**`STYLE_REEL_SLIDESHOW.md`**](docs/reels/STYLE_REEL_SLIDESHOW.md) | 11s | 5-room whole-home lifestyle slideshow tour. | Local FFmpeg, Pillow |
+| [**`ONE_PRODUCT_THREE_STYLES_REEL.md`**](docs/reels/ONE_PRODUCT_THREE_STYLES_REEL.md) | 18s | Chandelier 3-style blended-photo reel with custom holds and branded outro. | Krea, Fal Nano Banana Pro, YOLO-World, local FFmpeg |
+| [**`ONE_AT_A_TIME_LIGHTS_REEL.md`**](docs/reels/ONE_AT_A_TIME_LIGHTS_REEL.md) | ~11s | Silent bedroom reel where 3 lights (table lamp, ceiling, pendant) turn on one at a time, then all together, plus branded outro. | Krea, Fal Nano Banana Pro, YOLO-World, local FFmpeg |
 
 ---
 
-### 4. Ad Covers (1:1 Square, `1080 x 1080 px`)
+### 4. Ad Covers (1:1 `1080 x 1080 px` + 9:16 Story `1080 x 1920 px`)
 
 | Fixture | Pipeline Guide | Ratio | Description | Foreign Key Prefix | Studio State |
 | :--- | :--- | :---: | :--- | :---: | :--- |
-| **Chandelier** | [**`AD_COVER.md`**](docs/ads/AD_COVER.md) | 1:1 (1 image) | Highest-priced newest chandelier blended into a Krea 1:1 living room, then locally composited with the transparent ad-cover overlay. | `ADC-ADS-CH` | **Runnable** |
-| Pendant Light, Floor Lamp, Table Lamp, Cluster Chandelier, Wall Light | [**`AD_COVER.md`**](docs/ads/AD_COVER.md) | 1:1 (1 image) | Same 5-phase flow, scaffolded as disabled "Coming soon" cards in the Studio. | `ADC-ADS-<FIXTURE>` (reserved) | Coming soon |
+| **Chandelier** | [**`AD_COVER.md`**](docs/ads/AD_COVER.md) | 1:1 + 9:16 Story (2 images) | Highest-priced newest chandelier blended into a Krea 1:1 living room, locally composited with the transparent ad-cover overlay, then extended to 9:16 by Nano Banana Pro and composited with the story overlay. | `ADC-ADS-CH` | **Runnable** |
+| **Floor Lamp** | [**`AD_COVER.md`**](docs/ads/AD_COVER.md) | 1:1 + 9:16 Story (2 images) | Highest-priced newest floor lamp blended into a Krea 1:1 living room, locally composited with the ad-cover overlay, then extended to 9:16 and composited with the story overlay. | `ADC-ADS-FL` | **Runnable** |
+| **Table Lamp** | [**`AD_COVER.md`**](docs/ads/AD_COVER.md) | 1:1 + 9:16 Story (2 images) | Highest-priced newest table lamp blended into a Krea 1:1 bedroom/console, locally composited with the ad-cover overlay, then extended to 9:16 and composited with the story overlay. | `ADC-ADS-TL` | **Runnable** |
+| **Cluster Chandelier** | [**`AD_COVER.md`**](docs/ads/AD_COVER.md) | 1:1 + 9:16 Story (2 images) | Highest-priced newest cluster chandelier blended into a high-ceiling Krea 1:1 room, locally composited, then extended to 9:16 and composited with the story overlay. | `ADC-ADS-CL` | **Runnable** |
+| **Pendant Light** | [**`AD_COVER.md`**](docs/ads/AD_COVER.md) | 1:1 + 9:16 Story (2 images) | Highest-priced newest pendant light blended into a dining room Krea 1:1 interior, locally composited, then extended to 9:16 and composited with the story overlay. | `ADC-ADS-PE` | **Runnable** |
+| **Wall Light** | [**`AD_COVER.md`**](docs/ads/AD_COVER.md) | 1:1 + 9:16 Story (2 images) | Highest-priced newest wall light blended into a modern living room Krea 1:1 interior, locally composited, then extended to 9:16 and composited with the story overlay. | `ADC-ADS-WL` | **Runnable** |
+| **New Collection** | [**`AD_COVER.md`**](docs/ads/AD_COVER.md) | 1:1 + 9:16 Story (2 images) | Highest-priced newest chandelier blended into a Krea 1:1 living room, locally composited with the "New Collection" overlay, then extended to 9:16 and composited with the story overlay. | `ADC-ADS-NEW` | **Runnable** |
+| **On Sale Designs** | [**`AD_COVER.md`**](docs/ads/AD_COVER.md) | 1:1 + 9:16 Story (2 images) | Highest-priced newest chandelier blended into a Krea 1:1 living room, locally composited with the "On Sale" overlay, then extended to 9:16 and composited with the story overlay. | `ADC-ADS-SALE` | **Runnable** |
+| **On Stock Designs** | [**`AD_COVER.md`**](docs/ads/AD_COVER.md) | 1:1 + 9:16 Story (2 images) | Highest-priced newest chandelier blended into a Krea 1:1 interior, locally composited with the "On Stock" overlay, then extended to 9:16 and composited with the story overlay. | `ADC-ADS-STOCK` | **Runnable** |
 
 ---
 
@@ -111,7 +120,7 @@ Open **`http://localhost:5200`** to access:
 graph TD
     A[Akeneo PIM Catalog] -->|Active Products Only| B[Airtable Base appDM0jUDsaiThtR3]
     B -->|Standby Rows| C[Krea AI Room Interiors]
-    C -->|9:16 / 4:5 Interiors| D[Claude Sonnet 5 Prompt & Headline Engine]
+    C -->|9:16 / 4:5 / 1:1 Interiors| D[Claude Sonnet 5 Prompt & Headline Engine]
     D -->|Refined Prompts| E[Fal AI Nano Banana Pro Image Blending]
     E -->|Blended Composites| F[Local Python Pillow Auto-Layout Engine]
     F -->|Zero API Cost Layouts| G[Airtable Cloud Upload & P/S/C/D/FM Status Update]
@@ -157,6 +166,10 @@ python run_day_night_feed.py --limit 3
 # Product Showcase Feed (4:5)
 python generate_product_showcase_feed_pipeline.py --mode all --max-items 3
 
+# Ad Cover (1:1 `1080 x 1080 px` + 9:16 Story `1080 x 1920 px`) — 7 phases; one run writes both
+# Ad Cover Converted Image and Ad Cover Converted Image Story. Full mode list: docs/ads/AD_COVER.md §7
+python generate_ad_cover_pipeline.py --fixture chandelier --mode all --max-items 1
+
 # Auto Post Scheduler (publishes finished content to Instagram at its scheduled time)
 # See docs/AUTO_POST_SCHEDULER.md for its CRON_SECRET auth and external dependency.
 python run_auto_post_scheduler.py
@@ -170,4 +183,10 @@ python launch_studio_cloudflare.py
 ```bash
 python scratch/audit_all_feed_subtabs.py
 python scratch/test_feed_apis.py
+
+# Ad Cover: provision the table schema (idempotent), then verify one row's attachments
+# and assert the 1:1 / 9:16 geometry of both converted images
+python scratch/ensure_ad_cover_fields.py --table-id tblwIsDGZBPuYJV2Z
+python scratch/_verify_ad_cover_row.py
+python scratch/_verify_ad_cover_image.py
 ```

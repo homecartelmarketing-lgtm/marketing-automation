@@ -4,6 +4,7 @@
 
 - **Script**: [`run_auto_post_scheduler.py`](../run_auto_post_scheduler.py)
 - **Not covered elsewhere**: this worker isn't part of the Story/Feed/Reel generation pipelines documented under `docs/stories/`, `docs/feeds/`, `docs/reels/` — it runs *after* content is generated, as a separate always-on process.
+- **Ad Covers are out of scope here**: the 1:1 `Ad Cover Converted Image` and its 9:16 `Ad Cover Converted Image Story` are paid-ad creatives, and nothing in this repository posts them — the Ad Cover table id appears only in `content_automation/config.py`, `content_automation/foreign_key.py`, `UI Control/routes/ad_cover.py` and three `scratch/` helpers, and `generate_ad_cover_pipeline.py` ends at `Status: Complete` with a Zoho upload. Whether the external port-3000 app pulls them is decided in that other codebase; do not assume an Ad Cover row at `Complete` will go live organically. See [`ads/AD_COVER.md`](ads/AD_COVER.md).
 
 ## What it does
 

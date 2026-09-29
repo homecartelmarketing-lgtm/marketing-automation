@@ -9,7 +9,7 @@ This guide explains how to share the **HomeCartel Marketing Studio** (`http://lo
 ### Method A: Double-Click (Recommended for Windows)
 1. In Windows File Explorer, navigate to:
    ```
-   C:\Users\User\marketing-automation\
+   C:\Users\User\Desktop\marketing-automation\
    ```
 2. Double-click **`launch_studio_cloudflare.bat`**.
 3. A terminal window will open, start the tunnel, and print your public HTTPS link:
@@ -50,6 +50,8 @@ Optional CLI flags:
 | :--- | :---: | :---: |
 | **Browse all 10 Story Subtabs** | ✅ Allowed | ✅ Allowed |
 | **Browse all 7 Feed Subtabs** | ✅ Allowed | ✅ Allowed |
+| **Browse all 7 Reel Subtabs** | ✅ Allowed | ✅ Allowed |
+| **Browse Ad Covers Workspace** | ✅ Allowed | ✅ Allowed |
 | **View Live Status Badges (`P`, `S`, `C`, `D`, `FM`)** | ✅ Allowed | ✅ Allowed |
 | **Open Row Inspector & View Airtable Records** | ✅ Allowed | ✅ Allowed |
 | **Trigger Paid AI Runs (Fal AI, Claude, Krea)** | 🔒 Blocked (Prompts for PIN) | ✅ Allowed |
