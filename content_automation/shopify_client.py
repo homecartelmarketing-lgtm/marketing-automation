@@ -15,6 +15,13 @@ from typing import Any, Iterable
 
 import requests
 
+try:
+    from curl_cffi import requests as cffi_requests
+    HAS_CURL_CFFI = True
+except ImportError:
+    cffi_requests = None
+    HAS_CURL_CFFI = False
+
 
 def _parse_retry_after(header_val: str | None) -> float | None:
     """Parse HTTP Retry-After header which can be integer/float seconds or RFC 2822/7231 date."""
@@ -97,13 +104,32 @@ class ShopifyClient:
         self,
         domain: str = DEFAULT_SHOPIFY_DOMAIN,
         access_token: str | None = None,
-        session: requests.Session | None = None,
+        session: Any = None,
         max_workers: int = 8,
     ):
         clean_domain = domain.replace("https://", "").replace("http://", "").strip().rstrip("/")
         self.domain = clean_domain or "homecartel.net"
         self.access_token = access_token or os.getenv("SHOPIFY_ACCESS_TOKEN", "").strip() or None
-        self.session = session or requests.Session()
+        if session is not None:
+            self.session = session
+        elif HAS_CURL_CFFI:
+            # Use Chrome TLS fingerprint impersonation to avoid Cloudflare JA3 bot challenge heuristics
+            self.session = cffi_requests.Session(impersonate="chrome120")
+            self.session.headers.update({
+                "Accept": "application/json, text/plain, */*",
+                "Accept-Language": "en-US,en;q=0.9",
+            })
+        else:
+            self.session = requests.Session()
+            self.session.headers.update({
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/128.0.0.0 Safari/537.36"
+                ),
+                "Accept": "application/json, text/plain, */*",
+                "Accept-Language": "en-US,en;q=0.9",
+            })
         self.max_workers = max_workers
         self._cached_index: ShopifyCatalogIndex | None = None
 
@@ -125,6 +151,26 @@ class ShopifyClient:
         for attempt in range(max_retries):
             try:
                 resp = self.session.get(url, timeout=15)
+
+                # Check for Cloudflare bot challenge mitigation
+                resp_text = (resp.text[:1500] if hasattr(resp, "text") and resp.text else "").lower()
+                is_cf_challenge = (
+                    resp.status_code in (403, 429)
+                    and (
+                        resp.headers.get("Cf-Mitigated") == "challenge"
+                        or "verifying your connection" in resp_text
+                        or "<title>just a moment...</title>" in resp_text
+                    )
+                )
+                if is_cf_challenge:
+                    print(
+                        f"[WARN] Cloudflare bot challenge encountered on page {page_num} "
+                        f"(HTTP {resp.status_code}, Cf-Mitigated: challenge). "
+                        f"Skipping futile automated retries.",
+                        flush=True,
+                    )
+                    return page_num, [], False
+
                 if resp.status_code == 429:
                     retry_header = resp.headers.get("Retry-After")
                     delay = _parse_retry_after(retry_header)
@@ -269,11 +315,12 @@ class ShopifyClient:
     def load_published_identities(self, force_refresh: bool = False) -> ShopifyCatalogIndex:
         """Load and index all published product SKUs, titles, and handles from Shopify.
         
-        Applies a 12-hour TTL cache policy. If cache is fresh, loads from disk.
-        If cache is older than 12 hours, fetches live from Shopify and updates cache.
+        Applies a configurable TTL cache policy (default 24 hours). If cache is fresh, loads from disk.
+        If cache is expired, fetches live from Shopify and updates cache.
         Protects against partial cache truncation and catalog shrinkage.
         """
-        CACHE_MAX_AGE_SECONDS = 12 * 3600  # 12 hours TTL
+        ttl_hours = float(os.getenv("SHOPIFY_CACHE_TTL_HOURS", "24"))
+        CACHE_MAX_AGE_SECONDS = ttl_hours * 3600
 
         if self._cached_index is not None and not force_refresh:
             return self._cached_index
@@ -288,7 +335,7 @@ class ShopifyClient:
             except Exception:
                 pass
 
-        # 1. Try loading from disk cache first if not forced and cache is still fresh (< 12 hours)
+        # 1. Try loading from disk cache first if not forced and cache is still fresh
         if not force_refresh and cache_is_fresh:
             try:
                 data = json.loads(SHOPIFY_CACHE_FILE.read_text(encoding="utf-8"))
@@ -298,7 +345,7 @@ class ShopifyClient:
                 if skus or titles:
                     self._cached_index = ShopifyCatalogIndex(skus=skus, titles=titles, handles=handles)
                     print(
-                        f"[OK] Shopify Index loaded from cache (fresh, <12h old): "
+                        f"[OK] Shopify Index loaded from cache (fresh, <{ttl_hours:g}h old): "
                         f"{len(skus)} SKUs, and {len(titles)} titles indexed ({SHOPIFY_CACHE_FILE.name})."
                     )
                     return self._cached_index
@@ -431,3 +478,37 @@ class ShopifyClient:
         """Check if an item exists and is published on Shopify."""
         index = self.load_published_identities()
         return index.contains(sku, title)
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Shopify published catalog index utility.")
+    parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Force refresh catalog from live Shopify storefront.",
+    )
+    parser.add_argument(
+        "--status",
+        action="store_true",
+        help="Display cache status without modifying.",
+    )
+    args = parser.parse_args()
+
+    client = ShopifyClient()
+    if args.status:
+        if SHOPIFY_CACHE_FILE.is_file():
+            age_h = (time.time() - SHOPIFY_CACHE_FILE.stat().st_mtime) / 3600.0
+            data = json.loads(SHOPIFY_CACHE_FILE.read_text(encoding="utf-8"))
+            print(f"Shopify Cache: {SHOPIFY_CACHE_FILE.resolve()}")
+            print(f"Age: {age_h:.1f} hours old")
+            print(f"SKUs: {len(data.get('skus', []))}")
+            print(f"Titles: {len(data.get('titles', []))}")
+            print(f"Handles: {len(data.get('handles', []))}")
+        else:
+            print(f"Shopify Cache not found at {SHOPIFY_CACHE_FILE.resolve()}")
+    else:
+        idx = client.load_published_identities(force_refresh=args.refresh)
+        print(f"[READY] {len(idx.skus)} SKUs, {len(idx.titles)} titles indexed.")
+
