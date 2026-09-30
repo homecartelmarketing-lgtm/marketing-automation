@@ -72,7 +72,7 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
         pass
 
 # Load environment
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent
 load_dotenv(REPO_ROOT / ".env")
 load_dotenv()
 
@@ -86,7 +86,7 @@ from content_automation.config import load_settings
 from content_automation.errors import AutomationError
 from content_automation.fal_client import FalClient
 from content_automation.foreign_key import generate_foreign_key
-from content_automation.item_tagger import tag_blended_image
+from content_automation.item_tagger import tag_and_upload_blended_image
 from content_automation.krea_client import KreaClient
 from content_automation.media import download_to_temp_file
 from content_automation.shopify_client import ShopifyClient
@@ -236,10 +236,22 @@ FONT_BOLD_CANDIDATES = [
 class PipelineClients:
     def __init__(self, table_id: str):
         settings = load_settings()
-        self.airtable = ScrapeAirtableClient(table_id=table_id)
-        self.akeneo = AkeneoClient()
-        self.fal = FalClient()
-        self.krea = KreaClient()
+        self.settings = settings
+        self.airtable = ScrapeAirtableClient(
+            token=settings.airtable_token,
+            base_id=settings.airtable_base_id,
+            table_id=table_id,
+        )
+        self.akeneo = AkeneoClient(
+            host=settings.akeneo_host,
+            client_id=settings.akeneo_client_id,
+            secret=settings.akeneo_secret,
+            username=settings.akeneo_username,
+            password=settings.akeneo_password,
+            channel_name=os.getenv("CHANNEL_NAME", ""),
+        )
+        self.fal = FalClient(api_key=settings.fal_key)
+        self.krea = KreaClient(token=settings.krea_token, base_url=settings.krea_base_url)
         self.table_id = table_id
 
 
@@ -429,7 +441,7 @@ def run_phase_2_interior(
     print(f"  Prompt: \"{prompt}\"")
     print(f"  Moodboard ID: {moodboard_id or 'None'}")
 
-    krea_url = clients.krea.generate_image(
+    krea_url = clients.krea.generate(
         prompt=prompt,
         moodboard_id=moodboard_id,
         aspect_ratio="9:16",
@@ -557,19 +569,16 @@ def run_phase_4_blend(
     # YOLO-World luxury floating product tagging
     try:
         print("  [INFO] Running YOLO-World item tagger on blended image...")
-        tag_result = tag_blended_image(
-            image_path=temp_blended,
+        tag_and_upload_blended_image(
+            airtable=clients.airtable,
+            record_id=record_id,
+            blended_source=temp_blended,
             item_name=item_name,
-            output_dir=Path(tempfile.gettempdir()),
+            target_field=FIELD_BLENDED_TAGGED,
+            output_filename_prefix=f"blended_tagged_{record_id}",
+            fallback_if_undetected=True,
         )
-        if tag_result and tag_result.path.is_file():
-            clients.airtable.upload_attachment(
-                record_id,
-                FIELD_BLENDED_TAGGED,
-                tag_result.path,
-                f"blended_tagged_{record_id}.jpg",
-            )
-            print(f"  [OK] Tagged blended variant attached to '{FIELD_BLENDED_TAGGED}'.")
+        print(f"  [OK] Tagged blended variant attached to '{FIELD_BLENDED_TAGGED}'.")
     except Exception as e:
         print(f"  [WARN] YOLO item tagger notice: {e}")
 

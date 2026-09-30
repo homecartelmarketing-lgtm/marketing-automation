@@ -167,6 +167,8 @@ def health():
             "moodboard_reel",
             "one_product_three_styles_reel",
             "one_at_a_time_lights_reel",
+            "sketch_to_draw_reel",
+            "ad_cover",
         ],
     })
 

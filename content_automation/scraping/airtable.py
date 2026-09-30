@@ -426,6 +426,10 @@ class ScrapeAirtableClient:
 
             print(f"[OK] Updated {len(batch)} records")
 
+    def update_record(self, record_id: str, fields: dict[str, Any]) -> None:
+        """Patch fields on a single existing row by delegating to update_records."""
+        self.update_records([(record_id, fields)])
+
     def resolve_slot_field(self, base_name: str, slot: int) -> str:
         """Find the existing field name on Airtable for a given base field and slot."""
         indexed = f"{base_name}{slot + 1}"

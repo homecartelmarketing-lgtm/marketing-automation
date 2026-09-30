@@ -1059,6 +1059,24 @@ class FalClient:
             on_task_created=on_task_created,
         )
 
+    def generate_claude_vision(
+        self,
+        prompt: str,
+        image_urls: list[str],
+        *,
+        system_instruction: str = "",
+        model: str = "anthropic/claude-sonnet-5",
+        endpoint: str = "openrouter/router/vision",
+    ) -> str:
+        """Convenience method for Claude Vision prompts with optional system instruction."""
+        full_prompt = f"{system_instruction}\n\n{prompt}".strip() if system_instruction else prompt
+        return self.generate_vision_prompt(
+            image_urls=image_urls,
+            prompt=full_prompt,
+            model=model,
+            endpoint=endpoint,
+        )
+
     def generate_vision_prompt(
         self,
         image_urls: list[str],
