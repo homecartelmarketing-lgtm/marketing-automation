@@ -33,7 +33,8 @@ htmlcov/
 # Editors / OS / IDE config
 .vscode/
 .idea/
-.agents/
+.agents/*
+!.agents/skills
 .claude/
 .gemini/
 *.swp

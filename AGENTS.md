@@ -492,3 +492,22 @@ Every AI agent (and developer) working on this repository MUST strictly follow t
      ```
   3. Return the active local branch to `genspark_ai_developer`.
 
+---
+
+## 12. Integrated Workspace Agent Skills (`.agents/skills/`)
+
+The workspace includes 5 curated, version-controlled agent skills in `.agents/skills/` (whitelisted in `.gitignore`) for autonomous agents operating on this repository:
+
+1. **`airtable-automation`** (`.agents/skills/airtable-automation`):
+   - Schema enforcement, batch updates (10-records-per-call max), and `update_record` convenience patterns across 60+ tables.
+2. **`prompt-optimizer`** (`.agents/skills/prompt-optimizer`):
+   - Claude Sonnet 5 Vision JSON prompt templates, system instructions, and Krea diffusion prompt tuning.
+3. **`python-testing-patterns`** (`.agents/skills/python-testing-patterns`):
+   - Unittest isolation, mocking external AI APIs (Akeneo, Fal, Krea), and pre-commit checks (`python -m unittest discover -s tests -p "test_*.py"`).
+4. **`vercel-react-best-practices`** (`.agents/skills/vercel-react-best-practices`):
+   - React hook composition (`usePipelineData`, `usePipelineRunner`, `useQueue`), memoization, and Web Studio performance.
+5. **`vite`** (`.agents/skills/vite`):
+   - Production Vite bundling (`UI Control/dist/`), asset hashing, and SPA routing integration with Flask.
+
+See [`docs/SKILLS_GUIDE.md`](docs/SKILLS_GUIDE.md) for detailed workflows.
+
