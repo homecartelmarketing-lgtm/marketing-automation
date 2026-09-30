@@ -41,6 +41,7 @@ export const CONTENT_CONFIG: Record<TabType, { name: string; ratio: string; item
       'Moodboard',
       '1 Product, 3 Styles',
       'One at a time Lights',
+      'Sketch to Real',
     ],
   },
   adcover: {
@@ -224,6 +225,15 @@ export const ONE_AT_A_TIME_LIGHTS_REEL_FIXTURES: Omit<FixtureData, 'completed'>[
   { id: 'living-room', name: 'Bedroom', total: 100, tableId: 'tblJpEtBudQZda319', moodboardId: 'fb2487fb-2895-4d2c-9758-805aaf1bac69', prompt: 'Generate me a modern bedroom' },
 ];
 
+// Reel Subtab 7: Sketch to Real Reel (9:16)
+export const SKETCH_TO_DRAW_REEL_FIXTURES: Omit<FixtureData, 'completed'>[] = [
+  { id: 'chandeliers', name: 'Chandeliers', total: 100, tableId: 'tblSketchToRealChandeliers', moodboardId: 'b5ffdcbb-192e-4528-8d86-d1a4cf496887', prompt: 'Generate me a photo a modern luxury living room with high ceilings, clean architecture, warm natural daylight' },
+  { id: 'pendant', name: 'Pendant Lights', total: 100, tableId: 'tblSketchToRealPendants', moodboardId: 'de5f4ff8-518c-4d6b-b606-ce1d5dac51f3', prompt: 'Generate me a photo a modern dining room with dining table, elegant aesthetic, soft ambient lighting' },
+  { id: 'floor_lamp', name: 'Floor Lamps', total: 100, tableId: 'tblSketchToRealFloorLamps', moodboardId: 'b1641228-beec-4823-8d01-1de3eec8410d', prompt: 'Generate me a modern living room with lounge seating area, empty corner for standing floor lamp' },
+  { id: 'table_lamp', name: 'Table Lamps', total: 100, tableId: 'tblSketchToRealTableLamps', moodboardId: 'fb2487fb-2895-4d2c-9758-805aaf1bac69', prompt: 'Generate me a modern bedroom with nightstand bedside table, warm contemporary interior' },
+  { id: 'ceiling_mounted', name: 'Ceiling Mounted', total: 100, tableId: 'tblSketchToRealCeilingMounted', moodboardId: 'b5ffdcbb-192e-4528-8d86-d1a4cf496887', prompt: 'Generate me a modern hallway or contemporary bedroom ceiling, minimalist architectural space' },
+];
+
 // Ad Covers (1:1 + 9:16 Story). All 6 lighting fixtures are wired to their dedicated Airtable tables.
 export const AD_COVER_FIXTURES: Omit<FixtureData, 'completed'>[] = [
   { id: 'chandelier', name: 'Chandelier', total: 100, tableId: 'tblwIsDGZBPuYJV2Z', moodboardId: 'de6ad512-870d-4ab7-a48c-3f3ca85faf24', prompt: 'Generate me a modern living room', runnable: true },
@@ -282,6 +292,7 @@ export const getFixturesForSubtab = (tab: TabType, subtabIdx: number): Omit<Fixt
       case 4: return MOODBOARD_REEL_FIXTURES;
       case 5: return ONE_PRODUCT_THREE_STYLES_REEL_FIXTURES;
       case 6: return ONE_AT_A_TIME_LIGHTS_REEL_FIXTURES;
+      case 7: return SKETCH_TO_DRAW_REEL_FIXTURES;
       default: return DEFAULT_FIXTURES;
     }
   }

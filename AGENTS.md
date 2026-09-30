@@ -51,7 +51,7 @@ marketing-automation/
 │   ├── README.md                            # Documentation index & navigation map
 │   ├── stories/                             # 10 Story pipeline specs (9:16 vertical)
 │   ├── feeds/                               # 7 Feed pipeline specs (4:5 vertical)
-│   ├── reels/                               # 7 Reel pipeline specs (9:16 video)
+│   ├── reels/                               # 8 Reel pipeline specs (9:16 video)
 │   ├── ads/                                 # 1 Ad Cover pipeline spec (1:1 1080x1080 + 9:16 Story 1080x1920)
 │   ├── AUTO_POST_SCHEDULER.md               # Instagram auto-publish worker (external, cross-repo dependency)
 │   ├── OPERATIONS_AND_UTILITIES.md          # Airtable maintenance / tagging / diagnostic scripts
@@ -93,7 +93,7 @@ marketing-automation/
 ├── UI Control/                              # Full-stack Web Dashboard ("Studio")
 │   ├── api_server.py                        # THE Flask backend server (port 5200). NOTE: there is NO
 │   │                                        #   root-level api_server.py.
-│   ├── routes/                              # 25 pipeline blueprints + infrastructure:
+│   ├── routes/                              # 26 pipeline blueprints + infrastructure:
 │   │   ├── cta_story.py                     # Story: /api/cta/*          tips_edu_story.py  /api/tips-edu/*
 │   │   ├── collection_story.py              # /api/collection-story/*    day_night_story.py  /api/day-night-story/*
 │   │   ├── moodboard_story.py               # /api/moodboard-story/*     product_specs_story.py /api/product-specs/*
@@ -107,6 +107,7 @@ marketing-automation/
 │   │   ├── before_after_reel.py             # /api/before-after-reel/*    moodboard_reel.py
 │   │   ├── style_reel_slideshow.py          # /api/style-reel-slideshow/* one_product_three_styles_reel.py
 │   │   ├── one_at_a_time_lights_reel.py     # /api/one-at-a-time-lights-reel/* (3-fixture progressive-lighting reel)
+│   │   ├── sketch_to_draw_reel.py           # /api/sketch-to-draw-reel/* (architectural drawing transformation reel)
 │   │   ├── ad_cover.py                      # Ad Cover: /api/ad-cover/* (1:1 + 9:16 Story, per-fixture run)
 │   │   ├── queue_manager.py                 # In-memory FIFO job queue (/api/queue/*) — see §3
 │   │   ├── rows.py                          # Row Inspector & Airtable deep links (/api/rows)
@@ -200,7 +201,7 @@ Every record in every Story and Feed table must have a unique, human-readable Fo
 
 $$\text{Foreign Key ID} = \langle\text{Idea Abbr}\rangle\text{-}\langle\text{Format}\rangle\text{-}\langle\text{Fixture Code}\rangle\text{-}\langle\text{Row ID}\rangle$$
 
-- **Idea Abbr**: `CTA`, `TNE`, `CC`, `DN`, `MB`, `MB1`, `MB2`, `PCS`, `PCD`, `ST`, `MNF`, `TOT`, `OP3S`, `PS`, `PCR`, `BA`, `SRS`, `ADC`, `OATL`
+- **Idea Abbr**: `CTA`, `TNE`, `CC`, `DN`, `MB`, `MB1`, `MB2`, `PCS`, `PCD`, `ST`, `MNF`, `TOT`, `OP3S`, `PS`, `PCR`, `BA`, `SRS`, `ADC`, `OATL`, `STD`
 - **Format**: `STORY` (9:16), `FEEDS` (4:5), `REEL` (9:16 video), or `ADS` (Ad Cover row: carries the 1:1 cover and its 9:16 Story twin; the FK token stays `ADS`)
 - **Fixture Code**: `CH` (Chandelier), `PE` (Pendant), `FL` (Floor Lamp), `TL` (Table Lamp), `CL` (Cluster Chandelier), `WL` (Wall Light), `CM` (Ceiling Mounted), `SET` (Multi-room / Carousel), `LR` (Living Room / Bedroom, One at a time Lights Reel), `NEW` / `SALE` / `STOCK` (New Collection / On Sale Designs / On Stock Designs, Ad Cover only), plus `LC` (Linear Chandelier) and `WS` (Wall Sconce) which appear only in `MB-REEL` table entries
 - **Examples**: `CTA-STORY-CH-24`, `TNE-FEEDS-FL-1`, `CC-FEEDS-SET-22`, `OP3S-FEEDS-PE-4`, `PCR-REEL-TL-1`

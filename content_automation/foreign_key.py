@@ -8,6 +8,7 @@ Examples:
 """
 
 from __future__ import annotations
+import os
 import re
 from typing import Any
 
@@ -181,6 +182,20 @@ TABLE_PREFIX_MAP: dict[str, str] = {
     # One at a time Lights Reel
     "tblJpEtBudQZda319": "OATL-REEL-LR",
 
+    # Sketch to Real Reel (STR) & Sketch to Draw (STD) aliases
+    "tblSketchToRealReel": "STR-REEL-SET",
+    "tblSketchToRealChandeliers": "STR-REEL-CH",
+    "tblSketchToRealPendants": "STR-REEL-PE",
+    "tblSketchToRealFloorLamps": "STR-REEL-FL",
+    "tblSketchToRealTableLamps": "STR-REEL-TL",
+    "tblSketchToRealCeilingMounted": "STR-REEL-CM",
+    "tblSketchToDrawReel": "STR-REEL-SET",
+    "tblSketchToDrawChandeliers": "STR-REEL-CH",
+    "tblSketchToDrawPendants": "STR-REEL-PE",
+    "tblSketchToDrawFloorLamps": "STR-REEL-FL",
+    "tblSketchToDrawTableLamps": "STR-REEL-TL",
+    "tblSketchToDrawCeilingMounted": "STR-REEL-CM",
+
     # 13. Ad Cover Tables
     "tblwIsDGZBPuYJV2Z": "ADC-ADS-CH",
     "tbl27FKuDUD4FdJUR": "ADC-ADS-FL",
@@ -192,6 +207,25 @@ TABLE_PREFIX_MAP: dict[str, str] = {
     "tbleQIVBooVazAyk3": "ADC-ADS-SALE",
     "tblX7tpTJhfH0UXmm": "ADC-ADS-STOCK",
 }
+
+# Dynamically register any Sketch to Real / Draw Reel env overrides
+for _env_key, _prefix in (
+    ("AIRTABLE_TABLE_ID_SKETCH_TO_REAL_REEL", "STR-REEL-SET"),
+    ("AIRTABLE_TABLE_ID_CHANDELIERS_SKETCH_TO_REAL_REEL", "STR-REEL-CH"),
+    ("AIRTABLE_TABLE_ID_PENDANT_LIGHTS_SKETCH_TO_REAL_REEL", "STR-REEL-PE"),
+    ("AIRTABLE_TABLE_ID_FLOOR_LAMPS_SKETCH_TO_REAL_REEL", "STR-REEL-FL"),
+    ("AIRTABLE_TABLE_ID_TABLE_LAMPS_SKETCH_TO_REAL_REEL", "STR-REEL-TL"),
+    ("AIRTABLE_TABLE_ID_CEILING_MOUNTED_SKETCH_TO_REAL_REEL", "STR-REEL-CM"),
+    ("AIRTABLE_TABLE_ID_SKETCH_TO_DRAW_REEL", "STR-REEL-SET"),
+    ("AIRTABLE_TABLE_ID_CHANDELIERS_SKETCH_TO_DRAW_REEL", "STR-REEL-CH"),
+    ("AIRTABLE_TABLE_ID_PENDANT_LIGHTS_SKETCH_TO_DRAW_REEL", "STR-REEL-PE"),
+    ("AIRTABLE_TABLE_ID_FLOOR_LAMPS_SKETCH_TO_DRAW_REEL", "STR-REEL-FL"),
+    ("AIRTABLE_TABLE_ID_TABLE_LAMPS_SKETCH_TO_DRAW_REEL", "STR-REEL-TL"),
+    ("AIRTABLE_TABLE_ID_CEILING_MOUNTED_SKETCH_TO_DRAW_REEL", "STR-REEL-CM"),
+):
+    _val = os.getenv(_env_key, "").strip()
+    if _val:
+        TABLE_PREFIX_MAP[_val] = _prefix
 
 
 def resolve_fixture_abbr(fixture_name_or_key: str) -> str:
@@ -211,7 +245,9 @@ def resolve_table_prefix(table_id: str, table_name: str = "") -> str:
     # Fallback heuristic using table name
     t_lower = table_name.lower()
     idea = "HC"
-    if "cta" in t_lower:
+    if "sketch" in t_lower:
+        idea = "STR"
+    elif "cta" in t_lower:
         idea = "CTA"
     elif "tips" in t_lower or "edu" in t_lower:
         idea = "TNE"
@@ -242,9 +278,9 @@ def resolve_table_prefix(table_id: str, table_name: str = "") -> str:
     elif "ad cover" in t_lower:
         idea = "ADC"
 
-    if "ad cover" in t_lower:
+    if "ad cover" in t_lower or idea == "ADC":
         content_type = "ADS"
-    elif "reel" in t_lower:
+    elif "reel" in t_lower or idea in ("STR", "STD", "OATL", "PCR", "SRS", "BA"):
         content_type = "REEL"
     elif "feed" in t_lower:
         content_type = "FEEDS"

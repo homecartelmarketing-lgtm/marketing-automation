@@ -44,13 +44,15 @@ docs/
 │   ├── DAY_NIGHT_FEED.md
 │   └── PRODUCT_SHOWCASE_FEED.md
 │
-├── reels/                               # 7 Reel Pipelines (9:16 video, 1080 x 1920 px)
+├── reels/                               # 8 Reel Pipelines (9:16 video, 1080 x 1920 px)
 │   ├── DAY_NIGHT_REEL.md
 │   ├── PRODUCT_CLOSEUP_REEL.md
 │   ├── BEFORE_AND_AFTER_REEL.md
 │   ├── MOODBOARD_REEL.md
 │   ├── STYLE_REEL_SLIDESHOW.md
-│   └── ONE_PRODUCT_THREE_STYLES_REEL.md
+│   ├── ONE_PRODUCT_THREE_STYLES_REEL.md
+│   ├── ONE_AT_A_TIME_LIGHTS_REEL.md
+│   └── SKETCH_TO_DRAW_REEL.md
 │
 ├── ads/                                 # Ad Cover Pipeline (1:1 1080 x 1080 + 9:16 Story 1080 x 1920)
 │   └── AD_COVER.md
@@ -117,6 +119,7 @@ docs/
 | [`ONE_PRODUCT_THREE_STYLES_REEL.md`](reels/ONE_PRODUCT_THREE_STYLES_REEL.md) | `tbl6ls4AWcEcynBpZ` (Chandelier) | 18.0s | Three blended photos at 5s, 4s, 4s plus 5s outro. |
 | [`STYLE_REEL_SLIDESHOW.md`](reels/STYLE_REEL_SLIDESHOW.md) | `tblFFEvkHb3jLKrcv` (5-Room Set) | 11.0s | 5-room whole-home slideshow tour. |
 | [`ONE_AT_A_TIME_LIGHTS_REEL.md`](reels/ONE_AT_A_TIME_LIGHTS_REEL.md) | `tblJpEtBudQZda319` (One at a time Lights) | ~11.0s | Bedroom where 3 lights (table lamp, ceiling mounted, pendant) turn on one at a time via progressive Nano Banana Pro lighting blends, local FFmpeg crossfades, silent audio + brand outro. |
+| [`SKETCH_TO_DRAW_REEL.md`](reels/SKETCH_TO_DRAW_REEL.md) | `tblSketchToDrawReel` / Per Category | ~12.0s | Architectural hand-drawn pencil/blueprint sketch animating into photorealistic warm luxury room interior + Instagram cover + outro. |
 
 ---
 

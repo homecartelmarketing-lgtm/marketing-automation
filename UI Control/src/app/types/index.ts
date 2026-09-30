@@ -51,5 +51,6 @@ export type PipelineType =
   | 'moodboard-reel'
   | 'one-product-three-styles-reel'
   | 'one-at-a-time-lights-reel'
+  | 'sketch-to-draw-reel'
   | 'ad-cover'
   | null;

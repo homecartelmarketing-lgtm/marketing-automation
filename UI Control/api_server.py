@@ -50,6 +50,7 @@ from routes.style_reel_slideshow import style_reel_slideshow_bp
 from routes.moodboard_reel import moodboard_reel_bp
 from routes.one_product_three_styles_reel import one_product_three_styles_reel_bp
 from routes.one_at_a_time_lights_reel import one_at_a_time_lights_reel_bp
+from routes.sketch_to_draw_reel import sketch_to_draw_reel_bp
 from routes.ad_cover import ad_cover_bp
 from routes.rows import rows_bp
 from routes.queue_manager import queue_bp, set_server_port
@@ -85,6 +86,7 @@ app.register_blueprint(style_reel_slideshow_bp)
 app.register_blueprint(moodboard_reel_bp)
 app.register_blueprint(one_product_three_styles_reel_bp)
 app.register_blueprint(one_at_a_time_lights_reel_bp)
+app.register_blueprint(sketch_to_draw_reel_bp)
 app.register_blueprint(ad_cover_bp)
 app.register_blueprint(rows_bp)
 app.register_blueprint(queue_bp)
