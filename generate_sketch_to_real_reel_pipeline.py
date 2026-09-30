@@ -113,7 +113,7 @@ TARGET_CONFIG: dict[str, dict[str, Any]] = {
             "AIRTABLE_TABLE_ID_SKETCH_TO_REAL_REEL",
             "AIRTABLE_TABLE_ID_SKETCH_TO_DRAW_REEL",
         ],
-        "default_table": "tblSketchToRealChandeliers",
+        "default_table": "tblUFR6OvFQaHnG1V",
         "moodboard_id": os.getenv("KREA_MOODBOARD_ID_SKETCH_TO_REAL_CHANDELIERS")
         or os.getenv("KREA_MOODBOARD_ID_SKETCH_TO_DRAW_CHANDELIERS")
         or "b5ffdcbb-192e-4528-8d86-d1a4cf496887",

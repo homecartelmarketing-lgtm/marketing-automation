@@ -508,6 +508,7 @@ The workspace includes 5 curated, version-controlled agent skills in `.agents/sk
    - React hook composition (`usePipelineData`, `usePipelineRunner`, `useQueue`), memoization, and Web Studio performance.
 5. **`vite`** (`.agents/skills/vite`):
    - Production Vite bundling (`UI Control/dist/`), asset hashing, and SPA routing integration with Flask.
+6. **`git-guardrails-claude-code`** (`.agents/skills/git-guardrails-claude-code`):
+   - Safety hooks and guardrails blocking destructive git commands (`git push --force`, `git reset --hard`, accidental wipeouts).
 
-See [`docs/SKILLS_GUIDE.md`](docs/SKILLS_GUIDE.md) for detailed workflows.
-
+See [`docs/SKILLS_GUIDE.md`](docs/SKILLS_GUIDE.md) for detailed workflows.

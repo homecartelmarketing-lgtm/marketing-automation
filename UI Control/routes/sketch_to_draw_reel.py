@@ -31,7 +31,7 @@ SKETCH_TO_DRAW_TABLE_CONFIG: dict[str, dict[str, str]] = {
     "chandeliers": {
         "env_key": "AIRTABLE_TABLE_ID_CHANDELIERS_SKETCH_TO_REAL_REEL",
         "fallback_env": "AIRTABLE_TABLE_ID_CHANDELIERS_SKETCH_TO_DRAW_REEL",
-        "default": "tblSketchToRealChandeliers",
+        "default": "tblUFR6OvFQaHnG1V",
         "name": "Chandeliers",
         "target": "chandeliers",
     },

@@ -14,10 +14,17 @@
 | **`python-testing-patterns`** | [`.agents/skills/python-testing-patterns`](file:///c:/Users/User/Desktop/marketing-automation/.agents/skills/python-testing-patterns/SKILL.md) | Unittest suite organization, test isolation, mocking external AI APIs (Akeneo, Fal, Krea), and pre-commit checks. |
 | **`vercel-react-best-practices`** | [`.agents/skills/vercel-react-best-practices`](file:///c:/Users/User/Desktop/marketing-automation/.agents/skills/vercel-react-best-practices/SKILL.md) | React component optimization, hook composition (`usePipelineData`, `usePipelineRunner`, `useQueue`), and eliminating unnecessary re-renders in Web Studio. |
 | **`vite`** | [`.agents/skills/vite`](file:///c:/Users/User/Desktop/marketing-automation/.agents/skills/vite/SKILL.md) | Production Vite bundling (`UI Control/dist/`), asset hashing, and client-side SPA routing integration with Flask. |
+| **`git-guardrails-claude-code`** | [`.agents/skills/git-guardrails-claude-code`](file:///c:/Users/User/Desktop/marketing-automation/.agents/skills/git-guardrails-claude-code/SKILL.md) | Intercepts and blocks destructive git operations (`git push --force`, `git reset --hard`, accidental wipeouts). |
 
 ---
 
 ## 2. How to Use Each Skill
+
+### `git-guardrails-claude-code`
+- Used whenever running git commands or automating git pushes.
+- **Rule:** Blocks destructive commands like `git push --force`, `git reset --hard`, or indiscriminate file additions. Keeps deployments strictly aligned with [`docs/GIT_PUSH_AND_DEPLOY.md`](GIT_PUSH_AND_DEPLOY.md).
+
+
 
 ### `airtable-automation`
 - Used whenever modifying `content_automation/airtable_client.py`, `content_automation/scraping/airtable.py`, or any pipeline's Airtable writes.
