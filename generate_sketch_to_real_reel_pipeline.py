@@ -88,7 +88,7 @@ from content_automation.fal_client import FalClient
 from content_automation.foreign_key import generate_foreign_key
 from content_automation.item_tagger import tag_and_upload_blended_image
 from content_automation.krea_client import KreaClient
-from content_automation.media import download_to_temp_file
+from content_automation.media import download_url_to_temp_file
 from content_automation.shopify_client import ShopifyClient
 from content_automation.scraping.airtable import ScrapeAirtableClient
 from content_automation.scraping.furniture_item import fetch_all_base_existing_identities
@@ -462,8 +462,9 @@ def run_phase_2_interior(
     )
     print(f"  [OK] Krea generated interior: {krea_url[:70]}...")
 
-    temp_interior = download_to_temp_file(krea_url, suffix=".jpg")
-    clients.airtable.upload_attachment(record_id, FIELD_INTERIOR, temp_interior, f"krea_interior_{record_id}.jpg")
+    downloaded_interior = clients.krea.download_image(krea_url)
+    temp_interior = Path(downloaded_interior.path)
+    clients.airtable.upload_attachment(record_id, FIELD_INTERIOR, downloaded_interior, f"krea_interior_{record_id}.jpg")
     clients.airtable.update_record(record_id, {
         FIELD_INTERIOR_PROMPT: prompt,
         FIELD_STATUS: "Interior Generated",
@@ -576,8 +577,15 @@ def run_phase_4_blend(
     )
     print(f"  [OK] Nano Banana Pro blend produced: {blended_url[:70]}...")
 
-    temp_blended = download_to_temp_file(blended_url, suffix=".jpg")
-    clients.airtable.upload_attachment(record_id, FIELD_BLENDED_IMAGE, temp_blended, f"blended_{record_id}.jpg")
+    downloaded_blended = download_url_to_temp_file(
+        requests.Session(),
+        blended_url,
+        prefix="blended_",
+        suffix=".jpg",
+        context=f"Download Nano Banana Pro blend from {blended_url}",
+    )
+    temp_blended = Path(downloaded_blended.path)
+    clients.airtable.upload_attachment(record_id, FIELD_BLENDED_IMAGE, downloaded_blended, f"blended_{record_id}.jpg")
 
     # YOLO-World luxury floating product tagging
     try:
