@@ -92,7 +92,7 @@ from content_automation.media import download_to_temp_file
 from content_automation.shopify_client import ShopifyClient
 from content_automation.scraping.airtable import ScrapeAirtableClient
 from content_automation.scraping.furniture_item import fetch_all_base_existing_identities
-from content_automation.scraping.products import existing_product_identities, identity_key
+from content_automation.scraping.products import existing_product_identities, identity_key, product_item
 
 # --------------------------------------------------------------------------
 # Constants & Defaults
@@ -344,12 +344,25 @@ def run_phase_1_scrape(
 
     # 4. Search Akeneo
     print(f"  [INFO] Querying Akeneo PIM for active items in '{category_slug}'...")
-    candidates = clients.akeneo.search_products(
-        category=category_slug,
-        limit=50,
-        style=style,
+    query: dict[str, Any] = {
+        "categories": [{"operator": "IN", "value": [category_slug]}],
+        "enabled": [{"operator": "=", "value": True}],
+    }
+    if style and style.lower() != "all":
+        query["Style2"] = [{"operator": "IN", "value": [style]}]
+
+    raw_candidates = clients.akeneo.fetch_products(query)
+    raw_candidates.sort(
+        key=lambda x: str(x.get("updated") or x.get("created") or ""),
+        reverse=True,
     )
-    print(f"  [INFO] Akeneo returned {len(candidates)} raw candidate(s).")
+    print(f"  [INFO] Akeneo returned {len(raw_candidates)} raw candidate(s).")
+
+    candidates = []
+    for raw in raw_candidates:
+        item = product_item(raw)
+        if item:
+            candidates.append(item)
 
     created_records: list[str] = []
     current_counter = max_row_id if max_row_id > 0 else existing_record_count
@@ -359,8 +372,8 @@ def run_phase_1_scrape(
             break
 
         sku = (cand.sku or "").strip()
-        item_name = (cand.name or "").strip()
-        clean_name = split_item_name(item_name)
+        item_name = (cand.item_name or "").strip()
+        clean_name, _ = split_item_name(item_name)
         norm_sku = sku.lower()
         norm_name = clean_name.lower()
 
