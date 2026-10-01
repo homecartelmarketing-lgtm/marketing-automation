@@ -1,5 +1,8 @@
 # Sketch to Draw Reel Automation Pipeline
 
+> [!NOTE]
+> **Superseded by [Sketch to Real Reel](SKETCH_TO_REAL_REEL.md).** `generate_sketch_to_draw_reel_pipeline.py` is now a thin alias that calls the Sketch to Real pipeline's `main()`, and the Studio "Sketch to Real" subtab (`/api/sketch-to-draw-reel/*`) runs that pipeline. Rows get `STR-REEL-*` Foreign Key IDs (the `STD` table aliases in `foreign_key.py` map to `STR`). The design below (Nano Banana sketch, Kling/Grok video, caption, music) is the original spec and is **not** what the code does today; use the Sketch to Real doc for current behaviour, tables and commands.
+
 The **Sketch to Draw Reel Automation Pipeline** generates high-engagement **~12-second 9:16 vertical video reels (1080 x 1920 px)** for social media (Instagram Reels, TikTok, YouTube Shorts). It demonstrates an architectural transformation: beginning with a hand-drawn pencil/blueprint sketch of a room interior featuring a HomeCartel lighting fixture that animates in real-time, line-by-line, and blossoms into a photorealistic, warmly illuminated luxury room interior, complete with an Instagram thumbnail cover, Claude copywriting, YOLO item tagging, and branded outro.
 
 ---
@@ -48,9 +51,9 @@ $$\text{Format: } \mathbf{STD\text{-}REEL\text{-}\langle FIXTURE\rangle\text{-}\
   - `SET`: Multi-fixture / Unified Table
 
 ### Real-World Examples:
-- `STD-REEL-CH-1` (Row 1 of Chandeliers Sketch to Draw Reel)
-- `STD-REEL-PE-4` (Row 4 of Pendant Lights Sketch to Draw Reel)
-- `STD-REEL-FL-2` (Row 2 of Floor Lamps Sketch to Draw Reel)
+- `STR-REEL-CH-1` (Row 1 of Chandeliers Sketch to Draw Reel)
+- `STR-REEL-PE-4` (Row 4 of Pendant Lights Sketch to Draw Reel)
+- `STR-REEL-FL-2` (Row 2 of Floor Lamps Sketch to Draw Reel)
 
 ---
 
@@ -71,7 +74,7 @@ $$\text{Format: } \mathbf{STD\text{-}REEL\text{-}\langle FIXTURE\rangle\text{-}\
 
 | # | Field Name | Type | Operational Description |
 | :-: | :--- | :--- | :--- |
-| 1 | `Foreign Key ID` | `singleLineText` | Unique identifier (e.g. `STD-REEL-CH-1`) |
+| 1 | `Foreign Key ID` | `singleLineText` | Unique identifier (e.g. `STR-REEL-CH-1`) |
 | 2 | `ID` | `number` / `autoNumber` | Row index counter |
 | 3 | `Date and Time Generated` | `dateTime` (PHT) | Timestamp auto-injected when Status reaches Done |
 | 4 | `Status` | `singleSelect` | `Standby`, `In progress`, `Scheduled`, `Done`, `Discarded`, `For Manual` |
@@ -104,16 +107,16 @@ $$\text{Format: } \mathbf{STD\text{-}REEL\text{-}\langle FIXTURE\rangle\text{-}\
 
 ```powershell
 # Run for Chandeliers
-python python-content-script/run_sketch_to_draw_reel.py --target chandeliers --max-items 1
+python generate_sketch_to_draw_reel_pipeline.py --target chandeliers --max-items 1
 
 # Run for Pendant Lights
-python python-content-script/run_sketch_to_draw_reel.py --target pendant_lights --max-items 1
+python generate_sketch_to_draw_reel_pipeline.py --target pendant_lights --max-items 1
 
 # Run with Zero-API local FFmpeg crossfade transition (no video API cost)
-python python-content-script/run_sketch_to_draw_reel.py --target floor_lamps --video-engine ffmpeg
+python generate_sketch_to_draw_reel_pipeline.py --target floor_lamps --video-engine ffmpeg
 
 # Re-run a specific record
-python python-content-script/run_sketch_to_draw_reel.py --record-id recXXXXXXXXXXXXXX
+python generate_sketch_to_draw_reel_pipeline.py --record-id recXXXXXXXXXXXXXX
 ```
 
 ### Web Studio Execution (Port 5200)
@@ -121,6 +124,6 @@ python python-content-script/run_sketch_to_draw_reel.py --record-id recXXXXXXXXX
 1. Launch Studio: `python "UI Control/api_server.py"`
 2. Open `http://localhost:5200` in your web browser.
 3. Click the **Reel** tab in the main navigation.
-4. Select the **Sketch to Draw** subtab (Subtab 7).
-5. Pick an active fixture category card (**Chandeliers**, **Pendant Lights**, **Floor Lamps**, **Table Lamps**, or **Ceiling Mounted**).
+4. Select the **Sketch to Real** subtab (Subtab 7; it runs the Sketch to Real pipeline, see the note at the top).
+5. Pick an active fixture card (**Chandeliers** or **Pendant Lights**; the other fixtures have no Airtable table yet).
 6. Click **Run**, confirm the batch count (default 1), and monitor real-time phase progress and streaming execution logs.

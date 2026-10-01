@@ -46,7 +46,7 @@ Open **`http://localhost:5200`** to access:
 | Subtab # | Pipeline Guide | Ratio & Slides | Description | Foreign Key Prefix |
 | :---: | :--- | :--- | :--- | :---: |
 | **0** | [**`CTA_STORY.md`**](docs/stories/CTA_STORY.md) | 9:16 (1 slide) | Single-product lifestyle interior, Claude headline, top-right logo, and Canva CTA layout box. | `CTA-STORY` |
-| **1** | [**`TIPS_AND_EDU_STORY.md`**](docs/stories/TIPS_AND_EDU_STORY.md) | 9:16 (1 slide) | YOLO product tagging, tips infographic layout, and educational design breakdown. | `TNE-STORY` |
+| **1** | [**`TIPS_AND_EDU_STORY.md`**](docs/stories/TIPS_AND_EDU_STORY.md) | 9:16 (1 slide) | YOLO product name tag plus a local-Pillow "Style Tip of the Day" layout with a Claude-written styling tip. | `TNE-STORY` |
 | **2** | [**`COLLECTION_CATEGORY_STORY.md`**](docs/stories/COLLECTION_CATEGORY_STORY.md) | 9:16 (1 slide) | 3-product collage grid, Poppins Bold titles, and brand watermark overlay. | `CC-STORY` |
 | **3** | [**`DAY_NIGHT_STORY.md`**](docs/stories/DAY_NIGHT_STORY.md) | 9:16 (2 slides) | Daytime photorealistic room blend and evening night lighting transformation. | `DN-STORY` |
 | **4** | [**`MOODBOARD_STORY.md`**](docs/stories/MOODBOARD_STORY.md) | 9:16 (2 slides) | Product room integration paired with a branded luxury moodboard swatch card. | `MB-STORY` |
@@ -95,6 +95,7 @@ Open **`http://localhost:5200`** to access:
 | [**`STYLE_REEL_SLIDESHOW.md`**](docs/reels/STYLE_REEL_SLIDESHOW.md) | 11s | 5-room whole-home lifestyle slideshow tour. | Local FFmpeg, Pillow |
 | [**`ONE_PRODUCT_THREE_STYLES_REEL.md`**](docs/reels/ONE_PRODUCT_THREE_STYLES_REEL.md) | 18s | Chandelier 3-style blended-photo reel with custom holds and branded outro. | Krea, Fal Nano Banana Pro, YOLO-World, local FFmpeg |
 | [**`ONE_AT_A_TIME_LIGHTS_REEL.md`**](docs/reels/ONE_AT_A_TIME_LIGHTS_REEL.md) | ~11s | Silent bedroom reel where 3 lights (table lamp, ceiling, pendant) turn on one at a time, then all together, plus branded outro. | Krea, Fal Nano Banana Pro, YOLO-World, local FFmpeg |
+| [**`SKETCH_TO_REAL_REEL.md`**](docs/reels/SKETCH_TO_REAL_REEL.md) | ~11s | Hand-drawn room outline animates line by line into the photorealistic lit interior, with cover and branded outro (Chandelier and Pendant). `SKETCH_TO_DRAW_REEL.md` is the superseded original spec. | Krea, Fal Nano Banana Pro, YOLO-World, local Auto Draw + FFmpeg |
 
 ---
 

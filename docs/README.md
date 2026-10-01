@@ -52,7 +52,8 @@ docs/
 │   ├── STYLE_REEL_SLIDESHOW.md
 │   ├── ONE_PRODUCT_THREE_STYLES_REEL.md
 │   ├── ONE_AT_A_TIME_LIGHTS_REEL.md
-│   └── SKETCH_TO_DRAW_REEL.md
+│   ├── SKETCH_TO_REAL_REEL.md
+│   └── SKETCH_TO_DRAW_REEL.md           # superseded by SKETCH_TO_REAL_REEL.md
 │
 ├── ads/                                 # Ad Cover Pipeline (1:1 1080 x 1080 + 9:16 Story 1080 x 1920)
 │   └── AD_COVER.md
@@ -86,7 +87,7 @@ docs/
 | Subtab | Pipeline Documentation | Primary Airtable Table ID | Foreign Key Prefix | Output Description |
 | :---: | :--- | :--- | :--- | :--- |
 | **0** | [`CTA_STORY.md`](stories/CTA_STORY.md) | `tblYHdVq14FjMWg5o` (Chandelier) | `CTA-STORY-<FIXTURE>-<ID>` | Blended lifestyle room + Claude luxury headline + local Pillow CTA watermark layout. |
-| **1** | [`TIPS_AND_EDU_STORY.md`](stories/TIPS_AND_EDU_STORY.md) | `tblwnFN5a8fLzKuP4` (Pendant) | `TNE-STORY-<FIXTURE>-<ID>` | Zero-cost YOLO object detection + Canva infographic story template. |
+| **1** | [`TIPS_AND_EDU_STORY.md`](stories/TIPS_AND_EDU_STORY.md) | `tblwnFN5a8fLzKuP4` (Pendant) | `TNE-STORY-<FIXTURE>-<ID>` | Zero-cost YOLO name tag + local-Pillow "Style Tip of the Day" layout (Claude-written tip). |
 | **2** | [`COLLECTION_CATEGORY_STORY.md`](stories/COLLECTION_CATEGORY_STORY.md) | `tblSSVJnubFk2yBm3` (Pendant) | `CC-STORY-<FIXTURE>-<ID>` | 3-row vertical product grid collage (`1080 x 640 px` slots) + Poppins Bold titles. |
 | **3** | [`DAY_NIGHT_STORY.md`](stories/DAY_NIGHT_STORY.md) | `tblKkCf88UVQ3Yu07` (Chandelier) | `DN-STORY-<FIXTURE>-<ID>` | 2-card sequence contrasting daytime natural light and warm night illumination. |
 | **4** | [`MOODBOARD_STORY.md`](stories/MOODBOARD_STORY.md) | `tblHQrci8d1K9ws2M` (Chandelier) | `MB-STORY-<FIXTURE>-<ID>` | Lifestyle blend + editorial swatch moodboard card. |
@@ -123,7 +124,8 @@ docs/
 | [`ONE_PRODUCT_THREE_STYLES_REEL.md`](reels/ONE_PRODUCT_THREE_STYLES_REEL.md) | `tbl6ls4AWcEcynBpZ` (Chandelier) | 18.0s | Three blended photos at 5s, 4s, 4s plus 5s outro. |
 | [`STYLE_REEL_SLIDESHOW.md`](reels/STYLE_REEL_SLIDESHOW.md) | `tblFFEvkHb3jLKrcv` (5-Room Set) | 11.0s | 5-room whole-home slideshow tour. |
 | [`ONE_AT_A_TIME_LIGHTS_REEL.md`](reels/ONE_AT_A_TIME_LIGHTS_REEL.md) | `tblJpEtBudQZda319` (One at a time Lights) | ~11.0s | Bedroom where 3 lights (table lamp, ceiling mounted, pendant) turn on one at a time via progressive Nano Banana Pro lighting blends, local FFmpeg crossfades, silent audio + brand outro. |
-| [`SKETCH_TO_DRAW_REEL.md`](reels/SKETCH_TO_DRAW_REEL.md) | `tblSketchToDrawReel` / Per Category | ~12.0s | Architectural hand-drawn pencil/blueprint sketch animating into photorealistic warm luxury room interior + Instagram cover + outro. |
+| [`SKETCH_TO_REAL_REEL.md`](reels/SKETCH_TO_REAL_REEL.md) | `tblUFR6OvFQaHnG1V` (Chandelier), `tblSALsUd5MXXnkp6` (Pendant) | ~11.0s | Hand-drawn outline of the room animating line by line into the photorealistic lit interior + Instagram cover + outro. Studio subtab 7 "Sketch to Real" (Chandelier and Pendant runnable). |
+| [`SKETCH_TO_DRAW_REEL.md`](reels/SKETCH_TO_DRAW_REEL.md) | *superseded: alias of Sketch to Real* | ~12.0s | Original spec (Nano Banana sketch + AI video); the code now runs the Sketch to Real pipeline. |
 
 ---
 

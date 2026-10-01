@@ -1,6 +1,6 @@
 # Tips & Educational Story Automation Pipeline
 
-The **Tips & Educational Story Automation Pipeline** generates branded **9:16 vertical Instagram and Facebook Stories (1080 x 1920 px)** for HomeCartel lighting collections across 6 fixture categories. It pairs a photorealistic AI room interior with a lighting product, tags product details, and converts it into an infographic-style educational story card.
+The **Tips & Educational Story Automation Pipeline** generates branded **9:16 vertical Instagram and Facebook Stories (1080 x 1920 px)** for HomeCartel lighting collections across 6 fixture categories. It pairs a photorealistic AI room interior with a lighting product, tags the product name on the blended photo, and finishes with a local-Pillow "Style Tip of the Day" layout (title, underline, Claude-written styling tip, HomeCartel logo) on top of that photo.
 
 ---
 
@@ -98,7 +98,7 @@ When a row reaches Complete (C), the pipeline automatically writes the Philippin
   - Tip text: `content_automation/story_tip.py` asks Claude Sonnet 5 (via `fal_client.generate_claude_vision`, looking at the blended image) for one 12-20 word sentence; unusable replies or API errors fall back to a neutral per-category tip so the run still completes (`tip_used_fallback` is logged).
   - The layout image and `tips-and-edu.json` are no longer used for this story (the layout is still attached to the row for reference).
   - Tests: `tests/test_tips_edu_story_layout.py`.
-- **Typography & Bounding Box Rules**: Other local text compositing renders titles with `Poppins-Bold.ttf` with soft Gaussian blur drop shadows for high legibility across diverse room tones.
+- **Typography elsewhere**: other local overlays use `Poppins-Bold.ttf` with soft Gaussian drop shadows; this story deliberately uses ExtraBold + Regular as described above.
 - **Active Product Enforcement**: Ingestion strictly filters `enabled=true` products from Akeneo and verifies against all existing Story and Feed tables.
 
 ---

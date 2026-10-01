@@ -72,6 +72,8 @@ marketing-automation/
 │   ├── fal_client.py                        # Fal AI client (Claude Sonnet 5, Nano Banana Pro, ElevenLabs, Grok)
 │   ├── kie_client.py                        # Kie AI client (video & other models)
 │   ├── overlay.py                           # LOCAL Python Pillow rendering engine (logos, watermarks, typography)
+│   ├── story_tip.py                         # Tips & Edu Story: Claude "Style Tip of the Day" prompt, sanitizer, fallback tips
+│   ├── banner_common.py / promo_calendar.py # Christmas/Sale Banner shared helpers; promotions calendar (assets/calendar_config.json)
 │   ├── item_tagger.py                       # YOLO-World furniture tagging on blended images
 │   ├── media.py / video.py / audio.py       # Temp downloads; imageio-ffmpeg video & audio muxing
 │   ├── assets.py                            # AssetCatalog: workspace, assets/, JSON Prompts/ lookups
@@ -79,7 +81,7 @@ marketing-automation/
 │   ├── state.py                             # StateManager: row select/reserve/mark_running/mark_complete
 │   ├── models.py / fields.py / errors.py / http.py   # Shared dataclasses, Airtable field names, HTTP helpers
 │   ├── cleanup.py / cta_conversion.py / google_form_audit.py / zoho_client.py
-│   ├── fonts/                               # Poppins TTF fonts (Bold/Regular/Light) used by overlay.py
+│   ├── fonts/                               # Poppins TTF fonts (ExtraBold/Bold/Medium/Regular/Light) used by overlay.py
 │   ├── prompts/                             # Claude prompt templates
 │   ├── scraping/                            # Scrape layer: airtable.py (ScrapeAirtableClient row insertion +
 │   │                                        #   FK/timestamp stamping), runner.py, products.py, categories.py,
@@ -107,8 +109,9 @@ marketing-automation/
 │   │   ├── before_after_reel.py             # /api/before-after-reel/*    moodboard_reel.py
 │   │   ├── style_reel_slideshow.py          # /api/style-reel-slideshow/* one_product_three_styles_reel.py
 │   │   ├── one_at_a_time_lights_reel.py     # /api/one-at-a-time-lights-reel/* (3-fixture progressive-lighting reel)
-│   │   ├── sketch_to_draw_reel.py           # /api/sketch-to-draw-reel/* (architectural drawing transformation reel)
+│   │   ├── sketch_to_draw_reel.py           # /api/sketch-to-draw-reel/* (Studio "Sketch to Real" subtab; always runs generate_sketch_to_real_reel_pipeline.py)
 │   │   ├── ad_cover.py                      # Ad Cover: /api/ad-cover/* (1:1 + 9:16 Story, per-fixture run)
+│   │   ├── christmas_banner.py              # Banner: /api/christmas-banner/*   sale_banner.py /api/sale-banner/*
 │   │   ├── queue_manager.py                 # In-memory FIFO job queue (/api/queue/*) — see §3
 │   │   ├── rows.py                          # Row Inspector & Airtable deep links (/api/rows)
 │   │   └── common.py                        # PIN verification, config overrides, helpers
@@ -201,8 +204,8 @@ Every record in every Story and Feed table must have a unique, human-readable Fo
 
 $$\text{Foreign Key ID} = \langle\text{Idea Abbr}\rangle\text{-}\langle\text{Format}\rangle\text{-}\langle\text{Fixture Code}\rangle\text{-}\langle\text{Row ID}\rangle$$
 
-- **Idea Abbr**: `CTA`, `TNE`, `CC`, `DN`, `MB`, `MB1`, `MB2`, `PCS`, `PCD`, `ST`, `MNF`, `TOT`, `OP3S`, `PS`, `PCR`, `BA`, `SRS`, `ADC`, `OATL`, `STD`
-- **Format**: `STORY` (9:16), `FEEDS` (4:5), `REEL` (9:16 video), or `ADS` (Ad Cover row: carries the 1:1 cover and its 9:16 Story twin; the FK token stays `ADS`)
+- **Idea Abbr**: `CTA`, `TNE`, `CC`, `DN`, `MB`, `MB1`, `MB2`, `PCS`, `PCD`, `ST`, `MNF`, `TOT`, `OP3S`, `PS`, `PCR`, `BA`, `SRS`, `ADC`, `OATL`, `STR` (Sketch to Real; `STD` table aliases map to `STR`), `XMS` (Christmas/Sale Banner)
+- **Format**: `STORY` (9:16), `FEEDS` (4:5), `REEL` (9:16 video), `ADS` (Ad Cover row: carries the 1:1 cover and its 9:16 Story twin; the FK token stays `ADS`), or `BANNER` (Christmas/Sale Banner rows, `XMS-BANNER-ALL`)
 - **Fixture Code**: `CH` (Chandelier), `PE` (Pendant), `FL` (Floor Lamp), `TL` (Table Lamp), `CL` (Cluster Chandelier), `WL` (Wall Light), `CM` (Ceiling Mounted), `SET` (Multi-room / Carousel), `LR` (Living Room / Bedroom, One at a time Lights Reel), `NEW` / `SALE` / `STOCK` (New Collection / On Sale Designs / On Stock Designs, Ad Cover only), plus `LC` (Linear Chandelier) and `WS` (Wall Sconce) which appear only in `MB-REEL` table entries
 - **Examples**: `CTA-STORY-CH-24`, `TNE-FEEDS-FL-1`, `CC-FEEDS-SET-22`, `OP3S-FEEDS-PE-4`, `PCR-REEL-TL-1`
 
@@ -272,7 +275,7 @@ All local layout rendering lives in **`content_automation/overlay.py`** (plus `i
   - **Feed (4:5)**: `1080 x 1350 px`
   - **Ad Cover (1:1)**: `1080 x 1080 px`, plus its 9:16 Story twin at `1080 x 1920 px` (`overlay.py::AD_COVER_STORY_CANVAS_SIZE`)
 - **Typography Engine**:
-  - Fonts are resolved by `overlay.py::_resolve_font_path` from **`content_automation/fonts/Poppins-Bold.ttf`, `Poppins-Regular.ttf`, `Poppins-Light.ttf`** (not `assets/fonts/`).
+  - Fonts are resolved by `overlay.py::_resolve_font_path` from **`content_automation/fonts/Poppins-Bold.ttf`, `Poppins-Regular.ttf`, `Poppins-Light.ttf`** (plus `Poppins-ExtraBold.ttf` for the Tips & Edu Story title and `Poppins-Medium.ttf` for banners) (not `assets/fonts/`).
   - Always implement auto-scaling font protection (e.g. scale font down from 48px to 24px if text width exceeds bounding box).
 - **Brand Logo**:
   - Local fallback asset is **`assets/homecartel_logo.png`** (not `assets/Logo.png`); resolution via `overlay.py::find_homecartel_logo_path` / `content_automation/assets.py::AssetCatalog`.
@@ -289,7 +292,7 @@ All local layout rendering lives in **`content_automation/overlay.py`** (plus `i
 
 ### Story Pipelines (10 Subtabs, 9:16 Ratio)
 1. **CTA Story** ([`docs/stories/CTA_STORY.md`](docs/stories/CTA_STORY.md), prefix: `CTA-STORY`) — 5 tables (Chandelier, Pendant, Cluster, Table Lamp, Floor Lamp). Single slide + headline + CTA watermark.
-2. **Tips & Educational Story** ([`docs/stories/TIPS_AND_EDU_STORY.md`](docs/stories/TIPS_AND_EDU_STORY.md), prefix: `TNE-STORY`) — 6 tables. Single slide + YOLO item tagging + educational infographic card.
+2. **Tips & Educational Story** ([`docs/stories/TIPS_AND_EDU_STORY.md`](docs/stories/TIPS_AND_EDU_STORY.md), prefix: `TNE-STORY`) — 6 tables. Single slide + YOLO item name tag + local-Pillow "Style Tip of the Day" card (Poppins ExtraBold title, Claude-written tip via Fal; Phase 5 does not use Nano Banana).
 3. **Collection Category Story** ([`docs/stories/COLLECTION_CATEGORY_STORY.md`](docs/stories/COLLECTION_CATEGORY_STORY.md), prefix: `CC-STORY`) — 5 tables. 3-product collage grid + brand header.
 4. **Day & Night Story** ([`docs/stories/DAY_NIGHT_STORY.md`](docs/stories/DAY_NIGHT_STORY.md), prefix: `DN-STORY`) — 7 tables. Daytime room blend + night transformation.
 5. **Moodboard Story** ([`docs/stories/MOODBOARD_STORY.md`](docs/stories/MOODBOARD_STORY.md), prefix: `MB-STORY`) — 3 tables. Lifestyle blend + moodboard swatch card.
@@ -308,7 +311,7 @@ All local layout rendering lives in **`content_automation/overlay.py`** (plus `i
 6. **Day & Night Feed** ([`docs/feeds/DAY_NIGHT_FEED.md`](docs/feeds/DAY_NIGHT_FEED.md), prefix: `DN-FEEDS`) — 4 tables (Chandelier, Pendant, Floor Lamp, Table Lamp). Day + Night 4:5 carousel slides.
 7. **Product Showcase Feed** ([`docs/feeds/PRODUCT_SHOWCASE_FEED.md`](docs/feeds/PRODUCT_SHOWCASE_FEED.md), prefix: `PS-FEEDS`) — 1 table. 3-podium group slide + 3 solo showcase slides (4 slides).
 
-### Reel Pipelines (7 Pipelines, 9:16 Video)
+### Reel Pipelines (8 Pipelines, 9:16 Video)
 1. **Day & Night Reel** ([`docs/reels/DAY_NIGHT_REEL.md`](docs/reels/DAY_NIGHT_REEL.md)) — 18-second day-to-night timelapse video with AI jazz audio.
 2. **Product Closeup Reel** ([`docs/reels/PRODUCT_CLOSEUP_REEL.md`](docs/reels/PRODUCT_CLOSEUP_REEL.md)) — 15-second product inspection reel.
 3. **Before & After Reel** ([`docs/reels/BEFORE_AND_AFTER_REEL.md`](docs/reels/BEFORE_AND_AFTER_REEL.md)) — 15-second transformation reel.
@@ -316,6 +319,7 @@ All local layout rendering lives in **`content_automation/overlay.py`** (plus `i
 5. **Style Reel Slideshow** ([`docs/reels/STYLE_REEL_SLIDESHOW.md`](docs/reels/STYLE_REEL_SLIDESHOW.md)) — Fast-paced lifestyle video slideshow.
 6. **1 Product, 3 Styles Reel** ([`docs/reels/ONE_PRODUCT_THREE_STYLES_REEL.md`](docs/reels/ONE_PRODUCT_THREE_STYLES_REEL.md)) — Chandelier-only blended photo Reel with 5s, 4s, 4s holds and 5s outro.
 7. **One at a time Lights Reel** ([`docs/reels/ONE_AT_A_TIME_LIGHTS_REEL.md`](docs/reels/ONE_AT_A_TIME_LIGHTS_REEL.md), prefix: `OATL-REEL`) — ~11-second silent bedroom reel: 3 fresh fixtures (Table Lamp, Ceiling Mounted, Pendant) blended into one Krea interior, three progressive "only this light is ON" Nano Banana Pro variations, then local FFmpeg crossfades + branded outro. Table `tblJpEtBudQZda319`.
+8. **Sketch to Real Reel** ([`docs/reels/SKETCH_TO_REAL_REEL.md`](docs/reels/SKETCH_TO_REAL_REEL.md), prefix: `STR-REEL`) — ~11-second reel: hand-drawn outline of a Krea room animates line by line (local Auto Draw + FFmpeg) into the Nano Banana Pro blended interior, with cover and branded outro. Studio Reel subtab 7 "Sketch to Real" (route `/api/sketch-to-draw-reel/*`); Chandelier `tblUFR6OvFQaHnG1V` and Pendant `tblSALsUd5MXXnkp6` are runnable. `docs/reels/SKETCH_TO_DRAW_REEL.md` is the superseded original spec.
 
 ### Ad Cover Pipeline (1 Pipeline, 1:1 Square + 9:16 Story)
 1. **Ad Cover** ([`docs/ads/AD_COVER.md`](docs/ads/AD_COVER.md), prefix: `ADC-ADS`) — Standalone 4th top-level Studio tab (not a sub-tab family): one run button per fixture. All 9 fixtures are fully runnable with dedicated Airtable tables (Chandelier: `tblwIsDGZBPuYJV2Z`, Floor Lamp: `tbl27FKuDUD4FdJUR`, Table Lamp: `tblk3RfFqawHZ5Wrk`, Cluster Chandelier: `tbltouegkjgQwdr1u`, Pendant Light: `tbl99Cwda2Xn93giT`, Wall Light: `tblUO5nybG9fIkhTT`, New Collection: `tbluMexgzcWE1pDZJ`, On Sale Designs: `tbleQIVBooVazAyk3`, On Stock Designs: `tblX7tpTJhfH0UXmm`). 7 phases: highest-priced newest Akeneo fixture → Krea 1:1 interior → Claude blending prompt → Nano Banana Pro blend → **local Pillow** composite of the transparent ad-cover overlay → Nano Banana Pro **9:16 extension** of that blend → **local Pillow** composite of the 9:16 story overlay (tagline + logo baked into PNG overlays, zero API cost for typography). One run produces **both** the 1:1 `Ad Cover Converted Image` and the 9:16 `Ad Cover Converted Image Story`; `Complete` is written by Phase 7 only.

@@ -54,8 +54,18 @@ $$\text{Format: } \mathbf{STR\text{-}REEL\text{-}\langle FIXTURE\rangle\text{-}\
 
 ## 4. Supported Categories & Environment Variables Map
 
-| Category Name | Fixture Code | Primary Environment Variable | Fallback Table ID | Default Krea Moodboard ID |
-| :--- | :---: | :--- | :--- | :--- |
+| Category Name | Fixture Code | Primary Environment Variable | Default Table ID | Default Krea Moodboard ID | Studio |
+| :--- | :---: | :--- | :--- | :--- | :---: |
+| **Chandeliers** | `CH` | `AIRTABLE_TABLE_ID_CHANDELIERS_SKETCH_TO_REAL_REEL` | `tblUFR6OvFQaHnG1V` | `b5ffdcbb-192e-4528-8d86-d1a4cf496887` | Runnable |
+| **Pendant Lights** | `PE` | `AIRTABLE_TABLE_ID_PENDANT_LIGHTS_SKETCH_TO_REAL_REEL` | `tblSALsUd5MXXnkp6` | `de5f4ff8-518c-4d6b-b606-ce1d5dac51f3` | Runnable |
+| **Floor Lamps** | `FL` | `AIRTABLE_TABLE_ID_FLOOR_LAMPS_SKETCH_TO_REAL_REEL` | *no Airtable table yet (placeholder `tblSketchToRealFloorLamps`)* | `b1641228-beec-4823-8d01-1de3eec8410d` | Not yet |
+| **Table Lamps** | `TL` | `AIRTABLE_TABLE_ID_TABLE_LAMPS_SKETCH_TO_REAL_REEL` | *no Airtable table yet (placeholder `tblSketchToRealTableLamps`)* | `fb2487fb-2895-4d2c-9758-805aaf1bac69` | Not yet |
+| **Ceiling Mounted** | `CM` | `AIRTABLE_TABLE_ID_CEILING_MOUNTED_SKETCH_TO_REAL_REEL` | *no Airtable table yet (placeholder `tblSketchToRealCeilingMounted`)* | `b5ffdcbb-192e-4528-8d86-d1a4cf496887` | Not yet |
+| **Unified Table** | `SET` | `AIRTABLE_TABLE_ID_SKETCH_TO_REAL_REEL` | *unused* | `b5ffdcbb-192e-4528-8d86-d1a4cf496887` | n/a |
+
+Rows marked "no Airtable table yet" cannot be run until a real table exists: create it, set the env key, and register its ID in `content_automation/foreign_key.py`, `UI Control/routes/sketch_to_draw_reel.py` and `UI Control/src/app/constants/fixtures.ts`.
+
+--- | :---: | :--- | :--- | :--- |
 | **Chandeliers** | `CH` | `AIRTABLE_TABLE_ID_CHANDELIERS_SKETCH_TO_REAL_REEL` | `tblSketchToRealChandeliers` | `b5ffdcbb-192e-4528-8d86-d1a4cf496887` |
 | **Pendant Lights** | `PE` | `AIRTABLE_TABLE_ID_PENDANT_LIGHTS_SKETCH_TO_REAL_REEL` | `tblSALsUd5MXXnkp6` | `de5f4ff8-518c-4d6b-b606-ce1d5dac51f3` |
 | **Floor Lamps** | `FL` | `AIRTABLE_TABLE_ID_FLOOR_LAMPS_SKETCH_TO_REAL_REEL` | `tblSketchToRealFloorLamps` | `b1641228-beec-4823-8d01-1de3eec8410d` |
@@ -98,17 +108,25 @@ $$\text{Format: } \mathbf{STR\text{-}REEL\text{-}\langle FIXTURE\rangle\text{-}\
 CLI commands:
 ```bash
 # Chandeliers
-python python-content-script/run_sketch_to_real_reel.py --target chandeliers --max-items 1
+python run_sketch_to_real_reel.py --target chandeliers --max-items 1
 
 # Pendant Lights
-python python-content-script/run_sketch_to_real_reel.py --target pendant_lights --max-items 1
+python run_sketch_to_real_reel.py --target pendant_lights --max-items 1
 
 # Floor Lamps
-python python-content-script/run_sketch_to_real_reel.py --target floor_lamps --max-items 1
+python run_sketch_to_real_reel.py --target floor_lamps --max-items 1
 
 # Table Lamps
-python python-content-script/run_sketch_to_real_reel.py --target table_lamps --max-items 1
+python run_sketch_to_real_reel.py --target table_lamps --max-items 1
 
 # Ceiling Mounted
-python python-content-script/run_sketch_to_real_reel.py --target ceiling_mounted --max-items 1
+python run_sketch_to_real_reel.py --target ceiling_mounted --max-items 1
 ```
+
+### Web Studio Execution (Port 5200)
+
+Studio **Reel** tab → subtab 7 **Sketch to Real** (`/api/sketch-to-draw-reel/*`; the URL prefix keeps its old name). Only **Chandeliers** and **Pendant Lights** are runnable today (the others have no Airtable table yet).
+
+- The route always spawns the tracked root script `generate_sketch_to_real_reel_pipeline.py` (never a copy under `python-content-script/`); see [`../memory/incidents/2026-09-30-sketch-to-real-studio-ran-stale-script-copy.md`](../memory/incidents/2026-09-30-sketch-to-real-studio-ran-stale-script-copy.md).
+- Phase progress comes from the `[PHASE N]` lines the script prints and never moves backwards; run status and logs reach the UI through the queue (`/api/queue/status`).
+- Moodboard/prompt pencils save `KREA_MOODBOARD_ID_SKETCH_TO_REAL_*` / `PROMPT_SKETCH_TO_REAL_REEL_*` (see [`../UI_CONTROL_CONFIG.md`](../UI_CONTROL_CONFIG.md)).
