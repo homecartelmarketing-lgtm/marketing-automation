@@ -1,0 +1,142 @@
+{
+  "timezone": "Asia/Manila",
+  "events": [
+    {
+      "key": "monthly_promotion",
+      "name": "MONTHLY PROMOTION",
+      "job": "monthly_full",
+      "whole_month": true,
+      "tag_template": "{mon_upper}-{year}",
+      "view_name_template": "{mon_upper}-{year}",
+      "enabled": true
+    },
+    {
+      "key": "ten_off_monthly",
+      "name": "10% OFF (Chandelier + Pendant Light)",
+      "job": "ten_percent_off",
+      "whole_month": true,
+      "tag_template": "{mon_upper}-{year}-10OFF",
+      "view_name_template": "{mon_upper}-{year}-10OFF",
+      "enabled": true
+    },
+    {
+      "key": "fifteen_off_monthly",
+      "name": "15% OFF (Ceiling, Chandelier, Pendant, Table, Floor)",
+      "job": "fifteen_percent_off",
+      "whole_month": true,
+      "tag_template": "{mon_upper}-{year}-15OFF",
+      "view_name_template": "{mon_upper}-{year}-15OFF",
+      "enabled": true
+    },
+    {
+      "key": "long_duration_10_off",
+      "name": "10% OFF LONG DURATION SALE",
+      "job": "ten_percent_off",
+      "start_md": "10-25",
+      "end_md": "11-30",
+      "tag_template": "OCT-NOV-{year}",
+      "view_name_template": "OCT-NOV-{year} 10% Off",
+      "enabled": false
+    },
+    {
+      "key": "lunar_new_year",
+      "name": "3-DAY SALE (LUNAR NEW YEAR)",
+      "job": "monthly_full",
+      "start_md": "01-29",
+      "end_md": "01-31",
+      "tag_template": "{mon_upper}-{year}",
+      "view_name_template": "{mon_upper}-{year}",
+      "enabled": false
+    },
+    {
+      "key": "off_season_sale",
+      "name": "OFF SEASON SALE",
+      "job": "monthly_full",
+      "start_md": "02-15",
+      "end_md": "02-28",
+      "tag_template": "{mon_upper}-{year}",
+      "view_name_template": "{mon_upper}-{year}",
+      "enabled": false
+    },
+    {
+      "key": "sale_33",
+      "name": "3.3 SALE",
+      "job": "monthly_full",
+      "start_md": "03-03",
+      "end_md": "03-05",
+      "tag_template": "{mon_upper}-{year}",
+      "view_name_template": "{mon_upper}-{year}",
+      "enabled": false
+    },
+    {
+      "key": "collection_sale_apr",
+      "name": "COLLECTION SALE",
+      "job": "monthly_full",
+      "start_md": "04-07",
+      "end_md": "04-11",
+      "tag_template": "{mon_upper}-{year}",
+      "view_name_template": "{mon_upper}-{year}",
+      "enabled": false
+    },
+    {
+      "key": "sale_55",
+      "name": "5.5 SALE",
+      "job": "monthly_full",
+      "start_md": "05-05",
+      "end_md": "05-07",
+      "tag_template": "{mon_upper}-{year}",
+      "view_name_template": "{mon_upper}-{year}",
+      "enabled": false
+    },
+    {
+      "key": "mid_year_sale",
+      "name": "MID YEAR SALE",
+      "job": "monthly_full",
+      "start_md": "06-01",
+      "end_md": "06-15",
+      "tag_template": "{mon_upper}-{year}",
+      "view_name_template": "{mon_upper}-{year}",
+      "enabled": false
+    },
+    {
+      "key": "collection_sale_jul",
+      "name": "COLLECTION SALE",
+      "job": "monthly_full",
+      "start_md": "07-07",
+      "end_md": "07-11",
+      "tag_template": "{mon_upper}-{year}",
+      "view_name_template": "{mon_upper}-{year}",
+      "enabled": false
+    },
+    {
+      "key": "grand_sale",
+      "name": "GRAND SALE",
+      "job": "monthly_full",
+      "start_md": "08-20",
+      "end_md": "08-31",
+      "tag_template": "{mon_upper}-{year}",
+      "view_name_template": "{mon_upper}-{year}",
+      "enabled": false
+    },
+    {
+      "key": "sale_99",
+      "name": "9.9 SALE",
+      "job": "monthly_full",
+      "start_md": "09-09",
+      "end_md": "09-11",
+      "tag_template": "{mon_upper}-{year}",
+      "view_name_template": "{mon_upper}-{year}",
+      "enabled": false
+    },
+    {
+      "key": "sale_1212",
+      "name": "12.12 SALE",
+      "job": "monthly_full",
+      "start_md": "12-12",
+      "end_md": "12-14",
+      "tag_template": "{mon_upper}-{year}",
+      "view_name_template": "{mon_upper}-{year}",
+      "enabled": false
+    }
+  ]
+}

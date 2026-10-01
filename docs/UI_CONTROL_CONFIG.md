@@ -25,6 +25,8 @@ For an edit, the UI posts `{fixture_id, moodboard_id}` to the active blueprint's
 | Reel | Moodboard | `/api/moodboard-reel` | Fixture settings → explicit runner CLI overrides |
 | Reel | 1 Product, 3 Styles | `/api/one-product-3-styles-reel` | Chandelier only; editor controls first interior style |
 | Reel | One at a time Lights | `/api/one-at-a-time-lights-reel` | Single card; `KREA_MOODBOARD_ID_ONE_AT_A_TIME_LIGHTS` / `PROMPT_ONE_AT_A_TIME_LIGHTS_REEL_INTERIOR` → bedroom interior |
+| Banner | Christmas Banner — 1 card | `/api/christmas-banner` | Card settings → `--moodboard-id` / `--interior-prompt`; `KREA_MOODBOARD_ID_CHRISTMAS_BANNER` / `CHRISTMAS_BANNER_PROMPT` |
+| Banner | Sale Banner — 1 card (no pencils) | `/api/sale-banner` | Env only: `KREA_MOODBOARD_ID_SALE_BANNER_DINING` / `_BEDROOM`, `SALE_BANNER_DINING_PROMPT` / `_BEDROOM_PROMPT` |
 | Ads | Ad Covers — 9 Fixtures (Chandelier, Floor Lamp, Table Lamp, Cluster Chandelier, Pendant Light, Wall Light, New Collection, On Sale Designs, On Stock Designs) | `/api/ad-cover` | Fixture settings → `--moodboard-id` / `--prompt`; `KREA_MOODBOARD_ID_<FIXTURE>_AD_COVER` / `AD_COVER_PROMPT_<FIXTURE>` |
 
 The non-editable subtabs are Product Closeup Specs, Product Closeup Description, and This or That Story; Collection Category and Product Showcase Feed. Their cards still display live counts. All nine Ad Covers cards are runnable and hold their own saved moodboard/prompt settings.

@@ -31,6 +31,8 @@ export function SubTabRail({
         return 'border-sky-500 text-sky-600';
       case 'reel':
         return 'border-emerald-600 text-emerald-600';
+      case 'banner':
+        return 'border-red-600 text-red-600';
     }
   };
 
@@ -62,6 +64,8 @@ export function SubTabRail({
                         ? 'bg-amber-100 text-amber-800'
                         : activeTab === 'story'
                         ? 'bg-sky-100 text-sky-800'
+                        : activeTab === 'banner'
+                        ? 'bg-red-100 text-red-800'
                         : 'bg-emerald-100 text-emerald-800'
                       : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700'
                   }`}
@@ -73,11 +77,13 @@ export function SubTabRail({
                 <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded-full animate-pulse border ${
                   activeTab === 'feed' ? 'bg-amber-100 text-amber-800 border-amber-300' :
                   activeTab === 'story' ? 'bg-sky-100 text-sky-800 border-sky-300' :
+                  activeTab === 'banner' ? 'bg-red-100 text-red-800 border-red-300' :
                   'bg-emerald-100 text-emerald-800 border-emerald-300'
                 }`}>
                   <span className={`inline-block w-1 h-1 rounded-full mr-1 ${
                     activeTab === 'feed' ? 'bg-amber-500' :
                     activeTab === 'story' ? 'bg-sky-500' :
+                    activeTab === 'banner' ? 'bg-red-500' :
                     'bg-emerald-500'
                   }`}></span>
                   Running

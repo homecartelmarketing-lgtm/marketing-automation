@@ -618,9 +618,13 @@ class AirtableClient:
 
 
 def fetch_status_breakdown(
-    token: str = "", base_id: str = "", table_id: str = "", timeout: float = 6.0
+    token: str = "", base_id: str = "", table_id: str = "", timeout: float = 6.0, *, category: str = ""
 ) -> dict[str, int]:
-    """Fetch live counts of P (Posted), S (Scheduled), C (Complete), D (Discard), and FM (For Manual) from Airtable."""
+    """Fetch live counts of P (Posted), S (Scheduled), C (Complete), D (Discard), and FM (For Manual) from Airtable.
+
+    ``category`` (optional) counts only rows whose ``Category`` column equals it (case-insensitive), for
+    tables shared by several pipelines such as the Christmas and Sale banners.
+    """
     import os
     # Smart detection: if first argument is a table_id (e.g. starts with "tbl")
     if token and token.startswith("tbl") and not table_id:
@@ -643,21 +647,25 @@ def fetch_status_breakdown(
 
     url = f"https://api.airtable.com/v0/{base_id}/{table_id}"
     headers = {"Authorization": f"Bearer {token}"}
-    params = {
-        "fields[]": "Status",
-        "pageSize": 100,
-    }
+    wanted_category = " ".join(str(category or "").split()).lower()
+    params: list[tuple[str, Any]] = [("fields[]", "Status"), ("pageSize", 100)]
+    if wanted_category:
+        params.append(("fields[]", "Category"))
     offset = None
     try:
         while True:
-            req_params = dict(params)
+            req_params = list(params)
             if offset:
-                req_params["offset"] = offset
+                req_params.append(("offset", offset))
             resp = requests.get(url, headers=headers, params=req_params, timeout=timeout)
             if not resp.ok:
                 break
             data = resp.json()
             for rec in data.get("records", []):
+                if wanted_category:
+                    row_category = " ".join(str(rec.get("fields", {}).get("Category") or "").split()).lower()
+                    if row_category != wanted_category:
+                        continue
                 raw = str(rec.get("fields", {}).get("Status") or "").strip().lower()
                 norm = " ".join(raw.split())
                 if norm in ("posted", "processing", "pending", "in progress"):

@@ -78,6 +78,12 @@ export function FixtureCard({
           bar: 'bg-rose-500',
           btn: 'text-rose-700 bg-rose-50 hover:bg-rose-100 active:bg-rose-200 border-rose-200 shadow-2xs hover:shadow-xs',
         };
+      case 'banner':
+        return {
+          pill: 'bg-red-50 text-red-700 border-red-200',
+          bar: 'bg-red-500',
+          btn: 'text-red-700 bg-red-50 hover:bg-red-100 active:bg-red-200 border-red-200 shadow-2xs hover:shadow-xs',
+        };
       case 'adcover':
         return {
           pill: 'bg-violet-50 text-violet-700 border-violet-200',

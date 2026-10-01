@@ -31,7 +31,7 @@ cd "UI Control"
 python api_server.py
 ```
 Open **`http://localhost:5200`** to access:
-- **Interactive Format Tabs**: Switch between **Feed** (7 subtabs), **Story** (10 subtabs), **Reel** (7 subtabs), and **Ad Covers** — a standalone 4th top-level Studio tab (not a sub-tab family) of per-fixture run cards, one press producing both the 1:1 cover and its 9:16 Story twin — with summed completed counts on each format and subtab.
+- **Interactive Format Tabs**: Switch between **Feed** (7 subtabs), **Story** (10 subtabs), **Reel** (7 subtabs), **Christmas Banner** ([`CHRISTMAS_BANNER.md`](docs/banners/CHRISTMAS_BANNER.md), a standalone 5th top-level Studio tab with two sub-tabs: the 21:9 Christmas banner from 5 fixtures and the 1800x600 [Sale Banner](docs/banners/SALE_BANNER.md)), and **Ad Covers** — a standalone 4th top-level Studio tab (not a sub-tab family) of per-fixture run cards, one press producing both the 1:1 cover and its 9:16 Story twin — with summed completed counts on each format and subtab.
 - **Live Airtable Synchronization**: Real-time `P, S, C, D, FM` status badges on every lighting fixture card.
 - **Row Inspector Modal**: Instant search, status filtering, one-click Foreign Key ID copying, and direct deep links into Airtable rows (`Open in Airtable ↗`).
 - **Inline Settings & Security**: Krea moodboard and interior-prompt edits persist in `output/config_overrides.json` and `.env`; `DASHBOARD_PIN` protects edits when configured. See the [UI configuration map](docs/UI_CONTROL_CONFIG.md).
@@ -169,6 +169,14 @@ python generate_product_showcase_feed_pipeline.py --mode all --max-items 3
 # Ad Cover (1:1 `1080 x 1080 px` + 9:16 Story `1080 x 1920 px`) — 7 phases; one run writes both
 # Ad Cover Converted Image and Ad Cover Converted Image Story. Full mode list: docs/ads/AD_COVER.md §7
 python generate_ad_cover_pipeline.py --fixture chandelier --mode all --max-items 1
+
+# Christmas Banner (21:9) — 6 phases; 1 fresh item per fixture type blended into one Krea Christmas living room,
+# then a Claude title/subtitle stamped locally (Poppins, soft shadow). Table tblgNk1Tp6qKUcduw. Full doc: docs/banners/CHRISTMAS_BANNER.md
+python generate_christmas_banner_pipeline.py
+
+# Sale Banner (1800x600) — 6 phases; dining room + 1 pendant (left), bedroom + 2 table lamps (right), sale panel in a Claude-suggested colour
+# with 10%/15% and captions (dates with the year) from the promotions calendar. Shares the Christmas banner table. Doc: docs/banners/SALE_BANNER.md
+python generate_sale_banner_pipeline.py
 
 # Auto Post Scheduler (publishes finished content to Instagram at its scheduled time)
 # See docs/AUTO_POST_SCHEDULER.md for its CRON_SECRET auth and external dependency.

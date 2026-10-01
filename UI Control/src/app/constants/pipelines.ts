@@ -26,6 +26,8 @@ import {
   ONE_AT_A_TIME_LIGHTS_REEL_FIXTURES,
   SKETCH_TO_DRAW_REEL_FIXTURES,
   AD_COVER_FIXTURES,
+  CHRISTMAS_BANNER_FIXTURES,
+  SALE_BANNER_FIXTURES,
 } from './fixtures';
 
 export interface PipelineConfig {
@@ -512,6 +514,44 @@ export const PIPELINES: PipelineConfig[] = [
     fixtures: AD_COVER_FIXTURES,
     hasMoodboard: true,
     hasPrompt: true,
+  },
+
+  // --- Christmas Banner Pipeline ---
+  {
+    type: 'christmas-banner',
+    name: 'Christmas Banner',
+    format: 'banner',
+    subtabIndex: 0,
+    subTabLabel: 'Christmas Banner',
+    runEndpoint: '/api/christmas-banner/run',
+    statusEndpoint: '/api/christmas-banner/status',
+    stopEndpoint: '/api/christmas-banner/stop',
+    countsEndpoint: '/api/christmas-banner/counts',
+    moodboardEndpoint: '/api/christmas-banner/moodboard',
+    promptEndpoint: '/api/christmas-banner/prompt',
+    totalPhases: 6,
+    phaseSummary: 'Akeneo Scrape (Chandelier, Pendant, Floor Lamp, Table Lamp, Wall Light) ➔ Krea 2.35:1 Christmas Living Room ➔ Claude Blending Prompt ➔ Nano Banana Pro 21:9 Banner Blend ➔ Claude Title + Subtitle ➔ Poppins Shadow Overlay',
+    fixtures: CHRISTMAS_BANNER_FIXTURES,
+    hasMoodboard: true,
+    hasPrompt: true,
+  },
+
+  // --- Sale Banner Pipeline (second sub-tab of the Banner tab) ---
+  {
+    type: 'sale-banner',
+    name: 'Sale Banner',
+    format: 'banner',
+    subtabIndex: 1,
+    subTabLabel: 'Sale Banner',
+    runEndpoint: '/api/sale-banner/run',
+    statusEndpoint: '/api/sale-banner/status',
+    stopEndpoint: '/api/sale-banner/stop',
+    countsEndpoint: '/api/sale-banner/counts',
+    totalPhases: 6,
+    phaseSummary: 'Akeneo Scrape (1 Pendant + 2 Table Lamps) ➔ Krea Dining Room + Bedroom (4:5) ➔ Claude Blending Prompts ➔ Nano Banana Pro Room Blends ➔ Captions from the Promotions Calendar + Claude Panel Colour ➔ 1800x600 Sale Banner Composite',
+    fixtures: SALE_BANNER_FIXTURES,
+    hasMoodboard: false,
+    hasPrompt: false,
   },
 ];
 

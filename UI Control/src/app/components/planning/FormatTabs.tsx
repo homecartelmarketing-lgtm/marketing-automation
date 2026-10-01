@@ -1,4 +1,4 @@
-export type TabType = 'feed' | 'story' | 'reel' | 'adcover';
+export type TabType = 'feed' | 'story' | 'reel' | 'adcover' | 'banner';
 
 export interface FormatTabCount {
   completed: number | null;
@@ -29,6 +29,7 @@ export function FormatTabs({ activeTab, counts = {}, onSelectTab, runningTab }: 
   const storyDisplay = getCountDisplay('story');
   const reelDisplay = getCountDisplay('reel');
   const adCoverDisplay = getCountDisplay('adcover');
+  const bannerDisplay = getCountDisplay('banner');
   return (
     <div className="mb-4">
       <div className="flex gap-2 border-b border-gray-200">
@@ -139,6 +140,34 @@ export function FormatTabs({ activeTab, counts = {}, onSelectTab, runningTab }: 
           {runningTab === 'adcover' && (
             <span className="flex items-center gap-1.5 ml-1 px-2 py-0.5 bg-violet-100 text-violet-800 text-[10px] font-bold rounded-full animate-pulse border border-violet-300">
               <span className="w-1.5 h-1.5 rounded-full bg-violet-500"></span>
+              Running
+            </span>
+          )}
+        </button>
+
+        {/* Christmas Banner Tab (Red) */}
+        <button
+          onClick={() => onSelectTab('banner')}
+          className={`flex items-center gap-2 px-6 py-3 font-medium transition border-b-2 cursor-pointer ${
+            activeTab === 'banner'
+              ? 'border-red-600 text-red-600'
+              : 'border-transparent text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <span>Banner</span>
+          <span
+            title={bannerDisplay.tooltip}
+            className={`text-xs px-2 py-0.5 rounded-full font-medium tabular-nums ${
+              activeTab === 'banner'
+                ? 'bg-red-100/80 text-red-800'
+                : 'bg-gray-100 text-gray-600'
+            }`}
+          >
+            {bannerDisplay.label}
+          </span>
+          {runningTab === 'banner' && (
+            <span className="flex items-center gap-1.5 ml-1 px-2 py-0.5 bg-red-100 text-red-800 text-[10px] font-bold rounded-full animate-pulse border border-red-300">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
               Running
             </span>
           )}

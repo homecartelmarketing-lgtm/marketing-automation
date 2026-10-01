@@ -296,6 +296,7 @@ export default function App() {
       story: calcTab('story'),
       reel: calcTab('reel'),
       adcover: calcTab('adcover'),
+      banner: calcTab('banner'),
     };
   }, [progressState]);
 

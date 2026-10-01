@@ -57,6 +57,10 @@ docs/
 ├── ads/                                 # Ad Cover Pipeline (1:1 1080 x 1080 + 9:16 Story 1080 x 1920)
 │   └── AD_COVER.md
 │
+├── banners/                             # Christmas Banner Pipeline (21:9, 5 fixtures in one Krea Christmas living room)
+│   ├── CHRISTMAS_BANNER.md
+│   └── SALE_BANNER.md
+│
 ├── superpowers/                         # Planned-but-NOT-implemented designs (reference only)
 │   ├── plans/2026-09-16-studio-new-record-run-scope.md
 │   └── specs/2026-09-16-studio-new-record-run-scope-design.md
@@ -138,6 +142,14 @@ docs/
 | **On Stock Designs** | [`AD_COVER.md`](ads/AD_COVER.md) | `tblX7tpTJhfH0UXmm` (On Stock Designs) | `ADC-ADS-STOCK-<ID>` | Highest-priced newest chandelier blended into a Krea 1:1 interior + local Pillow "On Stock" overlay, then extended to a 9:16 Story twin. |
 
 Ad Covers is a **standalone 4th top-level Studio tab** (not a sub-tab family): each of the 9 fixtures has its own run button, and one run produces both the 1:1 cover and its 9:16 Story twin. See [`AD_COVER.md`](ads/AD_COVER.md) for the 7-phase flow, status vocabulary, and CLI flags.
+
+## 🎄 5. Christmas Banner (`docs/banners/`, 21:9)
+
+Standalone **Banner** tab with one card. One run blends a fresh chandelier, pendant light, floor lamp, table lamp and wall light into a single Krea modern Christmas living room (moodboard `b5ffdcbb-192e-4528-8d86-d1a4cf496887`) using Nano Banana Pro at 21:9. Claude then writes a title + subtitle that a local Pillow phase stamps on (white Poppins with a soft shadow). Table: `tblgNk1Tp6qKUcduw` (`AIRTABLE_TABLE_ID_CHRISTMAS_BANNER`), prefix `XMS-BANNER-ALL-<ID>`. See [`CHRISTMAS_BANNER.md`](banners/CHRISTMAS_BANNER.md).
+
+## 🏷️ 6. Sale Banner (`docs/banners/`, 1800x600)
+
+Second sub-tab of the **Banner** tab. A red sale panel with `10%` and `15%` blocks between two Krea Christmas interiors: a dining room with one scraped pendant light (left) and a bedroom with two scraped table lamps (right), each blended by Nano Banana Pro from a prompt Claude writes for that room. Captions (dates with the year) and percentages come from `calendar_config.json` (the promotions calendar); Claude also suggests the panel's hex colour from the two blended rooms (`--panel-color` overrides it). Shares table `tblgNk1Tp6qKUcduw` with the Christmas banner (rows told apart by `Category`). See [`SALE_BANNER.md`](banners/SALE_BANNER.md).
 
 ---
 

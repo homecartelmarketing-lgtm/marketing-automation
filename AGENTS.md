@@ -320,6 +320,12 @@ All local layout rendering lives in **`content_automation/overlay.py`** (plus `i
 ### Ad Cover Pipeline (1 Pipeline, 1:1 Square + 9:16 Story)
 1. **Ad Cover** ([`docs/ads/AD_COVER.md`](docs/ads/AD_COVER.md), prefix: `ADC-ADS`) — Standalone 4th top-level Studio tab (not a sub-tab family): one run button per fixture. All 9 fixtures are fully runnable with dedicated Airtable tables (Chandelier: `tblwIsDGZBPuYJV2Z`, Floor Lamp: `tbl27FKuDUD4FdJUR`, Table Lamp: `tblk3RfFqawHZ5Wrk`, Cluster Chandelier: `tbltouegkjgQwdr1u`, Pendant Light: `tbl99Cwda2Xn93giT`, Wall Light: `tblUO5nybG9fIkhTT`, New Collection: `tbluMexgzcWE1pDZJ`, On Sale Designs: `tbleQIVBooVazAyk3`, On Stock Designs: `tblX7tpTJhfH0UXmm`). 7 phases: highest-priced newest Akeneo fixture → Krea 1:1 interior → Claude blending prompt → Nano Banana Pro blend → **local Pillow** composite of the transparent ad-cover overlay → Nano Banana Pro **9:16 extension** of that blend → **local Pillow** composite of the 9:16 story overlay (tagline + logo baked into PNG overlays, zero API cost for typography). One run produces **both** the 1:1 `Ad Cover Converted Image` and the 9:16 `Ad Cover Converted Image Story`; `Complete` is written by Phase 7 only.
 
+### Christmas Banner Pipeline (1 Pipeline, 21:9)
+1. **Christmas Banner** ([`docs/banners/CHRISTMAS_BANNER.md`](docs/banners/CHRISTMAS_BANNER.md), prefix: `XMS-BANNER-ALL`, table via `AIRTABLE_TABLE_ID_CHRISTMAS_BANNER`) — Standalone 5th top-level Studio tab (`generate_christmas_banner_pipeline.py`, `UI Control/routes/christmas_banner.py`). 6 phases: 1 fresh Akeneo item per type (chandelier, pendant, floor lamp, table lamp, wall light) → Krea **2.35:1** (krea-2 has no 21:9) modern Christmas living room (moodboard `b5ffdcbb-192e-4528-8d86-d1a4cf496887`) → Claude multi-fixture blending prompt → Nano Banana Pro **21:9** blend of all 5 fixtures → Claude Sonnet 5 title + subtitle → **local Pillow** overlay (white Poppins Medium 81.8 pt title and Regular 46.3 pt subtitle, tight tracking, soft shadow) into `Banner with Text`. Table `tblgNk1Tp6qKUcduw`.
+
+### Sale Banner Pipeline (1 Pipeline, 1800x600)
+1. **Sale Banner** ([`docs/banners/SALE_BANNER.md`](docs/banners/SALE_BANNER.md), shares table `tblgNk1Tp6qKUcduw` with the Christmas banner, rows told apart by `Category = Sale Banner`) — second sub-tab of the Studio **Banner** tab (`generate_sale_banner_pipeline.py`, `UI Control/routes/sale_banner.py`). 6 phases: 1 pendant light + 2 table lamps from Akeneo → Krea 4:5 modern Christmas dining room and bedroom → Claude blending prompt per room → Nano Banana Pro 4:5 blend per room → percentages and captions (dates with the year) from the promotions calendar (`content_automation/promo_calendar.py`, `assets/calendar_config.json`) plus a panel hex colour suggested by Claude from the two blends (`Sale Panel Color`) → **local Pillow** composite (interiors either side of the coloured panel, Poppins text fitted to the Canva sample). Shared helpers live in `content_automation/banner_common.py`.
+
 Studio moodboard/prompt pencils, persistent config keys, and completed count behavior are mapped in [`docs/UI_CONTROL_CONFIG.md`](docs/UI_CONTROL_CONFIG.md). Use the `C` badge alone for completed totals; `P` includes posted, pending, and processing rows. The optional Studio PIN is `DASHBOARD_PIN`.
 
 ---
@@ -378,6 +384,12 @@ python launch_studio_cloudflare.py
 
 # Recompile Web Frontend
 cd "UI Control" && npm run build
+
+# Run Christmas Banner (21:9; flags: --table-id --record-id --moodboard-id --interior-prompt --style --text-only --from-phase --only-phase)
+python generate_christmas_banner_pipeline.py
+
+# Run Sale Banner (1800x600; flags: --table-id --record-id --style --month --year --dining-moodboard-id --bedroom-moodboard-id --dining-prompt --bedroom-prompt --panel-color --text-only --from-phase --only-phase)
+python generate_sale_banner_pipeline.py
 
 # Run CTA Story Pipeline monolith (modes: scrape|interior|prompt|blend|words|conversion|watermark|round_robin|all|menu)
 python generate_cta_story_pipeline.py --mode all

@@ -9,10 +9,11 @@ the same relative spot whatever comes back.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageOps
 
 
 @dataclass(frozen=True)
@@ -1707,6 +1708,507 @@ def overlay_centered_headline(
     finally:
         if close_base:
             source_base.close()
+
+
+# ---------------------------------------------------------------------------
+# Christmas Banner title + subtitle (21:9): white Poppins (Medium title, Regular subtitle), soft drop shadow
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class BannerTextBox:
+    """Text box measured on the 1800x600 banner design canvas."""
+
+    x: float
+    y: float
+    width: float
+    height: float
+    canvas_width: int = 1800
+    canvas_height: int = 600
+
+
+# Editor boxes for the banner text (design canvas 1800x600 px).
+BANNER_TITLE_BOX = BannerTextBox(x=60, y=340.7, width=1053.6, height=130.9)
+BANNER_SUBTITLE_BOX = BannerTextBox(x=60, y=457.9, width=999.5, height=73.4)
+# Font sizes come from the Canva editor, which counts in points: 1 pt = 4/3 px.
+BANNER_TITLE_FONT_SIZE = 81.8
+BANNER_SUBTITLE_FONT_SIZE = 46.3
+CANVA_PT_TO_PX = 4.0 / 3.0
+# Weights and tight tracking measured from the reference sample (stem width 11-12 px at 109 px
+# is Poppins Medium, not Bold; tracking is what makes each line as wide as in the sample).
+BANNER_TITLE_FONT_FILE = "Poppins-Medium.ttf"
+BANNER_SUBTITLE_FONT_FILE = "Poppins-Regular.ttf"
+BANNER_TITLE_LETTER_SPACING_EM = -0.092
+BANNER_SUBTITLE_LETTER_SPACING_EM = -0.098
+# Soft dark "lift" shadow under the white text (intensity 100 = the reference look).
+BANNER_SHADOW_INTENSITY = 100
+BANNER_SHADOW_COLOR: tuple[int, int, int] = (0, 0, 0)
+_SHADOW_BLUR_EM = 0.145  # gaussian sigma as a fraction of the font size
+_SHADOW_OFFSET_EM = 0.04  # downward offset as a fraction of the font size
+_SHADOW_MAX_ALPHA = 0.56  # peak shadow opacity at intensity 100 (fitted to the reference sample)
+
+
+def _tracked_width(text: str, font: ImageFont.FreeTypeFont | ImageFont.ImageFont, tracking_px: float) -> float:
+    return font.getlength(text) + tracking_px * max(0, len(text) - 1)
+
+
+def _fit_single_line_font(
+    text: str,
+    font_path: Path | None,
+    size_px: float,
+    max_width: float,
+    tracking_em: float,
+    *,
+    floor_ratio: float = 0.6,
+) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    """Largest font (<= size_px) whose tracked line fits max_width; never below floor_ratio * size_px."""
+    if font_path is None:
+        return ImageFont.load_default()
+    current = float(size_px)
+    floor = max(8.0, size_px * floor_ratio)
+    while True:
+        try:
+            font = ImageFont.truetype(str(font_path), current)  # fractional sizes need Pillow >= 10.1
+        except (TypeError, ValueError):
+            font = ImageFont.truetype(str(font_path), int(round(current)))
+        except Exception:
+            return ImageFont.load_default()
+        if _tracked_width(text, font, tracking_em * current) <= max_width or current <= floor:
+            return font
+        current -= 2.0
+
+
+def _draw_tracked_text(
+    draw: ImageDraw.ImageDraw,
+    xy: tuple[float, float],
+    text: str,
+    font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
+    fill: int | tuple[int, ...],
+    tracking_px: float,
+) -> None:
+    """Draw left-aligned, vertically centred text with letter spacing.
+
+    Each glyph is placed at its kerned prefix width plus i * tracking_px, so pair kerning is kept.
+    """
+    x, y = xy
+    for index, char in enumerate(text):
+        offset = font.getlength(text[:index]) + index * tracking_px
+        draw.text((x + offset, y), char, font=font, fill=fill, anchor="lm")
+
+
+def _shadow_layer(
+    size: tuple[int, int],
+    xy: tuple[float, float],
+    text: str,
+    font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
+    tracking_px: float,
+    color: tuple[int, int, int],
+    intensity: float,
+) -> Image.Image:
+    """RGBA soft drop shadow: the glyphs, offset down, blurred, tinted with color (intensity 0-100)."""
+    strength = max(0.0, min(1.0, intensity / 100.0))
+    font_px = float(getattr(font, "size", 24) or 24)
+    mask = Image.new("L", size, 0)
+    _draw_tracked_text(
+        ImageDraw.Draw(mask), (xy[0], xy[1] + font_px * _SHADOW_OFFSET_EM), text, font, 255, tracking_px
+    )
+    blurred = mask.filter(ImageFilter.GaussianBlur(max(1.0, font_px * _SHADOW_BLUR_EM)))
+    alpha = blurred.point(lambda v: int(v * strength * _SHADOW_MAX_ALPHA))
+    layer = Image.new("RGBA", size, (*color, 0))
+    layer.putalpha(alpha)
+    return layer
+
+
+def overlay_banner_title_subtitle(
+    base_image: Path | str | Image.Image,
+    title: str,
+    subtitle: str,
+    destination: Path | str | None = None,
+    *,
+    title_box: BannerTextBox = BANNER_TITLE_BOX,
+    subtitle_box: BannerTextBox = BANNER_SUBTITLE_BOX,
+    title_font_size: float = BANNER_TITLE_FONT_SIZE,
+    subtitle_font_size: float = BANNER_SUBTITLE_FONT_SIZE,
+    title_letter_spacing_em: float = BANNER_TITLE_LETTER_SPACING_EM,
+    subtitle_letter_spacing_em: float = BANNER_SUBTITLE_LETTER_SPACING_EM,
+    shadow_intensity: float = BANNER_SHADOW_INTENSITY,
+    shadow_color: tuple[int, int, int] = BANNER_SHADOW_COLOR,
+    text_color: tuple[int, int, int] = (255, 255, 255),
+) -> Path | Image.Image:
+    """Stamp a white Poppins-Medium title and a white Poppins-Regular subtitle, each with a soft shadow.
+
+    Boxes and font sizes are given on the 1800x600 Canva design canvas (sizes in Canva points,
+    1 pt = 4/3 px). x, width and font size scale with the image width; y and height scale with the
+    image height, so the text keeps its relative place in the frame. Each text is one line,
+    vertically centred in its box, left-aligned at box.x, with tight letter spacing, and shrinks
+    (to no less than 60% of its size) to fit the box width.
+    """
+    if isinstance(base_image, (str, Path)):
+        source_base = Image.open(base_image)
+        close_base = True
+    else:
+        source_base = base_image
+        close_base = False
+
+    try:
+        canvas = source_base.convert("RGBA")
+        title_path = _resolve_font_path(BANNER_TITLE_FONT_FILE) or _resolve_font_path("Poppins-Bold.ttf")
+        subtitle_path = _resolve_font_path(BANNER_SUBTITLE_FONT_FILE)
+
+        def stamp(
+            box: BannerTextBox, text: str, font_path: Path | None, size_pt: float, spacing_em: float
+        ) -> None:
+            nonlocal canvas
+            scale_x = canvas.width / box.canvas_width
+            scale_y = canvas.height / box.canvas_height
+            font = _fit_single_line_font(
+                text, font_path, size_pt * CANVA_PT_TO_PX * scale_x, box.width * scale_x, spacing_em
+            )
+            font_px = float(getattr(font, "size", 24) or 24)
+            tracking_px = spacing_em * font_px
+            xy = (box.x * scale_x, (box.y + box.height / 2.0) * scale_y)
+            if shadow_intensity > 0:
+                shadow = _shadow_layer(canvas.size, xy, text, font, tracking_px, shadow_color, shadow_intensity)
+                canvas = Image.alpha_composite(canvas, shadow)
+            _draw_tracked_text(ImageDraw.Draw(canvas), xy, text, font, (*text_color, 255), tracking_px)
+
+        title = (title or "").strip()
+        subtitle = (subtitle or "").strip()
+        if title:
+            stamp(title_box, title, title_path, title_font_size, title_letter_spacing_em)
+        if subtitle:
+            stamp(subtitle_box, subtitle, subtitle_path, subtitle_font_size, subtitle_letter_spacing_em)
+
+        result = canvas.convert("RGB")
+        if destination is not None:
+            dest_path = Path(destination)
+            dest_path.parent.mkdir(parents=True, exist_ok=True)
+            result.save(dest_path, "JPEG", quality=95, optimize=True)
+            return dest_path
+        return result
+    finally:
+        if close_base:
+            source_base.close()
+
+
+# ---------------------------------------------------------------------------
+# Sale banner (1800x600): two interior photos either side of a red sale panel
+# ---------------------------------------------------------------------------
+# Geometry, fonts, sizes and tracking are fitted numerically to the Canva reference sample
+# (1800x600). Everything is Poppins: Medium for the headline, SALE and the big numbers,
+# Regular for UP TO, %, OFF and the captions, all with about -0.09 em tracking.
+
+SALE_CANVAS_SIZE = (1800, 600)
+SALE_PANEL_X = (483, 1317)  # red panel columns [483, 1317): 834 px wide, full height
+SALE_PANEL_COLOR: tuple[int, int, int] = (255, 49, 49)
+SALE_PANEL_MIN_CONTRAST = 4.5  # WCAG AA for normal text: white text on the panel must reach this ratio
+SALE_SIDE_SLOTS = ((0, 483), (1317, 1800))  # left / right interior photo columns
+SALE_TEXT_COLOR: tuple[int, int, int] = (255, 255, 255)
+SALE_TRACKING_EM = -0.09
+
+SALE_HEADLINE_TEXT = "Limited -Time Offer"
+
+
+def parse_hex_color(text: object) -> tuple[int, int, int] | None:
+    """First '#RGB' / '#RRGGBB' in ``text`` (or a bare hex string) as an RGB tuple, else None."""
+    raw = str(text or "").strip()
+    match = re.search(r"#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})(?![0-9a-fA-F])", raw)
+    if match:
+        digits = match.group(1)
+    elif re.fullmatch(r"[0-9a-fA-F]{6}|[0-9a-fA-F]{3}", raw):
+        digits = raw
+    else:
+        return None
+    if len(digits) == 3:
+        digits = "".join(ch * 2 for ch in digits)
+    return (int(digits[0:2], 16), int(digits[2:4], 16), int(digits[4:6], 16))
+
+
+def format_hex_color(rgb: tuple[int, int, int]) -> str:
+    return "#{:02X}{:02X}{:02X}".format(*rgb)
+
+
+def contrast_with_white(rgb: tuple[int, int, int]) -> float:
+    """WCAG contrast ratio between white and ``rgb`` (1.0 = identical, 21.0 = black)."""
+    def channel(value: int) -> float:
+        v = value / 255.0
+        return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+
+    r, g, b = (channel(c) for c in rgb)
+    luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
+    return 1.05 / (luminance + 0.05)
+
+
+def ensure_white_text_contrast(
+    rgb: tuple[int, int, int], minimum: float = SALE_PANEL_MIN_CONTRAST
+) -> tuple[int, int, int]:
+    """Darken ``rgb`` in small steps (keeping its hue) until white text on it reaches ``minimum``."""
+    color = tuple(int(c) for c in rgb)
+    for _ in range(80):
+        if contrast_with_white(color) >= minimum:
+            break
+        color = tuple(int(c * 0.96) for c in color)
+    return color  # type: ignore[return-value]
+
+
+@dataclass(frozen=True)
+class SaleTextStyle:
+    """One fitted text element: font file, size in px and tracking in em."""
+
+    font_file: str
+    size: float
+    tracking_em: float = SALE_TRACKING_EM
+
+
+# Canva shows font sizes in points; Pillow wants pixels on the 1800x600 canvas (1 pt = 4/3 px).
+SALE_PT_TO_PX = 4.0 / 3.0
+SALE_HEADLINE_PT = 60.9
+SALE_WORD_PT = 168.0
+SALE_NUMBER_PT = 141.0
+SALE_UPTO_PT = 26.7
+SALE_PERCENT_PT = 50.5
+SALE_OFF_PT = 51.3
+
+SALE_HEADLINE_STYLE = SaleTextStyle("Poppins-Medium.ttf", SALE_HEADLINE_PT * SALE_PT_TO_PX)
+SALE_WORD_STYLE = SaleTextStyle("Poppins-Medium.ttf", SALE_WORD_PT * SALE_PT_TO_PX)
+# The reference sample's "XX" was fitted at -0.17 em (the X glyphs overlap); real digits read better at the shared -0.09.
+SALE_NUMBER_STYLE = SaleTextStyle("Poppins-Medium.ttf", SALE_NUMBER_PT * SALE_PT_TO_PX)
+SALE_UPTO_STYLE = SaleTextStyle("Poppins-Regular.ttf", SALE_UPTO_PT * SALE_PT_TO_PX)
+SALE_PERCENT_STYLE = SaleTextStyle("Poppins-Regular.ttf", SALE_PERCENT_PT * SALE_PT_TO_PX)
+SALE_OFF_STYLE = SaleTextStyle("Poppins-Regular.ttf", SALE_OFF_PT * SALE_PT_TO_PX)
+SALE_CAPTION_STYLE = SaleTextStyle("Poppins-Regular.ttf", 17.8)
+
+# Headline and SALE are centred on the ink centres measured on the sample (so a size change never shifts them),
+# each on its own baseline.
+SALE_HEADLINE_INK_CENTER = 909.5
+SALE_HEADLINE_BASELINE = 117.0
+SALE_WORD_INK_CENTER = 900.5
+SALE_WORD_BASELINE = 299.0
+
+# Percent block, measured on the left block of the sample; both blocks use this geometry.
+SALE_BLOCK_CENTERS = (709.5, 1092.5)  # ink centre of each block (UP TO .. OFF)
+SALE_NUMBER_BASELINE = 493.0
+SALE_PERCENT_BASELINE = 401.0
+SALE_OFF_BASELINE = 462.0
+SALE_UPTO_INK_BOTTOM = 408
+SALE_UPTO_TO_NUMBER = 27.0  # UP TO ink-left to number ink-left
+SALE_NUMBER_TO_PERCENT = 5.0  # number ink-right to % ink-left
+SALE_NUMBER_TO_OFF = 6.0  # number ink-right to OFF ink-left
+
+# Captions: two or three centred lines under each block.
+SALE_CAPTION_CENTERS = (702.0, 1086.0)
+SALE_CAPTION_FIRST_BASELINE = 535.5
+SALE_CAPTION_LINE_PITCH = 20.6
+SALE_CAPTION_MAX_WIDTH = 290.0
+SALE_CAPTION_MAX_LINES = 3
+
+
+def _sale_font(style: SaleTextStyle) -> ImageFont.FreeTypeFont:
+    path = _resolve_font_path(style.font_file)
+    if path is None:
+        raise FileNotFoundError(f"Poppins font not found: {style.font_file}")
+    try:
+        return ImageFont.truetype(str(path), style.size)
+    except (TypeError, ValueError):
+        return ImageFont.truetype(str(path), int(round(style.size)))
+
+
+def _sale_text_ink(text: str, font: ImageFont.FreeTypeFont, tracking_px: float) -> tuple[float, float, float, float]:
+    """Ink box (left, top, right, bottom, all inclusive) of tracked text drawn at origin (0, 0), baseline anchor.
+
+    Measured from a raster (fully covered pixels only) because ``font.getbbox`` reports advance
+    widths, not ink. Fully covered pixels match how the reference sample was measured.
+    """
+    size = float(getattr(font, "size", 24) or 24)
+    pad = int(size) + 8
+    base = int(size * 1.3)
+    width = int(font.getlength(text) + abs(tracking_px) * len(text) + pad * 2)
+    strip = Image.new("L", (width, int(size * 2) + pad), 0)
+    strip_draw = ImageDraw.Draw(strip)
+    for index, char in enumerate(text):
+        offset = font.getlength(text[:index]) + index * tracking_px
+        strip_draw.text((pad + offset, base), char, font=font, fill=255, anchor="ls")
+    box = strip.point(lambda v: 255 if v >= 245 else 0).getbbox()
+    if not box:
+        return 0.0, 0.0, 0.0, 0.0
+    left, top, right, bottom = box
+    return float(left - pad), float(top - base), float(right - 1 - pad), float(bottom - 1 - base)
+
+
+def _sale_draw_text(
+    draw: ImageDraw.ImageDraw,
+    origin: tuple[float, float],
+    text: str,
+    style: SaleTextStyle,
+    fill: tuple[int, ...] = (*SALE_TEXT_COLOR, 255),
+) -> tuple[float, float, float, float]:
+    """Draw left-to-right tracked text with its left origin and baseline at ``origin``; returns the ink box."""
+    font = _sale_font(style)
+    tracking_px = style.tracking_em * style.size
+    x, base = origin
+    for index, char in enumerate(text):
+        offset = font.getlength(text[:index]) + index * tracking_px
+        draw.text((x + offset, base), char, font=font, fill=fill, anchor="ls")
+    l, t, r, b = _sale_text_ink(text, font, tracking_px)
+    return x + l, base + t, x + r, base + b
+
+
+def _sale_draw_text_centered(
+    draw: ImageDraw.ImageDraw, center_x: float, baseline: float, text: str, style: SaleTextStyle
+) -> tuple[float, float, float, float]:
+    """Draw tracked text so the centre of its ink box sits on ``center_x``; returns the ink box."""
+    font = _sale_font(style)
+    left, _, right, _ = _sale_text_ink(text, font, style.tracking_em * style.size)
+    return _sale_draw_text(draw, (center_x - (left + right) / 2.0, baseline), text, style)
+
+
+def _sale_centered_width(text: str, style: SaleTextStyle) -> float:
+    font = _sale_font(style)
+    return font.getlength(text) + style.tracking_em * style.size * max(0, len(text) - 1)
+
+
+def wrap_sale_caption(
+    text: str,
+    style: SaleTextStyle = SALE_CAPTION_STYLE,
+    max_width: float = SALE_CAPTION_MAX_WIDTH,
+    max_lines: int = SALE_CAPTION_MAX_LINES,
+) -> list[str]:
+    """Greedy word wrap that reproduces the sample's line breaks; extra words go on the last line."""
+    words = str(text or "").split()
+    lines: list[str] = []
+    current = ""
+    for word in words:
+        trial = f"{current} {word}".strip()
+        if current and _sale_centered_width(trial, style) > max_width and len(lines) < max_lines - 1:
+            lines.append(current)
+            current = word
+        else:
+            current = trial
+    if current:
+        lines.append(current)
+    return lines
+
+
+def _sale_cover_fit(image: Image.Image, size: tuple[int, int]) -> Image.Image:
+    return ImageOps.fit(image.convert("RGB"), size, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+
+
+def _sale_draw_percent_block(
+    canvas: Image.Image, percent: str, center_x: float
+) -> None:
+    """UP TO (rotated) + big number + % over OFF, the block centred on ``center_x`` (ink centre)."""
+    draw = ImageDraw.Draw(canvas)
+    number_font = _sale_font(SALE_NUMBER_STYLE)
+    n_l, _, n_r, _ = _sale_text_ink(percent, number_font, SALE_NUMBER_STYLE.tracking_em * SALE_NUMBER_STYLE.size)
+    number_w = n_r - n_l
+    off_font = _sale_font(SALE_OFF_STYLE)
+    off_l, _, off_r, _ = _sale_text_ink("OFF", off_font, SALE_OFF_STYLE.tracking_em * SALE_OFF_STYLE.size)
+    off_w = off_r - off_l
+
+    # Ink-space layout, left edge of "UP TO" = 0.
+    number_left = SALE_UPTO_TO_NUMBER
+    number_right = number_left + number_w
+    off_left = number_right + SALE_NUMBER_TO_OFF
+    block_w = off_left + off_w
+    block_left = center_x - block_w / 2.0
+
+    # UP TO: horizontal ink rotated 90 degrees counter-clockwise, ink-left at block_left.
+    up_font = _sale_font(SALE_UPTO_STYLE)
+    up_tracking = SALE_UPTO_STYLE.tracking_em * SALE_UPTO_STYLE.size
+    pad = int(SALE_UPTO_STYLE.size)
+    width = int(up_font.getlength("UP TO") + abs(up_tracking) * 6 + pad * 2)
+    strip = Image.new("L", (width, int(SALE_UPTO_STYLE.size * 2)), 0)
+    strip_draw = ImageDraw.Draw(strip)
+    for index, char in enumerate("UP TO"):
+        strip_draw.text(
+            (pad + up_font.getlength("UP TO"[:index]) + index * up_tracking, SALE_UPTO_STYLE.size * 1.4),
+            char, font=up_font, fill=255, anchor="ls",
+        )
+    rotated = strip.rotate(90, expand=True)
+    ink = rotated.getbbox()
+    if ink:
+        rotated = rotated.crop(ink)
+        canvas.paste(
+            Image.new("RGB", rotated.size, SALE_TEXT_COLOR),
+            (int(round(block_left)), int(SALE_UPTO_INK_BOTTOM - rotated.size[1] + 1)),
+            rotated,
+        )
+
+    # Big number, then % (superscript) and OFF to its right.
+    num_origin_x = block_left + number_left - n_l
+    _sale_draw_text(draw, (num_origin_x, SALE_NUMBER_BASELINE), percent, SALE_NUMBER_STYLE)
+    pct_font = _sale_font(SALE_PERCENT_STYLE)
+    p_l, _, _, _ = _sale_text_ink("%", pct_font, 0.0)
+    _sale_draw_text(
+        draw,
+        (block_left + number_right + SALE_NUMBER_TO_PERCENT - p_l, SALE_PERCENT_BASELINE),
+        "%", SALE_PERCENT_STYLE,
+    )
+    _sale_draw_text(
+        draw, (block_left + off_left - off_l, SALE_OFF_BASELINE), "OFF", SALE_OFF_STYLE
+    )
+
+
+def draw_sale_banner(
+    left_image: Path | str | Image.Image,
+    right_image: Path | str | Image.Image,
+    *,
+    percent_left: str | int = 10,
+    percent_right: str | int = 15,
+    caption_left: str = "On all items from curated monthly collection on [Date]",
+    caption_right: str = "On all items from a curated collection on [Date]",
+    headline: str = SALE_HEADLINE_TEXT,
+    destination: Path | str | None = None,
+    panel_color: tuple[int, int, int] | str | None = None,
+) -> Path | Image.Image:
+    """Compose the 1800x600 sale banner: interiors left and right, coloured panel with the sale text between.
+
+    ``panel_color`` is an RGB tuple or a hex string; None or an unparseable value keeps the sample's red.
+
+    The two photos are cover-fitted into their 483 px slots. Text is white Poppins fitted to the
+    reference sample. Captions wrap on the sample's line breaks and are centred under each block.
+    """
+    width, height = SALE_CANVAS_SIZE
+    if isinstance(panel_color, str):
+        panel_color = parse_hex_color(panel_color)
+    panel: tuple[int, int, int] = tuple(panel_color) if panel_color else SALE_PANEL_COLOR  # type: ignore[assignment]
+
+    def open_rgb(source: Path | str | Image.Image) -> Image.Image:
+        if isinstance(source, (str, Path)):
+            with Image.open(source) as opened:
+                return opened.convert("RGB")
+        return source.convert("RGB")
+
+    canvas = Image.new("RGB", (width, height), panel)
+    for source, (x0, x1) in zip((left_image, right_image), SALE_SIDE_SLOTS):
+        canvas.paste(_sale_cover_fit(open_rgb(source), (x1 - x0, height)), (x0, 0))
+    draw = ImageDraw.Draw(canvas)
+    draw.rectangle([SALE_PANEL_X[0], 0, SALE_PANEL_X[1] - 1, height - 1], fill=panel)
+    # The reference panel spans x 482.5 to 1317.5, so the two edge columns are a 50% mix of panel and photo.
+    for edge_x in (SALE_PANEL_X[0] - 1, SALE_PANEL_X[1]):
+        column = canvas.crop((edge_x, 0, edge_x + 1, height))
+        canvas.paste(Image.blend(column, Image.new("RGB", column.size, panel), 0.5), (edge_x, 0))
+
+    _sale_draw_text_centered(draw, SALE_HEADLINE_INK_CENTER, SALE_HEADLINE_BASELINE, headline, SALE_HEADLINE_STYLE)
+    _sale_draw_text_centered(draw, SALE_WORD_INK_CENTER, SALE_WORD_BASELINE, "SALE", SALE_WORD_STYLE)
+
+    for percent, center_x in zip((percent_left, percent_right), SALE_BLOCK_CENTERS):
+        _sale_draw_percent_block(canvas, str(percent), center_x)
+
+    for caption, center_x in zip((caption_left, caption_right), SALE_CAPTION_CENTERS):
+        for line_index, line in enumerate(wrap_sale_caption(caption)):
+            line_w = _sale_centered_width(line, SALE_CAPTION_STYLE)
+            _sale_draw_text(
+                draw,
+                (center_x - line_w / 2.0, SALE_CAPTION_FIRST_BASELINE + line_index * SALE_CAPTION_LINE_PITCH),
+                line, SALE_CAPTION_STYLE,
+            )
+
+    if destination is not None:
+        dest_path = Path(destination)
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        canvas.save(dest_path, "JPEG", quality=95, optimize=True)
+        return dest_path
+    return canvas
 
 
 # ---------------------------------------------------------------------------

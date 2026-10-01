@@ -49,6 +49,11 @@ export const CONTENT_CONFIG: Record<TabType, { name: string; ratio: string; item
     ratio: '1:1 (1080 × 1080 px)',
     items: ['Ad Cover Chandelier'],
   },
+  banner: {
+    name: 'Christmas Banner',
+    ratio: '21:9 (ultra-wide)',
+    items: ['Christmas Banner', 'Sale Banner'],
+  },
 };
 
 // The 5 CTA Story fixtures with actual Airtable Table IDs & Default Krea Moodboard IDs
@@ -247,6 +252,19 @@ export const AD_COVER_FIXTURES: Omit<FixtureData, 'completed'>[] = [
   { id: 'on-stock', name: 'On Stock Designs', total: 100, tableId: 'tblX7tpTJhfH0UXmm', moodboardId: 'de6ad512-870d-4ab7-a48c-3f3ca85faf24', prompt: 'Generate me a modern interior with ambient lighting', runnable: true },
 ];
 
+// Christmas Banner (21:9): 5 fixtures blended into one Krea Christmas living room. The table ID comes from the
+// AIRTABLE_TABLE_ID_CHRISTMAS_BANNER env key (default below); the counts endpoint returns the live value.
+export const CHRISTMAS_BANNER_FIXTURES: Omit<FixtureData, 'completed'>[] = [
+  { id: 'christmas_banner', name: 'Christmas Banner', total: 100, tableId: 'tblgNk1Tp6qKUcduw', moodboardId: 'b5ffdcbb-192e-4528-8d86-d1a4cf496887', prompt: 'Generate me a photo of a modern luxury living room with a Christmas vibe: a decorated Christmas tree, warm festive styling with garlands and soft fairy lights, a sofa and armchair seating area, a side table and console, high ceilings, clean architecture, warm cozy evening light, wide cinematic panoramic composition, with empty ceiling, wall and floor spaces for lighting fixtures', runnable: true },
+];
+
+// Sale Banner (1800x600): dining room + pendant on the left, bedroom + 2 table lamps on the right, red sale
+// panel between. It shares the Christmas banner's Airtable table (rows are told apart by Category).
+// Its Krea moodboards/prompts are set through the SALE_BANNER_* env keys, so there are no card pencils.
+export const SALE_BANNER_FIXTURES: Omit<FixtureData, 'completed'>[] = [
+  { id: 'sale_banner', name: 'Sale Banner', total: 100, tableId: 'tblgNk1Tp6qKUcduw', moodboardId: '', prompt: '', runnable: true },
+];
+
 export const DEFAULT_FIXTURES: Omit<FixtureData, 'completed'>[] = [
   { id: 'chandelier', name: 'Chandelier', total: 100 },
   { id: 'pendant', name: 'Pendant Lights', total: 100 },
@@ -297,5 +315,6 @@ export const getFixturesForSubtab = (tab: TabType, subtabIdx: number): Omit<Fixt
     }
   }
   if (tab === 'adcover') return AD_COVER_FIXTURES;
+  if (tab === 'banner') return subtabIdx === 1 ? SALE_BANNER_FIXTURES : CHRISTMAS_BANNER_FIXTURES;
   return DEFAULT_FIXTURES;
 };

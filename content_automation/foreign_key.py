@@ -209,6 +209,8 @@ TABLE_PREFIX_MAP: dict[str, str] = {
     # 20. Sketch to Real Reel
     "tblUFR6OvFQaHnG1V": "STR-REEL-CH",
     "tblSALsUd5MXXnkp6": "STR-REEL-PE",
+    # 21. Christmas Banner (21:9)
+    "tblgNk1Tp6qKUcduw": "XMS-BANNER-ALL",
 }
 
 # Dynamically register any Sketch to Real / Draw Reel env overrides
@@ -225,6 +227,8 @@ for _env_key, _prefix in (
     ("AIRTABLE_TABLE_ID_FLOOR_LAMPS_SKETCH_TO_DRAW_REEL", "STR-REEL-FL"),
     ("AIRTABLE_TABLE_ID_TABLE_LAMPS_SKETCH_TO_DRAW_REEL", "STR-REEL-TL"),
     ("AIRTABLE_TABLE_ID_CEILING_MOUNTED_SKETCH_TO_DRAW_REEL", "STR-REEL-CM"),
+    ("AIRTABLE_TABLE_ID_CHRISTMAS_BANNER", "XMS-BANNER-ALL"),
+    ("AIRTABLE_TABLE_ID_SALE_BANNER", "XMS-BANNER-ALL"),
 ):
     _val = os.getenv(_env_key, "").strip()
     if _val:
