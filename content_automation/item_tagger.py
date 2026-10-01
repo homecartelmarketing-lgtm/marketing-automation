@@ -329,7 +329,13 @@ def tag_blended_image(
     else:
         image = Image.open(image_input)
 
-    bbox = detect_item_bbox(image, category=category, confidence_threshold=confidence_threshold)
+    try:
+        bbox = detect_item_bbox(image, category=category, confidence_threshold=confidence_threshold)
+    except Exception as detect_err:
+        # YOLO-World needs ultralytics + CLIP; hosted images may lack them. Treat that as
+        # "undetected" so the tag still lands at the safe fallback position.
+        logger.warning(f"[TAGGER] Item detection unavailable ({detect_err}); using fallback handling.")
+        bbox = None
     if bbox is None:
         if not fallback_if_undetected:
             logger.warning(

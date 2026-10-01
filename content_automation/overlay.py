@@ -1508,6 +1508,149 @@ def create_tips_edu_feed_image(
             source_base.close()
 
 
+# ---------------------------------------------------------------------------
+# Tips & Edu Story (9:16, 1080x1920): local layout, no image API.
+# Positions are measured from JSON Prompts/Tips and Edu Story/stories (33).jpg.
+# Canva sizes are points (1 pt = 4/3 px): title 40 pt ExtraBold, tip 28 pt Regular.
+# ---------------------------------------------------------------------------
+TIPS_EDU_STORY_SIZE = (1080, 1920)
+TIPS_EDU_STORY_TITLE = "Style Tip of the Day"
+TIPS_EDU_STORY_TITLE_PT = 40.0
+TIPS_EDU_STORY_TIP_PT = 28.0
+TIPS_EDU_STORY_TITLE_ORIGIN = (119, 1356)  # text origin; ink starts at x=121, y=1369
+TIPS_EDU_STORY_UNDERLINE = (113, 1437, 633, 1439)  # x0, y0, x1, y1 (x1/y1 exclusive): 520 x 2 px
+TIPS_EDU_STORY_TIP_ORIGIN = (113, 1541)  # text origin; ink starts at x=118, y=1546
+TIPS_EDU_STORY_TIP_MAX_WIDTH = 854  # symmetric 113 px side margins
+TIPS_EDU_STORY_TIP_MAX_LINES = 4
+TIPS_EDU_STORY_TIP_MIN_PX = 28.0
+# Soft dark gradient so white text stays legible on light photos (0 -> ~65% black).
+TIPS_EDU_STORY_GRADIENT_START_Y = 1150
+TIPS_EDU_STORY_GRADIENT_MAX_ALPHA = 166
+
+
+def _wrap_text_to_width(text: str, font: ImageFont.FreeTypeFont, max_width: float) -> list[str]:
+    lines: list[str] = []
+    current: list[str] = []
+    for word in text.split():
+        trial = " ".join(current + [word])
+        if current and font.getlength(trial) > max_width:
+            lines.append(" ".join(current))
+            current = [word]
+        else:
+            current.append(word)
+    if current:
+        lines.append(" ".join(current))
+    return lines
+
+
+def overlay_tips_edu_story_layout(
+    canvas: Image.Image,
+    tip_text: str,
+    *,
+    title_font_path: Path | str | None = None,
+    tip_font_path: Path | str | None = None,
+    text_color: tuple[int, int, int] = (255, 255, 255),
+) -> Image.Image:
+    """Draw the "Style Tip of the Day" story layout on top of a blended room photo.
+
+    The photo is cover-fitted to 1080x1920 and never repainted; only a bottom gradient, the
+    title, its underline and the tip sentence are added. The logo is stamped separately with
+    ``stamp_logo`` so there is exactly one.
+    """
+    base = ImageOps.fit(
+        canvas.convert("RGB"), TIPS_EDU_STORY_SIZE, method=Image.LANCZOS, centering=(0.5, 0.5)
+    ).convert("RGBA")
+    width, height = base.size
+
+    gradient_h = height - TIPS_EDU_STORY_GRADIENT_START_Y
+    ramp = Image.linear_gradient("L").resize((width, gradient_h), Image.BILINEAR)
+    ramp = ramp.point(lambda v: int(v * TIPS_EDU_STORY_GRADIENT_MAX_ALPHA / 255))
+    shade = Image.new("RGBA", (width, gradient_h), (0, 0, 0, 255))
+    shade.putalpha(ramp)
+    base.alpha_composite(shade, (0, TIPS_EDU_STORY_GRADIENT_START_Y))
+
+    title_path = (
+        title_font_path
+        or _resolve_font_path("Poppins-ExtraBold.ttf")
+        or _resolve_font_path("Poppins-Bold.ttf")
+    )
+    tip_path = tip_font_path or _resolve_font_path("Poppins-Regular.ttf") or title_path
+
+    def load(path: Path | str | None, size: float) -> ImageFont.ImageFont:
+        try:
+            return ImageFont.truetype(str(path), size) if path else ImageFont.load_default()
+        except Exception:
+            return ImageFont.load_default()
+
+    draw = ImageDraw.Draw(base)
+    fill = (*text_color, 255)
+
+    title_font = load(title_path, TIPS_EDU_STORY_TITLE_PT * CANVA_PT_TO_PX)
+    draw.text(TIPS_EDU_STORY_TITLE_ORIGIN, TIPS_EDU_STORY_TITLE, font=title_font, fill=fill)
+    draw.rectangle(
+        [
+            TIPS_EDU_STORY_UNDERLINE[0],
+            TIPS_EDU_STORY_UNDERLINE[1],
+            TIPS_EDU_STORY_UNDERLINE[2] - 1,
+            TIPS_EDU_STORY_UNDERLINE[3] - 1,
+        ],
+        fill=fill,
+    )
+
+    clean_tip = " ".join(str(tip_text or "").split())
+    if clean_tip:
+        size = TIPS_EDU_STORY_TIP_PT * CANVA_PT_TO_PX
+        tip_font = load(tip_path, size)
+        lines = _wrap_text_to_width(clean_tip, tip_font, TIPS_EDU_STORY_TIP_MAX_WIDTH)
+        # Shrink only when the sentence would need more than the allowed lines.
+        while len(lines) > TIPS_EDU_STORY_TIP_MAX_LINES and size > TIPS_EDU_STORY_TIP_MIN_PX:
+            size -= 1.0
+            tip_font = load(tip_path, size)
+            lines = _wrap_text_to_width(clean_tip, tip_font, TIPS_EDU_STORY_TIP_MAX_WIDTH)
+        try:
+            ascent, descent = tip_font.getmetrics()
+            line_height = ascent + descent
+        except Exception:
+            line_height = int(round(size * 1.4))
+        x, y = TIPS_EDU_STORY_TIP_ORIGIN
+        for line in lines:
+            draw.text((x, y), line, font=tip_font, fill=fill)
+            y += line_height
+
+    return base.convert("RGB")
+
+
+def create_tips_edu_story_image(
+    base_image: Path | str | Image.Image,
+    tip_text: str,
+    destination: Path | str | None = None,
+    *,
+    logo_path: Path | str | None = None,
+) -> Path | Image.Image:
+    """Compose the full Tips & Edu Story (1080x1920): photo + local text layout + one logo."""
+    if isinstance(base_image, (str, Path)):
+        source = Image.open(base_image)
+        close_source = True
+    else:
+        source = base_image
+        close_source = False
+    try:
+        result = overlay_tips_edu_story_layout(source, tip_text)
+    finally:
+        if close_source:
+            source.close()
+
+    if logo_path is not None and Path(logo_path).is_file():
+        result = stamp_logo(result, Path(logo_path), None, HOMECARTEL_STORY_LOGO_BOX)
+
+    if destination is not None:
+        dest = Path(destination)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        result.save(dest, "JPEG", quality=95, optimize=True)
+        return dest
+    return result
+
+
 @dataclass(frozen=True)
 class MoodboardTextureBox:
     """Canva coordinate box for Moodboard Reel 3-panel textures (1080x1920 canvas)."""

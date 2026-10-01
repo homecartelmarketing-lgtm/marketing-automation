@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     libsndfile1 \
     curl \
+    git \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
@@ -25,6 +26,10 @@ WORKDIR /app
 # 2. Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# YOLO-World (item name tagging) needs OpenAI CLIP from Ultralytics' fork. It is installed here
+# (git is available above) because the runtime auto-install fails inside the container.
+RUN pip install --no-cache-dir "git+https://github.com/ultralytics/CLIP.git"
 
 # Pre-cache YOLO-World model weights during Docker build so it never delays runtime
 RUN python -c "from ultralytics import YOLO; YOLO('yolov8s-worldv2.pt')" || true

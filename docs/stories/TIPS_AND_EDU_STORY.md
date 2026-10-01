@@ -10,7 +10,7 @@ The **Tips & Educational Story Automation Pipeline** generates branded **9:16 ve
 - **Format**: Single-Card Vertical Story (`.jpg` / `.png`)
 - **Color Profile**: sRGB, 8-bit truecolor
 - **Slide Composition**:
-  - Educational Infographic card combining room interior, lighting installation context, and design recommendations in a clean editorial Canva template format.
+  - The blended room photo fills the canvas; a soft bottom gradient, the title **"Style Tip of the Day"**, a 2 px underline, a Claude-written styling tip and the HomeCartel logo are drawn on top locally.
 
 ---
 
@@ -22,7 +22,7 @@ The **Tips & Educational Story Automation Pipeline** generates branded **9:16 ve
 | **Phase 2** | **Krea Room Interior** | Krea AI | `krea-2-medium` (9:16, 1K)<br>Category Moodboard ID | Standby record + Room Prompt | `Interior Photo Generated` -> Status: `In Progress` (`P`) |
 | **Phase 3** | **Claude Prompt Analysis** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | Interior + Product Photos | `Prompt` -> Status: `In Progress` (`P`) |
 | **Phase 4** | **Nano Banana Pro Blending** | Fal AI + Local YOLO | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | Interior + Product + Prompt | `Blended Image` & `Multiple Angle Blended Image` -> Status: `In Progress` (`P`) |
-| **Phase 5** | **Story Layout Conversion** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | `Blended Image` + `Tips and Edu Story Layout` | `Tips and Edu Story Converted` -> Status: `Completed` (`C`) |
+| **Phase 5** | **Story Layout (local Pillow)** | Fal AI (Claude tip only) + local Pillow | `anthropic/claude-sonnet-5` writes the tip; layout built by `overlay.py::create_tips_edu_story_image` (zero image-API cost) | `Blended Image` (the room photo is the background) | `Tips and Edu Story Converted` -> Status: `Completed` (`C`) |
 
 ---
 
@@ -91,7 +91,14 @@ When a row reaches Complete (C), the pipeline automatically writes the Philippin
   - Coordinate Box: $X = 781.7\text{ px}, Y = 108.0\text{ px}$ (exact 108 px top & right margins).
   - Box Size: $\text{Width} = 190.3\text{ px}, \text{Height} = 63.5\text{ px}$.
   - Stamped 100% locally via Python Pillow (`PIL`) with Lanczos antialiasing and alpha-mask blending for zero API cost and razor-sharp brand rendering on final story conversions.
-- **Typography & Bounding Box Rules**: When local text compositing is active, titles render using `Poppins-Bold.ttf` with soft Gaussian blur drop shadows for high legibility across diverse room tones.
+- **Phase 5 Layout (`overlay.py::overlay_tips_edu_story_layout`)**: Nano Banana Pro is **not** used for the layout (it redrew the room, doubled the logo and printed prompt text). Measured from the Canva layout `JSON Prompts/Tips and Edu Story/stories (33).jpg`:
+  - Title: Poppins **ExtraBold** (`content_automation/fonts/Poppins-ExtraBold.ttf`), 40 pt = 53.33 px (`CANVA_PT_TO_PX = 4/3`), ink at x=121, y=1369; 2 px underline at x=113-632, y=1437.
+  - Tip: Poppins **Regular**, 28 pt = 37.33 px, origin x=113, y=1541, wrapped to 854 px, max 4 lines (shrinks only beyond that).
+  - Legibility gradient: `TIPS_EDU_STORY_GRADIENT_START_Y` / `TIPS_EDU_STORY_GRADIENT_MAX_ALPHA` in `overlay.py` (set alpha to 0 to remove it).
+  - Tip text: `content_automation/story_tip.py` asks Claude Sonnet 5 (via `fal_client.generate_claude_vision`, looking at the blended image) for one 12-20 word sentence; unusable replies or API errors fall back to a neutral per-category tip so the run still completes (`tip_used_fallback` is logged).
+  - The layout image and `tips-and-edu.json` are no longer used for this story (the layout is still attached to the row for reference).
+  - Tests: `tests/test_tips_edu_story_layout.py`.
+- **Typography & Bounding Box Rules**: Other local text compositing renders titles with `Poppins-Bold.ttf` with soft Gaussian blur drop shadows for high legibility across diverse room tones.
 - **Active Product Enforcement**: Ingestion strictly filters `enabled=true` products from Akeneo and verifies against all existing Story and Feed tables.
 
 ---

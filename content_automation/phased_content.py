@@ -34,10 +34,9 @@ from .isolated_config import IsolatedAutomationSettings
 from .item_tagger import (
     TARGET_BLENDED_FIELD,
     tag_and_upload_blended_image,
-    tag_blended_image,
 )
 from .krea_client import KreaClient
-from .overlay import HOMECARTEL_STORY_LOGO_BOX, stamp_logo
+from .overlay import create_tips_edu_story_image
 from .prompts import build_vision_blending_instruction
 from .scraping.airtable import ScrapeAirtableClient
 from .scraping.categories import akeneo_category_code
@@ -51,6 +50,7 @@ from .scraping.products import (
     select_new_products,
 )
 from .shopify_client import ShopifyCatalogIndex, ShopifyClient
+from .story_tip import TIP_SYSTEM_INSTRUCTION, build_tip_prompt, resolve_tip
 
 
 KREA_ASPECT_RATIO = "9:16"
@@ -1600,29 +1600,12 @@ class PhasedContentRunner:
                 )
                 fields = self._record(record_id).get("fields", {})
         layout_url = self._attachment_url(fields, self.definition.layout_field)
-        prompt = AssetCatalog(self.settings.workspace).read_prompt(self.definition.final_prompt_asset)
         if self.definition.key.startswith("tips_edu_story"):
-            try:
-                raw_item_name = str(fields.get("Item Name") or fields.get("SKU") or record_id).strip()
-                item_title, product_type = split_item_name(
-                    raw_item_name, fallback_product_type=str(fields.get("Product Type") or "")
-                )
-                prompt_data = json.loads(prompt)
-                prompt_data["specific_fixture_preservation"] = {
-                    "product_name": item_title,
-                    "product_type": product_type,
-                    "category": self.definition.category_code,
-                    "instruction": (
-                        f"The product advertised in Image 1 is '{item_title}' ({product_type}). "
-                        f"Image 1 shows the exact '{item_title}' installed in the room WITH its floating white name tag beside it. "
-                        f"You MUST preserve this exact '{item_title}' fixture and its floating white text tag with 100% precision. "
-                        f"DO NOT replace, redesign, or alter the chandelier/lighting fixture, and DO NOT erase the floating white text."
-                    ),
-                }
-                prompt = json.dumps(prompt_data)
-            except Exception as inject_err:
-                print(f"  [WARN] Dynamic prompt injection note: {inject_err}", flush=True)
+            # Local Pillow layout (no image API): photo + title + Claude tip + logo.
+            self._tips_edu_story_local_layout(record_id, fields, blended_url)
+            return
 
+        prompt = AssetCatalog(self.settings.workspace).read_prompt(self.definition.final_prompt_asset)
         print(f"  [2/3] Sending layout conversion request to Fal AI Nano Banana Pro ({FAL_NANO_BANANA_MODEL}) at 9:16...", flush=True)
         result_url = self.fal.generate(
             prompt,
@@ -1635,45 +1618,6 @@ class PhasedContentRunner:
         destination = self._artifact_path(record_id, filename)
         self._download(result_url, destination)
         self._validate_9_16(destination, "Nano Banana Pro story converted image")
-
-        if self.definition.key.startswith("tips_edu_story"):
-            # Ensure the floating item name text is 100% sharp and visible on the final story conversion
-            try:
-                raw_item_name = str(fields.get("Item Name") or fields.get("SKU") or record_id).strip()
-                item_title, product_type = split_item_name(
-                    raw_item_name, fallback_product_type=str(fields.get("Product Type") or "")
-                )
-                tagged_conv, _ = tag_blended_image(
-                    image_input=destination,
-                    item_name=item_title,
-                    product_type=product_type,
-                    category=self.definition.category_code,
-                    destination=destination,
-                )
-                if tagged_conv is not None:
-                    print(f"  [OK] Guaranteed sharp floating item name text tag stamped onto final story conversion ({destination.name}).", flush=True)
-            except Exception as stamp_err:
-                print(f"  [WARN] Story conversion text tag guarantee note: {stamp_err}", flush=True)
-
-            # Local PIL Brand Logo Stamping (Story Top-Right: X=781.7, Y=108.0 | 190.3 x 63.5 px)
-            try:
-                logo_path = self._resolve_logo_path(fields)
-                if logo_path and logo_path.is_file():
-                    stamp_logo(
-                        base_path=destination,
-                        logo_path=logo_path,
-                        destination=destination,
-                        box=HOMECARTEL_STORY_LOGO_BOX,
-                    )
-                    print(
-                        f"  [OK] Stamped HomeCartel Story logo onto final story conversion "
-                        f"(Top-Right: X=781.7, Y=108.0 | 190.3 x 63.5 px) -> {destination.name}",
-                        flush=True,
-                    )
-                else:
-                    print("  [WARN] No brand logo asset found to stamp onto story conversion.", flush=True)
-            except Exception as logo_err:
-                print(f"  [WARN] Story conversion logo stamping note: {logo_err}", flush=True)
 
         print(f"  [3/3] Uploading converted story to '{self.definition.final_field}' on record {record_id}...", flush=True)
         self.airtable.upload_attachment(record_id, self.definition.final_field, destination, destination.name)
@@ -1708,6 +1652,62 @@ class PhasedContentRunner:
                 },
             },
             self.audit_log_dir / f"{self.definition.key}_fal_nano_layout_logs.json",
+        )
+
+    def _tips_edu_story_local_layout(
+        self,
+        record_id: str,
+        fields: dict[str, Any],
+        blended_url: str,
+    ) -> None:
+        """Phase 5 for Tips & Edu Story: Claude writes the tip, Pillow builds the story locally."""
+        raw_item_name = str(fields.get("Item Name") or fields.get("SKU") or record_id).strip()
+        item_title, product_type = split_item_name(
+            raw_item_name, fallback_product_type=str(fields.get("Product Type") or "")
+        )
+
+        print("  [2/3] Asking Claude Sonnet 5 (via Fal AI) for the Style Tip of the Day...", flush=True)
+        raw_reply = ""
+        try:
+            raw_reply = self.fal.generate_claude_vision(
+                prompt=build_tip_prompt(item_title, product_type),
+                image_urls=[blended_url],
+                system_instruction=TIP_SYSTEM_INSTRUCTION,
+            )
+        except Exception as tip_err:
+            print(f"  [WARN] Claude tip request failed ({tip_err}); using the fallback tip.", flush=True)
+        tip_text, used_fallback = resolve_tip(raw_reply, self.definition.category_code)
+        if used_fallback:
+            print("  [WARN] Claude tip was empty or unusable; using the fallback tip.", flush=True)
+        print(f"  [TIP] {tip_text}", flush=True)
+
+        source_path = self._artifact_path(record_id, "tips_edu_story_source.jpg")
+        self._download(blended_url, source_path)
+
+        filename = "tips_edu_story_converted.jpg"
+        destination = self._artifact_path(record_id, filename)
+        logo_path = self._resolve_logo_path(fields)
+        if not (logo_path and logo_path.is_file()):
+            print("  [WARN] No brand logo asset found to stamp onto the story.", flush=True)
+            logo_path = None
+        create_tips_edu_story_image(source_path, tip_text, destination, logo_path=logo_path)
+        self._validate_9_16(destination, "Tips & Edu Story layout")
+        print(
+            f"  [OK] Built Tips & Edu Story locally with Pillow (1080x1920, single logo) -> {destination.name}",
+            flush=True,
+        )
+
+        print(f"  [3/3] Uploading converted story to '{self.definition.final_field}' on record {record_id}...", flush=True)
+        self.airtable.upload_attachment(record_id, self.definition.final_field, destination, destination.name)
+        self.logger.event(
+            "layout_completed",
+            record_id=record_id,
+            phase=5,
+            provider="local_pillow",
+            tip_provider="fal_claude",
+            tip_used_fallback=used_fallback,
+            aspect_ratio="9:16",
+            attachment_filename=destination.name,
         )
 
     def _phase_6(self, record_id: str) -> None:
