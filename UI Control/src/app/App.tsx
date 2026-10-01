@@ -99,6 +99,16 @@ export default function App() {
     [fetchLiveCounts, setProgressState]
   );
 
+  // Safety net: UI says "running" but the server queue has been empty for several polls
+  const handleQueueLost = useCallback(() => {
+    setPipelineState(prev => {
+      if (prev.status !== 'running') return prev;
+      toast.warning('The server no longer has this run (restart or lost job). Check Airtable, then run again if needed.');
+      return { ...prev, status: 'idle', logs: [...prev.logs, '[STUDIO] Run no longer tracked by the server queue.'] };
+    });
+    setRunningPipelineType(null);
+  }, [setPipelineState, setRunningPipelineType]);
+
   // 3. Queue hook: FIFO queue management and live transition sync
   const handleQueueJobTransition = useCallback(
     (activeJob: QueueJob | null, wasActive: boolean, finished?: FinishedQueueJob) => {
@@ -155,7 +165,7 @@ export default function App() {
     handleCancelQueueItem,
     handleClearQueue,
     handleStopActiveJob,
-  } = useQueue(handleQueueJobTransition);
+  } = useQueue(handleQueueJobTransition, handleQueueLost);
 
   // Active configurations
   const activePipelineConfig = useMemo(

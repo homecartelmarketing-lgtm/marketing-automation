@@ -187,7 +187,7 @@ Feed/Reel monoliths follow the same scrape → Krea → Claude → blend → loc
 ### Server & frontend
 
 - There is **no root `api_server.py`**. The only Flask app is `UI Control/api_server.py` (registers 25 pipeline blueprints + rows/queue infra), serving the SPA from `UI Control/dist`.
-- Dev: `python "UI Control/api_server.py"` — port resolution `X_ZOHO_CATALYST_LISTEN_PORT` → `PORT` → `5200`. Production (Dockerfile): `gunicorn --bind 0.0.0.0:${PORT:-5200} --workers 2 --threads 4 --timeout 600 api_server:app` from `UI Control/`.
+- Dev: `python "UI Control/api_server.py"` — port resolution `X_ZOHO_CATALYST_LISTEN_PORT` → `PORT` → `5200`. Production (Dockerfile): `gunicorn --bind 0.0.0.0:${PORT:-5200} --workers 1 --threads 8 --timeout 600 api_server:app` from `UI Control/`. **Keep `--workers 1`**: the queue and every pipeline route keep their state in memory, so extra worker processes each hold a different copy and runs look stuck or flicker.
 - Rebuild the frontend with `npm run build` (or `pnpm run build`) inside `UI Control/`.
 
 ---
@@ -523,4 +523,4 @@ The workspace includes 5 curated, version-controlled agent skills in `.agents/sk
 6. **`git-guardrails-claude-code`** (`.agents/skills/git-guardrails-claude-code`):
    - Safety hooks and guardrails blocking destructive git commands (`git push --force`, `git reset --hard`, accidental wipeouts).
 
-See [`docs/SKILLS_GUIDE.md`](docs/SKILLS_GUIDE.md) for detailed workflows.
+See [`docs/SKILLS_GUIDE.md`](docs/SKILLS_GUIDE.md) for detailed workflows.

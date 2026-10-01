@@ -44,6 +44,8 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD curl -f http://127.0.0.1:${PORT}/api/health || exit 1
 
 # 4. Start the All-in-One Marketing Studio server via Gunicorn (production WSGI)
+#    --workers MUST stay 1: the generation queue and every pipeline route keep their state in
+#    memory, so multiple worker processes each get a different copy (stuck/flickering runs).
 #    --timeout 600 accommodates long-running AI pipeline phases
 #    Railway injects $PORT at runtime; default to 5200
-CMD ["sh", "-c", "cd 'UI Control' && exec gunicorn --bind 0.0.0.0:${PORT:-5200} --workers 2 --threads 4 --timeout 600 api_server:app"]
+CMD ["sh", "-c", "cd 'UI Control' && exec gunicorn --bind 0.0.0.0:${PORT:-5200} --workers 1 --threads 8 --timeout 600 api_server:app"]

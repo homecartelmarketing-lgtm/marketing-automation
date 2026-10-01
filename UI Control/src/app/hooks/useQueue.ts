@@ -26,7 +26,8 @@ export function useQueue(
     activeJob: QueueJob | null,
     wasActive: boolean,
     finished?: FinishedQueueJob
-  ) => void
+  ) => void,
+  onQueueLost?: () => void
 ): UseQueueResult {
   const [activeQueueJob, setActiveQueueJob] = useState<QueueJob | null>(null);
   const [pendingQueue, setPendingQueue] = useState<QueueJob[]>([]);
@@ -35,6 +36,9 @@ export function useQueue(
   const signatureRef = useRef<string>('');
   const onJobTransitionRef = useRef(onJobTransition);
   onJobTransitionRef.current = onJobTransition;
+  const onQueueLostRef = useRef(onQueueLost);
+  onQueueLostRef.current = onQueueLost;
+  const idleStreakRef = useRef<number>(0);
 
   useEffect(() => {
     const pollQueue = async () => {
@@ -48,6 +52,11 @@ export function useQueue(
 
         const prevActive = activeQueueJobRef.current;
         activeQueueJobRef.current = active;
+
+        // Report once when the queue has been empty for ~6s (4 polls) so the UI can drop a
+        // run it still shows as "running" that the server no longer knows about.
+        idleStreakRef.current = !active && queue.length === 0 ? idleStreakRef.current + 1 : 0;
+        if (idleStreakRef.current === 4) onQueueLostRef.current?.();
 
         // Skip identical polls so idle ticks do not re-render the whole Studio.
         const logs = (active as { logs?: string[] } | null)?.logs;

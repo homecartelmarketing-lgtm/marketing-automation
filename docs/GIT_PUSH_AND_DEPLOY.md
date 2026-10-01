@@ -181,7 +181,7 @@ git checkout genspark_ai_developer                 # always return to the dev br
 ### Step 9. After the push: what to expect
 
 1. Railway sees the new `main` commit and rebuilds the image from the `Dockerfile` (installing `requirements.txt` is the slow layer).
-2. The container starts `gunicorn` (`--workers 2 --threads 4 --timeout 600`) from `UI Control/`.
+2. The container starts `gunicorn` (`--workers 1 --threads 8 --timeout 600`; keep it at 1 worker because the queue and pipeline state are in memory) from `UI Control/`.
 3. Railway's health check calls `GET /api/health`. Open `https://<your-railway-url>/api/health`: it returns JSON with `"status": "ok"` and a `modules` list of the registered pipelines. After the One at a time Lights release, `one_at_a_time_lights_reel` should appear in that list.
 4. If the build fails, the AI can't see Railway's logs. It asks you to paste the build log from the Railway dashboard, then diagnoses it. Common causes: a package missing from `requirements.txt` (this is why `curl_cffi` is listed), or syntax that is valid on 3.12 but not 3.11.
 
