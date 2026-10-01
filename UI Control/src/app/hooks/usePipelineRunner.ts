@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { PipelineExecutionState, PipelineType, TabType } from '../types';
 import { FixtureData } from '../components/planning/FixtureCard';
@@ -7,7 +7,6 @@ import { getPipelineByType, getPipelineConfig } from '../constants/pipelines';
 export interface UsePipelineRunnerParams {
   studioPin: string;
   onRequirePin: () => void;
-  onRunFinished: (format: TabType, subtabIdx: number, fixtureId: string) => void;
 }
 
 export interface UsePipelineRunnerResult {
@@ -32,7 +31,6 @@ export interface UsePipelineRunnerResult {
 export function usePipelineRunner({
   studioPin,
   onRequirePin,
-  onRunFinished,
 }: UsePipelineRunnerParams): UsePipelineRunnerResult {
   const [pipelineState, setPipelineState] = useState<PipelineExecutionState>({
     status: 'idle',
@@ -48,67 +46,10 @@ export function usePipelineRunner({
   const [runningPipelineType, setRunningPipelineType] = useState<PipelineType>(null);
   const [confirmModalFixture, setConfirmModalFixture] = useState<FixtureData | null>(null);
   const [isStartingRun, setIsStartingRun] = useState<boolean>(false);
-  const statusPollRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Status Poller for locally triggered active pipeline
-  useEffect(() => {
-    const checkStatus = async () => {
-      const activeConfig = getPipelineByType(runningPipelineType);
-      if (!activeConfig) return;
-
-      try {
-        const res = await fetch(activeConfig.statusEndpoint);
-        if (res.ok) {
-          const data = await res.json();
-          setPipelineState(prev => {
-            if (prev.status === 'running' && (data.status === 'success' || data.status === 'completed')) {
-              const finishedFixtureId = data.active_fixture || prev.active_fixture;
-              setRunningPipelineType(null);
-
-              if (finishedFixtureId) {
-                const pipeCfg = getPipelineByType(runningPipelineType);
-                const label = pipeCfg?.name || 'Pipeline';
-                const subtabIdx = pipeCfg?.subtabIndex ?? 0;
-                const tabPrefix = pipeCfg?.format ?? 'story';
-
-                onRunFinished(tabPrefix, subtabIdx, finishedFixtureId);
-
-                toast.success(`${label} pipeline finished for ${finishedFixtureId}! Refreshing Airtable counts.`, {
-                  duration: 5000,
-                });
-              }
-            } else if (prev.status === 'running' && (data.status === 'error' || data.status === 'stopped')) {
-              setRunningPipelineType(null);
-              if (data.status === 'error') {
-                toast.error(`Pipeline encountered an error: ${data.error || 'Check console logs'}`);
-              }
-            }
-
-            return {
-              ...prev,
-              ...data,
-              status: data.status === 'success' || data.status === 'completed' ? 'completed' : data.status,
-            };
-          });
-        }
-      } catch (err) {
-        console.warn('Status poll error:', err);
-      }
-    };
-
-    if (pipelineState.status === 'running') {
-      statusPollRef.current = setInterval(checkStatus, 1500);
-    } else if (statusPollRef.current) {
-      clearInterval(statusPollRef.current);
-      statusPollRef.current = null;
-    }
-
-    return () => {
-      if (statusPollRef.current) {
-        clearInterval(statusPollRef.current);
-      }
-    };
-  }, [pipelineState.status, runningPipelineType, onRunFinished]);
+  // NOTE: run status, logs, errors and completion are driven solely by the queue
+  // poller (useQueue -> App.handleQueueJobTransition). A second poller on the
+  // pipeline's own status endpoint used to fight it and caused flicker.
 
   const handleOpenRunModal = useCallback((fixture: FixtureData, moodboardId?: string, prompt?: string) => {
     setConfirmModalFixture({

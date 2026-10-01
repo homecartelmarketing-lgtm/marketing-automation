@@ -5,6 +5,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import threading
@@ -38,7 +39,7 @@ SKETCH_TO_DRAW_TABLE_CONFIG: dict[str, dict[str, str]] = {
     "pendant": {
         "env_key": "AIRTABLE_TABLE_ID_PENDANT_LIGHTS_SKETCH_TO_REAL_REEL",
         "fallback_env": "AIRTABLE_TABLE_ID_PENDANT_LIGHTS_SKETCH_TO_DRAW_REEL",
-        "default": "tblSketchToRealPendants",
+        "default": "tblSALsUd5MXXnkp6",
         "name": "Pendant Lights",
         "target": "pendant_lights",
     },
@@ -156,6 +157,16 @@ def get_fixtures() -> dict[str, dict[str, Any]]:
         }
     return fixtures
 
+
+PHASE_LABELS: dict[int, str] = {
+    1: "Phase 1: Akeneo Scrape & Catalog Verification",
+    2: "Phase 2: Krea Room Interior Generation",
+    3: "Phase 3: Claude Vision Analysis & Headline",
+    4: "Phase 4: Fal Nano Banana Pro Room Blend & YOLO Tagging",
+    5: "Phase 5: Auto Draw Outline & Cover Generation",
+    6: "Phase 6: Auto Draw Reveal Video Rendering",
+    7: "Phase 7: FFmpeg Outro Concatenation",
+}
 
 _EXEC_STATE: dict[str, Any] = {
     "status": "idle",
@@ -325,20 +336,8 @@ def run_pipeline_route():
     def run_worker():
         register_pipeline("sketch-to-draw-reel", f"Sketch to Real Reel ({fix_info['name']})")
 
-        # Resolve script location (prefers Sketch to Real, falls back to Sketch to Draw)
-        script_candidates = [
-            MARKETING_DIR / "python-content-script" / "generate_sketch_to_real_reel_pipeline.py",
-            MARKETING_DIR / "generate_sketch_to_real_reel_pipeline.py",
-            MARKETING_DIR / "python-content-script" / "generate_sketch_to_draw_reel_pipeline.py",
-            MARKETING_DIR / "generate_sketch_to_draw_reel_pipeline.py",
-        ]
-        script_path = None
-        for cand in script_candidates:
-            if cand.exists():
-                script_path = str(cand)
-                break
-        if not script_path:
-            script_path = str(MARKETING_DIR / "python-content-script" / "generate_sketch_to_real_reel_pipeline.py")
+        # Always run the tracked root monolith; never a stale copy from an untracked folder.
+        script_path = str(MARKETING_DIR / "generate_sketch_to_real_reel_pipeline.py")
 
         cmd = [
             sys.executable,
@@ -373,28 +372,13 @@ def run_pipeline_route():
                     continue
                 with _STATE_LOCK:
                     _EXEC_STATE["logs"].append(txt)
-                    low = txt.lower()
-                    if "phase 1" in low or "scrap" in low:
-                        _EXEC_STATE["current_phase"] = "Phase 1: Akeneo Scrape & Catalog Verification"
-                        _EXEC_STATE["current_phase_index"] = 1
-                    elif "phase 2" in low or "interior" in low:
-                        _EXEC_STATE["current_phase"] = "Phase 2: Krea Room Interior Generation"
-                        _EXEC_STATE["current_phase_index"] = 2
-                    elif "phase 3" in low or "claude" in low:
-                        _EXEC_STATE["current_phase"] = "Phase 3: Claude Vision Analysis & Headline"
-                        _EXEC_STATE["current_phase_index"] = 3
-                    elif "phase 4" in low or "blend" in low:
-                        _EXEC_STATE["current_phase"] = "Phase 4: Fal Nano Banana Pro Room Blend & YOLO Tagging"
-                        _EXEC_STATE["current_phase_index"] = 4
-                    elif "phase 5" in low or "sketch" in low or "outline" in low:
-                        _EXEC_STATE["current_phase"] = "Phase 5: Auto Draw Outline & Cover Generation"
-                        _EXEC_STATE["current_phase_index"] = 5
-                    elif "phase 6" in low or "video" in low or "draw" in low:
-                        _EXEC_STATE["current_phase"] = "Phase 6: Auto Draw Reveal Video Rendering"
-                        _EXEC_STATE["current_phase_index"] = 6
-                    elif "phase 7" in low or "outro" in low or "mux" in low:
-                        _EXEC_STATE["current_phase"] = "Phase 7: FFmpeg Outro Concatenation"
-                        _EXEC_STATE["current_phase_index"] = 7
+                    m = re.search(r"\[PHASE\s+(\d)\]", txt, re.IGNORECASE)
+                    if m:
+                        idx = int(m.group(1))
+                        # Only move forward so stray log lines can never rewind the phase.
+                        if idx in PHASE_LABELS and idx >= _EXEC_STATE["current_phase_index"]:
+                            _EXEC_STATE["current_phase"] = PHASE_LABELS[idx]
+                            _EXEC_STATE["current_phase_index"] = idx
 
             p.wait()
             rc = p.returncode

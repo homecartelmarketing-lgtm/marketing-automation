@@ -146,6 +146,10 @@ def save_config_override(key: str, value: str) -> None:
     """Persist an editable Studio setting before exposing it to running jobs."""
     if not key or not value.strip():
         raise ValueError("A configuration key and value are required")
+    if value.strip().lower() in ("none", "null", "undefined"):
+        # Never persist a stringified missing value (it would shadow the real default).
+        print(f"[WARN] Ignoring placeholder value {value!r} for {key}")
+        return
     with _OVERRIDES_LOCK:
         OVERRIDES_FILE.parent.mkdir(parents=True, exist_ok=True)
         data = load_config_overrides_unlocked()

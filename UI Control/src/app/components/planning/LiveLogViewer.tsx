@@ -29,10 +29,19 @@ export function LiveLogViewer({
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll logs as new lines arrive
+  const stickToBottomRef = useRef<boolean>(true);
+
+  // Follow new lines only while the user is already near the bottom
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+  };
+
   useEffect(() => {
-    if (scrollRef.current && isExpanded) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const el = scrollRef.current;
+    if (el && isExpanded && stickToBottomRef.current) {
+      el.scrollTop = el.scrollHeight;
     }
   }, [pipelineState.logs, isExpanded]);
 
@@ -157,6 +166,7 @@ export function LiveLogViewer({
       {isExpanded && (
         <div
           ref={scrollRef}
+          onScroll={handleScroll}
           className="p-4 h-64 overflow-y-auto font-mono text-xs leading-relaxed space-y-1 bg-black/40 selection:bg-sky-900 selection:text-white"
         >
           {pipelineState.logs.length === 0 ? (

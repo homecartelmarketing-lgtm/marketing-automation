@@ -16,30 +16,67 @@ export interface UseQueueResult {
   setPendingQueue: React.Dispatch<React.SetStateAction<QueueJob[]>>;
 }
 
+export interface FinishedQueueJob {
+  job: QueueJob;
+  history?: QueueHistoryItem;
+}
+
 export function useQueue(
-  onJobTransition?: (activeJob: QueueJob | null, wasActive: boolean) => void
+  onJobTransition?: (
+    activeJob: QueueJob | null,
+    wasActive: boolean,
+    finished?: FinishedQueueJob
+  ) => void
 ): UseQueueResult {
   const [activeQueueJob, setActiveQueueJob] = useState<QueueJob | null>(null);
   const [pendingQueue, setPendingQueue] = useState<QueueJob[]>([]);
   const [queueHistory, setQueueHistory] = useState<QueueHistoryItem[]>([]);
   const activeQueueJobRef = useRef<QueueJob | null>(null);
+  const signatureRef = useRef<string>('');
+  const onJobTransitionRef = useRef(onJobTransition);
+  onJobTransitionRef.current = onJobTransition;
 
   useEffect(() => {
     const pollQueue = async () => {
       try {
         const res = await fetch('/api/queue/status');
-        if (res.ok) {
-          const data = await res.json();
-          const wasActive = !!activeQueueJobRef.current;
-          activeQueueJobRef.current = data.active_job || null;
-          setActiveQueueJob(data.active_job || null);
-          setPendingQueue(data.queue || []);
-          setQueueHistory(data.history || []);
+        if (!res.ok) return;
+        const data = await res.json();
+        const active: QueueJob | null = data.active_job || null;
+        const queue: QueueJob[] = data.queue || [];
+        const history: QueueHistoryItem[] = data.history || [];
 
-          if (onJobTransition) {
-            onJobTransition(data.active_job || null, wasActive);
-          }
-        }
+        const prevActive = activeQueueJobRef.current;
+        activeQueueJobRef.current = active;
+
+        // Skip identical polls so idle ticks do not re-render the whole Studio.
+        const logs = (active as { logs?: string[] } | null)?.logs;
+        const signature = JSON.stringify([
+          active?.id,
+          active?.current_phase,
+          active?.current_phase_index,
+          active?.total_phases,
+          active?.elapsed_seconds,
+          active?.error,
+          logs?.length,
+          logs?.[logs.length - 1],
+          queue.map(j => j.id),
+          history.map(h => `${h.id}:${h.status}`),
+        ]);
+        if (signature === signatureRef.current) return;
+        signatureRef.current = signature;
+
+        setActiveQueueJob(active);
+        setPendingQueue(queue);
+        setQueueHistory(history);
+
+        // A job is finished when it disappears or is replaced by a different one.
+        const finishedJob = prevActive && (!active || active.id !== prevActive.id) ? prevActive : null;
+        const finished: FinishedQueueJob | undefined = finishedJob
+          ? { job: finishedJob, history: history.find(h => h.id === finishedJob.id) }
+          : undefined;
+
+        onJobTransitionRef.current?.(active, !!prevActive, finished);
       } catch {
         // silent fail
       }
@@ -48,7 +85,7 @@ export function useQueue(
     pollQueue();
     const interval = setInterval(pollQueue, 1500);
     return () => clearInterval(interval);
-  }, [onJobTransition]);
+  }, []);
 
   const getQueueInfo = useCallback(
     (fixtureId: string, activePipelineType?: PipelineType) => {

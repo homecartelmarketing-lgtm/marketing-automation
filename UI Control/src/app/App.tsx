@@ -8,11 +8,13 @@ import { FixtureData } from './components/planning/FixtureCard';
 import { RunConfirmModal } from './components/planning/RunConfirmModal';
 import { RowInspectorModal } from './components/planning/RowInspectorModal';
 import { LiveLogViewer } from './components/planning/LiveLogViewer';
-import { QueueDock } from './components/planning/QueueDock';
+import { QueueDock, QueueJob, QueueHistoryItem } from './components/planning/QueueDock';
 import { EditMoodboardModal, EditPromptModal, StudioPinModal } from './components/modals';
 import { CONTENT_CONFIG, getFixturesForSubtab } from './constants/fixtures';
 import { getPipelineConfig, getPipelineByType, getPipelineHeaderTitle } from './constants/pipelines';
 import { usePipelineData, useQueue, usePipelineRunner } from './hooks';
+import type { FinishedQueueJob } from './hooks/useQueue';
+import type { PipelineType } from './types';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('story');
@@ -56,19 +58,8 @@ export default function App() {
     fetchLiveCounts();
   }, [fetchLiveCounts]);
 
-  // 2. Runner hook: Pipeline execution, status polling & stop controls
-  const handleRunFinished = useCallback(
-    (_format: TabType, _subtabIdx: number, finishedFixtureId: string) => {
-      setProgressState(prev => {
-        const activeKey = `${activeTab}-${activeSubTab}-${finishedFixtureId}`;
-        const current = prev[activeKey] ?? 0;
-        return { ...prev, [activeKey]: current + 1 };
-      });
-      // Re-sync with Airtable to ensure exact consistency
-      setTimeout(() => fetchLiveCounts(), 2000);
-    },
-    [activeTab, activeSubTab, fetchLiveCounts, setProgressState]
-  );
+  // 2. Runner hook: enqueue / stop controls (status comes from the queue poller below)
+  const handleRequirePin = useCallback(() => setShowPinModal(true), []);
 
   const {
     pipelineState,
@@ -83,36 +74,76 @@ export default function App() {
     handleStopPipeline,
   } = usePipelineRunner({
     studioPin,
-    onRequirePin: () => setShowPinModal(true),
-    onRunFinished: handleRunFinished,
+    onRequirePin: handleRequirePin,
   });
+
+  // Called once when a queued job finishes (completed / error / stopped)
+  const handleRunFinished = useCallback(
+    (job: QueueJob, history?: QueueHistoryItem) => {
+      const outcome = history?.status ?? 'completed';
+      if (outcome === 'error') {
+        toast.error(`Pipeline encountered an error: ${history?.error || 'Check console logs'}`);
+      } else if (outcome === 'completed' || outcome === 'success' || outcome === 'done') {
+        setProgressState(prev => {
+          const key = `${job.format_tab}-${job.subtab_index}-${job.fixture_id}`;
+          return { ...prev, [key]: (prev[key] ?? 0) + 1 };
+        });
+        toast.success(
+          `${job.pipeline_name || 'Pipeline'} pipeline finished for ${job.fixture_id}! Refreshing Airtable counts.`,
+          { duration: 5000 }
+        );
+      }
+      // Re-sync with Airtable to ensure exact consistency
+      setTimeout(() => fetchLiveCounts(), 2000);
+    },
+    [fetchLiveCounts, setProgressState]
+  );
 
   // 3. Queue hook: FIFO queue management and live transition sync
   const handleQueueJobTransition = useCallback(
-    (activeJob: any, wasActive: boolean) => {
+    (activeJob: QueueJob | null, wasActive: boolean, finished?: FinishedQueueJob) => {
+      if (finished) {
+        handleRunFinished(finished.job, finished.history);
+      }
+
       if (activeJob) {
-        setRunningPipelineType(activeJob.pipeline_type);
-        setPipelineState({
-          status: 'running',
-          active_fixture: activeJob.fixture_id,
-          active_table_id: activeJob.table_id,
-          current_phase: activeJob.current_phase || 'Processing...',
-          current_phase_index: activeJob.current_phase_index || 0,
-          total_phases: activeJob.total_phases || 5,
-          elapsed_seconds: activeJob.elapsed_seconds || 0,
-          logs: activeJob.logs || [],
-          error: activeJob.error || null,
+        setRunningPipelineType(activeJob.pipeline_type as PipelineType);
+        setPipelineState(prev => {
+          const logs = (activeJob as QueueJob & { logs?: string[] }).logs || [];
+          const next = {
+            status: 'running' as const,
+            active_fixture: activeJob.fixture_id,
+            active_table_id: activeJob.table_id,
+            current_phase: activeJob.current_phase || 'Processing...',
+            current_phase_index: activeJob.current_phase_index || 0,
+            total_phases: activeJob.total_phases || 5,
+            elapsed_seconds: activeJob.elapsed_seconds || 0,
+            logs,
+            error: activeJob.error || null,
+          };
+          const unchanged =
+            prev.status === next.status &&
+            prev.active_fixture === next.active_fixture &&
+            prev.current_phase === next.current_phase &&
+            prev.current_phase_index === next.current_phase_index &&
+            prev.total_phases === next.total_phases &&
+            prev.elapsed_seconds === next.elapsed_seconds &&
+            (prev.error ?? null) === next.error &&
+            prev.logs.length === logs.length &&
+            prev.logs[prev.logs.length - 1] === logs[logs.length - 1];
+          return unchanged ? prev : next;
         });
-      } else if (wasActive && !activeJob) {
+      } else if (wasActive) {
         setRunningPipelineType(null);
+        const outcome = finished?.history?.status;
         setPipelineState(prev => ({
           ...prev,
-          status: 'completed',
+          status: outcome === 'error' ? 'error' : outcome === 'stopped' ? 'stopped' : 'completed',
+          error: outcome === 'error' ? finished?.history?.error || prev.error || 'Pipeline failed' : prev.error,
         }));
-        setTimeout(() => fetchLiveCounts(), 1500);
       }
     },
-    [fetchLiveCounts, setPipelineState, setRunningPipelineType]
+    [handleRunFinished, setPipelineState, setRunningPipelineType]
   );
 
   const {
@@ -601,7 +632,7 @@ export default function App() {
 
         {/* Global Pipeline Execution Console & Monitor */}
         {(pipelineState.status === 'running' || pipelineState.status === 'error') && (
-          <div className="mb-6 animate-in fade-in duration-150 relative">
+          <div className="mb-6 relative">
             <LiveLogViewer
               pipelineState={pipelineState}
               onStop={handleStopPipeline}

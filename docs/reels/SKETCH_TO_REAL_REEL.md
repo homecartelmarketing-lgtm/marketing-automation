@@ -57,7 +57,7 @@ $$\text{Format: } \mathbf{STR\text{-}REEL\text{-}\langle FIXTURE\rangle\text{-}\
 | Category Name | Fixture Code | Primary Environment Variable | Fallback Table ID | Default Krea Moodboard ID |
 | :--- | :---: | :--- | :--- | :--- |
 | **Chandeliers** | `CH` | `AIRTABLE_TABLE_ID_CHANDELIERS_SKETCH_TO_REAL_REEL` | `tblSketchToRealChandeliers` | `b5ffdcbb-192e-4528-8d86-d1a4cf496887` |
-| **Pendant Lights** | `PE` | `AIRTABLE_TABLE_ID_PENDANT_LIGHTS_SKETCH_TO_REAL_REEL` | `tblSketchToRealPendants` | `de5f4ff8-518c-4d6b-b606-ce1d5dac51f3` |
+| **Pendant Lights** | `PE` | `AIRTABLE_TABLE_ID_PENDANT_LIGHTS_SKETCH_TO_REAL_REEL` | `tblSALsUd5MXXnkp6` | `de5f4ff8-518c-4d6b-b606-ce1d5dac51f3` |
 | **Floor Lamps** | `FL` | `AIRTABLE_TABLE_ID_FLOOR_LAMPS_SKETCH_TO_REAL_REEL` | `tblSketchToRealFloorLamps` | `b1641228-beec-4823-8d01-1de3eec8410d` |
 | **Table Lamps** | `TL` | `AIRTABLE_TABLE_ID_TABLE_LAMPS_SKETCH_TO_REAL_REEL` | `tblSketchToRealTableLamps` | `fb2487fb-2895-4d2c-9758-805aaf1bac69` |
 | **Ceiling Mounted** | `CM` | `AIRTABLE_TABLE_ID_CEILING_MOUNTED_SKETCH_TO_REAL_REEL` | `tblSketchToRealCeilingMounted` | `b5ffdcbb-192e-4528-8d86-d1a4cf496887` |

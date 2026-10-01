@@ -208,6 +208,7 @@ TABLE_PREFIX_MAP: dict[str, str] = {
     "tblX7tpTJhfH0UXmm": "ADC-ADS-STOCK",
     # 20. Sketch to Real Reel
     "tblUFR6OvFQaHnG1V": "STR-REEL-CH",
+    "tblSALsUd5MXXnkp6": "STR-REEL-PE",
 }
 
 # Dynamically register any Sketch to Real / Draw Reel env overrides

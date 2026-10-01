@@ -76,13 +76,18 @@ def _dispatch_job_run(job: dict[str, Any]) -> tuple[bool, str]:
         return False, "No run_endpoint specified in job"
 
     url = f"http://127.0.0.1:{port}{endpoint}"
-    payload = json.dumps({
+    body = {
         "fixture_id": job.get("fixture_id"),
         "max_items": job.get("max_items", 1),
         "moodboard_id": job.get("moodboard_id"),
         "prompt": job.get("prompt"),
         "pin": job.get("pin", ""),
-    }).encode("utf-8")
+    }
+    # Omit unset overrides: a JSON null becomes the string "None" in routes doing
+    # str(payload.get(...)) and would be saved into .env as a real override.
+    payload = json.dumps(
+        {k: v for k, v in body.items() if v is not None}
+    ).encode("utf-8")
 
     headers = {
         "Content-Type": "application/json",
@@ -210,8 +215,12 @@ def _queue_worker_loop() -> None:
 
             with _QUEUE_LOCK:
                 if _ACTIVE_JOB and _ACTIVE_JOB["id"] == curr_job["id"]:
-                    _ACTIVE_JOB["current_phase"] = status_data.get("current_phase") or _ACTIVE_JOB.get("current_phase")
-                    _ACTIVE_JOB["current_phase_index"] = status_data.get("current_phase_index", _ACTIVE_JOB.get("current_phase_index", 0))
+                    # Never let the phase move backwards (avoids label/progress flicker in the UI).
+                    prev_idx = _ACTIVE_JOB.get("current_phase_index", 0) or 0
+                    new_idx = status_data.get("current_phase_index", prev_idx) or 0
+                    if new_idx >= prev_idx:
+                        _ACTIVE_JOB["current_phase"] = status_data.get("current_phase") or _ACTIVE_JOB.get("current_phase")
+                        _ACTIVE_JOB["current_phase_index"] = new_idx
                     _ACTIVE_JOB["total_phases"] = status_data.get("total_phases", _ACTIVE_JOB.get("total_phases", 5))
                     _ACTIVE_JOB["elapsed_seconds"] = status_data.get("elapsed_seconds") or int(time.time() - _ACTIVE_JOB.get("started_at", time.time()))
                     if "logs" in status_data and isinstance(status_data["logs"], list):
