@@ -59,7 +59,7 @@ export function AnalyticsDashboard({ data }: AnalyticsDashboardProps) {
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <div key={stat.label} className="bg-white rounded-lg shadow-md p-6">
+            <div key={stat.label} className="bg-card rounded-lg shadow-md p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 mb-1">{stat.label}</p>
@@ -75,7 +75,7 @@ export function AnalyticsDashboard({ data }: AnalyticsDashboardProps) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-card rounded-lg shadow-md p-6">
           <h3 className="text-lg font-semibold mb-4">Weekly Engagement</h3>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={data.weeklyEngagement} key="weekly-engagement-chart">
@@ -91,7 +91,7 @@ export function AnalyticsDashboard({ data }: AnalyticsDashboardProps) {
           </ResponsiveContainer>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-card rounded-lg shadow-md p-6">
           <h3 className="text-lg font-semibold mb-4">Platform Performance</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={data.platformMetrics} key="platform-performance-chart">
@@ -106,7 +106,7 @@ export function AnalyticsDashboard({ data }: AnalyticsDashboardProps) {
           </ResponsiveContainer>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-card rounded-lg shadow-md p-6">
           <h3 className="text-lg font-semibold mb-4">Post Status Distribution</h3>
           {data.postPerformance.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
@@ -136,7 +136,7 @@ export function AnalyticsDashboard({ data }: AnalyticsDashboardProps) {
           )}
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-card rounded-lg shadow-md p-6">
           <h3 className="text-lg font-semibold mb-4">Top Performing Posts</h3>
           <div className="space-y-4">
             {[

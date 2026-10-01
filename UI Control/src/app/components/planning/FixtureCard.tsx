@@ -146,7 +146,7 @@ export function FixtureCard({
 
   return (
     <div
-      className={`bg-white rounded-xl border p-4 transition-all duration-200 flex flex-col justify-between ${
+      className={`bg-card rounded-xl border p-4 transition-all duration-200 flex flex-col justify-between ${
         isComingSoon
           ? 'border-dashed border-gray-200 bg-gray-50/60 opacity-70'
           : isRunning

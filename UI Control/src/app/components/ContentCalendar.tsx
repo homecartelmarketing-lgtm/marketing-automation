@@ -49,7 +49,7 @@ export function ContentCalendar({ posts, onAddPost, onEditPost, onDeletePost }: 
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
+    <div className="bg-card rounded-lg shadow-md p-6">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold flex items-center gap-2">
           <CalendarIcon className="w-6 h-6" />
@@ -93,7 +93,7 @@ export function ContentCalendar({ posts, onAddPost, onEditPost, onDeletePost }: 
             <div
               key={day.toISOString()}
               className={`min-h-[120px] border rounded-lg p-2 hover:border-blue-400 transition ${
-                isToday ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'
+                isToday ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-card'
               }`}
             >
               <div className="flex justify-between items-start mb-2">
@@ -128,7 +128,7 @@ export function ContentCalendar({ posts, onAddPost, onEditPost, onDeletePost }: 
                             e.stopPropagation();
                             onEditPost(post);
                           }}
-                          className="p-0.5 bg-white rounded hover:bg-blue-100"
+                          className="p-0.5 bg-card rounded hover:bg-blue-100"
                         >
                           <Edit2 className="w-3 h-3 text-blue-600" />
                         </button>
@@ -137,7 +137,7 @@ export function ContentCalendar({ posts, onAddPost, onEditPost, onDeletePost }: 
                             e.stopPropagation();
                             onDeletePost(post.id);
                           }}
-                          className="p-0.5 bg-white rounded hover:bg-red-100"
+                          className="p-0.5 bg-card rounded hover:bg-red-100"
                         >
                           <Trash2 className="w-3 h-3 text-red-600" />
                         </button>

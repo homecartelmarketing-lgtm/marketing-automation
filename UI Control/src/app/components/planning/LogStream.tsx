@@ -7,11 +7,11 @@ interface LogStreamProps {
 }
 
 function lineColor(log: string): string {
-  if (log.includes('[ERROR]') || log.includes('[EXCEPTION]') || log.includes('Traceback')) return 'text-rose-400 font-semibold';
-  if (log.includes('[DONE]') || log.includes('[COMPLETE]') || log.includes('[SUCCESS]')) return 'text-emerald-400 font-semibold';
-  if (log.includes('Phase ') || log.includes('[PHASE') || log.includes('ROW ')) return 'text-sky-300 font-bold';
-  if (log.includes('[INFO]') || log.includes('[START]') || log.includes('[WARN')) return 'text-amber-300';
-  return 'text-slate-300';
+  if (log.includes('[ERROR]') || log.includes('[EXCEPTION]') || log.includes('Traceback')) return 'text-[#fb7185] font-semibold';
+  if (log.includes('[DONE]') || log.includes('[COMPLETE]') || log.includes('[SUCCESS]')) return 'text-[#34d399] font-semibold';
+  if (log.includes('Phase ') || log.includes('[PHASE') || log.includes('ROW ')) return 'text-[#7dd3fc] font-bold';
+  if (log.includes('[INFO]') || log.includes('[START]') || log.includes('[WARN')) return 'text-[#fcd34d]';
+  return 'text-[#cbd5e1]';
 }
 
 /** Terminal-style log list that follows new lines only while the reader is near the bottom. */
@@ -34,10 +34,10 @@ export function LogStream({ logs, className = '' }: LogStreamProps) {
     <div
       ref={scrollRef}
       onScroll={handleScroll}
-      className={`overflow-y-auto rounded-xl bg-slate-900 p-3 font-mono text-[11px] leading-relaxed ${className}`}
+      className={`overflow-y-auto rounded-xl bg-[#0f172a] p-3 font-mono text-[11px] leading-relaxed ${className}`}
     >
       {logs.length === 0 ? (
-        <div className="flex items-center gap-2 italic text-slate-500">
+        <div className="flex items-center gap-2 italic text-[#64748b]">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
           Waiting for pipeline output...
         </div>

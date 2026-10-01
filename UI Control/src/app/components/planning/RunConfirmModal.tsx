@@ -39,7 +39,7 @@ export function RunConfirmModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl max-w-md w-full p-6 text-gray-900 relative max-h-[90vh] overflow-y-auto">
+      <div className="bg-card rounded-2xl border border-gray-200 shadow-2xl max-w-md w-full p-6 text-gray-900 relative max-h-[90vh] overflow-y-auto">
         {/* Close Button */}
         <button
           onClick={onClose}
@@ -97,7 +97,7 @@ export function RunConfirmModal({
                 value={moodboardInput}
                 onChange={(e) => setMoodboardInput(e.target.value.trim())}
                 placeholder="e.g. 0844ad92-c34a-4dc8-9d70-d09498dc098c"
-                className="w-full font-mono text-xs bg-white border border-gray-300 rounded-lg px-2.5 py-1.5 text-gray-800 focus:outline-hidden focus:ring-2 focus:ring-sky-500 focus:border-sky-500 shadow-2xs"
+                className="w-full font-mono text-xs bg-card border border-gray-300 rounded-lg px-2.5 py-1.5 text-gray-800 focus:outline-hidden focus:ring-2 focus:ring-sky-500 focus:border-sky-500 shadow-2xs"
               />
               <span className="text-[10px] text-gray-400 leading-tight">
                 Pwedeng palitan o i-paste ang bagong Krea Moodboard UUID para sa execution.
@@ -127,7 +127,7 @@ export function RunConfirmModal({
                 onChange={(e) => setPromptInput(e.target.value)}
                 rows={2}
                 placeholder="e.g. Generate me a modern living room"
-                className="w-full text-xs bg-white border border-gray-300 rounded-lg px-2.5 py-1.5 text-gray-800 focus:outline-hidden focus:ring-2 focus:ring-sky-500 focus:border-sky-500 shadow-2xs resize-none"
+                className="w-full text-xs bg-card border border-gray-300 rounded-lg px-2.5 py-1.5 text-gray-800 focus:outline-hidden focus:ring-2 focus:ring-sky-500 focus:border-sky-500 shadow-2xs resize-none"
               />
               <span className="text-[10px] text-gray-400 leading-tight">
                 Prompt na gagamitin sa pag-generate ng 9:16 interior sa Krea AI.
@@ -144,7 +144,7 @@ export function RunConfirmModal({
                   type="button"
                   onClick={() => setItemCount(c => clampCount(c - 1))}
                   disabled={itemCount <= 1}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 active:bg-gray-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="w-7 h-7 flex items-center justify-center rounded-lg border border-gray-300 bg-card text-gray-600 hover:bg-gray-100 active:bg-gray-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   <Minus className="w-3.5 h-3.5" />
                 </button>
@@ -153,7 +153,7 @@ export function RunConfirmModal({
                   type="button"
                   onClick={() => setItemCount(c => clampCount(c + 1))}
                   disabled={itemCount >= 10}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 active:bg-gray-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="w-7 h-7 flex items-center justify-center rounded-lg border border-gray-300 bg-card text-gray-600 hover:bg-gray-100 active:bg-gray-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </button>

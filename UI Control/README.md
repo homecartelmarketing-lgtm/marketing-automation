@@ -23,6 +23,12 @@ The system consists of two tightly integrated components:
 
 ---
 
+## 🌗 Light / Dark Theme
+
+The header has a theme button (Light / Dark / System). The choice is stored in the browser (`localStorage` key `hc-studio-theme`, default Light) and handled by `next-themes` (`src/main.tsx`), which toggles the `dark` class on `<html>`. Components keep their normal Tailwind classes; `src/styles/dark-palette.css` remaps the gray/slate scales and the tint/text shades of the colour families under `.dark`, and `bg-card` replaces `bg-white` so surfaces follow the theme. Anything that must stay dark in both themes (the log terminal in `LogStream.tsx`) uses fixed hex colours.
+
+---
+
 ## 🔐 Security & Access Control
 
 Editable settings and run actions use the dashboard PIN when one is configured:

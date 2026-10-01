@@ -32,7 +32,7 @@ export function StudioPinModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-5 border border-gray-100 animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-card rounded-xl shadow-xl max-w-sm w-full p-5 border border-gray-100 animate-in fade-in zoom-in-95 duration-150">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center">

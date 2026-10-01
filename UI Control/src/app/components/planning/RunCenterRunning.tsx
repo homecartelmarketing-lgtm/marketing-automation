@@ -34,7 +34,7 @@ export function PhaseStepper({ labels, currentIndex, failed }: PhaseStepperProps
                   ? failed
                     ? 'border-rose-500 bg-rose-50 text-rose-600'
                     : 'border-sky-500 bg-sky-50 text-sky-600'
-                  : 'border-slate-200 bg-white text-slate-400'
+                  : 'border-slate-200 bg-card text-slate-400'
               }`}
             >
               {done ? (

@@ -85,7 +85,7 @@ export function PostModal({ isOpen, onClose, onSave, initialPost, initialDate }:
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-card rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b">
           <h3 className="text-xl font-bold">
             {initialPost ? 'Edit Post' : 'Create New Post'}

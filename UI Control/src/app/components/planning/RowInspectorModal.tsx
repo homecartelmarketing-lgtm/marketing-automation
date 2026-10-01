@@ -149,9 +149,9 @@ export function RowInspectorModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl max-w-4xl w-full flex flex-col max-h-[92vh] overflow-hidden text-gray-900 animate-in zoom-in-95 duration-150">
+      <div className="bg-card rounded-2xl border border-gray-200 shadow-2xl max-w-4xl w-full flex flex-col max-h-[92vh] overflow-hidden text-gray-900 animate-in zoom-in-95 duration-150">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-4 bg-gradient-to-r from-gray-50/80 to-white">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-4 bg-gradient-to-r from-gray-50/80 to-card">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-600 shrink-0">
               <TableIcon className="w-5 h-5" />
@@ -209,8 +209,8 @@ export function RowInspectorModal({
               onClick={() => setActiveFilter('all')}
               className={`px-2.5 py-1 rounded-md transition-all ${
                 activeFilter === 'all'
-                  ? 'bg-gray-900 text-white font-semibold shadow-xs'
-                  : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                  ? 'bg-gray-900 text-white dark:text-[#0a0a0a] font-semibold shadow-xs'
+                  : 'bg-card text-gray-600 hover:bg-gray-100 border border-gray-200'
               }`}
             >
               All ({rows.length})
@@ -275,7 +275,7 @@ export function RowInspectorModal({
               placeholder="Search ID, SKU, Name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-gray-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+              className="w-full pl-8 pr-3 py-1.5 text-xs bg-card border border-gray-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
             />
           </div>
         </div>
@@ -321,7 +321,7 @@ export function RowInspectorModal({
                     <th className="py-2.5 px-3 text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
+                <tbody className="divide-y divide-gray-100 bg-card">
                   {filteredRows.map((row) => {
                     const isCopied = copiedId === row.foreign_key_id;
                     return (

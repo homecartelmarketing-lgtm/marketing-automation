@@ -25,7 +25,7 @@ export function EditPromptModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl max-w-lg w-full p-6 text-gray-900 relative">
+      <div className="bg-card rounded-2xl border border-gray-200 shadow-2xl max-w-lg w-full p-6 text-gray-900 relative">
         <button
           onClick={onClose}
           disabled={isSaving}
@@ -53,7 +53,7 @@ export function EditPromptModal({
               value={promptInput}
               onChange={(e) => onInputChange(e.target.value)}
               placeholder="e.g. Generate me a modern living room"
-              className="w-full text-xs bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:border-amber-500 resize-none"
+              className="w-full text-xs bg-card border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:border-amber-500 resize-none"
             />
           </div>
         </div>

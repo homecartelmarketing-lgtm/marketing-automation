@@ -119,7 +119,7 @@ export function RunCenter({
     <>
       <div
         className={`sticky bottom-0 z-30 border-t shadow-[0_-4px_16px_-8px_rgba(15,23,42,0.15)] backdrop-blur ${
-          isError ? 'border-rose-200 bg-rose-50/95' : 'border-slate-200 bg-white/95'
+          isError ? 'border-rose-200 bg-rose-50/95' : 'border-slate-200 bg-card/95'
         }`}
       >
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
@@ -193,7 +193,7 @@ export function RunCenter({
             className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
               pendingQueue.length > 0
                 ? 'border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100'
-                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                : 'border-slate-200 bg-card text-slate-600 hover:bg-slate-50'
             }`}
           >
             <ListOrdered className="h-3.5 w-3.5" />
@@ -203,7 +203,7 @@ export function RunCenter({
       </div>
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right" className="w-full gap-0 bg-white p-0 sm:max-w-md">
+        <SheetContent side="right" className="w-full gap-0 bg-card p-0 sm:max-w-md">
           <SheetHeader className="border-b border-slate-100 pb-3 pr-12">
             <SheetTitle className="text-base text-slate-900">Run Center</SheetTitle>
             <SheetDescription className="text-xs">
@@ -259,7 +259,7 @@ export function RunCenter({
                   {pendingQueue.map((item, i) => (
                     <li
                       key={item.id}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-2.5"
+                      className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-card p-2.5"
                     >
                       <div className="flex min-w-0 items-center gap-2.5">
                         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-600">
@@ -301,7 +301,7 @@ export function RunCenter({
                   {history.slice(0, 10).map(item => {
                     const ok = item.status === 'completed';
                     return (
-                      <li key={item.id} className="rounded-xl border border-slate-200 bg-white p-2.5">
+                      <li key={item.id} className="rounded-xl border border-slate-200 bg-card p-2.5">
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex min-w-0 items-center gap-2">
                             {ok ? (

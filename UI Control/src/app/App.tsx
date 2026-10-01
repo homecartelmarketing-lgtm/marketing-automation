@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { toast, Toaster } from 'sonner';
+import { toast } from 'sonner';
+import { Toaster } from './components/ui/sonner';
+import { ThemeToggle } from './components/ThemeToggle';
 import { RefreshCw, Key, Globe, Check } from 'lucide-react';
 import { FormatTabs, TabType } from './components/planning/FormatTabs';
 import { SubTabRail } from './components/planning/SubTabRail';
@@ -441,11 +443,12 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <button
               type="button"
               onClick={() => fetchLiveCounts(true, true)}
               disabled={isLoadingCounts || pipelineState.status === 'running'}
-              className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 active:bg-slate-100 transition shadow-xs disabled:opacity-50 cursor-pointer"
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-card border border-slate-300 rounded-lg hover:bg-slate-50 active:bg-slate-100 transition shadow-xs disabled:opacity-50 cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoadingCounts ? 'animate-spin text-sky-600' : ''}`} />
               <span>Sync Airtable</span>
@@ -459,7 +462,7 @@ export default function App() {
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition shadow-xs cursor-pointer ${
                 studioPin
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
-                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                  : 'bg-card text-slate-700 border-slate-300 hover:bg-slate-50'
               }`}
             >
               <Key className="w-3.5 h-3.5" />

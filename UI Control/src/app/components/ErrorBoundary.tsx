@@ -29,7 +29,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-        <div className="bg-white rounded-2xl border border-rose-200 shadow-lg max-w-lg w-full p-6 text-gray-900">
+        <div className="bg-card rounded-2xl border border-rose-200 shadow-lg max-w-lg w-full p-6 text-gray-900">
           <h1 className="text-lg font-bold text-rose-700">Something went wrong in the Studio</h1>
           <p className="text-sm text-gray-600 mt-2">
             The page hit an unexpected error. Your pipelines keep running on the server. Reload to continue.

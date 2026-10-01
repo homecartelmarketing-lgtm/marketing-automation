@@ -25,7 +25,7 @@ export function EditMoodboardModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl max-w-md w-full p-6 text-gray-900 relative">
+      <div className="bg-card rounded-2xl border border-gray-200 shadow-2xl max-w-md w-full p-6 text-gray-900 relative">
         <button
           onClick={onClose}
           disabled={isSaving}
@@ -59,7 +59,7 @@ export function EditMoodboardModal({
               value={moodboardInput}
               onChange={(e) => onInputChange(e.target.value)}
               placeholder="e.g. 0844ad92-c34a-4dc8-9d70-d09498dc098c"
-              className="w-full text-xs font-mono bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full text-xs font-mono bg-card border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
         </div>

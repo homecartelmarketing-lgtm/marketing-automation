@@ -130,7 +130,7 @@ export function AccountSettings() {
           const Icon = account.icon;
 
           return (
-            <div key={account.platform} className="bg-white rounded-lg shadow-md p-6">
+            <div key={account.platform} className="bg-card rounded-lg shadow-md p-6">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-4">
                   <div className={`${account.bgColor} p-3 rounded-full`}>

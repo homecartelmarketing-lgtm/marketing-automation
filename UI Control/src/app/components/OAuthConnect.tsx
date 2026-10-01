@@ -86,7 +86,7 @@ export function OAuthConnect({ platform, onSuccess, onCancel }: OAuthConnectProp
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+      <div className="bg-card rounded-lg shadow-xl max-w-md w-full">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <div className="flex items-center gap-3">
@@ -146,7 +146,7 @@ export function OAuthConnect({ platform, onSuccess, onCancel }: OAuthConnectProp
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
                 <p className="text-xs text-gray-600 leading-relaxed">
                   <strong>For Developers:</strong> In production, clicking "Authorize" would redirect to:
-                  <code className="block mt-2 bg-white p-2 rounded text-xs border">
+                  <code className="block mt-2 bg-card p-2 rounded text-xs border">
                     https://{platform.id}.com/oauth/authorize?
                     client_id=YOUR_APP_ID&
                     redirect_uri=YOUR_CALLBACK_URL&
