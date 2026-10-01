@@ -90,7 +90,7 @@ When a row reaches Complete (C), the pipeline automatically writes the Philippin
 
 ### YOLO Floating Tags & HomeCartel Feed Logo Auto-Layout (Zero API Cost)
 - **Slide 1 (Exterior Cover)**: Stamped with the official HomeCartel Feed logo at bottom-left (`x=108.0, y=1178.5, width=190.3, height=63.5`) via Pillow.
-- **Slides 2–5 (Lifestyle Interiors)**: Stamped with the floating YOLO 2-line item tag (`Line 1`: Item Name in Poppins Bold 19px, `Line 2`: Category in Poppins Regular 19px) anchored to the detected product, plus the HomeCartel Feed logo at bottom-left.
+- **Slides 2–5 (Lifestyle Interiors)**: Stamped with the floating YOLO 2-line item tag (`Line 1`: Item Name in Poppins Bold 19px, `Line 2`: Category in Poppins Regular 19px) anchored to the detected product, plus the HomeCartel Feed logo at bottom-left. `Line 2` is the product type (e.g. `Table Lamp`), taken from the item name's `| type` part or from the `[CATEGORY: ...]` token of `Suggest Furniture ItemN`, never the room name. The category in that token also tells YOLO-World what to look for. Only slots that were really tagged are mirrored to `Blended Image with Name text`; if tagging fails the run log shows `[WARN] Item name tag NOT stamped on Slot N: ...` (code: `stamp_item_name_tag` in `run_collection_category_feed.py`, tests: `tests/test_collection_category_feed_tagging.py`).
 
 ---
 

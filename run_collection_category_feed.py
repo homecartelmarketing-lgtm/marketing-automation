@@ -1259,6 +1259,60 @@ def _resolve_feed_logo_path() -> Path:
     return Path("assets/homecartel_logo.png")
 
 
+_CATEGORY_TOKEN = re.compile(r"\[\s*CATEGORY\s*:\s*([A-Za-z0-9_\- ]+?)\s*\]", re.IGNORECASE)
+
+
+CATEGORY_PRODUCT_TYPE = {
+    "table_lamps": "Table Lamp",
+    "chandeliers": "Chandelier",
+    "pendant_lights": "Pendant Light",
+    "floor_lamps": "Floor Lamp",
+    "ceiling_mounted": "Ceiling Light",
+    "wall_lights": "Wall Light",
+}
+
+
+def parse_suggested_category(suggestion: Any, fallback: str = "") -> str:
+    """Fixture category from a 'Suggest Furniture ItemN' value like '[CATEGORY: table_lamps] Table Lamp: ...'."""
+    match = _CATEGORY_TOKEN.search(str(suggestion or ""))
+    if match:
+        return match.group(1).strip().lower().replace(" ", "_").replace("-", "_")
+    return str(fallback or "").strip()
+
+
+def stamp_item_name_tag(image_path: Path, item_name: str, slot: SlotConfig, fields: dict[str, Any]) -> bool:
+    """Stamp the floating item-name tag (YOLO-World placement) onto a blended slot image in place.
+
+    Returns True only when a tag was really drawn; failures are logged and never abort the run.
+    """
+    try:
+        from content_automation.akeneo_client import split_item_name
+        from content_automation.item_tagger import tag_blended_image
+
+        category = parse_suggested_category(get_field_val(fields, slot.suggest_field_candidates))
+        # Second tag line is the product type (e.g. "Table Lamp"), never the room name.
+        type_fallback = CATEGORY_PRODUCT_TYPE.get(category, "")
+        item_title, product_type = split_item_name(item_name, fallback_product_type=type_fallback)
+        category = category or product_type or slot.label
+        tagged, bbox = tag_blended_image(
+            image_input=image_path,
+            item_name=item_title,
+            product_type=product_type,
+            category=category,
+            destination=image_path,
+            fallback_if_undetected=True,
+        )
+        if tagged is None:
+            print(f"    [WARN] Item name tag not stamped on Slot {slot.slot_index} (nothing drawn).")
+            return False
+        where = "next to the detected fixture" if bbox else "at the fallback position (fixture not detected)"
+        print(f"    [ITEM TAGGING] Stamped '{item_title}' ({product_type}, category '{category}') onto Slot {slot.slot_index} {where}")
+        return True
+    except Exception as tag_err:
+        print(f"    [WARN] Item name tag NOT stamped on Slot {slot.slot_index}: {type(tag_err).__name__}: {tag_err}")
+        return False
+
+
 def run_phase_5_for_record(
     fal: FalClient,
     airtable: ScrapeAirtableClient,
@@ -1393,22 +1447,7 @@ def run_phase_5_for_record(
             downloaded = download_image_url(blended_url, prefix=f"blended_{slot.slot_index}_")
 
             # 1. Auto-tag furniture item name onto Blended Image using YOLO-World
-            try:
-                from content_automation.akeneo_client import split_item_name
-                from content_automation.item_tagger import tag_blended_image
-                item_title, product_type = split_item_name(item_name, fallback_product_type=slot.label)
-                cat_query = str(fields.get(slot.suggest_furniture_field) or slot.label).strip()
-                tag_blended_image(
-                    image_input=downloaded.path,
-                    item_name=item_title,
-                    product_type=product_type,
-                    category=cat_query,
-                    destination=downloaded.path,
-                    fallback_if_undetected=True,
-                )
-                print(f"    [ITEM TAGGING] Stamped '{item_title}' ({product_type}) onto Slot {slot.slot_index} with YOLO")
-            except Exception as tag_err:
-                print(f"    [WARN] YOLO tagging notice on Slot {slot.slot_index}: {tag_err}")
+            tag_stamped = stamp_item_name_tag(downloaded.path, item_name, slot, fields)
 
             # 2. Stamp HomeCartel Feed logo auto-layout (bottom-left x=108.0, y=1178.5)
             try:
@@ -1431,15 +1470,18 @@ def run_phase_5_for_record(
                 downloaded.path,
                 filename=f"Blended_Image{slot.slot_index}_{record_id}.jpg",
             )
-            try:
-                airtable.upload_attachment(
-                    record_id,
-                    "Blended Image with Name text",
-                    downloaded.path,
-                    filename=f"Blended_Image{slot.slot_index}_{record_id}.jpg",
-                )
-            except Exception as mirror_err:
-                print(f"    [WARN] Failed mirroring Slot {slot.slot_index} tagged image to 'Blended Image with Name text': {mirror_err}")
+            if tag_stamped:
+                try:
+                    airtable.upload_attachment(
+                        record_id,
+                        "Blended Image with Name text",
+                        downloaded.path,
+                        filename=f"Blended_Image{slot.slot_index}_{record_id}.jpg",
+                    )
+                except Exception as mirror_err:
+                    print(f"    [WARN] Failed mirroring Slot {slot.slot_index} tagged image to 'Blended Image with Name text': {mirror_err}")
+            else:
+                print(f"    [WARN] Slot {slot.slot_index}: not mirrored to 'Blended Image with Name text' because no name tag was stamped.")
 
             downloaded.cleanup()
 
