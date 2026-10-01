@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
-import { QueueJob, QueueHistoryItem } from '../components/planning/QueueDock';
+import type { QueueJob, QueueHistoryItem } from '../types';
 import { FixtureData } from '../components/planning/FixtureCard';
 import { PipelineType } from '../types';
 

@@ -344,7 +344,7 @@ export const PIPELINES: PipelineConfig[] = [
     stopEndpoint: '/api/product-showcase-feed/stop',
     countsEndpoint: '/api/product-showcase-feed/counts',
     totalPhases: 5,
-    phaseSummary: 'Akeneo Scrape 3 Active Items ➔ 3-Podium Group Slide ➔ 3 Solo Showcase Slides ➔ Final 4-Slide Assembly',
+    phaseSummary: 'Akeneo Scrape 3 Active Items ➔ 3-Podium Group Slide ➔ Solo Slide 1 ➔ Solo Slide 2 ➔ Solo Slide 3 & Assembly',
     fixtures: PRODUCT_SHOWCASE_FEED_FIXTURES,
     hasMoodboard: false,
     hasPrompt: false,

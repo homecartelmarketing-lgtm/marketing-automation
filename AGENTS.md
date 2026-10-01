@@ -120,7 +120,7 @@ marketing-automation/
 │   │   ├── app/constants/                   # fixtures.ts (*_FIXTURES + subtab switch), pipelines.ts (PipelineConfig per pipeline)
 │   │   ├── app/hooks/                       # usePipelineData, usePipelineRunner, useQueue
 │   │   ├── app/types/index.ts               # PipelineType union, FixtureData, status-count types
-│   │   └── app/components/                  # planning/ (FixtureCard, RowInspectorModal, RunConfirmModal), modals/
+│   │   └── app/components/                  # planning/ (FixtureCard, RowInspectorModal, RunConfirmModal, RunCenter = bottom status bar + run panel), modals/
 │   └── dist/                                # Compiled production assets served by Flask
 │
 ├── assets/                                  # homecartel_logo.png, *_layout.jpg watermark templates, emojis,

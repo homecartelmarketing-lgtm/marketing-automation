@@ -7,14 +7,13 @@ import { FixtureProgressGrid } from './components/planning/FixtureProgressGrid';
 import { FixtureData } from './components/planning/FixtureCard';
 import { RunConfirmModal } from './components/planning/RunConfirmModal';
 import { RowInspectorModal } from './components/planning/RowInspectorModal';
-import { LiveLogViewer } from './components/planning/LiveLogViewer';
-import { QueueDock, QueueJob, QueueHistoryItem } from './components/planning/QueueDock';
+import { RunCenter } from './components/planning/RunCenter';
 import { EditMoodboardModal, EditPromptModal, StudioPinModal } from './components/modals';
 import { CONTENT_CONFIG, getFixturesForSubtab } from './constants/fixtures';
 import { getPipelineConfig, getPipelineByType, getPipelineHeaderTitle } from './constants/pipelines';
 import { usePipelineData, useQueue, usePipelineRunner } from './hooks';
 import type { FinishedQueueJob } from './hooks/useQueue';
-import type { PipelineType } from './types';
+import type { PipelineType, QueueJob, QueueHistoryItem } from './types';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('story');
@@ -189,12 +188,6 @@ export default function App() {
     runningPipelineType !== null &&
     runningPipelineConfig?.format === activeTab &&
     runningPipelineConfig?.subtabIndex === activeSubTab;
-
-  const runningFixtureDisplayName = useMemo(() => {
-    if (!runningPipelineConfig || !pipelineState.active_fixture) return 'Fixture';
-    const match = runningPipelineConfig.fixtures.find(f => f.id === pipelineState.active_fixture);
-    return match?.name || pipelineState.active_fixture;
-  }, [runningPipelineConfig, pipelineState.active_fixture]);
 
   const activeRunningFixtureId = isCurrentTabPipelineRunning ? pipelineState.active_fixture : null;
 
@@ -584,79 +577,6 @@ export default function App() {
           </span>
         </div>
 
-        {/* Global Persistent Background Processing Banner */}
-        {pipelineState.status === 'running' && !isCurrentTabPipelineRunning && runningPipelineConfig && (
-          <div className="mb-6 p-4 bg-gradient-to-r from-sky-950 via-slate-900 to-indigo-950 text-white rounded-2xl shadow-xl border border-sky-600/40 flex flex-wrap items-center justify-between gap-4 animate-in slide-in-from-top-2 duration-200">
-            <div className="flex items-center gap-3.5">
-              <div className="relative flex h-3.5 w-3.5 shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-sky-500"></span>
-              </div>
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="px-2.5 py-0.5 bg-sky-500/20 text-sky-300 border border-sky-400/30 rounded-full text-[10px] font-bold tracking-wider uppercase">
-                    Background Processing
-                  </span>
-                  <span className="font-semibold text-sm text-white">
-                    {runningPipelineConfig.name}
-                  </span>
-                  <span className="text-xs text-sky-200 font-medium px-2 py-0.5 bg-sky-900/50 rounded-md border border-sky-700/40">
-                    {runningFixtureDisplayName}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2.5 text-xs text-slate-300 mt-1.5">
-                  <span className="font-medium text-slate-200">{pipelineState.current_phase || 'Processing...'}</span>
-                  <span>•</span>
-                  <span className="font-mono text-sky-300">
-                    {Math.floor(pipelineState.elapsed_seconds / 60)
-                      .toString()
-                      .padStart(2, '0')}
-                    :{(pipelineState.elapsed_seconds % 60).toString().padStart(2, '0')}
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  if (runningTab && runningSubTab !== null) {
-                    setActiveTab(runningTab);
-                    setActiveSubTab(runningSubTab);
-                  }
-                }}
-                className="px-3.5 py-1.5 bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <span>Jump to {runningPipelineConfig.subTabLabel} Tab</span>
-                <span>→</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleStopPipeline}
-                className="px-3 py-1.5 bg-rose-600/80 hover:bg-rose-600 text-white text-xs font-medium rounded-xl transition-all cursor-pointer"
-              >
-                Stop
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Global Pipeline Execution Console & Monitor */}
-        {(pipelineState.status === 'running' || pipelineState.status === 'error') && (
-          <div className="mb-6 relative">
-            <LiveLogViewer
-              pipelineState={pipelineState}
-              onStop={handleStopPipeline}
-              onClearLogs={() => setPipelineState(prev => ({ ...prev, logs: [] }))}
-              fixtureName={
-                !isCurrentTabPipelineRunning && runningPipelineConfig
-                  ? `${runningPipelineConfig.name} › ${runningFixtureDisplayName}`
-                  : `${activePipelineConfig?.name || 'Pipeline'} › ${runningFixtureDisplayName}`
-              }
-            />
-          </div>
-        )}
-
         {/* Pipeline Error Alert Banner */}
         {pipelineState.status === 'error' && pipelineState.error && (
           <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center justify-between text-xs text-rose-900 shadow-xs animate-in fade-in duration-150">
@@ -769,18 +689,21 @@ export default function App() {
         onClose={() => setShowPinModal(false)}
       />
 
-      {/* Unified FIFO Queue Dock */}
-      <QueueDock
+      {/* Run Center: bottom status bar + right-hand panel (running job, queue, history) */}
+      <RunCenter
         activeJob={activeQueueJob}
         pendingQueue={pendingQueue}
         history={queueHistory}
+        pipelineState={pipelineState}
+        phaseSummary={(activeQueueJob ? getPipelineByType(activeQueueJob.pipeline_type as PipelineType) : runningPipelineConfig)?.phaseSummary}
+        onStop={() => handleStopActiveJob(studioPin, handleStopPipeline)}
         onCancelJob={(jobId, fixName) => handleCancelQueueItem(jobId, fixName, studioPin)}
         onClearQueue={() => handleClearQueue(studioPin)}
-        onStopActiveJob={() => handleStopActiveJob(studioPin, handleStopPipeline)}
         onJumpToJob={(format, subtabIdx) => {
-          setActiveTab(format);
+          setActiveTab(format as TabType);
           setActiveSubTab(subtabIdx);
         }}
+        onDismissError={() => setPipelineState(prev => ({ ...prev, status: 'idle', error: undefined }))}
       />
     </div>
   );
