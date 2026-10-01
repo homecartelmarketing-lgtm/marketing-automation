@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -62,6 +63,28 @@ BEFORE_AFTER_REEL_PROMPT_CONFIG: dict[str, dict[str, str]] = {
         "default": "Generate me a photo a modern living room hanging chandelier from the ceiling",
     },
 }
+
+
+PHASE_LABELS: dict[int, str] = {
+    1: "Phase 1: Akeneo Scraper",
+    2: "Phase 2: Krea Room Interior",
+    3: "Phase 3: Claude Vision Prompting",
+    4: "Phase 4: Nano Banana Pro Day Blend",
+    5: "Phase 5: Multiple Angle Generation",
+    6: "Phase 6: FFmpeg Slideshow Reel Assembly",
+}
+_PHASE_RE = re.compile(r"\[PHASE\s+(\d+)\s*/\s*\d+\]", re.IGNORECASE)
+
+
+def update_phase_from_log(state: dict[str, Any], line: str) -> None:
+    """Advance the phase from an explicit `[PHASE n/6]` log marker (never moves backwards)."""
+    match = _PHASE_RE.search(line)
+    if not match:
+        return
+    idx = int(match.group(1))
+    if idx in PHASE_LABELS and idx >= int(state.get("current_phase_index") or 0):
+        state["current_phase"] = PHASE_LABELS[idx]
+        state["current_phase_index"] = idx
 
 
 def get_fixtures() -> dict[str, dict[str, Any]]:
@@ -299,25 +322,7 @@ def run_pipeline():
                     continue
                 with _STATE_LOCK:
                     _EXEC_STATE["logs"].append(txt)
-                    low = txt.lower()
-                    if "scrape" in low or "akeneo" in low:
-                        _EXEC_STATE["current_phase"] = "Phase 1: Akeneo Scraper"
-                        _EXEC_STATE["current_phase_index"] = 1
-                    elif "interior" in low or "krea" in low:
-                        _EXEC_STATE["current_phase"] = "Phase 2: Krea Room Interior"
-                        _EXEC_STATE["current_phase_index"] = 2
-                    elif "claude" in low or "blending prompt" in low or "vision" in low:
-                        _EXEC_STATE["current_phase"] = "Phase 3: Claude Vision Prompting"
-                        _EXEC_STATE["current_phase_index"] = 3
-                    elif "banana" in low or "blend" in low:
-                        _EXEC_STATE["current_phase"] = "Phase 4: Nano Banana Pro Day Blend"
-                        _EXEC_STATE["current_phase_index"] = 4
-                    elif "multiple angle" in low or "angle" in low:
-                        _EXEC_STATE["current_phase"] = "Phase 5: Multiple Angle Generation"
-                        _EXEC_STATE["current_phase_index"] = 5
-                    elif "video" in low or "slideshow" in low or "ffmpeg" in low or "export" in low:
-                        _EXEC_STATE["current_phase"] = "Phase 6: FFmpeg Slideshow Reel Assembly"
-                        _EXEC_STATE["current_phase_index"] = 6
+                    update_phase_from_log(_EXEC_STATE, txt)
 
             p.wait()
             with _STATE_LOCK:

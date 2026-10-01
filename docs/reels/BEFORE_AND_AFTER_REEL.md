@@ -99,7 +99,14 @@ python run_before_after_reel.py --target pendant_lights
 
 # Target Chandeliers
 python run_before_after_reel.py --target chandeliers
+
+# Explicit re-render of ONE existing row (the only case that touches an existing row)
+python run_before_after_reel.py --target pendant_lights --record-id recXXXXXXXXXXXXXX
 ```
+
+**Always a fresh row:** every run (CLI or Studio) scrapes a brand-new row from Akeneo and processes only that row; it never picks up old, remaining or incomplete rows (AGENTS.md §5). If the scraper creates no new row, the run exits with code 1 ("no new eligible product"). Generic phase runs skip Posted / Scheduled / Complete / For Manual rows.
+
+**Phase markers:** the runner prints `[PHASE n/6]` lines (1 Akeneo scrape, 2 Krea interior, 3 Claude prompt, 4 Banana blend, 5 multiple angles, 6 slideshow) which the Studio route uses to show progress. Media downloads (blend, angles, slideshow assets) are retried; if an angle or the blended image cannot be fetched the row fails instead of producing a partial reel marked Complete. The blend phase stamps the item-name tag with YOLO into `Blended Image with Name text`, with the fixture category derived from the target or the item name.
 
 
 ### Web UI Dashboard Execution

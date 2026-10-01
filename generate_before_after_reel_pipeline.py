@@ -40,7 +40,7 @@ from content_automation.errors import AutomationError, ProviderError
 from content_automation.fal_client import FalClient
 from content_automation.prompts import build_vision_blending_instruction
 from content_automation.krea_client import KreaClient
-from content_automation.media import download_to_temp_file
+from content_automation.media import download_to_temp_file, download_url_to_temp_file
 from content_automation.models import LocalImage
 from content_automation.scraping import (
     FurnitureItemScrapeRunner,
@@ -82,6 +82,15 @@ STATUS_BLENDED_IMAGE = "Processing Day Image"
 STATUS_MULTIPLE_ANGLE = "Multiple Angle Blended Image Generating"
 STATUS_SLIDESHOW_GENERATED = "Slide Show Before and After Reel Generating"
 STATUS_COMPLETE = "Complete"
+
+# Rows in these states are never touched by a generic run (Posted/Scheduled content, discarded or manual rows).
+TERMINAL_AND_PROTECTED_STATUSES = {
+    "complete", "completed", "done", "finished",
+    "posted", "scheduled", "schedule",
+    "discard", "discarded",
+    "for manual", "minor revision", "minor revisions", "fm",
+    "skip", "skipped", "ignore", "disabled", "error",
+}
 
 INTERIOR_FIELD = "Interior Generated Photo"
 INTERIOR_FIELD_FALLBACK = "Interior Generated"
@@ -353,6 +362,35 @@ def resolve_status_choice(
     return candidate_choices[0]
 
 
+def infer_fixture_category(*texts: str) -> str:
+    """Fixture category code for the YOLO tagger from free text such as 'Modern Pendant Light'."""
+    blob = " ".join(str(t or "") for t in texts).lower()
+    for code, needle in (
+        ("pendant_lights", "pendant"),
+        ("chandeliers", "chandelier"),
+        ("floor_lamps", "floor lamp"),
+        ("table_lamps", "table lamp"),
+        ("wall_sconces", "sconce"),
+        ("ceiling_lights", "ceiling"),
+    ):
+        if needle in blob:
+            return code
+    return ""
+
+
+def restrict_records(records: list[dict[str, Any]], record_ids: list[str] | None = None) -> list[dict[str, Any]]:
+    """Limit a phase to the given record ids; without ids, drop terminal/protected rows (Posted, Scheduled, ...)."""
+    if record_ids:
+        wanted = set(record_ids)
+        return [r for r in records if r.get("id") in wanted]
+    return [
+        r
+        for r in records
+        if str((r.get("fields") or {}).get(STATUS_FIELD) or "").strip().casefold()
+        not in TERMINAL_AND_PROTECTED_STATUSES
+    ]
+
+
 def generate_krea_interiors_pipeline(
     krea: KreaClient,
     airtable: ScrapeAirtableClient,
@@ -362,9 +400,11 @@ def generate_krea_interiors_pipeline(
     aspect_ratio: str = INTERIOR_ASPECT_RATIO,
     interior_field: str = INTERIOR_FIELD,
     limit_records: int | None = None,
+    record_ids: list[str] | None = None,
 ) -> bool:
     """Generate Krea AI room interior photo into 'Interior Generated Photo' (Phase 1: Before Image)."""
     records = airtable.list_records()
+    records = restrict_records(records, record_ids)
     if not records:
         print("[OK] No records found in Airtable to populate interior photos.")
         return True
@@ -443,9 +483,11 @@ def generate_claude_blending_prompts(
     prompt_field: str = PROMPT_FIELD,
     placement_rule: str = "",
     limit_records: int | None = None,
+    record_ids: list[str] | None = None,
 ) -> bool:
     """Generate detailed blending prompt using Fal AI Claude Sonnet 5 into 'Blending Prompt' (Phase 2)."""
     records = airtable.list_records()
+    records = restrict_records(records, record_ids)
     if not records:
         print("[OK] No records found in Airtable to generate prompts.")
         return True
@@ -546,9 +588,12 @@ def generate_nano_banana_pro_blends(
     blend_model: str = FAL_BLENDING_MODEL,
     blended_field: str = BLENDED_IMAGE_FIELD,
     limit_records: int | None = None,
+    record_ids: list[str] | None = None,
+    category: str = "",
 ) -> bool:
     """Generate image-to-image blended photo using Fal AI Nano Banana Pro into 'Blended Image' (Phase 3: After Image)."""
     records = airtable.list_records()
+    records = restrict_records(records, record_ids)
     if not records:
         print("[OK] No records found in Airtable for image blending.")
         return True
@@ -616,9 +661,9 @@ def generate_nano_banana_pro_blends(
                 "input_image_urls": image_inputs,
                 "output_image_url": image_url,
             }, AUDIT_LOG_NANO_BANANA)
-            response = requests.get(image_url, stream=True)
-            downloaded = download_to_temp_file(
-                response,
+            downloaded = download_url_to_temp_file(
+                fal.session,
+                image_url,
                 prefix="blended_image_",
                 suffix=".jpg",
                 context=f"Download blended image from {image_url}",
@@ -649,7 +694,7 @@ def generate_nano_banana_pro_blends(
                     blended_source=downloaded.path,
                     item_name=item_title,
                     product_type=product_type,
-                    category=category,
+                    category=category or infer_fixture_category(product_type, item_title, raw_item_name),
                     target_field=TARGET_BLENDED_FIELD,
                     output_filename_prefix="before_after_tagged",
                     fallback_if_undetected=True,
@@ -676,9 +721,11 @@ def generate_multiple_angles_pipeline(
     *,
     model: str = FAL_MULTIPLE_ANGLE_MODEL,
     limit_records: int | None = None,
+    record_ids: list[str] | None = None,
 ) -> bool:
     """Generate 4 different viewing angles from 'Blended Image' using Fal AI into 'Multiple Angle Blended Image' (Phase 4)."""
     records = airtable.list_records()
+    records = restrict_records(records, record_ids)
     if not records:
         print("[OK] No records found in Airtable for multiple angle generation.")
         return True
@@ -812,20 +859,21 @@ def generate_multiple_angles_pipeline(
             if not angle_urls:
                 raise ProviderError("Fal AI multiple angle generation returned 0 image URLs.")
 
+            # Download every angle first (transient errors are retried). If any angle cannot be fetched the
+            # record fails here, before anything is uploaded and before its status moves on.
             for idx, angle_url in enumerate(angle_urls[:4], start=1):
-                try:
-                    response = requests.get(angle_url, stream=True)
-                    downloaded = download_to_temp_file(
-                        response,
+                downloaded_list.append(
+                    download_url_to_temp_file(
+                        fal.session,
+                        angle_url,
                         prefix=f"angle_{idx}_",
                         suffix=".jpg",
                         context=f"Download angle image from {angle_url}",
                     )
-                    downloaded_list.append(downloaded)
-                    filename = f"angle_{idx}_{record_id}.jpg"
-                    airtable.upload_attachment(record_id, target_angles_field, downloaded, filename)
-                except Exception as upload_err:
-                    print(f"[WARN] Failed uploading angle {idx} for record {record_id}: {upload_err}")
+                )
+            for idx, downloaded in enumerate(downloaded_list, start=1):
+                filename = f"angle_{idx}_{record_id}.jpg"
+                airtable.upload_attachment(record_id, target_angles_field, downloaded, filename)
 
             append_audit_log({
                 "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -1064,9 +1112,11 @@ def generate_slideshow_reels_pipeline(
     thumbnail_field: str = THUMBNAIL_TEXT_FIELD,
     outro_field: str = OUTRO_FIELD,
     limit_records: int | None = None,
+    record_ids: list[str] | None = None,
 ) -> bool:
     """Generate 9:16 Slideshow Reel MP4 video with Claude Sonnet 5 typography title, thumbnail, and Google Drive compilation (Phase 5)."""
     records = airtable.list_records()
+    records = restrict_records(records, record_ids)
     if not records:
         print("[OK] No records found in Airtable for slideshow video reel generation.")
         return True
@@ -1211,19 +1261,24 @@ def generate_slideshow_reels_pipeline(
         interior_temp = None
         thumb_temp = None
         outro_temp = None
+        audio_temp = None
+        blended_temp = None
         angle_temps = []
         try:
             # Download interior photo (required for generating thumbnail or export)
-            interior_resp = requests.get(interior_url, stream=True)
-            interior_temp = download_to_temp_file(interior_resp, prefix="interior_", suffix=".jpg", context="Download interior slide")
+            interior_temp = download_url_to_temp_file(
+                fal.session, interior_url, prefix="interior_", suffix=".jpg", context="Download interior slide"
+            )
 
             first_slide_path: Path | None = None
 
             # Download or generate Thumbnail with Generated Text (Slide 1)
             if has_existing_thumb and existing_thumb_url:
                 try:
-                    thumb_resp = requests.get(existing_thumb_url, stream=True)
-                    thumb_temp = download_to_temp_file(thumb_resp, prefix="thumbnail_", suffix=".jpg", context="Download existing thumbnail slide")
+                    thumb_temp = download_url_to_temp_file(
+                        fal.session, existing_thumb_url, prefix="thumbnail_", suffix=".jpg",
+                        context="Download existing thumbnail slide",
+                    )
                     first_slide_path = thumb_temp.path
                     print(f"[OK] Downloaded existing 'Thumbnail with Generated Text' for record {record_id} (Slide 1)")
                 except Exception as t_err:
@@ -1249,22 +1304,30 @@ def generate_slideshow_reels_pipeline(
 
             if outro_url:
                 try:
-                    outro_resp = requests.get(outro_url, stream=True)
-                    outro_temp = download_to_temp_file(outro_resp, prefix="outro_", suffix=".jpg", context="Download outro slide")
+                    outro_temp = download_url_to_temp_file(
+                        fal.session, outro_url, prefix="outro_", suffix=".jpg", context="Download outro slide"
+                    )
                     print(f"[OK] Downloaded Outro slide photo for record {record_id}")
                 except Exception as outro_err:
                     print(f"[WARN] Outro photo download error for record {record_id}: {outro_err}")
 
+            # Angle slides are required: a failed download (after retries) fails the record instead of
+            # producing a partial reel that gets marked Complete.
             for idx, a_url in enumerate(angle_urls[:4], start=1):
-                try:
-                    a_resp = requests.get(a_url, stream=True)
-                    a_file = download_to_temp_file(a_resp, prefix=f"angle_{idx}_", suffix=".jpg", context=f"Download angle {idx} slide")
-                    angle_temps.append(a_file)
-                except Exception as err:
-                    print(f"[WARN] Failed downloading angle slide {idx}: {err}")
+                angle_temps.append(
+                    download_url_to_temp_file(
+                        fal.session, a_url, prefix=f"angle_{idx}_", suffix=".jpg", context=f"Download angle {idx} slide"
+                    )
+                )
+
+            # The blended image is exported with the reel assets: fetch it before anything is uploaded.
+            if blended_url and blended_url.startswith("http"):
+                blended_temp = download_url_to_temp_file(
+                    fal.session, blended_url, prefix="blended_", suffix=".jpg",
+                    context="Download blended image for export",
+                )
 
             # Synthesize background jazz track via Fal AI ElevenLabs Music API (fal-ai/elevenlabs/music)
-            audio_temp = None
             if jazz_music_prompt:
                 try:
                     print(f"[INFO] Synthesizing background jazz track via Fal AI ElevenLabs Music (fal-ai/elevenlabs/music)...")
@@ -1274,9 +1337,9 @@ def generate_slideshow_reels_pipeline(
                         model="fal-ai/elevenlabs/music",
                     )
                     if audio_url:
-                        audio_resp = requests.get(audio_url, stream=True)
-                        audio_temp = download_to_temp_file(
-                            audio_resp,
+                        audio_temp = download_url_to_temp_file(
+                            fal.session,
+                            audio_url,
                             prefix="elevenlabs_jazz_",
                             suffix=".mp3",
                             context=f"Download ElevenLabs music for record {record_id}",
@@ -1323,15 +1386,8 @@ def generate_slideshow_reels_pipeline(
             if outro_temp:
                 source_assets_to_export.append((outro_temp.path, f"outro_{record_id}.jpg"))
 
-            # Download blended image to include in source assets
-            blended_temp = None
-            if blended_url and blended_url.startswith("http"):
-                try:
-                    b_resp = requests.get(blended_url, stream=True)
-                    blended_temp = download_to_temp_file(b_resp, prefix="blended_", suffix=".jpg", context="Download blended image for export")
-                    source_assets_to_export.append((blended_temp.path, f"blended_{record_id}.jpg"))
-                except Exception:
-                    pass
+            if blended_temp:
+                source_assets_to_export.append((blended_temp.path, f"blended_{record_id}.jpg"))
 
             export_reel_artifacts(
                 record_id=record_id,
@@ -1348,12 +1404,6 @@ def generate_slideshow_reels_pipeline(
                 duration_str="0:14",
                 cost_str="$0.05",
             )
-
-            if blended_temp:
-                try:
-                    blended_temp.cleanup()
-                except Exception:
-                    pass
 
             succeeded += 1
         except Exception as error:
@@ -1378,6 +1428,11 @@ def generate_slideshow_reels_pipeline(
             if audio_temp:
                 try:
                     audio_temp.cleanup()
+                except Exception:
+                    pass
+            if blended_temp:
+                try:
+                    blended_temp.cleanup()
                 except Exception:
                     pass
             for a_file in angle_temps:
@@ -1511,6 +1566,7 @@ def main(argv=None) -> int:
         fal,
         airtable,
         limit_records=args.max_items,
+        category=akeneo_cat,
     ):
         overall_success = False
 
