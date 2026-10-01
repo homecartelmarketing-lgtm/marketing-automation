@@ -59,6 +59,9 @@ $$\text{Format: } \mathbf{TNE\text{-}STORY\text{-}\langle FIXTURE\rangle\text{-}
 
 ---
 
+### Provider credentials (isolated loader)
+`run_tips_and_edu_story.py` loads credentials through `IsolatedAutomationSettings` in this order: `.env.tips-edu-story`, then the shared `.env`, then (hosted deployments such as Railway, which have no dotenv files) the **process environment variables**. Required: `AIRTABLE_TOKEN`, `AIRTABLE_BASE_ID`, `AKENEO_HOST`, `AKENEO_CLIENT_ID`, `AKENEO_SECRET`, `AKENEO_USERNAME`, `AKENEO_PASSWORD`, `CHANNEL_NAME`, `KREA_API_TOKEN`, `FAL_KEY` (`AKENEO_STYLE` defaults to `modern`). The error names any that are missing.
+
 ## 5. 5-Status Lifecycle & PHT Timestamps
 
 The Airtable single-select Status field tracks records across 5 lifecycle stages:

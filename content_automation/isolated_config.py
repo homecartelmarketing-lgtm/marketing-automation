@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -61,22 +62,33 @@ class IsolatedAutomationSettings:
             raise ValueError(f"Unsupported isolated automation: {automation}")
         filename, qwen_key_name, requires_fal = expected[automation]
         source = (env_path or workspace / filename).resolve()
+        from_environment = False
         if not source.is_file():
             fallback = (workspace / ".env").resolve()
             if fallback.is_file():
                 source = fallback
             else:
-                raise ConfigurationError(
-                    f"Missing isolated configuration: {source}. Copy the matching .example file first."
-                )
+                # Hosted deployments (e.g. Railway) have no dotenv files in the image and
+                # provide configuration as process environment variables instead.
+                from_environment = True
 
-        # dotenv_values reads this file directly. It intentionally does not
-        # consult process variables or the repository's shared .env file.
-        raw = {
-            str(key): str(value or "").strip()
-            for key, value in dotenv_values(source).items()
-            if key
-        }
+        if from_environment:
+            raw = {
+                str(key): str(value or "").strip()
+                for key, value in os.environ.items()
+                if key
+            }
+            raw.setdefault("AKENEO_STYLE", "modern")
+            if not raw["AKENEO_STYLE"]:
+                raw["AKENEO_STYLE"] = "modern"
+        else:
+            # dotenv_values reads this file directly. It intentionally does not
+            # consult process variables or the repository's shared .env file.
+            raw = {
+                str(key): str(value or "").strip()
+                for key, value in dotenv_values(source).items()
+                if key
+            }
         required = {
             "AIRTABLE_TOKEN",
             "AIRTABLE_BASE_ID",
@@ -95,8 +107,13 @@ class IsolatedAutomationSettings:
             required.add("FAL_KEY")
         missing = sorted(name for name in required if not raw.get(name))
         if missing:
+            where = (
+                f"the process environment (no {filename} or .env file found)"
+                if from_environment
+                else source.name
+            )
             raise ConfigurationError(
-                f"Missing required values in {source.name}: " + ", ".join(missing)
+                f"Missing required values in {where}: " + ", ".join(missing)
             )
 
         configured_output = raw.get("CONTENT_AUTOMATION_OUTPUT_DIR", "output/content")
