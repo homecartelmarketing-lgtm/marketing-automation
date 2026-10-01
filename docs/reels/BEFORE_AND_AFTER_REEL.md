@@ -10,8 +10,8 @@ The **Before & After Reel Automation Pipeline** generates captivating **9:16 ver
 - **Video Format**: H.264 MP4, 30 FPS, High Profile
 - **Reel Structure**:
   - **"Before" Scene**: Empty luxury room interior highlighting architectural potential.
-  - **"After" Transformation**: Installed and illuminated lighting fixture in the room.
-  - **Multiple Angle Details**: Close-up angles highlighting product textures.
+  - **"After" Transformation (3 s)**: Installed and illuminated lighting fixture in the room, with the floating item-name tag (name + product type, YOLO placement) from `Blended Image with Name text`. If a row only has the plain `Blended Image`, the tag is stamped locally while the reel is built, so the name is always shown.
+  - **Multiple Angle Details (2 s each)**: Close-up angles highlighting product textures (generated from the untagged blend; the name appears once, on the After slide).
   - **Branded Outro**: Call-to-action closing card.
 - **Audio Profile**: Stereo AAC @ 192 kbps background music.
 

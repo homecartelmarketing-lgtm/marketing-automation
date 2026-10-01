@@ -976,6 +976,7 @@ def build_before_after_slideshow_video(
     output_mp4_path: Path | None = None,
     *,
     interior_image_path: Path | None = None,
+    after_image_path: Path | None = None,
     outro_image_path: Path | None = None,
     audio_path: Path | None = None,
     width: int = 1080,
@@ -986,14 +987,16 @@ def build_before_after_slideshow_video(
     angle_duration: float = 2.0,
     outro_duration: float = 3.0,
     fade_duration: float = 1.0,
+    after_duration: float = 3.0,
     dim_factor: float = 0.65,
     title_text: str = "",
 ) -> Path:
     """Build a 9:16 vertical H.264 MP4 slideshow video reel with optional background audio.
 
     Slide 1 ('Thumbnail with Generated Text'): 3.0s duration, dimmed brightness with centered Poppins text overlay (Before).
-    Slides 2-5 ('Multiple Angle Blended Image'): 2.0s duration each (After).
-    Slide 6 ('Outro' if present): 3.0s duration, with a 1.0s Fade to Black transition before Outro.
+    Slide 2 (``after_image_path``, optional): the blended 'After' photo carrying the item-name tag, 3.0s.
+    Next slides ('Multiple Angle Blended Image'): 2.0s duration each (After).
+    Last slide ('Outro' if present): 3.0s duration, with a 1.0s Fade to Black transition before Outro.
     Audio: Synced background track merged using FFmpeg.
     """
     from PIL import ImageEnhance
@@ -1025,6 +1028,14 @@ def build_before_after_slideshow_video(
         s1_frames = int((first_slide_duration or interior_duration) * fps)
         for _ in range(s1_frames):
             writer.write(frame_bgr)
+
+    # 1b. Write the name-tagged After slide (blended photo with the item name next to the fixture)
+    if after_image_path is not None and Path(after_image_path).is_file():
+        with Image.open(after_image_path) as after_pil:
+            after_pil = after_pil.convert("RGB").resize((width, height), Image.Resampling.LANCZOS)
+            after_bgr = cv2.cvtColor(np.array(after_pil), cv2.COLOR_RGB2BGR)
+            for _ in range(int(after_duration * fps)):
+                writer.write(after_bgr)
 
     # 2. Write Angle Slides (After Images)
     total_angles = len(angles)
@@ -1174,6 +1185,7 @@ def generate_slideshow_reels_pipeline(
             or extract_attachment_url(get_first_field_value(fields, BLENDED_IMAGE_FIELDS))
             or interior_url
         )
+        has_tagged_blend = bool(extract_attachment_url(fields.get("Blended Image with Name text")))
         outro_url = extract_attachment_url(get_first_field_value(fields, OUTRO_FIELDS))
         angle_attachments = fields.get(MULTIPLE_ANGLE_FIELD) or []
 
@@ -1327,6 +1339,33 @@ def generate_slideshow_reels_pipeline(
                     context="Download blended image for export",
                 )
 
+            # "After" slide: the blended photo with the item-name tag. Use the tagged image from Airtable; if the
+            # row only has the plain blend (older rows / tagging failed), stamp the tag locally so the reel
+            # always shows the name.
+            after_image_path = None
+            if blended_temp and Path(blended_temp.path).is_file() and blended_url != interior_url:
+                after_image_path = Path(blended_temp.path)
+                if not has_tagged_blend:
+                    try:
+                        from content_automation.akeneo_client import split_item_name
+                        from content_automation.item_tagger import tag_blended_image
+
+                        item_title, product_type = split_item_name(
+                            item_name_val, fallback_product_type=str(fields.get("Product Type") or "")
+                        )
+                        tagged_img, _ = tag_blended_image(
+                            image_input=after_image_path,
+                            item_name=item_title,
+                            product_type=product_type,
+                            category=infer_fixture_category(product_type, item_title, item_name_val),
+                            destination=after_image_path,
+                            fallback_if_undetected=True,
+                        )
+                        if tagged_img is not None:
+                            print(f"[OK] Stamped item name '{item_title}' onto the After slide for record {record_id}")
+                    except Exception as tag_err:
+                        print(f"[WARN] Could not stamp item name onto the After slide for record {record_id}: {tag_err}")
+
             # Synthesize background jazz track via Fal AI ElevenLabs Music API (fal-ai/elevenlabs/music)
             if jazz_music_prompt:
                 try:
@@ -1353,6 +1392,7 @@ def generate_slideshow_reels_pipeline(
                 first_slide_image_path=first_slide_path,
                 angle_image_paths=[f.path for f in angle_temps],
                 output_mp4_path=output_mp4_path,
+                after_image_path=after_image_path,
                 outro_image_path=outro_temp.path if outro_temp else None,
                 audio_path=audio_temp.path if audio_temp else None,
                 width=1080,

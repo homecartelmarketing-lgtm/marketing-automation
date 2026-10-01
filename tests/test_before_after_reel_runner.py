@@ -10,6 +10,10 @@ import unittest
 from types import SimpleNamespace
 from unittest import mock
 
+import tempfile
+
+from PIL import Image
+
 import generate_before_after_reel_pipeline as pipeline
 import run_before_after_reel as runner_module
 
@@ -72,6 +76,109 @@ class TaggingCategoryTests(unittest.TestCase):
         tagger.assert_called_once()
         self.assertEqual(tagger.call_args.kwargs["category"], "pendant_lights")
         self.assertEqual(tagger.call_args.kwargs["item_name"], "Future Pendant")
+
+
+def _solid_jpg(path: Path, color) -> Path:
+    Image.new("RGB", (216, 384), color).save(path, "JPEG")
+    return path
+
+
+def _frame_count(video: Path) -> int:
+    import cv2
+
+    cap = cv2.VideoCapture(str(video))
+    try:
+        return int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    finally:
+        cap.release()
+
+
+class SlideshowAfterSlideTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(self.tmp, ignore_errors=True))
+
+    def _build(self, name, after=None):
+        out = self.tmp / f"{name}.mp4"
+        pipeline.build_before_after_slideshow_video(
+            first_slide_image_path=_solid_jpg(self.tmp / "first.jpg", (200, 50, 50)),
+            angle_image_paths=[_solid_jpg(self.tmp / "a1.jpg", (50, 200, 50)), _solid_jpg(self.tmp / "a2.jpg", (50, 50, 200))],
+            output_mp4_path=out,
+            after_image_path=after,
+            outro_image_path=_solid_jpg(self.tmp / "outro.jpg", (20, 20, 20)),
+            width=108, height=192, fps=10,
+        )
+        return out
+
+    def test_after_slide_adds_its_duration_to_the_reel(self):
+        without = _frame_count(self._build("plain"))
+        with_after = _frame_count(self._build("with_after", after=_solid_jpg(self.tmp / "after.jpg", (240, 240, 240))))
+        self.assertEqual(with_after - without, 30)  # 3.0 s at 10 fps
+
+    def test_missing_after_image_is_ignored(self):
+        plain = _frame_count(self._build("plain2"))
+        missing = _frame_count(self._build("missing", after=self.tmp / "nope.jpg"))
+        self.assertEqual(plain, missing)
+
+
+class SlideshowPipelineNameTagTests(unittest.TestCase):
+    def _run(self, fields):
+        """Run the slideshow phase with every network/video step mocked; return (built kwargs, tagger mock)."""
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(tmp, ignore_errors=True))
+        built = {}
+
+        class Downloaded:
+            def __init__(self, path):
+                self.path = path
+
+            def cleanup(self):
+                pass
+
+        counter = {"n": 0}
+
+        def fake_download(session, url, **kwargs):
+            counter["n"] += 1
+            return Downloaded(_solid_jpg(tmp / f"dl_{counter['n']}.jpg", (120, 120, 120)))
+
+        def fake_build(**kwargs):
+            built.update(kwargs)
+            kwargs["output_mp4_path"].write_bytes(b"video")
+            return kwargs["output_mp4_path"]
+
+        airtable = mock.Mock()
+        airtable.list_records.return_value = [{"id": "recX", "fields": fields}]
+        airtable.table_fields.return_value = {}
+        fal = mock.Mock()
+        with mock.patch.object(pipeline, "download_url_to_temp_file", side_effect=fake_download),              mock.patch.object(pipeline, "build_before_after_slideshow_video", side_effect=fake_build),              mock.patch.object(pipeline, "export_reel_artifacts", return_value=Path("unused")),              mock.patch.object(pipeline, "append_audit_log", return_value=None),              mock.patch("content_automation.item_tagger.tag_blended_image", return_value=(object(), None)) as tagger:
+            ok = pipeline.generate_slideshow_reels_pipeline(fal, airtable, record_ids=["recX"])
+        return ok, built, tagger
+
+    BASE = {
+        "Status": "Multiple Angle Blended Image Generating",
+        "Item Name": "Tia | Brass and Frosted Glass Pendant Light",
+        "Interior Generated": [{"url": "https://x/interior.jpg"}],
+        "Blended Image": [{"url": "https://x/blended.jpg"}],
+        "Thumbnail with Generated Text": [{"url": "https://x/thumb.jpg"}],
+        "Multiple Angle Blended Image": [{"url": "https://x/a1.jpg"}, {"url": "https://x/a2.jpg"}],
+    }
+
+    def test_untagged_row_gets_the_name_stamped_locally_for_the_after_slide(self):
+        ok, built, tagger = self._run(dict(self.BASE))
+        self.assertTrue(ok)
+        tagger.assert_called_once()
+        self.assertEqual(tagger.call_args.kwargs["item_name"], "Tia")
+        self.assertEqual(tagger.call_args.kwargs["product_type"], "Brass and Frosted Glass Pendant Light")
+        self.assertEqual(tagger.call_args.kwargs["category"], "pendant_lights")
+        self.assertIsNotNone(built["after_image_path"])
+
+    def test_row_with_a_tagged_image_is_used_as_is(self):
+        fields = dict(self.BASE)
+        fields["Blended Image with Name text"] = [{"url": "https://x/tagged.jpg"}]
+        ok, built, tagger = self._run(fields)
+        self.assertTrue(ok)
+        tagger.assert_not_called()
+        self.assertIsNotNone(built["after_image_path"])
 
 
 class RunnerMainTests(unittest.TestCase):
