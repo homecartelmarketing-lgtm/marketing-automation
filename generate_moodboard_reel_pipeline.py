@@ -149,6 +149,63 @@ def get_attachment_field(fields: dict[str, Any], base_name: str, slot: int) -> l
     return []
 
 
+def _slot_text_value(fields: dict[str, Any], base_name: str, slot: int, canonical: str) -> str:
+    """Read a 0-based slot text field under either Airtable naming scheme.
+
+    Canonical scheme (``content_automation.fields``): slot 0 is the bare
+    name (``Item Name``) and later slots append the 1-based position
+    (``Item Name2``..). Some MB-Reel tables were provisioned 1-based
+    instead (``Item Name1``..``Item Name4``). Try both, in that order.
+    The old Phase-3 lookup ``f"Item Name{slot}"`` matched neither scheme:
+    slot 0 fell back to a placeholder and every later slot was shifted
+    onto the previous product's name.
+    """
+    candidates = [canonical, f"{base_name}{slot + 1}", f"{base_name} {slot + 1}", base_name]
+    seen_candidates: set[str] = set()
+    for cand in candidates:
+        if cand in seen_candidates:
+            continue
+        seen_candidates.add(cand)
+        val = str(fields.get(cand) or "").strip()
+        if val:
+            return val
+    return ""
+
+
+def get_item_name_for_slot(fields: dict[str, Any], slot: int) -> str:
+    """Real item name for a 0-based slot, or '' if the row has none.
+
+    Last resort is the Furniture Item attachment filename, which Phase 1
+    builds from the item name (``attachment_filename``). A placeholder
+    such as "Furniture Item 0" is never returned: stamping that is what
+    made finished reels look as if they had no item name at all.
+    """
+    name = _slot_text_value(fields, "Item Name", slot, item_name_field(slot))
+    if name:
+        return name
+    attachments = get_attachment_field(fields, "Furniture Item", slot)
+    if attachments:
+        filename = str(attachments[0].get("filename") or "").strip()
+        stem = filename.rsplit(".", 1)[0].strip() if "." in filename else filename
+        if stem and stem.lower() not in ("unnamed item", "unnamed"):
+            return stem
+    return _slot_text_value(fields, "SKU", slot, sku_field(slot))
+
+
+def get_sku_for_slot(fields: dict[str, Any], slot: int) -> str:
+    return _slot_text_value(fields, "SKU", slot, sku_field(slot))
+
+
+def _normalize_material_word(raw: object) -> str:
+    """Normalize a material word so 'BRASS,' and 'Brass' count as one word."""
+    token = str(raw or "").strip().upper()
+    if not token:
+        return ""
+    parts = token.split()
+    token = parts[0] if parts else token
+    return re.sub(r"[^A-Z]", "", token)
+
+
 # ---------------------------------------------------------------------------
 # Airtable HTTP helpers
 # ---------------------------------------------------------------------------
@@ -331,10 +388,18 @@ def _download_attachment_url(
 
 
 def _slot_from_filename(filename: str, prefix: str, fallback: int) -> int:
-    """Map 'blended_mb3.jpg' with prefix 'blended_mb' -> slot 2."""
+    """Map 'blended_mb3.jpg' with prefix 'blended_mb' -> slot 2.
+
+    Legacy tagged blends were named ``blended_tagged_slot0.jpg`` /
+    ``tagged_slot0.jpg`` with a 0-based suffix, so a bare ``slot<N>``
+    suffix is used as-is instead of falling back to attachment order.
+    """
     match = re.search(rf"{re.escape(prefix)}(\d+)", filename or "", re.IGNORECASE)
     if match:
         return int(match.group(1)) - 1
+    slot_match = re.search(r"slot(\d+)", filename or "", re.IGNORECASE)
+    if slot_match:
+        return int(slot_match.group(1))
     return fallback
 
 
@@ -719,7 +784,7 @@ def run_phase_2_5_vision(
         if not fur_url or not int_url:
             continue
 
-        item_name = str(fields.get(item_name_field(slot)) or "").strip()
+        item_name = get_item_name_for_slot(fields, slot)
         slot_targets[slot] = (fur_url, int_url, item_name)
 
     if not slot_targets:
@@ -732,14 +797,24 @@ def run_phase_2_5_vision(
     material_words: dict[int, dict[str, str]] = {}
     if execute:
         print(f"  [PHASE 2.5] Record {record_id}: Generating {len(ordered_slots) * 3} unique material words via {vision_model}...")
+        # Words already saved for slots that are not being regenerated
+        # still count: a fresh Claude call must not repeat them.
+        existing_material_words = []
+        for other_slot in range(SLOT_COUNT):
+            if other_slot in slot_targets:
+                continue
+            for offset in range(3):
+                existing_material_words.append(str(fields.get(f"Texture{other_slot * 3 + offset + 1}") or ""))
         material_words = generate_unique_material_words(
             fal,
             [slot_targets[s][0] for s in ordered_slots],
             [slot_targets[s][2] or f"Slot {s + 1}" for s in ordered_slots],
             model=vision_model,
+            slot_indices=ordered_slots,
+            existing_words=existing_material_words,
         )
         for slot in ordered_slots:
-            words = material_words[slot]
+            words = material_words.get(slot) or {"top": "", "middle": "", "bottom": ""}
             updates[f"Texture{slot * 3 + 1}"] = words["top"]
             updates[f"Texture{slot * 3 + 2}"] = words["middle"]
             updates[f"Texture{slot * 3 + 3}"] = words["bottom"]
@@ -837,6 +912,7 @@ def blend_slot(pair: SlotPair, fal: FalClient, workdir: Path) -> LocalImage:
 def run_phase_3_blend(
     record: dict[str, Any],
     *,
+    category_code: str = "",
     fal: FalClient,
     session: requests.Session,
     token: str,
@@ -900,6 +976,10 @@ def run_phase_3_blend(
 
     try:
         _ensure_field(session, token, base_id, table_id, TARGET_BLENDED_FIELD, "multipleAttachments")
+        # Clear stale tagged blends too: re-uploading without clearing
+        # accumulated old tags in TARGET_BLENDED_FIELD, so a cached
+        # download could resurrect a previous run's name tag.
+        _clear_attachment_field(session, token, base_id, table_id, record_id, TARGET_BLENDED_FIELD)
     except Exception:
         pass
 
@@ -910,20 +990,26 @@ def run_phase_3_blend(
         # Auto-tag furniture item name onto Moodboard Reel blended photo using YOLO-World
         try:
             from content_automation.akeneo_client import split_item_name
-            raw_name = str(fields.get(f"Item Name{slot}") or fields.get(f"SKU{slot}") or f"Furniture Item {slot}").strip()
+            raw_name = get_item_name_for_slot(fields, slot)
+            if not raw_name:
+                print(f"    [WARN] Slot {slot + 1}: no Item Name/SKU/attachment name on this row; skipping item-name tag instead of stamping a placeholder.")
+                continue
             item_title, product_type = split_item_name(raw_name, fallback_product_type="Lighting")
+            if not item_title:
+                print(f"    [WARN] Slot {slot + 1}: empty item name after parsing '{raw_name}'; skipping item-name tag.")
+                continue
             tagged_dir = workdir / "tagged_blends"
             tagged_dir.mkdir(parents=True, exist_ok=True)
-            tagged_path = tagged_dir / f"tagged_slot{slot}.jpg"
+            tagged_path = tagged_dir / f"tagged_mb{slot + 1}.jpg"
             tag_blended_image(
                 image_input=results[slot].path,
                 item_name=item_title,
                 product_type=product_type,
-                category="chandeliers",
+                category=category_code or "chandeliers",
                 destination=tagged_path,
                 fallback_if_undetected=True,
             )
-            tagged_img = LocalImage(tagged_path, f"blended_tagged_slot{slot}.jpg")
+            tagged_img = LocalImage(tagged_path, f"blended_tagged_mb{slot + 1}.jpg")
             results.tagged_map[slot] = tagged_img
             # Upload to Airtable TARGET_BLENDED_FIELD
             try:
@@ -1102,11 +1188,20 @@ def generate_unique_material_words(
     item_names: list[str],
     *,
     model: str = CLAUDE_VISION_MODEL,
+    slot_indices: list[int] | None = None,
+    existing_words: list[str] | tuple[str, ...] | None = None,
 ) -> dict[int, dict[str, str]]:
     """One Claude Vision call per row: 3 single uppercase material words per slot.
 
     Words are guaranteed globally unique across the row so the same material
-    (e.g. BRASS) never repeats in two slots."""
+    (e.g. BRASS) never repeats in two slots. Uniqueness is checked after
+    normalization (``BRASS,`` / ``Brass`` are the same word), against
+    ``existing_words`` already saved for other slots of the row, and the
+    result is keyed by the caller's actual slot numbers
+    (``slot_indices``), not by 0..n-1 position -- a partial re-run whose
+    first regenerated slot is not slot 0 used to shift every word onto
+    the wrong product and could re-issue words already on the row.
+    """
     instruction = (
         "You are an expert luxury interior designer. You will receive one furniture product image per slot "
         f"({len(furniture_urls)} images total: {', '.join(item_names)}).\n"
@@ -1129,24 +1224,55 @@ def generate_unique_material_words(
     except Exception as err:
         print(f"    [WARN] Row material word generation failed: {err}. Using unique fallback words.")
 
+    indices = list(slot_indices) if slot_indices is not None else list(range(len(furniture_urls)))
+    if len(indices) != len(furniture_urls):
+        indices = list(range(len(furniture_urls)))
+
+    # Fallback pool first, then any material Claude supplied, so a fallback
+    # never re-issues a word Claude used in a later slot.
+    fallback_candidates: list[str] = []
+    for cand in list(MATERIAL_FALLBACK_POOL) + [
+        "RATTAN", "WALNUT", "ALABASTER", "ONYX", "SLATE", "BRONZE",
+        "COPPER", "NICKEL", "IRON", "TEAK", "CANE", "SUEDE", "LEATHER",
+        "WOOD", "METAL", "FABRIC", "PORCELAIN", "GRANITE", "QUARTZ", "BAMBOO",
+    ]:
+        norm = _normalize_material_word(cand)
+        if norm and norm not in fallback_candidates:
+            fallback_candidates.append(norm)
+    for entry in raw_slots:
+        if isinstance(entry, dict):
+            for key in ("top", "middle", "bottom"):
+                norm = _normalize_material_word(entry.get(key))
+                if norm and norm not in fallback_candidates:
+                    fallback_candidates.append(norm)
+
     results: dict[int, dict[str, str]] = {}
     seen: set[str] = set()
+    for raw_existing in existing_words or []:
+        norm_existing = _normalize_material_word(raw_existing)
+        if norm_existing:
+            seen.add(norm_existing)
     pool_index = 0
-    for slot in range(len(furniture_urls)):
-        entry = raw_slots[slot] if slot < len(raw_slots) and isinstance(raw_slots[slot], dict) else {}
+
+    def next_unique_fallback() -> str:
+        nonlocal pool_index
+        while pool_index < len(fallback_candidates):
+            cand = fallback_candidates[pool_index]
+            pool_index += 1
+            if cand not in seen:
+                return cand
+        suffix = len(seen) + 1
+        while f"MATERIAL{suffix}" in seen:
+            suffix += 1
+        return f"MATERIAL{suffix}"
+
+    for position, slot in enumerate(indices):
+        entry = raw_slots[position] if position < len(raw_slots) and isinstance(raw_slots[position], dict) else {}
         words: dict[str, str] = {}
         for key in ("top", "middle", "bottom"):
-            raw_word = str(entry.get(key) or "").strip().upper()
-            word = raw_word.split()[0] if raw_word else ""
+            word = _normalize_material_word(entry.get(key))
             if not word or word in seen:
-                while pool_index < len(MATERIAL_FALLBACK_POOL) and MATERIAL_FALLBACK_POOL[pool_index] in seen:
-                    pool_index += 1
-                word = (
-                    MATERIAL_FALLBACK_POOL[pool_index]
-                    if pool_index < len(MATERIAL_FALLBACK_POOL)
-                    else f"MATERIAL{len(seen) + 1}"
-                )
-                pool_index += 1
+                word = next_unique_fallback()
             seen.add(word)
             words[key] = word
         results[slot] = words
@@ -1542,7 +1668,7 @@ def process_one_record_end_to_end(
 
     # 3. Phase 3: Blending
     blended_map = run_phase_3_blend(
-        record, fal=fal, session=session, token=token,
+        record, category_code=category_code, fal=fal, session=session, token=token,
         base_id=base_id, table_id=table_id, workdir=workdir,
         execute=execute, skip_existing=skip_existing,
     )
@@ -1754,7 +1880,7 @@ def main(argv=None) -> int:
             elif phase_target in ("2.5", "vision"):
                 run_phase_2_5_vision(record, args.category, fal=fal, session=session, token=token, base_id=base_id, table_id=table_id, vision_model=args.vision_model, execute=args.execute)
             elif phase_target in ("3", "blend"):
-                run_phase_3_blend(record, fal=fal, session=session, token=token, base_id=base_id, table_id=table_id, workdir=workdir, execute=args.execute, skip_existing=args.skip_existing)
+                run_phase_3_blend(record, category_code=args.category, fal=fal, session=session, token=token, base_id=base_id, table_id=table_id, workdir=workdir, execute=args.execute, skip_existing=args.skip_existing)
             elif phase_target in ("4", "convert"):
                 blended_map = images_from_field(record.get("fields", {}).get(BLENDED_FIELD) or [], session, workdir, "blended_mb") if args.execute else {}
                 if not blended_map:
@@ -1771,6 +1897,19 @@ def main(argv=None) -> int:
                 blended_map = images_from_field(record.get("fields", {}).get(BLENDED_FIELD) or [], session, workdir, "blended_mb") if args.execute else {}
                 if not blended_map:
                     blended_map = {s: LocalImage(workdir / f"blended_mb{s + 1}.jpg", f"blended_mb{s + 1}.jpg", "image/jpeg") for s in range(SLOT_COUNT) if (workdir / f"blended_mb{s + 1}.jpg").is_file()}
+                # Rebuilding the reel standalone must reuse the Phase-3
+                # name-tagged blends, otherwise the reel ships with no
+                # item name even though 'Blended Image with Name text'
+                # is populated on the row.
+                if blended_map and not isinstance(blended_map, BlendedSlotMap):
+                    blended_map = BlendedSlotMap(blended_map)
+                if args.execute and isinstance(blended_map, BlendedSlotMap):
+                    tagged_field = record.get("fields", {}).get(TARGET_BLENDED_FIELD) or []
+                    if isinstance(tagged_field, list) and tagged_field:
+                        try:
+                            blended_map.tagged_map = images_from_field(tagged_field, session, workdir, "blended_tagged_mb")
+                        except Exception as tag_err:
+                            print(f"  [WARN] Could not load tagged blends for reel: {tag_err}")
                 converted_map = images_from_field(record.get("fields", {}).get(CONVERTED_FIELD) or [], session, workdir, "converted_mb") if args.execute else {}
                 if not converted_map:
                     converted_map = {s: LocalImage(workdir / f"converted_mb{s + 1}.jpg", f"converted_mb{s + 1}.jpg", "image/jpeg") for s in range(SLOT_COUNT) if (workdir / f"converted_mb{s + 1}.jpg").is_file()}

@@ -182,6 +182,7 @@ Second sub-tab of the **Banner** tab. A red sale panel with `10%` and `15%` bloc
 | [`memory/incidents/2026-09-21-shopify-429-partial-cache.md`](memory/incidents/2026-09-21-shopify-429-partial-cache.md) | Follow-up to the 429 incident: throttling from page 27 onward made the crawler save a truncated catalog over the 12-hour disk cache, wrongly rejecting live products. Fix adds `Retry-After` parsing, staggered workers, and a partial-crawl guard that refuses to overwrite a good cache. |
 | [`memory/incidents/2026-09-21-day-night-feed-stamp-lost-in-refactor.md`](memory/incidents/2026-09-21-day-night-feed-stamp-lost-in-refactor.md) | Why Day & Night Feed rows shipped with an un-watermarked Day image and an empty `STORY - Day & Night (2)` field: the stamped temp file was consumed by YOLO tagging then deleted, and a refactor dropped the final slide upload. |
 | [`memory/incidents/2026-09-21-item-name-stamp-inconsistencies.md`](memory/incidents/2026-09-21-item-name-stamp-inconsistencies.md) | One symptom family — missing item-name stamps — across 1 Product 3 Styles Feed, Collection Category Feed, Moodboard Reel and Style This Story, with three distinct root causes. |
+| [`memory/incidents/2026-10-02-mb-reel-item-name-material-duplicates.md`](memory/incidents/2026-10-02-mb-reel-item-name-material-duplicates.md) | MB Reel regression: Phase 3's 0-based `Item Name{slot}` lookup stamped placeholders/shifted names, and un-normalized material words (`BRASS,` vs `Brass`) duplicated across slots. |
 
 ## 🚧 7. Planned but NOT Implemented (`docs/superpowers/`)
 
