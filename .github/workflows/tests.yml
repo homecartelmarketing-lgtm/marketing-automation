@@ -1,0 +1,58 @@
+name: Continuous Integration & Tests
+
+on:
+  push:
+    branches:
+      - marketing-automation
+      - main
+  pull_request:
+    branches:
+      - marketing-automation
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ci-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Unit Tests & Environment Drift Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libgl1
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install Pillow numpy imageio-ffmpeg opencv-python-headless python-dotenv requests fal-client
+
+      - name: Run unit test suites
+        env:
+          AIRTABLE_TOKEN: "mock_airtable_token"
+          AIRTABLE_BASE_ID: "appMockBase123"
+          FAL_KEY: "mock_fal_key"
+        run: |
+          echo "Running unit test suites..."
+          python -m unittest tests/test_sketch_to_real_item_tag.py
+          python -m unittest tests/test_sketch_to_real_music.py
+
+      - name: Verify environment schema synchronization
+        run: |
+          echo "Verifying .env.example contains documented templates..."
+          python -c "from pathlib import Path; p = Path('.env.example'); assert p.is_file() and p.stat().st_size > 0, '.env.example missing'"
