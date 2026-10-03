@@ -91,6 +91,20 @@ def get_detection_queries_for_category(category: str) -> list[str]:
     return ["lighting fixture", "furniture item", "chandelier", "lamp", "sofa"]
 
 
+def resolve_yolo_model_path(model_name: str = "yolov8s-worldv2.pt") -> str:
+    """Resolve model weights from assets/models/ first, with fallback to root."""
+    repo_root = Path(__file__).resolve().parent.parent
+    candidates = [
+        repo_root / "assets" / "models" / model_name,
+        repo_root / model_name,
+        Path(model_name),
+    ]
+    for c in candidates:
+        if c.is_file():
+            return str(c)
+    return model_name
+
+
 def get_yolo_world_model(model_name: str = "yolov8s-worldv2.pt") -> Any:
     """Lazy-load and cache singleton YOLO-World open-vocabulary detector."""
     global _YOLO_MODEL
@@ -102,8 +116,9 @@ def get_yolo_world_model(model_name: str = "yolov8s-worldv2.pt") -> Any:
                 "ultralytics is required for YOLO-World item detection. Run: pip install ultralytics"
             ) from err
 
-        logger.info(f"Initializing YOLO-World model '{model_name}' on CPU...")
-        _YOLO_MODEL = YOLO(model_name)
+        target_model = resolve_yolo_model_path(model_name)
+        logger.info(f"Initializing YOLO-World model '{target_model}' on CPU...")
+        _YOLO_MODEL = YOLO(target_model)
     return _YOLO_MODEL
 
 

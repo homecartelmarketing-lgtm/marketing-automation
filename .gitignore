@@ -50,3 +50,7 @@ node_modules/
 UI Control/node_modules/
 UI Control/.pnpm-store/
 
+# Local binaries and tool cache
+tools/cloudflared.exe
+.workbuddy-ai/
+
