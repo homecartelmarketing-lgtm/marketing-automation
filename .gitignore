@@ -42,7 +42,8 @@ Thumbs.db
 desktop.ini
 
 # Scratch / temp
-scratch/
+scratch/*
+!scratch/README.md
 
 # Node dependencies
 node_modules/

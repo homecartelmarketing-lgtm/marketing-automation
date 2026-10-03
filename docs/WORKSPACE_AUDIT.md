@@ -196,23 +196,22 @@ marketing-automation/
 
 ---
 
-## 5. Execution order
+## 5. Execution order & Status
 
-| # | Step | Type | Risk |
-| :-- | :--- | :--- | :--- |
-| 1 | Commit/stash the 20 pending changes | safe | none |
-| 2 | Delete `python-content-script/` (27 MB) | **destructive** | low — untracked, strictly older, already documented as a bug source |
-| 3 | Delete 3 untracked debug artifacts (`new-contnet.mp4`, `tmp_blended2.jpg`, `test_tag_out.jpg`) | **destructive** | low |
-| 4 | Delete 5 dead stub scripts | **destructive** | low — verify no imports first |
-| 5 | Move `UI/` → `archive/legacy_ui/` | move | low |
-| 6 | Move `yolov8s-worldv2.pt` → `assets/models/`, root `Poppins-Bold.ttf` → `assets/fonts/` | move | low |
-| 7 | `git rm --cached tools/cloudflared.exe` + `.gitignore` entry | safe | low |
-| 8 | Add `scripts/ops/diff_env.py`, reconcile `.env` ↔ `.env.example` | additive | medium — touches live config |
-| 9 | Add `.github/workflows/tests.yml` | additive | none |
-| 10 | Promote referenced `scratch/` scripts → `scripts/ops/` | move | low |
-| 11 | Add `scripts/ops/prune_output.py` | additive | medium — deletes generated data |
-| 12 | Update AGENTS.md §2 structure map + README index | docs | none |
-| 13 | **Structural refactor:** `pipelines/` + `runners/` + `studio/` rename | **large** | **high** — touches 33 Flask routes and 22 tests; needs a green suite before and after |
+| # | Step | Type | Risk | Status |
+| :-- | :--- | :--- | :--- | :--- |
+| 1 | Commit/stash the 20 pending changes | safe | none | **Completed** (`df99ef6`) |
+| 2 | Delete `python-content-script/` (27 MB) | **destructive** | low — untracked, strictly older, already documented as a bug source | **Completed** (`1a1af17`) |
+| 3 | Delete 3 untracked debug artifacts (`new-contnet.mp4`, `tmp_blended2.jpg`, `test_tag_out.jpg`) | **destructive** | low | **Completed** (`1a1af17`) |
+| 4 | Clean 6 dead stub/ambiguous scripts → `archive/legacy_runners/` | move | low — canonical generators remain primary | **Completed** |
+| 5 | Move `UI/` → `archive/legacy_ui/` | move | low | **Completed** (`1a1af17`) |
+| 6 | Move `yolov8s-worldv2.pt` → `assets/models/`, remove redundant root `Poppins-Bold.ttf` | move | low | **Completed** (`1a1af17`) |
+| 7 | `git rm --cached tools/cloudflared.exe` + `.gitignore` entry | safe | low | **Completed** (`1a1af17`) |
+| 8 | Add `scripts/ops/diff_env.py`, reconcile `.env` ↔ `.env.example` | additive | medium — touches live config | **Completed** (`fc48bcc`) |
+| 9 | Add `.github/workflows/tests.yml` | additive | none | **Completed** (`fc48bcc`) |
+| 10 | Promote referenced `scratch/` scripts → `scripts/ops/` | move | low | **Completed** |
+| 11 | Add `scripts/ops/prune_output.py` | additive | medium — deletes generated data | **Completed** |
+| 12 | Update AGENTS.md §2 structure map + README index + docs | docs | none | **Completed** |
+| 13 | **Structural refactor:** `pipelines/` + `runners/` + centralized registry | **large** | **high** — touches 33 Flask routes and 22 tests; requires pipeline registry abstraction | **Pending Phase 4** |
 
-Steps 1–7 are quick and safe. Step 13 should be its own commit, done only when you have time to verify
-the Studio end to end.
+Steps 1–12 (Phases 1–3) are fully executed and tested. Studio on port 5200 runs uninterrupted. Step 13 (Phase 4) is scheduled with the centralized pipeline registry pattern.

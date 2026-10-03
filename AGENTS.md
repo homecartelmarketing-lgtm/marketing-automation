@@ -43,8 +43,10 @@ marketing-automation/
 │   ├── ops/                                 # Maintenance, backfills, migrations, video tools
 │   ├── scrapers/                            # Standalone Akeneo and category scrapers
 │   └── previews/                            # Local Pillow layout and thumbnail previewers
-├── archive/                                 # Preserved legacy workspace menus & spec files
-│   └── legacy_workspaces/                   # 9 archived interactive-menu folders (CTA Story, etc.)
+├── archive/                                 # Preserved legacy workspace menus, runners & UI prototypes
+│   ├── legacy_workspaces/                   # 9 archived interactive-menu folders (CTA Story, etc.)
+│   ├── legacy_runners/                      # 6 archived dead stub/alias runners
+│   └── legacy_ui/                           # Archived legacy HTML/JS prototype UI
 ├── launch_studio_cloudflare.py / .bat       # Studio + free Cloudflare quick-tunnel launcher
 │
 ├── docs/                                    # Centralized documentation hub
@@ -124,7 +126,8 @@ marketing-automation/
 │   └── dist/                                # Compiled production assets served by Flask
 │
 ├── assets/                                  # homecartel_logo.png, *_layout.jpg watermark templates, emojis,
-│                                            #   chand-collection.png, trending.png, etc. (1:1) + ad-cover-*-story.png (9:16)
+│   │                                        #   chand-collection.png, trending.png, etc. (1:1) + ad-cover-*-story.png (9:16)
+│   └── models/                              # yolov8s-worldv2.pt (YOLO-World weights for item tagging)
 ├── JSON Prompts/                            # Per-format layout JSON + moodboard templates (Canva exports)
 ├── output/                                  # Generated local image composites & exports
 └── scratch/                                 # Temporary test scripts & verification utilities

@@ -199,12 +199,11 @@ python launch_studio_cloudflare.py
 
 ### 3. Verify Live Status Counts & Database Integrity
 ```bash
-python scratch/audit_all_feed_subtabs.py
-python scratch/test_feed_apis.py
+python scripts/ops/audit_all_feed_subtabs.py
 
 # Ad Cover: provision the table schema (idempotent), then verify one row's attachments
 # and assert the 1:1 / 9:16 geometry of both converted images
-python scratch/ensure_ad_cover_fields.py --table-id tblwIsDGZBPuYJV2Z
-python scratch/_verify_ad_cover_row.py
-python scratch/_verify_ad_cover_image.py
+python scripts/ops/ensure_ad_cover_fields.py --table-id tblwIsDGZBPuYJV2Z
+python scripts/ops/verify_ad_cover_row.py
+python scripts/ops/verify_ad_cover_image.py
 ```
