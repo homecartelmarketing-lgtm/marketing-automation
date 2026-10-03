@@ -106,19 +106,38 @@ def get_rows():
                 if not fk_id and row_id is not None:
                     fk_id = generate_foreign_key(table_id, row_id)
 
-                furniture_attach = (
-                    fields.get("Furniture Item")
-                    or fields.get("Furniture Items")
-                    or fields.get("Final Stamped Output")
-                    or fields.get("Image")
-                    or []
-                )
+                attach_candidates = [
+                    fields.get("Banner with Text"),
+                    fields.get("Sale Banner"),
+                    fields.get("Third Banner"),
+                    fields.get("Final Stamped Output"),
+                    fields.get("Final Composite"),
+                    fields.get("Final Output"),
+                    fields.get("CTA Converted Image"),
+                    fields.get("Tips and Edu Converted Image"),
+                    fields.get("Collection Category Final"),
+                    fields.get("Day and Night Converted Image"),
+                    fields.get("Blended Banner"),
+                    fields.get("Furniture Item"),
+                    fields.get("Furniture Items"),
+                    fields.get("Image"),
+                ]
+                furniture_attach = []
+                for cand in attach_candidates:
+                    if isinstance(cand, list) and cand:
+                        furniture_attach = cand
+                        break
+
                 thumbnail_url = None
                 if isinstance(furniture_attach, list) and furniture_attach:
                     first_att = furniture_attach[0]
                     if isinstance(first_att, dict):
                         thumbs = first_att.get("thumbnails", {})
-                        thumbnail_url = thumbs.get("small", {}).get("url") or first_att.get("url")
+                        thumbnail_url = (
+                            thumbs.get("large", {}).get("url")
+                            or thumbs.get("small", {}).get("url")
+                            or first_att.get("url")
+                        )
 
                 airtable_deep_link = f"https://airtable.com/{base_id}/{table_id}/{rid}"
 

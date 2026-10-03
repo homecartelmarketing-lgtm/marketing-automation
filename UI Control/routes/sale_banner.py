@@ -31,8 +31,8 @@ DEFAULT_TABLE_ID = "tblgNk1Tp6qKUcduw"
 SCRIPT_NAME = "generate_sale_banner_pipeline.py"
 TOTAL_PHASES = 6
 PHASE_LABELS = {
-    1: "Phase 1: Akeneo Scrape (1 pendant + 2 table lamps)",
-    2: "Phase 2: Krea Dining Room + Bedroom (4:5)",
+    1: "Phase 1: Akeneo Scrape (3 pendant lights)",
+    2: "Phase 2: Krea Dining Room + Kitchen (4:5)",
     3: "Phase 3: Claude Vision Blending Prompts (2 rooms)",
     4: "Phase 4: Nano Banana Pro Room Blends (4:5)",
     5: "Phase 5: Sale Captions (Calendar) + Panel Colour (Claude)",

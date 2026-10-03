@@ -59,6 +59,9 @@ docs/
 │   └── AD_COVER.md
 │
 ├── banners/                             # Christmas Banner Pipeline (21:9, 5 fixtures in one Krea Christmas living room)
+│   ├── BANNER_SET.md                    # ONE run/row = Christmas + Sale + third banner (what the Studio runs)
+│   ├── THIRD_BANNER.md                  # 3rd banner: Sale-colour panel (951 px) + Krea Christmas bedroom (849 px)
+│   ├── PROMO_BANNER.md                  # 9:16 "Your Story" promo from the main banner (standalone CLI)
 │   ├── CHRISTMAS_BANNER.md
 │   └── SALE_BANNER.md
 │
@@ -151,7 +154,7 @@ Standalone **Banner** tab with one card. One run blends a fresh chandelier, pend
 
 ## 🏷️ 6. Sale Banner (`docs/banners/`, 1800x600)
 
-Second sub-tab of the **Banner** tab. A red sale panel with `10%` and `15%` blocks between two Krea Christmas interiors: a dining room with one scraped pendant light (left) and a bedroom with two scraped table lamps (right), each blended by Nano Banana Pro from a prompt Claude writes for that room. Captions (dates with the year) and percentages come from `calendar_config.json` (the promotions calendar); Claude also suggests the panel's hex colour from the two blended rooms (`--panel-color` overrides it). Shares table `tblgNk1Tp6qKUcduw` with the Christmas banner (rows told apart by `Category`). See [`SALE_BANNER.md`](banners/SALE_BANNER.md).
+Second sub-tab of the **Banner** tab. A red sale panel with `10%` and `15%` blocks between two Krea Christmas interiors: a dining room with one scraped pendant light (left) and a kitchen with two scraped pendant lights over the island (right), each blended by Nano Banana Pro from a prompt Claude writes for that room. Captions (dates with the year) and percentages come from `calendar_config.json` (the promotions calendar); Claude also suggests the panel's hex colour from the two blended rooms (`--panel-color` overrides it). Shares table `tblgNk1Tp6qKUcduw` with the Christmas banner (rows told apart by `Category`). See [`SALE_BANNER.md`](banners/SALE_BANNER.md).
 
 ---
 
@@ -162,7 +165,7 @@ Second sub-tab of the **Banner** tab. A red sale panel with `10%` and `15%` bloc
 | [`CLOUDFLARE_TUNNEL_GUIDE.md`](CLOUDFLARE_TUNNEL_GUIDE.md) | 100% free, zero-config Cloudflare Quick Tunnel guide to share the live studio with coworkers. |
 | [`AUTO_POST_SCHEDULER.md`](AUTO_POST_SCHEDULER.md) | The Instagram auto-publish worker — what it does, its `CRON_SECRET` auth, and its dependency on a separate scheduling app outside this repo. |
 | [`OPERATIONS_AND_UTILITIES.md`](OPERATIONS_AND_UTILITIES.md) | Catalog of the Airtable data-maintenance, item-tagging, and diagnostic scripts that aren't Story/Feed/Reel/Ad Cover pipelines — including the `scratch/` Ad Cover schema and geometry verifiers. |
-| [`GIT_PUSH_AND_DEPLOY.md`](GIT_PUSH_AND_DEPLOY.md) | Detailed, step-by-step guide to how an AI agent commits, pushes `genspark_ai_developer`, fast-forwards `main`, and triggers the Railway deploy — what it checks, what it will never do, and what to do when a step fails. |
+| [`GIT_PUSH_AND_DEPLOY.md`](GIT_PUSH_AND_DEPLOY.md) | Detailed, step-by-step guide to how an AI agent commits, pushes `marketing-automation`, fast-forwards `main`, and triggers the Railway deploy — what it checks, what it will never do, and what to do when a step fails. |
 
 ## 🧠 6. Project Memory
 

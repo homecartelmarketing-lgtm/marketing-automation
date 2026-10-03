@@ -2,8 +2,9 @@
 
 One run scrapes a fresh Akeneo item of **each** fixture type, generates a modern Christmas living room in Krea, and blends all five fixtures into it with Nano Banana Pro as a single **21:9** banner. Claude Sonnet 5 then writes a title + subtitle and a local Pillow phase stamps them on the banner (Poppins only, white text with a soft shadow).
 
-- **Script:** `generate_christmas_banner_pipeline.py`
-- **Studio:** standalone top-level **Banner** tab, `/api/christmas-banner/*` (`UI Control/routes/christmas_banner.py`)
+- **One row with the Sale banner:** the Studio's run is the **Banner Set** ([`BANNER_SET.md`](BANNER_SET.md), `generate_banner_set_pipeline.py`): it scrapes 10 products into one new row, makes this banner (its phases 2-6, with `Status = Christmas Banner Done` after phase 6), then the Sale banner ([`SALE_BANNER.md`](SALE_BANNER.md)) and the third banner ([`THIRD_BANNER.md`](THIRD_BANNER.md)) on the same row, and only then writes `Done`.
+- **Script:** `generate_christmas_banner_pipeline.py` (on its own it scrapes the 5 Christmas fixtures into its own row and ends at `Done`; with `--record-id` it works on an existing row)
+- **Studio:** standalone top-level **Banner** tab, one sub-tab "Banner Set", `/api/christmas-banner/*` (`UI Control/routes/christmas_banner.py`)
 - **Airtable table:** `tblgNk1Tp6qKUcduw` (default; `AIRTABLE_TABLE_ID_CHRISTMAS_BANNER` overrides it), foreign key prefix `XMS-BANNER-ALL`. Missing columns are created on the first run, including `Status`, `Foreign Key ID` and `Date and Time Generated`. The table's `ID` must be an autoNumber (the pipeline never writes it); `Foreign Key ID` is filled from it.
 
 ## Phases
@@ -14,7 +15,7 @@ One run scrapes a fresh Akeneo item of **each** fixture type, generates a modern
 | 2 | Krea interior | `krea-2/medium`, **2.35:1** (Krea does not accept 21:9; 2.35:1 is its widest documented ratio, 1K only), moodboard `b5ffdcbb-192e-4528-8d86-d1a4cf496887`, modern Christmas living room prompt. Any non-moodboard rejection retries at 16:9. Phase 4 extends the room to 21:9. | `Room Interior`, `Interior Prompt` |
 | 3 | Claude vision | Gets the interior, the 5 cutouts, each item's name, mounting type and `Item Details`, and works in three stages: (A) study the actual room (layout, ceiling, existing fixtures, light), (B) study each item (form, materials, mounting, glow, real size), (C) place every item at a landmark in *this* room and write one detailed paragraph per `Image 2..6`. The reply is validated (at least 1200 characters, mentions every Image 2..6, no fences or preamble); it is retried once with the reason, then falls back to a fixed prompt. | `Blending Prompt` |
 | 4 | Nano Banana Pro | `fal-ai/nano-banana-pro/edit`, `image_urls = [interior, CH, PE, FL, TL, WL]`, `aspect_ratio="21:9"`, resolution `2K`, `output_format="jpeg"`. | `Blended Banner` (text-free) |
-| 5 | Claude copy | Claude Sonnet 5 looks at the blended banner and returns JSON `{title, subtitle}` (title 2-4 words, at most 22 characters; subtitle at most 36). Falls back to "Light Up Your Christmas" / "Statement lighting for festive homes" on failure. | `Banner Title`, `Banner Subtitle` |
+| 5 | Claude copy | Claude Sonnet 5 looks at the blended banner and returns JSON `{title, subtitle}` (title 4-5 words, at most 30 characters; subtitle 4-5 words, at most 40). The subtitle is written to continue or complete the thought of the title, so the two read as one message. If a line has the wrong number of words or is too long, Claude is asked again (up to 3 attempts) with the reason ("the subtitle ... has 6 words"); the first letter of the subtitle is capitalised. Only when all attempts fail is the bad line replaced by its fallback: "Light Up Your Christmas" / "Statement lighting for festive homes" (also used when Claude fails). | `Banner Title`, `Banner Subtitle` |
 | 6 | Pillow overlay | Local, zero API cost. See the text spec below. | `Banner with Text` (final), `Status = Done`, `Date and Time Generated` |
 
 Local copies: `output/christmas_banner/christmas_banner_<record>.jpg` (text-free) and `christmas_banner_text_<record>.jpg` (final). On any exception the row is set to `For Manual`.
@@ -30,8 +31,9 @@ Matched to the Canva reference sample (1800 x 600 px, orange background, "Auto G
 | Letter spacing | about -0.092 em | about -0.098 em |
 | Effect | soft dark drop shadow, intensity 100 | same shadow, scaled to the font size |
 | x / y | 60 / 340.7 | 60 / 457.9 |
-| Box (w x h) | 1053.6 x 130.9 | 999.5 x 73.4 |
+| Box (w x h) | 1680 x 130.9 | 1680 x 73.4 |
 
+- **Wide boxes:** the boxes are 1680 px wide (60 px margin on the right) so a 4-5 word title stays at the full 81.8 pt; the auto-fit would otherwise shrink it by up to 40% in the old 1053.6 px box.
 - **Why Medium, not Bold:** the reference title's stems are 11-12 px thick at 109 px; Poppins Bold would be 18-19 px and Medium is 11-12 px. The overlay code falls back to Bold only if `Poppins-Medium.ttf` is missing.
 - **Shadow:** black, blur (sigma) 0.145 em, offset 0.04 em down, peak opacity 0.56, fitted numerically to the sample. There is no colour glow.
 - **Mapping to the 21:9 banner:** the banner is 21:9, not 3:1, so `x`, box width and font size scale by `image_width / 1800`, while `y` and box height scale by `image_height / 600`. The text keeps its relative place in the frame; nothing is cropped.

@@ -1,4 +1,4 @@
-import { Check, Play, Loader2, Square, Pencil, Table, Clock, X, Plus } from 'lucide-react';
+import { Check, Play, Loader2, Square, Table, Clock, X, Plus } from 'lucide-react';
 import { TabType } from './FormatTabs';
 
 export interface FixtureData {
@@ -172,54 +172,52 @@ export function FixtureCard({
           {getPillBadge()}
         </div>
 
-        {/* Moodboard ID Row (Editable) */}
+        {/* Moodboard ID Row (Directly Clickable) */}
         {!isComingSoon && fixture.moodboardId !== undefined && (
-          <div className="my-1.5 p-1.5 rounded-md bg-gray-50/80 border border-gray-100 text-[11px] flex items-center justify-between gap-1 group/mb">
-            <div className="flex items-center gap-1 min-w-0 flex-1">
-              <span className="text-gray-400 shrink-0 font-medium">MB:</span>
-              <span
-                className="font-mono text-[10px] text-gray-700 truncate"
-                title={fixture.moodboardId || 'Not configured'}
-              >
-                {fixture.moodboardId ? fixture.moodboardId : <span className="text-gray-400 italic">None</span>}
-              </span>
-            </div>
-            {onEditMoodboard && (
-              <button
-                type="button"
-                onClick={() => onEditMoodboard(fixture)}
-                className="opacity-60 group-hover/mb:opacity-100 hover:text-purple-600 transition-opacity p-0.5 rounded hover:bg-gray-200/60 shrink-0"
-                title="Edit Moodboard ID (.env)"
-              >
-                <Pencil className="w-3 h-3" />
-              </button>
-            )}
-          </div>
+          <button
+            type="button"
+            disabled={!onEditMoodboard}
+            onClick={() => onEditMoodboard?.(fixture)}
+            className={`w-full my-1.5 p-1.5 rounded-md border text-[11px] flex items-center gap-1 transition text-left ${
+              onEditMoodboard
+                ? 'bg-gray-50/80 border-gray-100 hover:bg-gray-100 hover:border-gray-300 cursor-pointer active:scale-[0.99]'
+                : 'bg-gray-50/80 border-gray-100 cursor-default'
+            }`}
+            title={
+              onEditMoodboard
+                ? `Click to edit Moodboard ID (.env)\n${fixture.moodboardId || 'Not configured'}`
+                : fixture.moodboardId || 'Not configured'
+            }
+          >
+            <span className="text-gray-400 shrink-0 font-medium">MB:</span>
+            <span className="font-mono text-[10px] text-gray-700 truncate min-w-0 flex-1">
+              {fixture.moodboardId ? fixture.moodboardId : <span className="text-gray-400 italic">None</span>}
+            </span>
+          </button>
         )}
 
-        {/* Prompt Row (Editable) */}
+        {/* Prompt Row (Directly Clickable) */}
         {!isComingSoon && fixture.prompt !== undefined && (
-          <div className="my-1.5 p-1.5 rounded-md bg-purple-50/50 border border-purple-100/60 text-[11px] flex items-center justify-between gap-1 group/pr">
-            <div className="flex items-center gap-1 min-w-0 flex-1">
-              <span className="text-purple-400 shrink-0 font-medium">Prompt:</span>
-              <span
-                className="text-[10px] text-purple-900 truncate italic"
-                title={fixture.prompt || 'Default prompt'}
-              >
-                {fixture.prompt ? `"${fixture.prompt}"` : <span className="text-gray-400 italic">Default</span>}
-              </span>
-            </div>
-            {onEditPrompt && (
-              <button
-                type="button"
-                onClick={() => onEditPrompt(fixture)}
-                className="opacity-60 group-hover/pr:opacity-100 hover:text-purple-600 transition-opacity p-0.5 rounded hover:bg-purple-100/60 shrink-0"
-                title="Edit Prompt (.env)"
-              >
-                <Pencil className="w-3 h-3" />
-              </button>
-            )}
-          </div>
+          <button
+            type="button"
+            disabled={!onEditPrompt}
+            onClick={() => onEditPrompt?.(fixture)}
+            className={`w-full my-1.5 p-1.5 rounded-md border text-[11px] flex items-center gap-1 transition text-left ${
+              onEditPrompt
+                ? 'bg-purple-50/50 border-purple-100/60 hover:bg-purple-100/70 hover:border-purple-200 cursor-pointer active:scale-[0.99]'
+                : 'bg-purple-50/50 border-purple-100/60 cursor-default'
+            }`}
+            title={
+              onEditPrompt
+                ? `Click to edit Prompt (.env)\n"${fixture.prompt || 'Default prompt'}"`
+                : fixture.prompt || 'Default prompt'
+            }
+          >
+            <span className="text-purple-400 shrink-0 font-medium">Prompt:</span>
+            <span className="text-[10px] text-purple-900 truncate italic min-w-0 flex-1">
+              {fixture.prompt ? `"${fixture.prompt}"` : <span className="text-gray-400 italic">Default</span>}
+            </span>
+          </button>
         )}
 
         {/* Live Running Phase Banner */}

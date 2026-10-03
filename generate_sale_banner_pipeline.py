@@ -3,19 +3,19 @@
 
 A wide sale banner: a red centre panel with the sale text (drawn locally to match the Canva
 reference) between two Krea-generated modern Christmas interiors with scraped fixtures blended in:
-the LEFT side is a dining room with one pendant light, the RIGHT side a bedroom with two table
-lamps. The two percentages and captions come from the promotions calendar.
+the LEFT side is a dining room with one pendant light, the RIGHT side a kitchen with two pendant
+lights over the island. The two percentages and captions come from the promotions calendar.
 
 Phases
 ------
-    Phase 1  Akeneo scrape: 1 pendant light (PE) + 2 table lamps (TA, TB), Shopify-active, unused
+    Phase 1  Akeneo scrape: 3 pendant lights (DP dining room; KA + KB kitchen), Shopify-active, unused
              -> ONE brand-new row (Category "Sale Banner"); cutouts in "Furniture Item".
-    Phase 2  Krea x2 at 4:5: modern Christmas dining room + bedroom
-             -> "Dining Interior" / "Bedroom Interior".
+    Phase 2  Krea x2 at 4:5: modern Christmas dining room + kitchen
+             -> "Dining Interior" / "Kitchen Interior".
     Phase 3  Claude Sonnet 5 vision per room over [interior + that room's items]
-             -> "Dining Blending Prompt" / "Bedroom Blending Prompt".
-    Phase 4  Nano Banana Pro x2 (4:5): [dining interior, pendant] and [bedroom interior, lamp, lamp]
-             -> "Dining Blended" / "Bedroom Blended".
+             -> "Dining Blending Prompt" / "Kitchen Blending Prompt".
+    Phase 4  Nano Banana Pro x2 (4:5): [dining interior, pendant] and [kitchen interior, pendant, pendant]
+             -> "Dining Blended" / "Kitchen Blended".
     Phase 5  Percentages and captions from the calendar (dates with the year), plus the panel colour:
              Claude Sonnet 5 looks at both blends and suggests a hex colour (white text stays readable)
              -> "Sale Percent Left/Right", "Sale Caption Left/Right", "Sale Panel Color".
@@ -96,26 +96,20 @@ OUTPUT_DIR = REPO_ROOT / "output" / "sale_banner"
 BLEND_MIN_CHARS = 700  # one or two fixtures need shorter prompts than the five-fixture banner
 BLEND_LENGTH_HINT = "about 1,800 to 3,200 characters (never more than 4,500)"
 
-DINING_PROMPT = (
-    "Generate me a photo of a modern luxury dining room with a Christmas theme: a dining table set with festive "
-    "tableware and a small centrepiece, upholstered dining chairs, a decorated Christmas tree or garland accents, "
-    "warm cozy evening light, clean architecture, with clear empty ceiling space above the dining table for a "
-    "hanging pendant light, vertical composition"
-)
-BEDROOM_PROMPT = (
-    "Generate me a photo of a modern luxury bedroom with a Christmas theme, seen from a little further back so the "
-    "whole bed and both bedside tables are fully in frame: a neatly made bed centred in the picture with festive "
-    "cushions and a knitted throw, two matching bedside tables one on each side of the bed with clear empty tops for "
-    "table lamps, soft garlands and warm fairy lights, warm cozy evening light, clean architecture, vertical composition"
-)
+# Short defaults on purpose: the Krea moodboard carries the look, the prompt only names the room. Override with
+# SALE_BANNER_DINING_PROMPT / SALE_BANNER_KITCHEN_PROMPT or the CLI flags.
+DINING_PROMPT = "Generate me a modern luxury dining room with a Christmas theme"
+KITCHEN_PROMPT = "Generate me a modern luxury kitchen with a Christmas theme"
 
-# Slot code -> Akeneo category. TA and TB are two different table lamps for the two bedside tables.
-PENDANT_SLOT = {"code": "PE", "category": "pendant_lights", "label": "Pendant Light"}
-LAMP_SLOTS = [
-    {"code": "TA", "category": "table_lamps", "label": "Table Lamp"},
-    {"code": "TB", "category": "table_lamps", "label": "Table Lamp"},
+# Slot code -> Akeneo category. DP hangs over the dining table; KA and KB are two different pendant lights for the
+# kitchen island. None of them is "PE" so they never collide with the Christmas banner's pendant when both banners
+# share one Airtable row.
+PENDANT_SLOT = {"code": "DP", "category": "pendant_lights", "label": "Pendant Light"}
+KITCHEN_SLOTS = [
+    {"code": "KA", "category": "pendant_lights", "label": "Pendant Light"},
+    {"code": "KB", "category": "pendant_lights", "label": "Pendant Light"},
 ]
-SLOTS = [PENDANT_SLOT, *LAMP_SLOTS]
+SLOTS = [PENDANT_SLOT, *KITCHEN_SLOTS]
 
 # Airtable field names. Reused from the Christmas banner: the standard columns and the item columns.
 FIELD_FK_ID = "Foreign Key ID"
@@ -128,13 +122,13 @@ FIELD_ITEM_NAME = "Item Name"
 FIELD_ITEM_DETAILS = "Item Details"
 # Sale-banner specific.
 FIELD_DINING_INTERIOR = "Dining Interior"
-FIELD_BEDROOM_INTERIOR = "Bedroom Interior"
+FIELD_KITCHEN_INTERIOR = "Kitchen Interior"
 FIELD_DINING_INTERIOR_PROMPT = "Dining Interior Prompt"
-FIELD_BEDROOM_INTERIOR_PROMPT = "Bedroom Interior Prompt"
+FIELD_KITCHEN_INTERIOR_PROMPT = "Kitchen Interior Prompt"
 FIELD_DINING_PROMPT = "Dining Blending Prompt"
-FIELD_BEDROOM_PROMPT = "Bedroom Blending Prompt"
+FIELD_KITCHEN_PROMPT = "Kitchen Blending Prompt"
 FIELD_DINING_BLENDED = "Dining Blended"
-FIELD_BEDROOM_BLENDED = "Bedroom Blended"
+FIELD_KITCHEN_BLENDED = "Kitchen Blended"
 FIELD_PERCENT_LEFT = "Sale Percent Left"
 FIELD_PERCENT_RIGHT = "Sale Percent Right"
 FIELD_CAPTION_LEFT = "Sale Caption Left"
@@ -154,13 +148,13 @@ REQUIRED_FIELDS = {
     FIELD_DATE_GENERATED: "dateTime",
     FIELD_STATUS: "singleSelect",
     FIELD_DINING_INTERIOR: "multipleAttachments",
-    FIELD_BEDROOM_INTERIOR: "multipleAttachments",
+    FIELD_KITCHEN_INTERIOR: "multipleAttachments",
     FIELD_DINING_INTERIOR_PROMPT: "multilineText",
-    FIELD_BEDROOM_INTERIOR_PROMPT: "multilineText",
+    FIELD_KITCHEN_INTERIOR_PROMPT: "multilineText",
     FIELD_DINING_PROMPT: "multilineText",
-    FIELD_BEDROOM_PROMPT: "multilineText",
+    FIELD_KITCHEN_PROMPT: "multilineText",
     FIELD_DINING_BLENDED: "multipleAttachments",
-    FIELD_BEDROOM_BLENDED: "multipleAttachments",
+    FIELD_KITCHEN_BLENDED: "multipleAttachments",
     FIELD_PERCENT_LEFT: "singleLineText",
     FIELD_PERCENT_RIGHT: "singleLineText",
     FIELD_CAPTION_LEFT: "multilineText",
@@ -190,28 +184,31 @@ ROOMS: list[dict[str, Any]] = [
         ),
     },
     {
-        "key": "bedroom",
-        "label": "Bedroom",
-        "theme": "modern Christmas bedroom",
-        "slots": LAMP_SLOTS,
-        "interior_field": FIELD_BEDROOM_INTERIOR,
-        "krea_prompt_field": FIELD_BEDROOM_INTERIOR_PROMPT,
-        "prompt_field": FIELD_BEDROOM_PROMPT,
-        "blended_field": FIELD_BEDROOM_BLENDED,
-        "moodboard_env": "KREA_MOODBOARD_ID_SALE_BANNER_BEDROOM",
-        "moodboard_default": "fb2487fb-2895-4d2c-9758-805aaf1bac69",
-        "prompt_env": "SALE_BANNER_BEDROOM_PROMPT",
-        "prompt_default": BEDROOM_PROMPT,
+        "key": "kitchen",
+        "label": "Kitchen",
+        "theme": "modern Christmas kitchen",
+        "slots": KITCHEN_SLOTS,
+        "interior_field": FIELD_KITCHEN_INTERIOR,
+        "krea_prompt_field": FIELD_KITCHEN_INTERIOR_PROMPT,
+        "prompt_field": FIELD_KITCHEN_PROMPT,
+        "blended_field": FIELD_KITCHEN_BLENDED,
+        "moodboard_env": "KREA_MOODBOARD_ID_SALE_BANNER_KITCHEN",
+        # No kitchen moodboard yet: reuse the dining room's modern Christmas look until one is set in .env.
+        "moodboard_default": "de5f4ff8-518c-4d6b-b606-ce1d5dac51f3",
+        "prompt_env": "SALE_BANNER_KITCHEN_PROMPT",
+        "prompt_default": KITCHEN_PROMPT,
         "extra_rules": (
-            "Place one table lamp on each of the two bedside tables flanking the bed, at natural heights, so they read "
-            "as a pair. The two lamps may be different models: keep each exactly as its own cutout. If only one "
-            "bedside table is visible, use it for one lamp and the nearest surface for the other."
+            "Hang the two pendant lights side by side above the kitchen island, evenly spaced and centred on it, each "
+            "lowest point roughly 70 to 80 cm above the countertop, so they read as a pair. The two pendants may be "
+            "different models: keep each exactly as its own cutout. If the ceiling is not visible in Image 1, extend "
+            "the scene upward so the ceiling canopies and the cords or rods are visible."
         ),
     },
 ]
 
 STATUS_IN_PROGRESS = "In progress"
 STATUS_DONE = "Done"
+STATUS_SALE_DONE = "Sale Banner Done"  # Banner Set only: the third banner is still to be made on this row
 STATUS_FOR_MANUAL = "For Manual"
 
 
@@ -241,11 +238,11 @@ def _first_url(fields: dict[str, Any], field: str) -> str:
 
 
 # --------------------------------------------------------------------------
-# PHASE 1: scrape 1 pendant + 2 table lamps into ONE brand-new row
+# PHASE 1: scrape 3 pendant lights into ONE brand-new row
 # --------------------------------------------------------------------------
 
 def run_phase_1_scrape(clients: PipelineClients, style: str = "modern") -> str:
-    print("\n[PHASE 1] Scraping 1 pendant light and 2 table lamps...")
+    print("\n[PHASE 1] Scraping 3 pendant lights (1 for the dining room, 2 for the kitchen)...")
     base_skus, base_names, shopify_index = load_scrape_context(clients)
 
     picked: list[dict[str, Any]] = []
@@ -254,10 +251,10 @@ def run_phase_1_scrape(clients: PipelineClients, style: str = "modern") -> str:
         if chosen is None:
             raise AutomationError(
                 f"No new eligible {slot['label']} found in Akeneo category '{slot['category']}'. "
-                "The sale banner needs a pendant light and two table lamps; nothing was written to Airtable."
+                "The sale banner needs three pendant lights; nothing was written to Airtable."
             )
         picked.append(chosen)
-        # Recording each pick right away keeps the two table lamps from being the same item.
+        # Recording each pick right away keeps the three pendant lights from being the same item.
         base_skus.add(chosen["sku"].lower())
         base_names.add(chosen["clean_name"].lower())
 
@@ -271,7 +268,7 @@ def run_phase_1_scrape(clients: PipelineClients, style: str = "modern") -> str:
         FIELD_ITEM_NAME: "\n".join(f"{p['code']}: {p['clean_name']}" for p in picked),
         FIELD_ITEM_DETAILS: "\n".join(f"{p['code']}: {p['notes']}" for p in picked if p.get("notes")),
     })
-    for p in picked:  # sequential upload keeps the PE, TA, TB order
+    for p in picked:  # sequential upload keeps the DP, KA, KB order
         clients.airtable.upload_attachment(
             record_id, FIELD_FURNITURE, p["cutout"], f"{p['code']}_{p['sku']}_{p['media_code']}.png"
         )
@@ -280,7 +277,7 @@ def run_phase_1_scrape(clients: PipelineClients, style: str = "modern") -> str:
 
 
 # --------------------------------------------------------------------------
-# PHASE 2: Krea dining room + bedroom (4:5)
+# PHASE 2: Krea dining room + kitchen (4:5)
 # --------------------------------------------------------------------------
 
 def run_phase_2_interiors(
@@ -288,7 +285,7 @@ def run_phase_2_interiors(
     record_id: str,
     overrides: dict[str, dict[str, str]] | None = None,
 ) -> None:
-    print(f"\n[PHASE 2] Generating Krea Christmas dining room and bedroom ({ROOM_ASPECT_RATIO}) for record {record_id}...")
+    print(f"\n[PHASE 2] Generating Krea Christmas dining room and kitchen ({ROOM_ASPECT_RATIO}) for record {record_id}...")
     updates: dict[str, Any] = {}
     for room in ROOMS:
         override = (overrides or {}).get(room["key"], {})
@@ -326,17 +323,17 @@ def _fallback_room_prompt(room: dict[str, Any], fixtures: list[dict[str, str]]) 
             "centred above the dining table, reproduced faithfully from its cutout and switched on with a warm 2700K glow "
             "that lights the table. Keep the room and its Christmas styling unchanged. No text, logos or people."
         )
-    names = [f["name"] for f in fixtures] + ["table lamp"] * 2
+    names = [f["name"] for f in fixtures] + ["pendant light"] * 2
     return (
-        f"Using Image 1 as the base {room['theme']}, place the Table Lamp \"{names[0]}\" (Image 2) on the left bedside "
-        f"table and the Table Lamp \"{names[1]}\" (Image 3) on the right bedside table, each reproduced faithfully from "
-        "its own cutout and switched on with a warm 2700K glow. Keep the room and its Christmas styling unchanged. "
-        "No text, logos or people."
+        f"Using Image 1 as the base {room['theme']}, hang the Pendant Light \"{names[0]}\" (Image 2) and the Pendant "
+        f"Light \"{names[1]}\" (Image 3) side by side from the ceiling above the kitchen island, each reproduced "
+        "faithfully from its own cutout and switched on with a warm 2700K glow that lights the island. Keep the room "
+        "and its Christmas styling unchanged. No text, logos or people."
     )
 
 
 def run_phase_3_claude(clients: PipelineClients, record_id: str) -> dict[str, str]:
-    print(f"\n[PHASE 3] Claude Sonnet 5 vision analysis (dining room and bedroom) for record {record_id}...")
+    print(f"\n[PHASE 3] Claude Sonnet 5 vision analysis (dining room and kitchen) for record {record_id}...")
     fields = clients.airtable.get_record(record_id).get("fields", {})
 
     prompts: dict[str, str] = {}
@@ -425,7 +422,7 @@ def suggest_panel_color(clients: PipelineClients, fields: dict[str, Any]) -> str
     The answer is darkened just enough for white text to stay readable. Any problem (missing blend,
     API error, no hex code twice in a row) falls back to the sample's red, so this never fails the run.
     """
-    urls = [_first_url(fields, FIELD_DINING_BLENDED), _first_url(fields, FIELD_BEDROOM_BLENDED)]
+    urls = [_first_url(fields, FIELD_DINING_BLENDED), _first_url(fields, FIELD_KITCHEN_BLENDED)]
     if not all(urls):
         print(f"  [WARN] Both room blends are needed to suggest a colour; using {DEFAULT_PANEL_HEX}.")
         return DEFAULT_PANEL_HEX
@@ -490,7 +487,7 @@ def run_phase_5_captions(
 # PHASE 6: local composite (interiors + red panel + Poppins text)
 # --------------------------------------------------------------------------
 
-def run_phase_6_composite(clients: PipelineClients, record_id: str) -> Path:
+def run_phase_6_composite(clients: PipelineClients, record_id: str, final: bool = True) -> Path:
     print(f"\n[PHASE 6] Composing the 1800x600 sale banner for record {record_id}...")
     fields = clients.airtable.get_record(record_id).get("fields", {})
 
@@ -503,7 +500,7 @@ def run_phase_6_composite(clients: PipelineClients, record_id: str) -> Path:
         )
 
     dining = download(FIELD_DINING_BLENDED, "dining blend")
-    bedroom = download(FIELD_BEDROOM_BLENDED, "bedroom blend")
+    kitchen = download(FIELD_KITCHEN_BLENDED, "kitchen blend")
     percent_left = str(fields.get(FIELD_PERCENT_LEFT) or "").strip()
     percent_right = str(fields.get(FIELD_PERCENT_RIGHT) or "").strip()
     caption_left = str(fields.get(FIELD_CAPTION_LEFT) or "").strip()
@@ -518,7 +515,7 @@ def run_phase_6_composite(clients: PipelineClients, record_id: str) -> Path:
     local_path = OUTPUT_DIR / f"sale_banner_{record_id}.jpg"
     draw_sale_banner(
         dining.path,
-        bedroom.path,
+        kitchen.path,
         percent_left=percent_left,
         percent_right=percent_right,
         caption_left=caption_left,
@@ -529,11 +526,16 @@ def run_phase_6_composite(clients: PipelineClients, record_id: str) -> Path:
 
     clients.airtable.clear_attachment_field(record_id, FIELD_SALE_BANNER)
     clients.airtable.upload_attachment(record_id, FIELD_SALE_BANNER, local_path, local_path.name)
-    clients.airtable.update_record(record_id, {
-        FIELD_STATUS: STATUS_DONE,
-        FIELD_DATE_GENERATED: current_pht_timestamp(),
-    })
-    print(f"  [SUCCESS] Record {record_id} Done. Saved {local_path}")
+    if final:
+        clients.airtable.update_record(record_id, {
+            FIELD_STATUS: STATUS_DONE,
+            FIELD_DATE_GENERATED: current_pht_timestamp(),
+        })
+        print(f"  [SUCCESS] Record {record_id} Done. Saved {local_path}")
+    else:
+        # The Banner Set makes the third banner on this same row next; only its last phase writes Done.
+        clients.airtable.update_record(record_id, {FIELD_STATUS: STATUS_SALE_DONE})
+        print(f"  [OK] Sale banner composed for record {record_id}. Saved {local_path}")
     return local_path
 
 
@@ -568,7 +570,7 @@ def run_pipeline(
     print("HOMECARTEL MARKETING AI -- SALE BANNER PIPELINE (1800x600)")
     print("=" * 70)
     print(f"Table ID: {resolved_table_id}")
-    print("Left: dining room + 1 pendant light | Right: bedroom + 2 table lamps")
+    print("Left: dining room + 1 pendant light | Right: kitchen + 2 pendant lights")
     print(f"Phases:   {', '.join(str(p) for p in phases)}")
     print("=" * 70)
 
@@ -616,9 +618,9 @@ def main() -> int:
     parser.add_argument("--month", type=int, default=None, help="Month (1-12) for the caption dates (default: this month, or next from day 24)")
     parser.add_argument("--year", type=int, default=None, help="Year for the caption dates")
     parser.add_argument("--dining-moodboard-id", default="", help="Krea moodboard ID for the dining room")
-    parser.add_argument("--bedroom-moodboard-id", default="", help="Krea moodboard ID for the bedroom")
+    parser.add_argument("--kitchen-moodboard-id", default="", help="Krea moodboard ID for the kitchen")
     parser.add_argument("--dining-prompt", default="", help="Krea prompt override for the dining room")
-    parser.add_argument("--bedroom-prompt", default="", help="Krea prompt override for the bedroom")
+    parser.add_argument("--kitchen-prompt", default="", help="Krea prompt override for the kitchen")
     parser.add_argument("--panel-color", default="", help="Panel hex colour like #B3122A (default: Claude suggests one from the two rooms)")
     parser.add_argument("--text-only", action="store_true", help="Alias for --from-phase 5 (captions + panel colour + composite; one Claude call, no image generation)")
     parser.add_argument(
@@ -640,7 +642,7 @@ def main() -> int:
         parser.error("--panel-color must be a hex colour such as #B3122A")
     overrides = {
         "dining": {"moodboard": args.dining_moodboard_id, "prompt": args.dining_prompt},
-        "bedroom": {"moodboard": args.bedroom_moodboard_id, "prompt": args.bedroom_prompt},
+        "kitchen": {"moodboard": args.kitchen_moodboard_id, "prompt": args.kitchen_prompt},
     }
     run_pipeline(
         table_id=args.table_id or None,

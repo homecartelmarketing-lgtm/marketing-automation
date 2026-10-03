@@ -152,6 +152,7 @@ REQUIRED_FIELDS = {
 
 STATUS_IN_PROGRESS = "In progress"
 STATUS_DONE = "Done"
+STATUS_CHRISTMAS_DONE = "Christmas Banner Done"  # Banner Set only: the Sale banner is still to be made on this row
 STATUS_FOR_MANUAL = "For Manual"
 
 
@@ -378,21 +379,30 @@ def run_phase_4_blend(clients: PipelineClients, record_id: str) -> Path:
 
 FALLBACK_TITLE = "Light Up Your Christmas"
 FALLBACK_SUBTITLE = "Statement lighting for festive homes"
-TITLE_MAX_CHARS = 22
-SUBTITLE_MAX_CHARS = 36
+TITLE_MAX_CHARS = 30
+SUBTITLE_MAX_CHARS = 40
+TITLE_WORDS = (4, 5)
+SUBTITLE_WORDS = (4, 5)
 
 
-def _clean_copy_text(value: Any, max_chars: int, fallback: str) -> str:
-    """Strip labels/quotes/markdown; fall back when empty or far too long for its box."""
+def _normalize_copy(value: Any) -> str:
+    """Strip labels, quotes, markdown and a trailing full stop from one copy line."""
     text = re.sub(r"^\s*(title|subtitle)\s*:\s*", "", str(value or ""), flags=re.IGNORECASE)
-    text = re.sub(r"\s+", " ", text).strip(" \"'`*_#").rstrip(".").strip()
+    return re.sub(r"\s+", " ", text).strip(" \"'`*_#").rstrip(".").strip()
+
+
+def _clean_copy_text(value: Any, max_chars: int, fallback: str, word_range: tuple[int, int] = (1, 99)) -> str:
+    """Normalised text; the fallback when empty, too long for its box, or outside the word range."""
+    text = _normalize_copy(value)
     if not text or len(text) > max_chars + 8:
+        return fallback
+    if not word_range[0] <= len(text.split()) <= word_range[1]:
         return fallback
     return text
 
 
-def parse_banner_copy(response: str) -> tuple[str, str]:
-    """Parse Claude's reply into (title, subtitle): JSON first, then per-key regex, then defaults."""
+def extract_banner_copy(response: str) -> tuple[Any, Any]:
+    """Raw (title, subtitle) from Claude's reply: JSON first, then per-key regex. No validation."""
     raw = re.sub(r"^```(?:json)?", "", str(response or "").strip(), flags=re.MULTILINE)
     raw = re.sub(r"```$", "", raw, flags=re.MULTILINE).strip()
     title: Any = ""
@@ -406,10 +416,39 @@ def parse_banner_copy(response: str) -> tuple[str, str]:
         m_sub = re.search(r'"subtitle"\s*:\s*"([^"]+)"', raw)
         title = m_title.group(1) if m_title else ""
         subtitle = m_sub.group(1) if m_sub else ""
+    return title, subtitle
+
+
+def parse_banner_copy(response: str) -> tuple[str, str]:
+    """Parse Claude's reply into (title, subtitle): each falls back to its default when invalid."""
+    title, subtitle = extract_banner_copy(response)
+    subtitle = _clean_copy_text(subtitle, SUBTITLE_MAX_CHARS, FALLBACK_SUBTITLE, SUBTITLE_WORDS)
     return (
-        _clean_copy_text(title, TITLE_MAX_CHARS, FALLBACK_TITLE),
-        _clean_copy_text(subtitle, SUBTITLE_MAX_CHARS, FALLBACK_SUBTITLE),
+        _clean_copy_text(title, TITLE_MAX_CHARS, FALLBACK_TITLE, TITLE_WORDS),
+        subtitle[:1].upper() + subtitle[1:],  # a subtitle that continues the title often comes back lower-case
     )
+
+
+def copy_problems(response: str) -> list[str]:
+    """Why Claude's reply would be rejected (empty list = both lines usable); fed back to Claude on a retry."""
+    title, subtitle = extract_banner_copy(response)
+    problems: list[str] = []
+    for label, value, max_chars, (low, high) in (
+        ("title", title, TITLE_MAX_CHARS, TITLE_WORDS),
+        ("subtitle", subtitle, SUBTITLE_MAX_CHARS, SUBTITLE_WORDS),
+    ):
+        text = _normalize_copy(value)
+        words = len(text.split())
+        if not text:
+            problems.append(f"the {label} is missing")
+        elif not low <= words <= high:
+            problems.append(f"the {label} \"{text}\" has {words} words (it must have {low} to {high})")
+        elif len(text) > max_chars + 8:
+            problems.append(f"the {label} \"{text}\" is {len(text)} characters (at most {max_chars})")
+    return problems
+
+
+COPY_ATTEMPTS = 3
 
 
 def run_phase_5_copy(clients: PipelineClients, record_id: str) -> tuple[str, str]:
@@ -419,22 +458,43 @@ def run_phase_5_copy(clients: PipelineClients, record_id: str) -> tuple[str, str
     if not banner_atts or not banner_atts[0].get("url"):
         raise AutomationError(f"Record {record_id} has no '{FIELD_BANNER}' image to write copy for.")
 
+    # Only this banner's fixtures: a Banner Set row also lists the Sale banner's pendants (DP, KA, KB).
     names = [
         re.sub(r"^[A-Z]{2}:\s*", "", line.strip())
         for line in str(fields.get(FIELD_ITEM_NAME) or "").splitlines()
-        if line.strip()
+        if line.strip() and line.strip()[:2] in FIXTURE_ORDER
     ]
+    base_prompt = build_banner_copy_instruction(
+        names, title_max_chars=TITLE_MAX_CHARS, subtitle_max_chars=SUBTITLE_MAX_CHARS
+    )
     title, subtitle = FALLBACK_TITLE, FALLBACK_SUBTITLE
-    try:
-        response = clients.fal.generate_claude_vision(
-            prompt=build_banner_copy_instruction(names, title_max_chars=TITLE_MAX_CHARS, subtitle_max_chars=SUBTITLE_MAX_CHARS),
-            image_urls=[banner_atts[0]["url"]],
-            system_instruction="You are a luxury lighting copywriter for HomeCartel.",
-            model=os.getenv("CLAUDE_VISION_MODEL", "").strip() or "anthropic/claude-sonnet-5",
+    prompt = base_prompt
+    last_response = ""
+    for attempt in range(1, COPY_ATTEMPTS + 1):
+        try:
+            response = clients.fal.generate_claude_vision(
+                prompt=prompt,
+                image_urls=[banner_atts[0]["url"]],
+                system_instruction="You are a luxury lighting copywriter for HomeCartel.",
+                model=os.getenv("CLAUDE_VISION_MODEL", "").strip() or "anthropic/claude-sonnet-5",
+            )
+        except Exception as err:
+            print(f"  [WARN] Claude copy attempt {attempt} failed ({err}).")
+            continue
+        last_response = response
+        problems = copy_problems(response)
+        if not problems:
+            title, subtitle = parse_banner_copy(response)
+            break
+        print(f"  [WARN] Claude copy attempt {attempt} rejected: {'; '.join(problems)}.")
+        prompt = (
+            f"{base_prompt}\nYour previous reply was rejected because {'; '.join(problems)}. "
+            "Count the words carefully and reply again with the corrected JSON only."
         )
-        title, subtitle = parse_banner_copy(response)
-    except Exception as err:
-        print(f"  [WARN] Claude copy failed ({err}); using the default title/subtitle.")
+    else:
+        print("  [WARN] No valid title/subtitle from Claude; using the defaults where a line was invalid.")
+        if last_response:
+            title, subtitle = parse_banner_copy(last_response)
 
     clients.airtable.update_record(record_id, {
         FIELD_TITLE: title,
@@ -449,7 +509,7 @@ def run_phase_5_copy(clients: PipelineClients, record_id: str) -> tuple[str, str
 # PHASE 6: Local Pillow overlay (white Poppins, soft shadow)
 # --------------------------------------------------------------------------
 
-def run_phase_6_overlay(clients: PipelineClients, record_id: str) -> Path:
+def run_phase_6_overlay(clients: PipelineClients, record_id: str, final: bool = True) -> Path:
     print(f"\n[PHASE 6] Stamping title + subtitle on the banner for record {record_id}...")
     fields = clients.airtable.get_record(record_id).get("fields", {})
     banner_atts = fields.get(FIELD_BANNER) or []
@@ -480,11 +540,16 @@ def run_phase_6_overlay(clients: PipelineClients, record_id: str) -> Path:
 
     clients.airtable.clear_attachment_field(record_id, FIELD_BANNER_TEXT)
     clients.airtable.upload_attachment(record_id, FIELD_BANNER_TEXT, local_path, local_path.name)
-    clients.airtable.update_record(record_id, {
-        FIELD_STATUS: STATUS_DONE,
-        FIELD_DATE_GENERATED: current_pht_timestamp(),
-    })
-    print(f"  [SUCCESS] Record {record_id} Done. Saved {local_path}")
+    if final:
+        clients.airtable.update_record(record_id, {
+            FIELD_STATUS: STATUS_DONE,
+            FIELD_DATE_GENERATED: current_pht_timestamp(),
+        })
+        print(f"  [SUCCESS] Record {record_id} Done. Saved {local_path}")
+    else:
+        # The Banner Set runs the Sale banner on this same row next; only its last phase writes Done.
+        clients.airtable.update_record(record_id, {FIELD_STATUS: STATUS_CHRISTMAS_DONE})
+        print(f"  [OK] Christmas banner stamped for record {record_id}. Saved {local_path}")
     return local_path
 
 

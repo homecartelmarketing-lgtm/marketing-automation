@@ -211,6 +211,8 @@ TABLE_PREFIX_MAP: dict[str, str] = {
     "tblSALsUd5MXXnkp6": "STR-REEL-PE",
     # 21. Christmas Banner (21:9)
     "tblgNk1Tp6qKUcduw": "XMS-BANNER-ALL",
+    # 22. Room Build-Up Reel
+    "tblhq1rz9CVCD7yiR": "RBU-REEL-SET",
 }
 
 # Dynamically register any Sketch to Real / Draw Reel env overrides
@@ -229,6 +231,7 @@ for _env_key, _prefix in (
     ("AIRTABLE_TABLE_ID_CEILING_MOUNTED_SKETCH_TO_DRAW_REEL", "STR-REEL-CM"),
     ("AIRTABLE_TABLE_ID_CHRISTMAS_BANNER", "XMS-BANNER-ALL"),
     ("AIRTABLE_TABLE_ID_SALE_BANNER", "XMS-BANNER-ALL"),
+    ("AIRTABLE_TABLE_ID_ROOM_BUILD_UP_REEL", "RBU-REEL-SET"),
 ):
     _val = os.getenv(_env_key, "").strip()
     if _val:
@@ -287,7 +290,7 @@ def resolve_table_prefix(table_id: str, table_name: str = "") -> str:
 
     if "ad cover" in t_lower or idea == "ADC":
         content_type = "ADS"
-    elif "reel" in t_lower or idea in ("STR", "STD", "OATL", "PCR", "SRS", "BA"):
+    elif "reel" in t_lower or idea in ("STR", "STD", "OATL", "PCR", "SRS", "BA", "RBU"):
         content_type = "REEL"
     elif "feed" in t_lower:
         content_type = "FEEDS"

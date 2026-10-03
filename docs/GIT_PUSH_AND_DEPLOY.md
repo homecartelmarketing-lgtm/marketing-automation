@@ -9,8 +9,8 @@ This guide says exactly what an AI agent (Claude Code, or any other) will do whe
 ## 1. At a glance
 
 - The AI **only commits or pushes when you ask.** Finishing a task does not push anything.
-- You work on branch **`genspark_ai_developer`**. Railway deploys branch **`main`**. So a push to `main` is a **live production deploy**.
-- The AI runs its checks first, then commits, then pushes `genspark_ai_developer`. **Before it pushes `main`, it tells you it is about to deploy and waits for your go-ahead** (unless you already said "push and deploy to main").
+- You work on branch **`marketing-automation`**. Railway deploys branch **`main`**. So a push to `main` is a **live production deploy**.
+- The AI runs its checks first, then commits, then pushes `marketing-automation`. **Before it pushes `main`, it tells you it is about to deploy and waits for your go-ahead** (unless you already said "push and deploy to main").
 - It never force-pushes, never rewrites pushed history, never skips hooks, and never commits `.env` or other secrets.
 - If any check fails, it stops and tells you. It does not push around a failure.
 
@@ -24,7 +24,7 @@ your working tree
    │  5. stage named files → review
    │  6. commit (conventional message)
    ▼
-git push origin genspark_ai_developer        ← safe: does not deploy
+git push origin marketing-automation        ← safe: does not deploy
    │  8. YOU confirm
    ▼
 git merge --ff-only  →  git push origin main  ← triggers Railway build + deploy
@@ -43,7 +43,7 @@ Railway builds the Dockerfile → gunicorn starts → GET /api/health
 | Rebuild `UI Control/dist/` when `UI Control/src/` changed | Amend or rebase commits that are already pushed |
 | Stage **named files** after reviewing `git status` | Use `--no-verify` or bypass signing/hooks |
 | Commit with a conventional message (`feat:`, `fix:`, `docs:` …) | Stage or commit `.env`, `.env.*` (except `*.example`), keys, tokens, customer data |
-| Push `genspark_ai_developer` | Push `main` without telling you it is a production deploy |
+| Push `marketing-automation` | Push `main` without telling you it is a production deploy |
 | Push `main` by fast-forward only, after your go-ahead | Run git from a different folder (e.g. `Downloads/Marketing Output UI`) |
 | Stop and report if anything looks wrong | Commit a stray file it can't explain (it asks you first) |
 
@@ -54,13 +54,13 @@ Railway builds the Dockerfile → gunicorn starts → GET /api/health
 | Item | What it is | Why it matters |
 | :--- | :--- | :--- |
 | Remote | `origin` = `https://github.com/homecartelmarketing-lgtm/marketing-automation.git` | The AI checks this before any git command; if it differs, it stops. |
-| Branches | Work on `genspark_ai_developer`; `main` is deployed | Two pushes are needed to ship. |
-| Branch state (when this guide was written) | `main`, `genspark_ai_developer`, `origin/main`, `origin/genspark_ai_developer` were all the same commit, 0 ahead / 0 behind | The `main` fast-forward is clean *only if* `main` hasn't moved. The AI re-checks every time. |
+| Branches | Work on `marketing-automation`; `main` is deployed | Two pushes are needed to ship. |
+| Branch state (when this guide was written) | `main`, `marketing-automation`, `origin/main`, `origin/marketing-automation` were all the same commit, 0 ahead / 0 behind | The `main` fast-forward is clean *only if* `main` hasn't moved. The AI re-checks every time. |
 | Railway | Builds the repo's `Dockerfile` on each push to `main` (per AGENTS.md §11). There is no `railway.json` or `Procfile` in the repo. | The push to `main` *is* the deploy button. |
 | Docker image | `python:3.11-slim`, apt `ffmpeg`/`libgl1`/`libsndfile1`/`git`, `pip install -r requirements.txt`, then Ultralytics CLIP from GitHub (needed by YOLO-World name tagging; `git` is why it is in the apt list), pre-caches the YOLO weights, copies the whole repo, runs `gunicorn --workers 1 --threads 8` from `UI Control/` (one worker: queue state is in memory) | Your PC runs Python 3.12; the container runs 3.11. Compiling on 3.12 does not fully prove the container starts. |
 | `UI Control/dist/` | The compiled React UI. **Tracked in git** (whitelisted in `.gitignore`) and copied into the image | If `src/` changes but `dist/` isn't rebuilt and committed, Railway serves the *old* UI. Old hashed files being deleted and new ones added must both be staged. |
 | `.gitignore` | Shields `.env`, `.env.*`, `output/`, `tmp/`, `scratch/`, `*.pt`, `*.onnx`, `node_modules/`, `.claude/`. The `*.example` env templates **are** tracked on purpose. | `.env` holds live Airtable / Akeneo / Krea / Fal / Zoho credentials. It is not tracked. |
-| GitHub Action | `.github/workflows/product_closeup_reel.yml`: **manual only** (`workflow_dispatch`), checks out `genspark_ai_developer`, uses your repo secrets | Pushing the branch never runs it by itself, but whatever is on that branch is what the action runs next time you trigger it. |
+| GitHub Action | `.github/workflows/product_closeup_reel.yml`: **manual only** (`workflow_dispatch`), checks out `marketing-automation`, uses your repo secrets | Pushing the branch never runs it by itself, but whatever is on that branch is what the action runs next time you trigger it. |
 | Local git hooks | `post-commit` and `post-checkout` are the Qoder "AI tracker" hooks; both end with `\|\| true` | They can't block or fail a commit/checkout. The AI does not remove or bypass them. |
 | Line endings | `core.autocrlf=true` | You will see harmless `LF will be replaced by CRLF` warnings. They are not errors. |
 | Author | `Home Cartel Marketing <homecartelmarketing@gmail.com>` | Commits are authored as the repo owner; AI commits add a `Co-Authored-By` trailer. |
@@ -75,15 +75,15 @@ Every step lists the command, what it is for, what a bad result looks like, and 
 
 ```bash
 git remote -v                       # must show the homecartelmarketing-lgtm/marketing-automation URL
-git branch --show-current           # expect: genspark_ai_developer
+git branch --show-current           # expect: marketing-automation
 git fetch origin                    # read-only: updates remote refs, changes no files
 git status --short                  # what changed
-git rev-list --left-right --count main...genspark_ai_developer      # expect "0  0" before your new commit
-git rev-list --left-right --count genspark_ai_developer...origin/genspark_ai_developer
+git rev-list --left-right --count main...marketing-automation      # expect "0  0" before your new commit
+git rev-list --left-right --count marketing-automation...origin/marketing-automation
 ```
 
 - **Bad:** wrong remote, wrong folder, or you're on a different branch → the AI **stops** and asks.
-- **Bad:** `origin/genspark_ai_developer` is *ahead* of local (someone else pushed) → the AI does not push; it tells you and asks how to reconcile.
+- **Bad:** `origin/marketing-automation` is *ahead* of local (someone else pushed) → the AI does not push; it tells you and asks how to reconcile.
 - A note like `There are too many unreachable loose objects; run 'git prune'` from `git fetch` is harmless housekeeping. It is not a failure.
 
 ### Step 1. Secret and stray-file check
@@ -157,7 +157,7 @@ EOF
 ### Step 7. Push the dev branch (does not deploy)
 
 ```bash
-git push origin genspark_ai_developer
+git push origin marketing-automation
 ```
 
 - **Bad:** `rejected (non-fast-forward)` → the AI runs `git fetch`, looks at what's on the remote, and asks you before merging/rebasing. It does **not** force-push.
@@ -170,13 +170,13 @@ The AI first says something like: *"Ready to fast-forward `main` and push. This 
 ```bash
 git fetch origin
 git checkout main
-git merge --ff-only genspark_ai_developer
+git merge --ff-only marketing-automation
 git push origin main
-git checkout genspark_ai_developer                 # always return to the dev branch
+git checkout marketing-automation                 # always return to the dev branch
 ```
 
 - `--ff-only` means git refuses if `main` has commits the dev branch doesn't. If it refuses, the AI **stops** (someone changed `main`). It never fixes this with a force-push or a merge commit on `main` without asking.
-- The AI always switches back to `genspark_ai_developer`, even after a failure, so the next task starts on the right branch.
+- The AI always switches back to `marketing-automation`, even after a failure, so the next task starts on the right branch.
 
 ### Step 9. After the push: what to expect
 
@@ -209,11 +209,11 @@ git checkout genspark_ai_developer                 # always return to the dev br
 `.github/workflows/product_closeup_reel.yml` is the only workflow. It:
 
 - runs **only when you click "Run workflow"** in the GitHub Actions tab (inputs: `phase`, `max_rows`, `record_id`),
-- checks out **`genspark_ai_developer`** (not `main`) and uses Python 3.12,
+- checks out **`marketing-automation`** (not `main`) and uses Python 3.12,
 - installs `requirements.txt` and runs `generate_product_closeup_reel_pipeline.py`,
 - reads credentials from **GitHub repository secrets** (`AIRTABLE_TOKEN`, `KREA_API_TOKEN`, `FAL_KEY`, the Akeneo values …), never from `.env`.
 
-So pushing code never starts it, but it always runs whatever is currently on `genspark_ai_developer`. The AI will not edit this workflow or its secrets unless you ask.
+So pushing code never starts it, but it always runs whatever is currently on `marketing-automation`. The AI will not edit this workflow or its secrets unless you ask.
 
 ---
 
@@ -222,9 +222,9 @@ So pushing code never starts it, but it always runs whatever is currently on `ge
 | You want | Say |
 | :--- | :--- |
 | A preview only | "Show me what would be committed and pushed. Don't commit anything yet." |
-| Save work safely, no deploy | "Commit my changes and push to genspark_ai_developer only." |
-| Full release | "Commit, push genspark_ai_developer, then fast-forward main and push it (deploy)." |
-| Deploy what's already committed | "Fast-forward main to genspark_ai_developer and push." |
+| Save work safely, no deploy | "Commit my changes and push to marketing-automation only." |
+| Full release | "Commit, push marketing-automation, then fast-forward main and push it (deploy)." |
+| Deploy what's already committed | "Fast-forward main to marketing-automation and push." |
 | Exclude a file | "Don't include assets/oct-calendar.xlsx." |
 | Undo a bad deploy | "Revert the last commit on main and push." (uses `git revert`) |
 
@@ -248,8 +248,8 @@ cd "UI Control" && npm run build && cd ..
 # Ship
 git add <named paths>
 git commit -m "feat: ..."
-git push origin genspark_ai_developer
-git checkout main && git merge --ff-only genspark_ai_developer && git push origin main && git checkout genspark_ai_developer
+git push origin marketing-automation
+git checkout main && git merge --ff-only marketing-automation && git push origin main && git checkout marketing-automation
 ```
 
 See also: [`AGENTS.md`](../AGENTS.md) §8 (docs to update when you change X) and §11 (the short rule list), [`OPERATIONS_AND_UTILITIES.md`](OPERATIONS_AND_UTILITIES.md), and the incident notes in [`memory/incidents/`](memory/incidents/).

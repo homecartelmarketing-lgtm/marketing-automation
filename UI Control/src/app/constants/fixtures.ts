@@ -42,6 +42,7 @@ export const CONTENT_CONFIG: Record<TabType, { name: string; ratio: string; item
       '1 Product, 3 Styles',
       'One at a time Lights',
       'Sketch to Real',
+      'Room Build-Up',
     ],
   },
   adcover: {
@@ -50,9 +51,9 @@ export const CONTENT_CONFIG: Record<TabType, { name: string; ratio: string; item
     items: ['Ad Cover Chandelier'],
   },
   banner: {
-    name: 'Christmas Banner',
-    ratio: '21:9 (ultra-wide)',
-    items: ['Christmas Banner', 'Sale Banner'],
+    name: 'Banner Set',
+    ratio: '21:9 + 1800 × 600 + 1800 × 600',
+    items: ['Banner Set'],
   },
 };
 
@@ -230,6 +231,11 @@ export const ONE_AT_A_TIME_LIGHTS_REEL_FIXTURES: Omit<FixtureData, 'completed'>[
   { id: 'living-room', name: 'Bedroom', total: 100, tableId: 'tblJpEtBudQZda319', moodboardId: 'fb2487fb-2895-4d2c-9758-805aaf1bac69', prompt: 'Generate me a modern bedroom' },
 ];
 
+// Reel Subtab 8: Room Build-Up Reel (9:16, ~4.8 s). One card: both rooms use the same Krea moodboard when edited here.
+export const ROOM_BUILD_UP_REEL_FIXTURES: Omit<FixtureData, 'completed'>[] = [
+  { id: 'room-build-up', name: 'Room Build-Up', total: 100, tableId: 'tblhq1rz9CVCD7yiR', moodboardId: 'de5f4ff8-518c-4d6b-b606-ce1d5dac51f3' },
+];
+
 // Reel Subtab 7: Sketch to Real Reel (9:16)
 export const SKETCH_TO_DRAW_REEL_FIXTURES: Omit<FixtureData, 'completed'>[] = [
   { id: 'chandeliers', name: 'Chandeliers', total: 100, tableId: 'tblUFR6OvFQaHnG1V', moodboardId: 'b5ffdcbb-192e-4528-8d86-d1a4cf496887', prompt: 'Generate me a photo a modern luxury living room with high ceilings, clean architecture, warm natural daylight' },
@@ -252,17 +258,14 @@ export const AD_COVER_FIXTURES: Omit<FixtureData, 'completed'>[] = [
   { id: 'on-stock', name: 'On Stock Designs', total: 100, tableId: 'tblX7tpTJhfH0UXmm', moodboardId: 'de6ad512-870d-4ab7-a48c-3f3ca85faf24', prompt: 'Generate me a modern interior with ambient lighting', runnable: true },
 ];
 
-// Christmas Banner (21:9): 5 fixtures blended into one Krea Christmas living room. The table ID comes from the
-// AIRTABLE_TABLE_ID_CHRISTMAS_BANNER env key (default below); the counts endpoint returns the live value.
+// Banner Set: ONE run makes the Christmas banner (21:9: 5 fixtures blended into one Krea Christmas living room),
+// the Sale banner (1800x600: dining room + kitchen, calendar captions) AND the third banner (1800x600: panel in the
+// Sale colour + Krea Christmas bedroom) on ONE Airtable row. The pencils below are the Christmas living room's
+// moodboard/prompt; the Sale rooms' and the third banner's moodboards/prompts are set through the SALE_BANNER_* and
+// THIRD_BANNER_* env keys. The table ID comes from the AIRTABLE_TABLE_ID_CHRISTMAS_BANNER env key (default below);
+// the counts endpoint returns the live value.
 export const CHRISTMAS_BANNER_FIXTURES: Omit<FixtureData, 'completed'>[] = [
-  { id: 'christmas_banner', name: 'Christmas Banner', total: 100, tableId: 'tblgNk1Tp6qKUcduw', moodboardId: 'b5ffdcbb-192e-4528-8d86-d1a4cf496887', prompt: 'Generate me a photo of a modern luxury living room with a Christmas vibe: a decorated Christmas tree, warm festive styling with garlands and soft fairy lights, a sofa and armchair seating area, a side table and console, high ceilings, clean architecture, warm cozy evening light, wide cinematic panoramic composition, with empty ceiling, wall and floor spaces for lighting fixtures', runnable: true },
-];
-
-// Sale Banner (1800x600): dining room + pendant on the left, bedroom + 2 table lamps on the right, red sale
-// panel between. It shares the Christmas banner's Airtable table (rows are told apart by Category).
-// Its Krea moodboards/prompts are set through the SALE_BANNER_* env keys, so there are no card pencils.
-export const SALE_BANNER_FIXTURES: Omit<FixtureData, 'completed'>[] = [
-  { id: 'sale_banner', name: 'Sale Banner', total: 100, tableId: 'tblgNk1Tp6qKUcduw', moodboardId: '', prompt: '', runnable: true },
+  { id: 'christmas_banner', name: 'Banner Set', total: 100, tableId: 'tblgNk1Tp6qKUcduw', moodboardId: 'b5ffdcbb-192e-4528-8d86-d1a4cf496887', prompt: 'Generate me a photo of a modern luxury living room with a Christmas vibe: a decorated Christmas tree, warm festive styling with garlands and soft fairy lights, a sofa and armchair seating area, a side table and console, high ceilings, clean architecture, warm cozy evening light, wide cinematic panoramic composition, with empty ceiling, wall and floor spaces for lighting fixtures', runnable: true },
 ];
 
 export const DEFAULT_FIXTURES: Omit<FixtureData, 'completed'>[] = [
@@ -311,10 +314,11 @@ export const getFixturesForSubtab = (tab: TabType, subtabIdx: number): Omit<Fixt
       case 5: return ONE_PRODUCT_THREE_STYLES_REEL_FIXTURES;
       case 6: return ONE_AT_A_TIME_LIGHTS_REEL_FIXTURES;
       case 7: return SKETCH_TO_DRAW_REEL_FIXTURES;
+      case 8: return ROOM_BUILD_UP_REEL_FIXTURES;
       default: return DEFAULT_FIXTURES;
     }
   }
   if (tab === 'adcover') return AD_COVER_FIXTURES;
-  if (tab === 'banner') return subtabIdx === 1 ? SALE_BANNER_FIXTURES : CHRISTMAS_BANNER_FIXTURES;
+  if (tab === 'banner') return CHRISTMAS_BANNER_FIXTURES;
   return DEFAULT_FIXTURES;
 };

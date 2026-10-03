@@ -111,7 +111,7 @@ marketing-automation/
 │   │   ├── one_at_a_time_lights_reel.py     # /api/one-at-a-time-lights-reel/* (3-fixture progressive-lighting reel)
 │   │   ├── sketch_to_draw_reel.py           # /api/sketch-to-draw-reel/* (Studio "Sketch to Real" subtab; always runs generate_sketch_to_real_reel_pipeline.py)
 │   │   ├── ad_cover.py                      # Ad Cover: /api/ad-cover/* (1:1 + 9:16 Story, per-fixture run)
-│   │   ├── christmas_banner.py              # Banner: /api/christmas-banner/*   sale_banner.py /api/sale-banner/*
+│   │   ├── christmas_banner.py              # Banner (Christmas + Sale + third, one run/row): /api/christmas-banner/*   sale_banner.py /api/sale-banner/* (API/CLI only)
 │   │   ├── queue_manager.py                 # In-memory FIFO job queue (/api/queue/*) — see §3
 │   │   ├── rows.py                          # Row Inspector & Airtable deep links (/api/rows)
 │   │   └── common.py                        # PIN verification, config overrides, helpers
@@ -324,11 +324,17 @@ All local layout rendering lives in **`content_automation/overlay.py`** (plus `i
 ### Ad Cover Pipeline (1 Pipeline, 1:1 Square + 9:16 Story)
 1. **Ad Cover** ([`docs/ads/AD_COVER.md`](docs/ads/AD_COVER.md), prefix: `ADC-ADS`) — Standalone 4th top-level Studio tab (not a sub-tab family): one run button per fixture. All 9 fixtures are fully runnable with dedicated Airtable tables (Chandelier: `tblwIsDGZBPuYJV2Z`, Floor Lamp: `tbl27FKuDUD4FdJUR`, Table Lamp: `tblk3RfFqawHZ5Wrk`, Cluster Chandelier: `tbltouegkjgQwdr1u`, Pendant Light: `tbl99Cwda2Xn93giT`, Wall Light: `tblUO5nybG9fIkhTT`, New Collection: `tbluMexgzcWE1pDZJ`, On Sale Designs: `tbleQIVBooVazAyk3`, On Stock Designs: `tblX7tpTJhfH0UXmm`). 7 phases: highest-priced newest Akeneo fixture → Krea 1:1 interior → Claude blending prompt → Nano Banana Pro blend → **local Pillow** composite of the transparent ad-cover overlay → Nano Banana Pro **9:16 extension** of that blend → **local Pillow** composite of the 9:16 story overlay (tagline + logo baked into PNG overlays, zero API cost for typography). One run produces **both** the 1:1 `Ad Cover Converted Image` and the 9:16 `Ad Cover Converted Image Story`; `Complete` is written by Phase 7 only.
 
+### Banner Set (the Studio's Banner tab: Christmas + Sale + third banner on ONE row)
+One Studio run (and `python generate_banner_set_pipeline.py`) scrapes 10 fresh products once (Christmas: CH, PE, FL, TL, WL; Sale: three pendants DP, KA, KB; third banner: two table lamps BA, BB), creates **one** brand-new Airtable row, and makes all three banners on it: the Christmas banner (phases 2-6, `Banner with Text`), the Sale banner (its phases 2-6, shown as 7-11 in the Studio, `Sale Banner`) and the third banner (1800x600: a 951 px panel in the Sale banner's colour + a Krea modern Christmas bedroom with 2 blended table lamps, its phases 2-5 shown as 12-15, `Third Banner`; doc [`docs/banners/THIRD_BANNER.md`](docs/banners/THIRD_BANNER.md)). `Done` is written only after the third banner. Neither the Sale nor the third banner adds a row of its own in this flow. Doc: [`docs/banners/BANNER_SET.md`](docs/banners/BANNER_SET.md). The sections below describe each banner's phases.
+
 ### Christmas Banner Pipeline (1 Pipeline, 21:9)
 1. **Christmas Banner** ([`docs/banners/CHRISTMAS_BANNER.md`](docs/banners/CHRISTMAS_BANNER.md), prefix: `XMS-BANNER-ALL`, table via `AIRTABLE_TABLE_ID_CHRISTMAS_BANNER`) — Standalone 5th top-level Studio tab (`generate_christmas_banner_pipeline.py`, `UI Control/routes/christmas_banner.py`). 6 phases: 1 fresh Akeneo item per type (chandelier, pendant, floor lamp, table lamp, wall light) → Krea **2.35:1** (krea-2 has no 21:9) modern Christmas living room (moodboard `b5ffdcbb-192e-4528-8d86-d1a4cf496887`) → Claude multi-fixture blending prompt → Nano Banana Pro **21:9** blend of all 5 fixtures → Claude Sonnet 5 title + subtitle → **local Pillow** overlay (white Poppins Medium 81.8 pt title and Regular 46.3 pt subtitle, tight tracking, soft shadow) into `Banner with Text`. Table `tblgNk1Tp6qKUcduw`.
 
+### Promo Banner (standalone CLI, 1080x1920 9:16)
+**Promo Banner** ([`docs/banners/PROMO_BANNER.md`](docs/banners/PROMO_BANNER.md), `generate_promo_banner_pipeline.py`) — the monthly 9:16 "Your Story" promo that used to be rebuilt in Canva. Takes the main (wide) banner as a **local file** (`--banner`), has Nano Banana Pro extend it to a 9:16 background, has Claude Sonnet 5 (via fal) write a 3-5 word tagline from the banner's name (a failed call never fails the run), then **local Pillow** (`overlay.py::draw_promo_banner`) draws the 890 px logo, the tagline, a huge `10%OFF` / `15%OFF` and the date line (from the promotions calendar, with an en dash). Output `output/promo_banner/promo_<MON-YYYY-NNOFF>_9x16.png`. No Airtable row, no Studio card.
+
 ### Sale Banner Pipeline (1 Pipeline, 1800x600)
-1. **Sale Banner** ([`docs/banners/SALE_BANNER.md`](docs/banners/SALE_BANNER.md), shares table `tblgNk1Tp6qKUcduw` with the Christmas banner, rows told apart by `Category = Sale Banner`) — second sub-tab of the Studio **Banner** tab (`generate_sale_banner_pipeline.py`, `UI Control/routes/sale_banner.py`). 6 phases: 1 pendant light + 2 table lamps from Akeneo → Krea 4:5 modern Christmas dining room and bedroom → Claude blending prompt per room → Nano Banana Pro 4:5 blend per room → percentages and captions (dates with the year) from the promotions calendar (`content_automation/promo_calendar.py`, `assets/calendar_config.json`) plus a panel hex colour suggested by Claude from the two blends (`Sale Panel Color`) → **local Pillow** composite (interiors either side of the coloured panel, Poppins text fitted to the Canva sample). Shared helpers live in `content_automation/banner_common.py`.
+1. **Sale Banner** ([`docs/banners/SALE_BANNER.md`](docs/banners/SALE_BANNER.md), shares table `tblgNk1Tp6qKUcduw` with the Christmas banner, rows told apart by `Category = Sale Banner`) — second sub-tab of the Studio **Banner** tab (`generate_sale_banner_pipeline.py`, `UI Control/routes/sale_banner.py`). 6 phases: 3 pendant lights from Akeneo (1 for the dining room, 2 for the kitchen island) → Krea 4:5 modern Christmas dining room (left) and kitchen (right) → Claude blending prompt per room → Nano Banana Pro 4:5 blend per room → percentages and captions (dates with the year) from the promotions calendar (`content_automation/promo_calendar.py`, `assets/calendar_config.json`) plus a panel hex colour suggested by Claude from the two blends (`Sale Panel Color`) → **local Pillow** composite (interiors either side of the coloured panel, Poppins text fitted to the Canva sample). Shared helpers live in `content_automation/banner_common.py`.
 
 Studio moodboard/prompt pencils, persistent config keys, and completed count behavior are mapped in [`docs/UI_CONTROL_CONFIG.md`](docs/UI_CONTROL_CONFIG.md). Use the `C` badge alone for completed totals; `P` includes posted, pending, and processing rows. The optional Studio PIN is `DASHBOARD_PIN`.
 
@@ -389,10 +395,16 @@ python launch_studio_cloudflare.py
 # Recompile Web Frontend
 cd "UI Control" && npm run build
 
+# Run the Banner Set: Christmas + Sale + third banner on ONE new row (flags: --table-id --style --moodboard-id --interior-prompt --month --year --dining-moodboard-id --kitchen-moodboard-id --dining-prompt --kitchen-prompt --panel-color --third-moodboard-id --third-prompt --third-title --third-subtitle)
+python generate_banner_set_pipeline.py
+
+# Promo Banner (9:16, local file in/out, no Airtable; flags: --banner --discount 10|15 --month --year --banner-name --tagline --date-text --resolution --dry-run)
+python generate_promo_banner_pipeline.py --banner banner.jpg --discount 10 --month SEP --year 2026 --dry-run
+
 # Run Christmas Banner (21:9; flags: --table-id --record-id --moodboard-id --interior-prompt --style --text-only --from-phase --only-phase)
 python generate_christmas_banner_pipeline.py
 
-# Run Sale Banner (1800x600; flags: --table-id --record-id --style --month --year --dining-moodboard-id --bedroom-moodboard-id --dining-prompt --bedroom-prompt --panel-color --text-only --from-phase --only-phase)
+# Run Sale Banner (1800x600; flags: --table-id --record-id --style --month --year --dining-moodboard-id --kitchen-moodboard-id --dining-prompt --kitchen-prompt --panel-color --text-only --from-phase --only-phase)
 python generate_sale_banner_pipeline.py
 
 # Run CTA Story Pipeline monolith (modes: scrape|interior|prompt|blend|words|conversion|watermark|round_robin|all|menu)
@@ -490,23 +502,23 @@ Every AI agent (and developer) working on this repository MUST strictly follow t
   - `docs: <description>` — Updates to documentation, guides, or memory files.
   - `chore: <description>` — Dependency bumps, gitignore updates, or build configs.
 
-### 6. Dual-Branch Push & Railway Deployment (`genspark_ai_developer` $\rightarrow$ `main`)
-- Active development occurs on branch **`genspark_ai_developer`**.
+### 6. Dual-Branch Push & Railway Deployment (`marketing-automation` $\rightarrow$ `main`)
+- Active development occurs on branch **`marketing-automation`**.
 - Because Railway automatically builds and deploys the **`main`** branch by default:
-  1. Commit and push to `genspark_ai_developer`:
+  1. Commit and push to `marketing-automation`:
      ```bash
      git add <reviewed paths>   # check `git status` first; do not sweep in stray files (see the guide)
      git commit -m "feat: ..."
-     git push origin genspark_ai_developer
+     git push origin marketing-automation
      ```
   2. Fast-forward `main` and push to trigger the automatic Railway CI/CD deployment:
      ```bash
      git checkout main
-     git merge --ff-only genspark_ai_developer
+     git merge --ff-only marketing-automation
      git push origin main
-     git checkout genspark_ai_developer
+     git checkout marketing-automation
      ```
-  3. Return the active local branch to `genspark_ai_developer`.
+  3. Return the active local branch to `marketing-automation`.
 
 ---
 

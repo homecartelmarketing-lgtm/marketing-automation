@@ -171,11 +171,20 @@ python generate_product_showcase_feed_pipeline.py --mode all --max-items 3
 # Ad Cover Converted Image and Ad Cover Converted Image Story. Full mode list: docs/ads/AD_COVER.md §7
 python generate_ad_cover_pipeline.py --fixture chandelier --mode all --max-items 1
 
+# Banner Set — ONE run, ONE Airtable row, ALL THREE banners (Christmas 21:9 + Sale 1800x600 + third 1800x600); this is what the Studio's Banner tab runs.
+# Scrapes 10 fresh products once, then makes the three banners on that row (the third: a panel in the Sale colour + a Krea Christmas bedroom).
+# Docs: docs/banners/BANNER_SET.md, docs/banners/THIRD_BANNER.md
+python generate_banner_set_pipeline.py
+
+# Promo Banner (1080x1920, 9:16 "Your Story") — the main banner (local file) extended to 9:16 by Nano Banana Pro, a Claude Sonnet 5 tagline,
+# and a local Pillow layout (logo, tagline, huge 10%OFF, date line). No Airtable row. Doc: docs/banners/PROMO_BANNER.md
+python generate_promo_banner_pipeline.py --banner banner.jpg --discount 10 --month SEP --year 2026 --dry-run
+
 # Christmas Banner (21:9) — 6 phases; 1 fresh item per fixture type blended into one Krea Christmas living room,
 # then a Claude title/subtitle stamped locally (Poppins, soft shadow). Table tblgNk1Tp6qKUcduw. Full doc: docs/banners/CHRISTMAS_BANNER.md
 python generate_christmas_banner_pipeline.py
 
-# Sale Banner (1800x600) — 6 phases; dining room + 1 pendant (left), bedroom + 2 table lamps (right), sale panel in a Claude-suggested colour
+# Sale Banner (1800x600) — 6 phases; dining room + 1 pendant (left), kitchen + 2 pendants (right), sale panel in a Claude-suggested colour
 # with 10%/15% and captions (dates with the year) from the promotions calendar. Shares the Christmas banner table. Doc: docs/banners/SALE_BANNER.md
 python generate_sale_banner_pipeline.py
 

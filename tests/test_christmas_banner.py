@@ -113,9 +113,71 @@ class BannerCopyTests(unittest.TestCase):
         )
 
     def test_parse_regex_fallback_for_broken_json(self):
-        title, subtitle = pipeline.parse_banner_copy('here: {"title": "Festive Glow", "subtitle": "Lights that set the mood" ...')
-        self.assertEqual(title, "Festive Glow")
-        self.assertEqual(subtitle, "Lights that set the mood")
+        title, subtitle = pipeline.parse_banner_copy(
+            'here: {"title": "Make Every Room Glow Brighter", "subtitle": "With statement lighting this Christmas" ...'
+        )
+        self.assertEqual(title, "Make Every Room Glow Brighter")
+        self.assertEqual(subtitle, "With statement lighting this Christmas")
+
+    def test_subtitle_first_letter_is_capitalised(self):
+        _, subtitle = pipeline.parse_banner_copy(
+            '{"title": "Make Every Room Glow Brighter", "subtitle": "with fixtures crafted for elegance"}'
+        )
+        self.assertEqual(subtitle, "With fixtures crafted for elegance")
+
+    def test_title_and_subtitle_must_be_four_or_five_words(self):
+        good_title, good_subtitle = "Make Every Room Glow", "Lights that set the mood"
+        cases = (
+            ("Festive Glow", good_subtitle, pipeline.FALLBACK_TITLE, good_subtitle),  # title 2 words
+            ("Make Every Room Glow Brighter Today", good_subtitle, pipeline.FALLBACK_TITLE, good_subtitle),  # 6 words
+            (good_title, "Warm light", good_title, pipeline.FALLBACK_SUBTITLE),  # subtitle 2 words
+            (good_title, "With statement lighting for festive corners", good_title, pipeline.FALLBACK_SUBTITLE),  # 6
+        )
+        for title, subtitle, expected_title, expected_subtitle in cases:
+            parsed = pipeline.parse_banner_copy('{"title": "%s", "subtitle": "%s"}' % (title, subtitle))
+            self.assertEqual(parsed, (expected_title, expected_subtitle), (title, subtitle))
+
+    def test_copy_problems_names_the_word_count(self):
+        good = '{"title": "Let Your Home Glow Golden", "subtitle": "With fixtures crafted for seasons"}'
+        self.assertEqual(pipeline.copy_problems(good), [])
+        bad = '{"title": "Let Your Home Glow Golden", "subtitle": "with fixtures crafted for the season"}'
+        problems = pipeline.copy_problems(bad)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("subtitle", problems[0])
+        self.assertIn("6 words", problems[0])
+
+    def _phase5_clients(self, replies):
+        from unittest.mock import MagicMock
+
+        clients = MagicMock()
+        clients.airtable.get_record.return_value = {"fields": {
+            pipeline.FIELD_BANNER: [{"url": "https://example.test/banner.jpg"}],
+            pipeline.FIELD_ITEM_NAME: "CH: Aegnor | Chandelier",
+        }}
+        clients.fal.generate_claude_vision.side_effect = replies
+        return clients
+
+    def test_phase5_retries_claude_with_the_reason_instead_of_using_the_fallback(self):
+        bad = '{"title": "Let Your Home Glow Golden", "subtitle": "with fixtures crafted for the season"}'
+        good = '{"title": "Let Your Home Glow Golden", "subtitle": "With fixtures crafted for seasons"}'
+        clients = self._phase5_clients([bad, good])
+        title, subtitle = pipeline.run_phase_5_copy(clients, "recX")
+        self.assertEqual((title, subtitle), ("Let Your Home Glow Golden", "With fixtures crafted for seasons"))
+        self.assertEqual(clients.fal.generate_claude_vision.call_count, 2)
+        retry_prompt = clients.fal.generate_claude_vision.call_args_list[1].kwargs["prompt"]
+        self.assertIn("rejected because", retry_prompt)
+        self.assertIn("6 words", retry_prompt)
+
+    def test_phase5_uses_defaults_after_every_attempt_fails(self):
+        bad = '{"title": "Festive Glow", "subtitle": "Warm light"}'
+        clients = self._phase5_clients([bad] * pipeline.COPY_ATTEMPTS)
+        title, subtitle = pipeline.run_phase_5_copy(clients, "recX")
+        self.assertEqual((title, subtitle), (pipeline.FALLBACK_TITLE, pipeline.FALLBACK_SUBTITLE))
+        self.assertEqual(clients.fal.generate_claude_vision.call_count, pipeline.COPY_ATTEMPTS)
+
+    def test_fallbacks_are_four_to_five_words(self):
+        self.assertIn(len(pipeline.FALLBACK_TITLE.split()), pipeline.TITLE_WORDS)
+        self.assertIn(len(pipeline.FALLBACK_SUBTITLE.split()), pipeline.SUBTITLE_WORDS)
 
     def test_garbage_and_overlong_use_defaults(self):
         self.assertEqual(
@@ -126,9 +188,11 @@ class BannerCopyTests(unittest.TestCase):
         self.assertEqual(title, pipeline.FALLBACK_TITLE)
 
     def test_copy_instruction_states_limits(self):
-        text = build_banner_copy_instruction(["Aarhus | Chandelier"], title_max_chars=22, subtitle_max_chars=36)
-        self.assertIn("22", text)
-        self.assertIn("36", text)
+        text = build_banner_copy_instruction(["Aarhus | Chandelier"], title_max_chars=30, subtitle_max_chars=40)
+        self.assertIn("30", text)
+        self.assertIn("40", text)
+        self.assertEqual(text.count("4 to 5 words"), 2)
+        self.assertIn("continues or completes the thought of that title", text)
         self.assertIn('"title"', text)
         self.assertIn("Aarhus", text)
 
@@ -136,6 +200,12 @@ class BannerCopyTests(unittest.TestCase):
         self.assertEqual(overlay_module.BANNER_SHADOW_COLOR, (0, 0, 0))
         self.assertEqual(overlay_module.BANNER_SHADOW_INTENSITY, 100)
         self.assertEqual(overlay_module.BANNER_TITLE_FONT_FILE, "Poppins-Medium.ttf")
+        self.assertEqual(overlay_module.BANNER_SUBTITLE_FONT_FILE, "Poppins-Regular.ttf")
+        self.assertEqual(overlay_module.BANNER_TITLE_FONT_SIZE, 81.8)
+        self.assertEqual(overlay_module.BANNER_SUBTITLE_FONT_SIZE, 46.3)
+        # wide enough for a 4-5 word title at the full Canva size
+        self.assertEqual(overlay_module.BANNER_TITLE_BOX.width, 1680)
+        self.assertEqual(overlay_module.BANNER_SUBTITLE_BOX.width, 1680)
         self.assertTrue((REPO_ROOT / "content_automation" / "fonts" / "Poppins-Medium.ttf").is_file())
         for name in ("Status", "Foreign Key ID", "Date and Time Generated"):
             self.assertIn(name, pipeline.REQUIRED_FIELDS)
@@ -168,6 +238,45 @@ class BannerCopyTests(unittest.TestCase):
         self.assertEqual(fields["Status"], "In progress")
         self.assertEqual(fields["SKU"].splitlines()[0], "CH: SKU-CH")
         self.assertEqual(clients.airtable.upload_attachment.call_count, 5)
+
+    def test_phase5_copy_prompt_lists_only_the_christmas_fixtures_of_a_banner_set_row(self):
+        clients = self._phase5_clients(['{"title": "Make Every Room Glow", "subtitle": "With fixtures crafted for radiance"}'])
+        fields = clients.airtable.get_record.return_value["fields"]
+        fields[pipeline.FIELD_ITEM_NAME] = (
+            "CH: Aegnor\nPE: Hedda\nFL: Azazel\nTL: Siriana\nWL: Joakimm\nDP: Faramir\nKA: Yarpen Une\nKB: Ellowen"
+        )
+        pipeline.run_phase_5_copy(clients, "recX")
+        prompt = clients.fal.generate_claude_vision.call_args.kwargs["prompt"]
+        for name in ("Aegnor", "Hedda", "Azazel", "Siriana", "Joakimm"):
+            self.assertIn(name, prompt)
+        for name in ("Faramir", "Yarpen Une", "Ellowen"):  # the Sale banner's pendants
+            self.assertNotIn(name, prompt)
+
+    def _phase6(self, **kwargs):
+        from unittest.mock import MagicMock
+        import tempfile
+
+        clients = MagicMock()
+        clients.airtable.get_record.return_value = {"fields": {
+            pipeline.FIELD_BANNER: [{"url": "https://example.test/banner.jpg"}],
+            pipeline.FIELD_TITLE: "Make Every Room Glow Brighter",
+            pipeline.FIELD_SUBTITLE: "With fixtures crafted for radiance",
+        }}
+        with tempfile.TemporaryDirectory() as tmp, patch.object(pipeline, "OUTPUT_DIR", Path(tmp)), \
+                patch.object(pipeline, "download_url_to_temp_file", return_value=MagicMock(path="base.jpg")), \
+                patch.object(pipeline, "overlay_banner_title_subtitle"):
+            pipeline.run_phase_6_overlay(clients, "recX", **kwargs)
+        return clients.airtable.update_record.call_args.args[1]
+
+    def test_phase6_writes_done_and_the_timestamp_when_it_is_the_last_phase(self):
+        saved = self._phase6()
+        self.assertEqual(saved[pipeline.FIELD_STATUS], "Done")
+        self.assertIn(pipeline.FIELD_DATE_GENERATED, saved)
+
+    def test_phase6_in_a_banner_set_does_not_mark_the_row_done_before_the_sale_banner(self):
+        saved = self._phase6(final=False)
+        self.assertEqual(saved, {pipeline.FIELD_STATUS: pipeline.STATUS_CHRISTMAS_DONE})
+        self.assertNotEqual(saved[pipeline.FIELD_STATUS], "Done")
 
 
 class BannerOverlayTests(unittest.TestCase):
@@ -291,7 +400,11 @@ class BannerPromptInstructionTests(unittest.TestCase):
     def test_mount_hints_are_facts_not_locations(self):
         from content_automation.prompts import BANNER_MOUNT_HINTS
 
-        self.assertEqual(set(BANNER_MOUNT_HINTS), {"CH", "PE", "FL", "TL", "WL", "TA", "TB"})
+        self.assertEqual(set(BANNER_MOUNT_HINTS), {"CH", "PE", "FL", "TL", "WL", "DP", "KA", "KB", "BA", "BB"})
+        for code in ("DP", "KA", "KB"):  # the Sale banner's pendants hang like the Christmas banner's PE
+            self.assertEqual(BANNER_MOUNT_HINTS[code], BANNER_MOUNT_HINTS["PE"])
+        for code in ("BA", "BB"):  # the third banner's bedside lamps sit like the Christmas banner's table lamp
+            self.assertEqual(BANNER_MOUNT_HINTS[code], BANNER_MOUNT_HINTS["TL"])
         for hint in BANNER_MOUNT_HINTS.values():
             self.assertNotIn("sofa", hint)
             self.assertNotIn("coffee table", hint)
@@ -478,13 +591,14 @@ class ChristmasBannerRouteTests(unittest.TestCase):
         self.assertEqual(data["completed"], 5)
         self.assertEqual(data["table_id"], "tblBanner")
 
-    def test_fixture_defaults_to_banner_table_and_six_phases(self):
+    def test_fixture_defaults_to_banner_table_and_fifteen_phases(self):
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop(self.module.TABLE_ENV_KEY, None)
             fixture = self.client.get("/api/christmas-banner/fixtures").get_json()["fixtures"][0]
         self.assertEqual(fixture["table_id"], "tblgNk1Tp6qKUcduw")
-        self.assertEqual(self.module.TOTAL_PHASES, 6)
-        self.assertEqual(sorted(self.module.PHASE_LABELS), [1, 2, 3, 4, 5, 6])
+        # One Studio run = the Banner Set: 1 scrape + 5 Christmas + 5 Sale + 4 third-banner phases
+        self.assertEqual(self.module.TOTAL_PHASES, 15)
+        self.assertEqual(sorted(self.module.PHASE_LABELS), list(range(1, 16)))
 
     def test_stop_without_active_run_is_400(self):
         with patch.object(self.module, "is_authorized", return_value=True):

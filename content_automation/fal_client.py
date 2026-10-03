@@ -118,7 +118,7 @@ class FalClient:
                 if previous is None:
                     os.environ.pop("FAL_KEY", None)
                 else:
-                    os.environ["FAL_KEY"] = previous
+                    os.environ["FAL_KEY"] = previous    
         except Exception:
             pass
 
@@ -770,6 +770,62 @@ class FalClient:
                 return audio_url
 
         raise response_error(sync_resp, f"fal.ai ElevenLabs music ({model_code})")
+
+    def generate_elevenlabs_sound_effect(
+        self,
+        prompt: str,
+        *,
+        duration: float = 1.0,
+        model: str = "fal-ai/elevenlabs/sound-effects/v2",
+        on_task_created: Callable[[str], None] | None = None,
+    ) -> str:
+        """Generate a short sound effect (pop, whoosh...) with Fal AI ElevenLabs Sound Effects.
+
+        Returns the audio URL. ``duration`` is clamped to the 0.5-22 s range the API accepts.
+        """
+        if not self.api_key:
+            raise ProviderError("FAL_KEY (or FAL_API_KEY) is not set in environment or .env file")
+
+        model_code = model.strip()
+        if not model_code.startswith("fal-ai/"):
+            model_code = f"fal-ai/{model_code}"
+        arguments: dict[str, Any] = {
+            "text": prompt,
+            "duration_seconds": max(0.5, min(float(duration), 22.0)),
+        }
+
+        queue_url = f"{self.queue_base}/{model_code}"
+        try:
+            queue_resp = request_with_retry(
+                self.session,
+                "POST",
+                queue_url,
+                headers=self._headers(),
+                json=arguments,
+                retry_server_errors=True,
+                timeout=30.0,
+            )
+            if queue_resp.ok:
+                request_id = str(queue_resp.json().get("request_id") or "")
+                if request_id:
+                    if on_task_created:
+                        on_task_created(request_id)
+                    return self._extract_audio_url(self.poll_queue_raw(model_code, request_id))
+        except Exception as q_err:
+            print(f"[WARN] Fal AI ElevenLabs sound effect queue error: {q_err}")
+
+        sync_resp = request_with_retry(
+            self.session,
+            "POST",
+            f"{self.api_base}/{model_code}",
+            headers=self._headers(),
+            json=arguments,
+            retry_server_errors=True,
+            timeout=180.0,
+        )
+        if sync_resp.ok:
+            return self._extract_audio_url(sync_resp.json())
+        raise response_error(sync_resp, f"fal.ai ElevenLabs sound effect ({model_code})")
 
     def generate_gpt_image_2(
         self,

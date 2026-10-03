@@ -1870,8 +1870,8 @@ class BannerTextBox:
 
 
 # Editor boxes for the banner text (design canvas 1800x600 px).
-BANNER_TITLE_BOX = BannerTextBox(x=60, y=340.7, width=1053.6, height=130.9)
-BANNER_SUBTITLE_BOX = BannerTextBox(x=60, y=457.9, width=999.5, height=73.4)
+BANNER_TITLE_BOX = BannerTextBox(x=60, y=340.7, width=1680, height=130.9)
+BANNER_SUBTITLE_BOX = BannerTextBox(x=60, y=457.9, width=1680, height=73.4)
 # Font sizes come from the Canva editor, which counts in points: 1 pt = 4/3 px.
 BANNER_TITLE_FONT_SIZE = 81.8
 BANNER_SUBTITLE_FONT_SIZE = 46.3
@@ -2037,8 +2037,8 @@ def overlay_banner_title_subtitle(
 # Sale banner (1800x600): two interior photos either side of a red sale panel
 # ---------------------------------------------------------------------------
 # Geometry, fonts, sizes and tracking are fitted numerically to the Canva reference sample
-# (1800x600). Everything is Poppins: Medium for the headline, SALE and the big numbers,
-# Regular for UP TO, %, OFF and the captions, all with about -0.09 em tracking.
+# (1800x600). Everything is Poppins: Medium for the headline and SALE (what Canva's B toggle renders), Regular for
+# the big numbers, UP TO, %, OFF and the captions, with about -0.09 em tracking (SALE uses Canva's -0.094 em).
 
 SALE_CANVAS_SIZE = (1800, 600)
 SALE_PANEL_X = (483, 1317)  # red panel columns [483, 1317): 834 px wide, full height
@@ -2111,14 +2111,18 @@ SALE_UPTO_PT = 26.7
 SALE_PERCENT_PT = 50.5
 SALE_OFF_PT = 51.3
 
+# Canva has its B toggle ON for the headline and SALE, but what it renders is Poppins Medium: the SALE L stem
+# measures 0.114 em in the Canva editor (Medium 0.116, Bold 0.170). SALE's Canva letter spacing is -94 = -0.094 em,
+# which gives the same ~418 px ink as the Canva box; the headline keeps the shared -0.09 em (~643 px).
 SALE_HEADLINE_STYLE = SaleTextStyle("Poppins-Medium.ttf", SALE_HEADLINE_PT * SALE_PT_TO_PX)
-SALE_WORD_STYLE = SaleTextStyle("Poppins-Medium.ttf", SALE_WORD_PT * SALE_PT_TO_PX)
+SALE_WORD_STYLE = SaleTextStyle("Poppins-Medium.ttf", SALE_WORD_PT * SALE_PT_TO_PX, -0.094)
 # The reference sample's "XX" was fitted at -0.17 em (the X glyphs overlap); real digits read better at the shared -0.09.
-SALE_NUMBER_STYLE = SaleTextStyle("Poppins-Medium.ttf", SALE_NUMBER_PT * SALE_PT_TO_PX)
+SALE_NUMBER_STYLE = SaleTextStyle("Poppins-Regular.ttf", SALE_NUMBER_PT * SALE_PT_TO_PX)
 SALE_UPTO_STYLE = SaleTextStyle("Poppins-Regular.ttf", SALE_UPTO_PT * SALE_PT_TO_PX)
 SALE_PERCENT_STYLE = SaleTextStyle("Poppins-Regular.ttf", SALE_PERCENT_PT * SALE_PT_TO_PX)
 SALE_OFF_STYLE = SaleTextStyle("Poppins-Regular.ttf", SALE_OFF_PT * SALE_PT_TO_PX)
-SALE_CAPTION_STYLE = SaleTextStyle("Poppins-Regular.ttf", 17.8)
+SALE_CAPTION_PT = 13.6
+SALE_CAPTION_STYLE = SaleTextStyle("Poppins-Regular.ttf", SALE_CAPTION_PT * SALE_PT_TO_PX)
 
 # Headline and SALE are centred on the ink centres measured on the sample (so a size change never shifts them),
 # each on its own baseline.
@@ -2140,7 +2144,7 @@ SALE_NUMBER_TO_OFF = 6.0  # number ink-right to OFF ink-left
 # Captions: two or three centred lines under each block.
 SALE_CAPTION_CENTERS = (702.0, 1086.0)
 SALE_CAPTION_FIRST_BASELINE = 535.5
-SALE_CAPTION_LINE_PITCH = 20.6
+SALE_CAPTION_LINE_PITCH = 21.0  # Canva: a 2-line caption box is 41.8 px tall
 SALE_CAPTION_MAX_WIDTH = 290.0
 SALE_CAPTION_MAX_LINES = 3
 
@@ -2350,6 +2354,303 @@ def draw_sale_banner(
         dest_path = Path(destination)
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         canvas.save(dest_path, "JPEG", quality=95, optimize=True)
+        return dest_path
+    return canvas
+
+
+# ---------------------------------------------------------------------------
+# Third banner (1800x600): coloured panel (951 px) on the left, Krea bedroom (849 px) on the right
+# ---------------------------------------------------------------------------
+# Measured on the Canva sample (page 1800x600): the panel is x 0-951, the photo x 951-1800. Title in Poppins
+# Medium 70 pt (what Canva's B toggle renders), subtitle in Poppins Regular 24 pt, both white, plus a white arrow.
+# The panel takes the colour of the Sale banner (`Sale Panel Color`).
+
+THIRD_CANVAS_SIZE = (1800, 600)
+THIRD_PANEL_WIDTH = 951
+THIRD_PHOTO_SIZE = (THIRD_CANVAS_SIZE[0] - THIRD_PANEL_WIDTH, THIRD_CANVAS_SIZE[1])  # 849 x 600
+THIRD_TITLE_TEXT = "New Collection"
+THIRD_SUBTITLE_TEXT = "Free Delivery and Installation"
+THIRD_TITLE_STYLE = SaleTextStyle("Poppins-Medium.ttf", 70 * SALE_PT_TO_PX, -0.09)
+THIRD_SUBTITLE_STYLE = SaleTextStyle("Poppins-Regular.ttf", 24 * SALE_PT_TO_PX, -0.072)
+THIRD_TEXT_INK_LEFT = 46.4  # ink-left of the title, the subtitle and (about) the arrow
+THIRD_TITLE_BASELINE = 466.0
+THIRD_SUBTITLE_BASELINE = 508.0
+THIRD_TEXT_MAX_WIDTH = THIRD_PANEL_WIDTH - 2 * THIRD_TEXT_INK_LEFT  # longer custom text shrinks to fit
+# Arrow: a 3 px line from x 44 to the tip at x 203, y 554.8, with a flat chevron head (arms 12.5 px back, 6 px out).
+THIRD_ARROW_LINE = (44.0, 203.0, 554.8)
+THIRD_ARROW_ARMS = ((190.5, 548.7), (190.5, 560.9))
+THIRD_ARROW_STROKE = 3.0
+
+
+def _third_draw_arrow(canvas: Image.Image, color: tuple[int, int, int] = SALE_TEXT_COLOR) -> None:
+    """White arrow, drawn 4x supersampled into a mask so its edges are anti-aliased."""
+    scale = 4
+    x0, y0 = 36, 538
+    box_w, box_h = 180, 34
+    mask = Image.new("L", (box_w * scale, box_h * scale), 0)
+    draw = ImageDraw.Draw(mask)
+
+    def pt(x: float, y: float) -> tuple[float, float]:
+        return ((x - x0) * scale, (y - y0) * scale)
+
+    start_x, tip_x, line_y = THIRD_ARROW_LINE
+    stroke = THIRD_ARROW_STROKE * scale
+    draw.line([pt(start_x, line_y), pt(tip_x, line_y)], fill=255, width=int(round(stroke)))
+    for arm_x, arm_y in THIRD_ARROW_ARMS:
+        draw.line([pt(tip_x, line_y), pt(arm_x, arm_y)], fill=255, width=int(round(stroke)))
+    mask = mask.resize((box_w, box_h), Image.Resampling.LANCZOS)
+    canvas.paste(Image.new("RGB", mask.size, color), (x0, y0), mask)
+
+
+def draw_third_banner(
+    bedroom_image: Path | str | Image.Image,
+    *,
+    title: str = THIRD_TITLE_TEXT,
+    subtitle: str = THIRD_SUBTITLE_TEXT,
+    panel_color: tuple[int, int, int] | str | None = None,
+    destination: Path | str | None = None,
+) -> Path | Image.Image:
+    """Compose the 1800x600 third banner: coloured panel with title, subtitle and arrow, bedroom photo on the right.
+
+    ``panel_color`` is an RGB tuple or a hex string (the Sale banner's colour); None or an unparseable value keeps
+    the sample's red. The photo is cover-fitted into its 849x600 slot; text is white Poppins placed by ink box.
+    """
+    import dataclasses
+
+    width, height = THIRD_CANVAS_SIZE
+    if isinstance(panel_color, str):
+        panel_color = parse_hex_color(panel_color)
+    panel: tuple[int, int, int] = tuple(panel_color) if panel_color else SALE_PANEL_COLOR  # type: ignore[assignment]
+
+    if isinstance(bedroom_image, (str, Path)):
+        with Image.open(bedroom_image) as opened:
+            photo_source = opened.convert("RGB")
+    else:
+        photo_source = bedroom_image.convert("RGB")
+
+    canvas = Image.new("RGB", (width, height), panel)
+    canvas.paste(_sale_cover_fit(photo_source, THIRD_PHOTO_SIZE), (THIRD_PANEL_WIDTH, 0))
+    draw = ImageDraw.Draw(canvas)
+
+    for text, style, baseline in (
+        (str(title or "").strip(), THIRD_TITLE_STYLE, THIRD_TITLE_BASELINE),
+        (str(subtitle or "").strip(), THIRD_SUBTITLE_STYLE, THIRD_SUBTITLE_BASELINE),
+    ):
+        if not text:
+            continue
+        for _ in range(40):  # shrink only when a custom text is wider than the panel allows
+            font = _sale_font(style)
+            left, _, right, _ = _sale_text_ink(text, font, style.tracking_em * style.size)
+            if right - left + 1 <= THIRD_TEXT_MAX_WIDTH:
+                break
+            style = dataclasses.replace(style, size=style.size * 0.96)
+        _sale_draw_text(draw, (THIRD_TEXT_INK_LEFT - left, baseline), text, style)
+    _third_draw_arrow(canvas)
+
+    if destination is not None:
+        dest_path = Path(destination)
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        canvas.save(dest_path, "JPEG", quality=95, optimize=True)
+        return dest_path
+    return canvas
+
+
+# ---------------------------------------------------------------------------
+# Promo banner (1080x1920, 9:16 "Your Story"): logo, tagline, big "NN%OFF" and the date line over a 9:16 background
+# ---------------------------------------------------------------------------
+# Values come from the Canva Position panel of the monthly promo page. Canva's Y is the TOP of a text box, so
+# the baseline is placed at box_y + PROMO_BASELINE_EM * size (measured on the Sale banner: 0.933-0.943 em).
+# Canva shows font sizes in points, 1 pt = 4/3 px on its px pages (measured on the Sale banner: 168 -> 224 px), so
+# "10%OFF" (286 / 262 / 230) is a tight, full-width lockup (about x 42 to 1065 of 1080). All positions are
+# constants so they can be fine-tuned against Canva; set PROMO_FONT_PX = 1.0 if the sizes turn out to be px.
+
+PROMO_CANVAS_SIZE = (1080, 1920)
+PROMO_FONT_PX = 4.0 / 3.0  # Canva size (pt) -> px
+PROMO_BASELINE_EM = 0.94
+PROMO_LINE_HEIGHT_EM = 1.194  # Canva text-box height / font size (the box that "%" and "OFF" rotate about)
+# Canva letter spacing -130 = -0.13 em, on every text of this page (checked on the Canva screenshot: the date lines
+# measure 676 / 693 px against 682 / 698 px here, the tagline 557 against 574, the right edge of "OFF" 1033 against 1035).
+PROMO_TRACKING_EM = -0.13
+PROMO_TEXT_COLOR: tuple[int, int, int] = (255, 255, 255)
+
+PROMO_LOGO_WIDTH = 890  # the 943x138 asset becomes 890x130 (height auto, never stretched)
+PROMO_LOGO_XY = (92.6, 1090.5)
+
+PROMO_TAGLINE_FONT = "Poppins-Regular.ttf"
+PROMO_TAGLINE_SIZE = 44.0
+PROMO_TAGLINE_Y = 1232.5
+PROMO_TAGLINE_MAX_WIDTH = 960.0
+
+PROMO_BIG_FONT = "Poppins-Regular.ttf"  # weight of "10%OFF" (the Sale banner's numbers are Regular too)
+PROMO_NUMBER_SIZE, PROMO_NUMBER_XY = 286.0, (41.9, 1229.4)
+PROMO_PERCENT_SIZE, PROMO_PERCENT_XY = 262.0, (301.8, 1234.3)
+PROMO_OFF_SIZE, PROMO_OFF_XY = 230.0, (577.4, 1262.0)
+PROMO_BIG_ROTATION_DEG = -1.1  # Canva rotation: negative = counter-clockwise (applies to "%" and "OFF")
+
+PROMO_DATE_FONT = "Poppins-Medium.ttf"  # Canva's B toggle on Poppins renders Medium, not Bold
+PROMO_DATE_SIZE = 38.7
+PROMO_DATE_LINE_SPACING_EM = 0.91  # Canva line spacing 0.91: the baselines of the two lines are 0.91 em apart
+PROMO_DATE_Y = 1600.3
+PROMO_DATE_MAX_WIDTH = 940.0
+PROMO_DATE_MAX_LINES = 2
+
+
+def _promo_font(font_file: str, size: float) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    path = _resolve_font_path(font_file)
+    if path is None:
+        raise FileNotFoundError(f"Poppins font not found: {font_file}")
+    px = size * PROMO_FONT_PX
+    try:
+        return ImageFont.truetype(str(path), px)
+    except (TypeError, ValueError):
+        return ImageFont.truetype(str(path), int(round(px)))
+
+
+def _promo_draw_text(
+    draw: ImageDraw.ImageDraw,
+    x: float,
+    baseline: float,
+    text: str,
+    font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
+    tracking_px: float,
+    fill: tuple[int, ...],
+) -> None:
+    """Left-aligned tracked text on a baseline; every glyph sits at its kerned prefix width + i * tracking."""
+    for index, char in enumerate(text):
+        offset = font.getlength(text[:index]) + index * tracking_px
+        draw.text((x + offset, baseline), char, font=font, fill=fill, anchor="ls")
+
+
+def promo_wrap_date(
+    text: str,
+    font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
+    tracking_px: float,
+    max_width: float = PROMO_DATE_MAX_WIDTH,
+    max_lines: int = PROMO_DATE_MAX_LINES,
+) -> list[str]:
+    """Balanced wrap of the date caption into at most ``max_lines`` lines that each fit ``max_width``.
+
+    One line when it fits; otherwise the split point that makes the longest line shortest.
+    """
+    words = str(text or "").split()
+    if not words:
+        return []
+    if _tracked_width(" ".join(words), font, tracking_px) <= max_width or max_lines < 2 or len(words) < 2:
+        return [" ".join(words)]
+    best: tuple[float, list[str]] | None = None
+    for cut in range(1, len(words)):
+        lines = [" ".join(words[:cut]), " ".join(words[cut:])]
+        widest = max(_tracked_width(line, font, tracking_px) for line in lines)
+        if best is None or widest < best[0]:
+            best = (widest, lines)
+    assert best is not None
+    return best[1]
+
+
+def _promo_big_piece(
+    canvas: Image.Image,
+    text: str,
+    size: float,
+    xy: tuple[float, float],
+    rotation_deg: float,
+) -> None:
+    """One part of "NN%OFF": Poppins text in a Canva-style box at ``xy`` (box top-left), optionally rotated about
+    the box centre (Canva rotates a text box around its centre)."""
+    font = _promo_font(PROMO_BIG_FONT, size)
+    px = size * PROMO_FONT_PX
+    tracking = PROMO_TRACKING_EM * px
+    box_w = _tracked_width(text, font, tracking)
+    box_h = PROMO_LINE_HEIGHT_EM * px
+    pad = int(px * 0.5) + 8
+    layer = Image.new("RGBA", (int(box_w) + 2 * pad, int(box_h) + 2 * pad), (*PROMO_TEXT_COLOR, 0))
+    _promo_draw_text(
+        ImageDraw.Draw(layer), pad, pad + PROMO_BASELINE_EM * px, text, font, tracking, (*PROMO_TEXT_COLOR, 255)
+    )
+    if rotation_deg:
+        # PIL rotates counter-clockwise for positive angles; Canva's negative angle is counter-clockwise too.
+        layer = layer.rotate(-rotation_deg, resample=Image.Resampling.BICUBIC, expand=False)
+    center_x = xy[0] + box_w / 2.0
+    center_y = xy[1] + box_h / 2.0
+    canvas.paste(layer, (int(round(center_x - layer.width / 2.0)), int(round(center_y - layer.height / 2.0))), layer)
+
+
+def draw_promo_banner(
+    background: Path | str | Image.Image,
+    *,
+    discount: int | str,
+    tagline: str,
+    date_caption: str,
+    destination: Path | str | None = None,
+    logo_path: Path | str | None = None,
+) -> Path | Image.Image:
+    """Compose the 1080x1920 promo banner: the 9:16 background, then logo, tagline, "NN%OFF" and the date line.
+
+    Everything is drawn locally (no API call). The background is cover-fitted to 1080x1920; the logo is resized
+    to PROMO_LOGO_WIDTH with its height following the asset's ratio (never stretched).
+    """
+    width, height = PROMO_CANVAS_SIZE
+    if isinstance(background, (str, Path)):
+        with Image.open(background) as opened:
+            source = opened.convert("RGB")
+    else:
+        source = background.convert("RGB")
+    canvas = ImageOps.fit(source, (width, height), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+    draw = ImageDraw.Draw(canvas)
+    white = (*PROMO_TEXT_COLOR, 255)
+
+    # Logo
+    logo_file = Path(logo_path) if logo_path else _resolve_asset_file("homecartel_logo.png")
+    if logo_file and Path(logo_file).is_file():
+        with Image.open(logo_file) as opened_logo:
+            logo = opened_logo.convert("RGBA")
+        logo_h = max(1, round(logo.height * PROMO_LOGO_WIDTH / logo.width))
+        logo = logo.resize((PROMO_LOGO_WIDTH, logo_h), Image.Resampling.LANCZOS)
+        canvas.paste(logo, (int(round(PROMO_LOGO_XY[0])), int(round(PROMO_LOGO_XY[1]))), logo)
+
+    # Tagline: one centred line, shrunk only if a long tagline would not fit.
+    tagline = " ".join(str(tagline or "").split())
+    if tagline:
+        font_path = _resolve_font_path(PROMO_TAGLINE_FONT)
+        font = _fit_single_line_font(
+            tagline, font_path, PROMO_TAGLINE_SIZE * PROMO_FONT_PX, PROMO_TAGLINE_MAX_WIDTH, PROMO_TRACKING_EM
+        )
+        px = float(getattr(font, "size", PROMO_TAGLINE_SIZE) or PROMO_TAGLINE_SIZE)
+        tracking = PROMO_TRACKING_EM * px
+        line_w = _tracked_width(tagline, font, tracking)
+        baseline = PROMO_TAGLINE_Y + PROMO_BASELINE_EM * px
+        _promo_draw_text(draw, (width - line_w) / 2.0, baseline, tagline, font, tracking, white)
+
+    # "10" / "15", then "%" and "OFF" (both tilted -1.1 degrees), each in its own Canva box.
+    number = str(int(discount))
+    number_font = _promo_font(PROMO_BIG_FONT, PROMO_NUMBER_SIZE)
+    number_px = PROMO_NUMBER_SIZE * PROMO_FONT_PX
+    _promo_draw_text(
+        draw,
+        PROMO_NUMBER_XY[0],
+        PROMO_NUMBER_XY[1] + PROMO_BASELINE_EM * number_px,
+        number,
+        number_font,
+        PROMO_TRACKING_EM * number_px,
+        white,
+    )
+    _promo_big_piece(canvas, "%", PROMO_PERCENT_SIZE, PROMO_PERCENT_XY, PROMO_BIG_ROTATION_DEG)
+    _promo_big_piece(canvas, "OFF", PROMO_OFF_SIZE, PROMO_OFF_XY, PROMO_BIG_ROTATION_DEG)
+
+    # Date line: centred, Poppins Bold, up to two balanced lines.
+    caption = " ".join(str(date_caption or "").split())
+    if caption:
+        date_font = _promo_font(PROMO_DATE_FONT, PROMO_DATE_SIZE)
+        date_px = PROMO_DATE_SIZE * PROMO_FONT_PX
+        date_tracking = PROMO_TRACKING_EM * date_px
+        for index, line in enumerate(promo_wrap_date(caption, date_font, date_tracking)):
+            line_w = _tracked_width(line, date_font, date_tracking)
+            baseline = PROMO_DATE_Y + PROMO_BASELINE_EM * date_px + index * PROMO_DATE_LINE_SPACING_EM * date_px
+            _promo_draw_text(draw, (width - line_w) / 2.0, baseline, line, date_font, date_tracking, white)
+
+    if destination is not None:
+        dest_path = Path(destination)
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        canvas.save(dest_path, "PNG", optimize=True)
         return dest_path
     return canvas
 

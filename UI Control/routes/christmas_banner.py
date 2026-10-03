@@ -25,7 +25,7 @@ christmas_banner_bp = Blueprint(
 )
 
 FIXTURE_ID = "christmas_banner"
-CATEGORY_LABEL = "Christmas Banner"  # the sale banner shares this table
+CATEGORY_LABEL = "Christmas Banner"  # Banner Set rows (Christmas + Sale banner on one row) use this Category
 PIPELINE_KEY = "christmas-banner"
 TABLE_ENV_KEY = "AIRTABLE_TABLE_ID_CHRISTMAS_BANNER"
 DEFAULT_TABLE_ID = "tblgNk1Tp6qKUcduw"
@@ -38,21 +38,40 @@ DEFAULT_PROMPT = (
     "and console, high ceilings, clean architecture, warm cozy evening light, wide cinematic panoramic composition, "
     "with empty ceiling, wall and floor spaces for lighting fixtures"
 )
-TOTAL_PHASES = 6
+SCRIPT_NAME = "generate_banner_set_pipeline.py"  # one run = Christmas + Sale + third banner on ONE Airtable row
+TOTAL_PHASES = 15
 PHASE_LABELS = {
-    1: "Phase 1: Akeneo Scrape (5 fixtures) & Catalog Verification",
+    1: "Phase 1: Akeneo Scrape (10 products) & Catalog Verification",
     2: "Phase 2: Krea Christmas Living Room (2.35:1)",
     3: "Phase 3: Claude Vision Blending Prompt",
     4: "Phase 4: Nano Banana Pro 21:9 Banner Blend",
     5: "Phase 5: Claude Title + Subtitle",
     6: "Phase 6: Poppins Title/Subtitle Overlay (Shadow)",
+    7: "Phase 7: Sale Banner - Krea Dining Room + Kitchen (4:5)",
+    8: "Phase 8: Sale Banner - Claude Blending Prompts",
+    9: "Phase 9: Sale Banner - Nano Banana Pro Room Blends",
+    10: "Phase 10: Sale Banner - Calendar Captions + Claude Panel Colour",
+    11: "Phase 11: Sale Banner - 1800x600 Composite",
+    12: "Phase 12: Third Banner - Krea Modern Christmas Bedroom (3:2)",
+    13: "Phase 13: Third Banner - Claude Blending Prompt",
+    14: "Phase 14: Third Banner - Nano Banana Pro Bedroom Blend",
+    15: "Phase 15: Third Banner - Composite (Sale Colour Panel + Text)",
 }
+# The banners print their own "[PHASE n]" lines one after the other: Christmas 2-6, then the Sale banner's 2-6 again
+# (our 7-11), then the third banner's 2-5 (our 12-15). Each banner's "[PHASE 6]" ends its stage.
+SALE_PHASE_OFFSET = 5
+PHASE_STAGE_OFFSET = 5
+
+
+def phase_index(n: int, stage: int) -> int:
+    """Studio phase number for a printed "[PHASE n]" while in ``stage`` (0 Christmas, 1 Sale, 2 third)."""
+    return n if stage == 0 or n < 2 else n + PHASE_STAGE_OFFSET * stage
 
 
 def get_fixture() -> dict[str, Any]:
     return {
         "id": FIXTURE_ID,
-        "name": "Christmas Banner",
+        "name": "Banner Set",
         "table_id": (os.getenv(TABLE_ENV_KEY) or DEFAULT_TABLE_ID).strip(),
         "total": 100,
         "moodboard_id": (os.getenv(MOODBOARD_ENV_KEY) or DEFAULT_MOODBOARD_ID).strip(),
@@ -184,18 +203,18 @@ def run_pipeline_route():
             "current_phase_index": 0,
             "total_phases": TOTAL_PHASES,
             "elapsed_seconds": 0,
-            "logs": [f"[{time.strftime('%X')}] Triggering Christmas Banner (21:9)..."],
+            "logs": [f"[{time.strftime('%X')}] Triggering the Banner Set (one row, three banners)..."],
             "error": None,
             "start_time": time.time(),
         })
 
     def run_worker():
-        register_pipeline(PIPELINE_KEY, "Christmas Banner")
+        register_pipeline(PIPELINE_KEY, "Banner Set")
 
         cmd = [
             sys.executable,
             "-u",
-            str(MARKETING_DIR / "generate_christmas_banner_pipeline.py"),
+            str(MARKETING_DIR / SCRIPT_NAME),
             "--table-id", fix_info["table_id"],
         ]
         if custom_moodboard:
@@ -216,6 +235,7 @@ def run_pipeline_route():
             with _STATE_LOCK:
                 _EXEC_STATE["process"] = p
 
+            stage = 0  # 0 Christmas banner, 1 Sale banner, 2 third banner
             for line in iter(p.stdout.readline, ""):
                 txt = line.strip()
                 if not txt:
@@ -223,11 +243,15 @@ def run_pipeline_route():
                 with _STATE_LOCK:
                     _EXEC_STATE["logs"].append(txt)
                     low = txt.lower()
-                    # The pipeline prints "[PHASE n]" headers; only those move the phase.
-                    for idx, label in PHASE_LABELS.items():
-                        if f"[phase {idx}]" in low:
-                            _EXEC_STATE["current_phase"] = label
+                    # The pipeline prints "[PHASE n]" headers; only those move the phase. Each banner's own
+                    # "[PHASE 6]" ends its stage, and the next banner then prints its phases from 2 again.
+                    for n in range(1, 7):
+                        if f"[phase {n}]" in low:
+                            idx = phase_index(n, stage)
+                            _EXEC_STATE["current_phase"] = PHASE_LABELS[idx]
                             _EXEC_STATE["current_phase_index"] = idx
+                            if n == 6 and stage < 2:
+                                stage += 1
 
             p.wait()
             rc = p.returncode
@@ -240,7 +264,7 @@ def run_pipeline_route():
                     _EXEC_STATE["status"] = "completed"
                     _EXEC_STATE["current_phase"] = "Completed"
                     _EXEC_STATE["current_phase_index"] = TOTAL_PHASES
-                    _EXEC_STATE["logs"].append(f"[{time.strftime('%X')}] Christmas Banner completed successfully.")
+                    _EXEC_STATE["logs"].append(f"[{time.strftime('%X')}] Banner Set completed successfully.")
                 else:
                     _EXEC_STATE["status"] = "error"
                     _EXEC_STATE["error"] = f"Process exited with code {rc}"
@@ -258,7 +282,7 @@ def run_pipeline_route():
 
     return jsonify({
         "status": "success",
-        "message": "Started Christmas Banner",
+        "message": "Started Banner Set",
         "fixture_id": FIXTURE_ID,
     })
 

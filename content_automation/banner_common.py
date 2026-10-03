@@ -183,7 +183,7 @@ def pick_fixture(
 
     ``fx`` is ``{"code", "category", "label"}``. The caller adds the returned SKU/name to
     ``base_skus`` / ``base_names`` before picking the next slot, so two slots of the same category
-    (for example two table lamps) never get the same item.
+    (for example the two kitchen pendants) never get the same item.
     """
     print(f"  [INFO] Querying Akeneo for '{fx['category']}'...")
     query: dict[str, Any] = {

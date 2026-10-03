@@ -83,7 +83,7 @@ export type PipelineType =
   | 'one-product-three-styles-reel'
   | 'one-at-a-time-lights-reel'
   | 'sketch-to-draw-reel'
+  | 'room-build-up-reel'
   | 'ad-cover'
   | 'christmas-banner'
-  | 'sale-banner'
   | null;

@@ -50,6 +50,7 @@ from routes.style_reel_slideshow import style_reel_slideshow_bp
 from routes.moodboard_reel import moodboard_reel_bp
 from routes.one_product_three_styles_reel import one_product_three_styles_reel_bp
 from routes.one_at_a_time_lights_reel import one_at_a_time_lights_reel_bp
+from routes.room_build_up_reel import room_build_up_reel_bp
 from routes.sketch_to_draw_reel import sketch_to_draw_reel_bp
 from routes.ad_cover import ad_cover_bp
 from routes.christmas_banner import christmas_banner_bp
@@ -88,6 +89,7 @@ app.register_blueprint(style_reel_slideshow_bp)
 app.register_blueprint(moodboard_reel_bp)
 app.register_blueprint(one_product_three_styles_reel_bp)
 app.register_blueprint(one_at_a_time_lights_reel_bp)
+app.register_blueprint(room_build_up_reel_bp)
 app.register_blueprint(sketch_to_draw_reel_bp)
 app.register_blueprint(ad_cover_bp)
 app.register_blueprint(christmas_banner_bp)
@@ -171,6 +173,7 @@ def health():
             "moodboard_reel",
             "one_product_three_styles_reel",
             "one_at_a_time_lights_reel",
+            "room_build_up_reel",
             "sketch_to_draw_reel",
             "ad_cover",
             "christmas_banner",

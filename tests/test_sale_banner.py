@@ -165,8 +165,21 @@ class SaleOverlayTests(unittest.TestCase):
         self.assertAlmostEqual(overlay.SALE_OFF_STYLE.size, 51.3 * px)
         self.assertEqual(overlay.SALE_PERCENT_STYLE.font_file, "Poppins-Regular.ttf")
         self.assertEqual(overlay.SALE_OFF_STYLE.font_file, "Poppins-Regular.ttf")
+        self.assertAlmostEqual(overlay.SALE_CAPTION_STYLE.size, 13.6 * px)
+        # Canva's B toggle on the headline and SALE renders Poppins Medium (measured stem 0.114 em), not Bold.
         self.assertEqual(overlay.SALE_HEADLINE_STYLE.font_file, "Poppins-Medium.ttf")
+        self.assertEqual(overlay.SALE_WORD_STYLE.font_file, "Poppins-Medium.ttf")
+        self.assertAlmostEqual(overlay.SALE_WORD_STYLE.tracking_em, -0.094)  # Canva letter spacing -94
+        self.assertEqual(overlay.SALE_NUMBER_STYLE.font_file, "Poppins-Regular.ttf")
         self.assertEqual(overlay.SALE_UPTO_STYLE.font_file, "Poppins-Regular.ttf")
+        self.assertEqual(overlay.SALE_CAPTION_STYLE.font_file, "Poppins-Regular.ttf")
+
+    def test_headline_and_sale_are_as_wide_as_the_canva_boxes(self):
+        white = self._white(self._render(percent_left=10, percent_right=15))
+        h_left, h_right, _, _ = self._bbox(white, (40, 126), (540, 1280))
+        self.assertAlmostEqual(h_right - h_left + 1, 643, delta=5)  # Canva headline box 643.4 px
+        s_left, s_right, _, _ = self._bbox(white, (128, 310), (640, 1160))
+        self.assertAlmostEqual(s_right - s_left + 1, 418, delta=5)  # Canva SALE ink ~418 px (box 423.6 px)
 
     def test_headline_and_sale_word_keep_their_ink_centres_at_the_canva_sizes(self):
         white = self._white(self._render(percent_left=10, percent_right=15))
@@ -350,24 +363,37 @@ class SharedHelperTests(unittest.TestCase):
 
 def _fields_with_rooms():
     return {
-        "Item Name": "PE: Allein\nTA: Yareli\nTB: Yarelo",
+        "Item Name": "DP: Allein\nKA: Yareli\nKB: Yarelo",
         pipeline.FIELD_FURNITURE: [
-            {"filename": "PE_s1_m.png", "url": "u-pe"},
-            {"filename": "TA_s2_m.png", "url": "u-ta"},
-            {"filename": "TB_s3_m.png", "url": "u-tb"},
+            {"filename": "DP_s1_m.png", "url": "u-dp"},
+            {"filename": "KA_s2_m.png", "url": "u-ka"},
+            {"filename": "KB_s3_m.png", "url": "u-kb"},
         ],
         pipeline.FIELD_DINING_INTERIOR: [{"url": "u-dining", "filename": "d.jpg"}],
-        pipeline.FIELD_BEDROOM_INTERIOR: [{"url": "u-bedroom", "filename": "b.jpg"}],
+        pipeline.FIELD_KITCHEN_INTERIOR: [{"url": "u-kitchen", "filename": "k.jpg"}],
         pipeline.FIELD_DINING_PROMPT: "dining prompt",
-        pipeline.FIELD_BEDROOM_PROMPT: "bedroom prompt",
+        pipeline.FIELD_KITCHEN_PROMPT: "kitchen prompt",
     }
 
 
 class SalePipelinePhaseTests(unittest.TestCase):
-    def test_slots_are_one_pendant_and_two_table_lamps(self):
-        self.assertEqual([s["code"] for s in pipeline.SLOTS], ["PE", "TA", "TB"])
-        self.assertEqual([s["category"] for s in pipeline.SLOTS], ["pendant_lights", "table_lamps", "table_lamps"])
+    def test_slots_are_three_pendant_lights_one_for_dining_and_two_for_the_kitchen(self):
+        self.assertEqual([s["code"] for s in pipeline.SLOTS], ["DP", "KA", "KB"])
+        self.assertNotIn("PE", [s["code"] for s in pipeline.SLOTS])  # PE is the Christmas banner's pendant
+        self.assertEqual({s["category"] for s in pipeline.SLOTS}, {"pendant_lights"})
+        self.assertEqual([s["code"] for s in pipeline.ROOMS[0]["slots"]], ["DP"])
+        self.assertEqual([s["code"] for s in pipeline.ROOMS[1]["slots"]], ["KA", "KB"])
+        self.assertEqual([r["key"] for r in pipeline.ROOMS], ["dining", "kitchen"])
         self.assertEqual(pipeline.ROOM_ASPECT_RATIO, "4:5")
+
+    def test_interior_prompts_are_short_defaults_and_the_blend_rule_hangs_two_pendants_over_the_island(self):
+        dining, kitchen = pipeline.ROOMS
+        # The Krea moodboard carries the look: the default prompt only names the room.
+        self.assertEqual(dining["prompt_default"], "Generate me a modern luxury dining room with a Christmas theme")
+        self.assertEqual(kitchen["prompt_default"], "Generate me a modern luxury kitchen with a Christmas theme")
+        self.assertLess(len(kitchen["prompt_default"]), 80)
+        self.assertIn("island", kitchen["extra_rules"])
+        self.assertEqual(kitchen["moodboard_env"], "KREA_MOODBOARD_ID_SALE_BANNER_KITCHEN")
 
     def test_table_defaults_to_the_shared_banner_table(self):
         with patch.dict(os.environ, {}, clear=False):
@@ -383,7 +409,7 @@ class SalePipelinePhaseTests(unittest.TestCase):
 
     def test_required_fields_cover_every_field_written(self):
         for name in (pipeline.FIELD_STATUS, pipeline.FIELD_FK_ID, pipeline.FIELD_DATE_GENERATED,
-                     pipeline.FIELD_DINING_BLENDED, pipeline.FIELD_BEDROOM_BLENDED, pipeline.FIELD_SALE_BANNER,
+                     pipeline.FIELD_DINING_BLENDED, pipeline.FIELD_KITCHEN_BLENDED, pipeline.FIELD_SALE_BANNER,
                      pipeline.FIELD_CAPTION_LEFT, pipeline.FIELD_PERCENT_RIGHT, pipeline.FIELD_PANEL_COLOR):
             self.assertIn(name, pipeline.REQUIRED_FIELDS)
         self.assertNotIn("ID", pipeline.REQUIRED_FIELDS)
@@ -396,7 +422,7 @@ class SalePipelinePhaseTests(unittest.TestCase):
         def fake_pick(_clients, slot, _style, base_skus, base_names, _shopify):
             n = next(picks)
             return {"code": slot["code"], "sku": f"SKU{n}", "clean_name": f"Name{n}", "media_code": "m.png",
-                    "cutout": Path("c.png"), "notes": "W 25cm" if slot["code"] == "TA" else ""}
+                    "cutout": Path("c.png"), "notes": "W 25cm" if slot["code"] == "KA" else ""}
 
         with patch.object(pipeline, "load_scrape_context", return_value=(set(), set(), None)), \
                 patch.object(pipeline, "pick_fixture", side_effect=fake_pick):
@@ -404,8 +430,8 @@ class SalePipelinePhaseTests(unittest.TestCase):
         self.assertEqual(record_id, "recSALE")
         fields = clients.airtable.create_record.call_args.args[0]
         self.assertEqual(fields["Category"], "Sale Banner")
-        self.assertEqual(fields["SKU"], "PE: SKU0\nTA: SKU1\nTB: SKU2")
-        self.assertEqual(fields["Item Details"], "TA: W 25cm")
+        self.assertEqual(fields["SKU"], "DP: SKU0\nKA: SKU1\nKB: SKU2")
+        self.assertEqual(fields["Item Details"], "KA: W 25cm")
         self.assertNotIn("ID", fields)
         self.assertNotIn("Foreign Key ID", fields)
         self.assertEqual(clients.airtable.upload_attachment.call_count, 3)
@@ -418,7 +444,7 @@ class SalePipelinePhaseTests(unittest.TestCase):
                 pipeline.run_phase_1_scrape(clients)
         clients.airtable.create_record.assert_not_called()
 
-    def test_phase1_second_lamp_is_not_the_first(self):
+    def test_phase1_each_pendant_is_not_one_already_picked(self):
         clients = MagicMock()
         clients.airtable.create_record.return_value = "recSALE"
         seen: list[set] = []
@@ -448,7 +474,7 @@ class SalePipelinePhaseTests(unittest.TestCase):
         self.assertEqual(moodboards[1], pipeline.ROOMS[1]["moodboard_default"])
         prompts = [c.kwargs["prompt"] for c in krea.call_args_list]
         self.assertIn("dining room", prompts[0])
-        self.assertIn("bedroom", prompts[1])
+        self.assertIn("kitchen", prompts[1])
         for prompt in prompts:
             self.assertIn("Christmas", prompt)
         saved = clients.airtable.update_record.call_args.args[1]
@@ -457,7 +483,7 @@ class SalePipelinePhaseTests(unittest.TestCase):
     def test_phase2_uses_cli_overrides(self):
         clients = MagicMock()
         clients.krea.download_image.return_value = MagicMock(path="x.jpg")
-        overrides = {"dining": {"moodboard": "mb-d", "prompt": "custom dining"}, "bedroom": {"moodboard": "", "prompt": ""}}
+        overrides = {"dining": {"moodboard": "mb-d", "prompt": "custom dining"}, "kitchen": {"moodboard": "", "prompt": ""}}
         with patch.object(pipeline, "krea_generate_room", return_value="https://k/room.jpg") as krea:
             pipeline.run_phase_2_interiors(clients, "recX", overrides=overrides)
         self.assertEqual(krea.call_args_list[0].kwargs["moodboard_id"], "mb-d")
@@ -469,13 +495,13 @@ class SalePipelinePhaseTests(unittest.TestCase):
         good = "Image 2 Image 3 " * 60
         clients.fal.generate_claude_vision.side_effect = [good, good]
         prompts = pipeline.run_phase_3_claude(clients, "recX")
-        self.assertEqual(set(prompts), {"dining", "bedroom"})
+        self.assertEqual(set(prompts), {"dining", "kitchen"})
         calls = clients.fal.generate_claude_vision.call_args_list
-        self.assertEqual(calls[0].kwargs["image_urls"], ["u-dining", "u-pe"])
-        self.assertEqual(calls[1].kwargs["image_urls"], ["u-bedroom", "u-ta", "u-tb"])
+        self.assertEqual(calls[0].kwargs["image_urls"], ["u-dining", "u-dp"])
+        self.assertEqual(calls[1].kwargs["image_urls"], ["u-kitchen", "u-ka", "u-kb"])
         self.assertIn("dining room", calls[0].kwargs["prompt"])
-        self.assertIn("bedroom", calls[1].kwargs["prompt"])
-        self.assertIn("bedside tables", calls[1].kwargs["prompt"])
+        self.assertIn("kitchen", calls[1].kwargs["prompt"])
+        self.assertIn("kitchen island", calls[1].kwargs["prompt"])
         for call in calls:
             self.assertNotIn("Composition reserve", call.kwargs["prompt"])  # nothing is drawn over the rooms
             self.assertIn("4:5", call.kwargs["prompt"])
@@ -488,12 +514,13 @@ class SalePipelinePhaseTests(unittest.TestCase):
         clients.fal.generate_claude_vision.side_effect = RuntimeError("boom")
         prompts = pipeline.run_phase_3_claude(clients, "recX")
         self.assertIn("Pendant Light \"Allein\" (Image 2)", prompts["dining"])
-        self.assertIn("(Image 3)", prompts["bedroom"])
+        self.assertIn("(Image 3)", prompts["kitchen"])
+        self.assertIn("kitchen island", prompts["kitchen"])
 
     def test_phase3_needs_interiors_and_items(self):
         clients = MagicMock()
         fields = _fields_with_rooms()
-        del fields[pipeline.FIELD_BEDROOM_INTERIOR]
+        del fields[pipeline.FIELD_KITCHEN_INTERIOR]
         clients.airtable.get_record.return_value = {"fields": fields}
         with self.assertRaises(AutomationError):
             pipeline.run_phase_3_claude(clients, "recX")
@@ -507,11 +534,11 @@ class SalePipelinePhaseTests(unittest.TestCase):
             with patch.object(pipeline, "nano_banana_blend", return_value="https://f/blend.jpg") as blend, \
                     patch.object(pipeline, "download_url_to_temp_file", return_value=MagicMock(path=str(src))):
                 saved = pipeline.run_phase_4_blend(clients, "recX")
-            self.assertEqual([p.name for p in saved], ["dining_blend_recX.jpg", "bedroom_blend_recX.jpg"])
+            self.assertEqual([p.name for p in saved], ["dining_blend_recX.jpg", "kitchen_blend_recX.jpg"])
         calls = blend.call_args_list
-        self.assertEqual(calls[0].kwargs["image_urls"], ["u-dining", "u-pe"])
-        self.assertEqual(calls[1].kwargs["image_urls"], ["u-bedroom", "u-ta", "u-tb"])
-        self.assertEqual([c.kwargs["prompt"] for c in calls], ["dining prompt", "bedroom prompt"])
+        self.assertEqual(calls[0].kwargs["image_urls"], ["u-dining", "u-dp"])
+        self.assertEqual(calls[1].kwargs["image_urls"], ["u-kitchen", "u-ka", "u-kb"])
+        self.assertEqual([c.kwargs["prompt"] for c in calls], ["dining prompt", "kitchen prompt"])
         self.assertEqual({c.kwargs["aspect_ratio"] for c in calls}, {"4:5"})
 
     @staticmethod
@@ -520,7 +547,7 @@ class SalePipelinePhaseTests(unittest.TestCase):
         fields = {}
         if blends:
             fields = {pipeline.FIELD_DINING_BLENDED: [{"url": "u-dining-blend"}],
-                      pipeline.FIELD_BEDROOM_BLENDED: [{"url": "u-bedroom-blend"}]}
+                      pipeline.FIELD_KITCHEN_BLENDED: [{"url": "u-kitchen-blend"}]}
         clients.airtable.get_record.return_value = {"fields": fields}
         if isinstance(reply, Exception):
             clients.fal.generate_claude_vision.side_effect = reply
@@ -541,7 +568,7 @@ class SalePipelinePhaseTests(unittest.TestCase):
                          "On all items from a curated collection on November 1-30, 2026")
         self.assertEqual(saved[pipeline.FIELD_PANEL_COLOR], "#B3122A")
         call = clients.fal.generate_claude_vision.call_args.kwargs
-        self.assertEqual(call["image_urls"], ["u-dining-blend", "u-bedroom-blend"])
+        self.assertEqual(call["image_urls"], ["u-dining-blend", "u-kitchen-blend"])
         self.assertIn("#RRGGBB", call["prompt"])
 
     def test_phase5_darkens_a_colour_too_light_for_white_text(self):
@@ -583,7 +610,7 @@ class SalePipelinePhaseTests(unittest.TestCase):
         clients = MagicMock()
         fields = {
             pipeline.FIELD_DINING_BLENDED: [{"url": "u-d"}],
-            pipeline.FIELD_BEDROOM_BLENDED: [{"url": "u-b"}],
+            pipeline.FIELD_KITCHEN_BLENDED: [{"url": "u-k"}],
             pipeline.FIELD_PERCENT_LEFT: "10",
             pipeline.FIELD_PERCENT_RIGHT: "15",
             pipeline.FIELD_CAPTION_LEFT: "On all items from curated monthly collection on October 1-31, 2026",
@@ -602,12 +629,30 @@ class SalePipelinePhaseTests(unittest.TestCase):
         self.assertEqual(done[pipeline.FIELD_STATUS], "Done")
         self.assertIn(pipeline.FIELD_DATE_GENERATED, done)
 
+    def test_phase6_in_a_banner_set_leaves_done_to_the_third_banner(self):
+        clients = MagicMock()
+        clients.airtable.get_record.return_value = {"fields": {
+            pipeline.FIELD_DINING_BLENDED: [{"url": "u-d"}],
+            pipeline.FIELD_KITCHEN_BLENDED: [{"url": "u-k"}],
+            pipeline.FIELD_PERCENT_LEFT: "10", pipeline.FIELD_PERCENT_RIGHT: "15",
+            pipeline.FIELD_CAPTION_LEFT: "On all items from curated monthly collection on October 1-31, 2026",
+            pipeline.FIELD_CAPTION_RIGHT: "On all items from a curated collection on October 1-31, 2026",
+        }}
+        with tempfile.TemporaryDirectory() as tmp, patch.object(pipeline, "OUTPUT_DIR", Path(tmp)):
+            src = Path(tmp) / "room.jpg"
+            Image.new("RGB", (400, 500), (40, 90, 40)).save(src)
+            with patch.object(pipeline, "download_url_to_temp_file", return_value=MagicMock(path=str(src))):
+                pipeline.run_phase_6_composite(clients, "recX", final=False)
+        saved = clients.airtable.update_record.call_args.args[1]
+        self.assertEqual(saved, {pipeline.FIELD_STATUS: pipeline.STATUS_SALE_DONE})
+        self.assertNotEqual(saved[pipeline.FIELD_STATUS], "Done")
+
     def test_phase6_paints_the_panel_with_the_stored_colour(self):
         for stored, expected in (("#0B3D2E", (11, 61, 46)), ("", (255, 49, 49)), ("garbage", (255, 49, 49))):
             clients = MagicMock()
             clients.airtable.get_record.return_value = {"fields": {
                 pipeline.FIELD_DINING_BLENDED: [{"url": "u-d"}],
-                pipeline.FIELD_BEDROOM_BLENDED: [{"url": "u-b"}],
+                pipeline.FIELD_KITCHEN_BLENDED: [{"url": "u-k"}],
                 pipeline.FIELD_PERCENT_LEFT: "10", pipeline.FIELD_PERCENT_RIGHT: "15",
                 pipeline.FIELD_CAPTION_LEFT: "On all items from curated monthly collection on October 1-31, 2026",
                 pipeline.FIELD_CAPTION_RIGHT: "On all items from a curated collection on October 1-31, 2026",
@@ -625,7 +670,7 @@ class SalePipelinePhaseTests(unittest.TestCase):
     def test_phase6_needs_captions_first(self):
         clients = MagicMock()
         clients.airtable.get_record.return_value = {"fields": {
-            pipeline.FIELD_DINING_BLENDED: [{"url": "u-d"}], pipeline.FIELD_BEDROOM_BLENDED: [{"url": "u-b"}]}}
+            pipeline.FIELD_DINING_BLENDED: [{"url": "u-d"}], pipeline.FIELD_KITCHEN_BLENDED: [{"url": "u-k"}]}}
         with patch.object(pipeline, "download_url_to_temp_file", return_value=MagicMock(path="x")):
             with self.assertRaises(AutomationError):
                 pipeline.run_phase_6_composite(clients, "recX")
@@ -694,6 +739,17 @@ class PanelColourInstructionTests(unittest.TestCase):
         self.assertIn("Image 2", text)
         self.assertIn("4.5:1", text)
         self.assertIn("white", text.lower())
+
+    def test_instruction_describes_the_kitchen_and_does_not_push_every_run_to_red(self):
+        from content_automation.prompts import build_sale_panel_color_instruction
+
+        text = build_sale_panel_color_instruction()
+        self.assertIn("kitchen", text)
+        self.assertNotIn("bedroom", text.lower())
+        self.assertNotIn("festive sale banner", text)
+        self.assertNotIn("#B3122A", text)  # a red example in the prompt anchors every answer on red
+        self.assertIn("NOT default to red", text)
+        self.assertIn("Any hue is allowed", text)
 
 
 class InstructionVariantTests(unittest.TestCase):

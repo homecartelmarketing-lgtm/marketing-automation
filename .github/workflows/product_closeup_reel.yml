@@ -39,7 +39,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: genspark_ai_developer
+          ref: marketing-automation
 
       - name: Set up Python
         uses: actions/setup-python@v5

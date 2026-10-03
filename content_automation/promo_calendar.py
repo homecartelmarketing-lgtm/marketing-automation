@@ -158,3 +158,42 @@ def build_sale_captions(
             caption=CAPTION_TEMPLATES[key].format(date=date_text),
         ))
     return out
+
+
+# ---------------------------------------------------------------------------
+# Promo banner (9:16): one discount's caption for a chosen month
+# ---------------------------------------------------------------------------
+
+DISCOUNT_EVENT_KEYS = {10: TEN_EVENT_KEY, 15: FIFTEEN_EVENT_KEY}
+
+
+def month_number(value: Any) -> int:
+    """1-12 from 9, '9', 'SEP', 'sep' or 'September'."""
+    text = str(value).strip()
+    if text.isdigit() and 1 <= int(text) <= 12:
+        return int(text)
+    wanted = text.lower()
+    for number in range(1, 13):
+        if wanted in (_calendar.month_abbr[number].lower(), _calendar.month_name[number].lower()):
+            return number
+    raise AutomationError(f"Month must be 1-12 or a name like SEP / September (got {value!r}).")
+
+
+def month_abbr(month: int) -> str:
+    return _calendar.month_abbr[month].upper()
+
+
+def promo_date_text(discount: int | str, month: Any, year: int, cal: dict[str, Any] | None = None) -> str:
+    """Date window of a discount for the promo banner, with an en dash: 'September 1–30, 2026'."""
+    try:
+        key = DISCOUNT_EVENT_KEYS[int(discount)]
+    except (KeyError, ValueError):
+        raise AutomationError(f"--discount must be 10 or 15 (got {discount!r}).") from None
+    event = find_event(cal or load_calendar(), key)
+    start, end = event_window(event, month_number(month), int(year))
+    return format_window(start, end).replace("-", "–")
+
+
+def promo_caption(discount: int | str, date_text: str) -> str:
+    """The Canva caption of a discount with its date filled in (10%: curated monthly, 15%: a curated collection)."""
+    return CAPTION_TEMPLATES[DISCOUNT_EVENT_KEYS[int(discount)]].format(date=date_text)

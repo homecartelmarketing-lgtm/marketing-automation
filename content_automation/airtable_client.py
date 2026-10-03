@@ -657,8 +657,14 @@ def fetch_status_breakdown(
             req_params = list(params)
             if offset:
                 req_params.append(("offset", offset))
-            resp = requests.get(url, headers=headers, params=req_params, timeout=timeout)
-            if not resp.ok:
+            resp = None
+            for attempt in range(3):
+                resp = requests.get(url, headers=headers, params=req_params, timeout=timeout)
+                if resp.status_code == 429:
+                    time.sleep(1.2 * (attempt + 1))
+                    continue
+                break
+            if resp is None or not resp.ok:
                 break
             data = resp.json()
             for rec in data.get("records", []):
