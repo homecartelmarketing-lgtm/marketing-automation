@@ -95,7 +95,7 @@ Open **`http://localhost:5200`** to access:
 | [**`STYLE_REEL_SLIDESHOW.md`**](docs/reels/STYLE_REEL_SLIDESHOW.md) | 11s | 5-room whole-home lifestyle slideshow tour. | Local FFmpeg, Pillow |
 | [**`ONE_PRODUCT_THREE_STYLES_REEL.md`**](docs/reels/ONE_PRODUCT_THREE_STYLES_REEL.md) | 18s | Chandelier 3-style blended-photo reel with custom holds and branded outro. | Krea, Fal Nano Banana Pro, YOLO-World, local FFmpeg |
 | [**`ONE_AT_A_TIME_LIGHTS_REEL.md`**](docs/reels/ONE_AT_A_TIME_LIGHTS_REEL.md) | ~11s | Silent bedroom reel where 3 lights (table lamp, ceiling, pendant) turn on one at a time, then all together, plus branded outro. | Krea, Fal Nano Banana Pro, YOLO-World, local FFmpeg |
-| [**`SKETCH_TO_REAL_REEL.md`**](docs/reels/SKETCH_TO_REAL_REEL.md) | ~11s | Hand-drawn room outline animates line by line into the photorealistic lit interior, with cover and branded outro (Chandelier and Pendant). `SKETCH_TO_DRAW_REEL.md` is the superseded original spec. | Krea, Fal Nano Banana Pro, YOLO-World, local Auto Draw + FFmpeg |
+| [**`SKETCH_TO_REAL_REEL.md`**](docs/reels/SKETCH_TO_REAL_REEL.md) | ~11s | Hand-drawn room outline animates line by line into the photorealistic lit interior, with cover, ElevenLabs music, and branded outro (Chandelier and Pendant). `SKETCH_TO_DRAW_REEL.md` is the superseded original spec. | Krea, Fal Nano Banana Pro, YOLO-World, Fal AI ElevenLabs, local Auto Draw + FFmpeg |
 
 ---
 

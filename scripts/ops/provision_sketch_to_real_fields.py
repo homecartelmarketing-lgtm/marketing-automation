@@ -70,6 +70,7 @@ FIELDS_SCHEMA = [
     {"name": "Furniture Item", "type": "multipleAttachments"},
     {"name": "SKU", "type": "singleLineText"},
     {"name": "Item Name", "type": "singleLineText"},
+    {"name": "Product Type", "type": "singleLineText"},
     {"name": "Category", "type": "singleLineText"},
     {"name": "Price", "type": "singleLineText"},
     {"name": "Room Interior", "type": "multipleAttachments"},
@@ -81,6 +82,7 @@ FIELDS_SCHEMA = [
     {"name": "Reel Headline", "type": "singleLineText"},
     {"name": "Thumbnail with Generated Text", "type": "multipleAttachments"},
     {"name": "Raw Video", "type": "multipleAttachments"},
+    {"name": "Music Generated", "type": "multipleAttachments"},
     {"name": "Outro", "type": "multipleAttachments"},
     {"name": "Final Video", "type": "multipleAttachments"},
 ]

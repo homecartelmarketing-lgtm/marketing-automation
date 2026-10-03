@@ -1,6 +1,6 @@
 # Sketch to Real Reel Automation Pipeline
 
-The **Sketch to Real Reel Automation Pipeline** generates high-engagement **~11-to-12 second 9:16 vertical video reels (1080 x 1920 px)** for social media (Instagram Reels, TikTok, YouTube Shorts). It demonstrates an architectural transformation: beginning with a hand-drawn vector outline sketch of a room interior featuring a HomeCartel lighting fixture that animates in real-time, line-by-line, and blossoms into a photorealistic, warmly illuminated luxury room interior, complete with an Instagram thumbnail cover and branded outro.
+The **Sketch to Real Reel Automation Pipeline** generates high-engagement **~11-to-12 second 9:16 vertical video reels (1080 x 1920 px)** for social media (Instagram Reels, TikTok, YouTube Shorts). It demonstrates an architectural transformation: beginning with a hand-drawn vector outline sketch of a room interior featuring a HomeCartel lighting fixture that animates in real-time, line-by-line, and blossoms into a photorealistic, warmly illuminated luxury room interior, complete with an Instagram thumbnail cover, ElevenLabs luxury background music, and branded outro.
 
 ---
 
@@ -9,23 +9,24 @@ The **Sketch to Real Reel Automation Pipeline** generates high-engagement **~11-
 - **Canvas Dimensions**: `1080 x 1920 px` (Aspect Ratio `9:16`)
 - **Video Format**: H.264 MP4, 30 FPS, High Profile
 - **Reel Structure & Timing**: Total ~11.0 to 12.0 seconds
-  - **Scene 1 (Auto Draw Reveal)**: 4.5s drawing + 1.8s ease transition + 2.0s hold — Real-time frame-by-frame vector stroke animation tracing the lighting fixture outlines onto the room, dissolving into the warm photorealistic scene.
+  - **Scene 1 (Auto Draw Reveal)**: 4.5s drawing + 1.8s ease transition + 2.0s hold — Real-time frame-by-frame vector stroke animation tracing the lighting fixture outlines onto the room, dissolving into the warm photorealistic scene with 2-line floating tag reveal.
   - **Scene 2 (Branded Outro)**: 2.5s hold — Branded HomeCartel closing card (`assets/outro_layout.jpg`) with smooth 0.5s fade-in.
-- **Audio Profile**: Silent (`-an`) or optional local audio soundtrack (Zero ElevenLabs API calls).
+- **Audio Profile**: 14s luxury ambient lounge background soundtrack generated via Fal AI ElevenLabs Music API (`fal-ai/elevenlabs/music`) with 1.5s outro audio fade-out (supports local audio fallback or `--no-music` mode).
 
 ---
 
-## 2. Model Stack Phase Table (7 Phases)
+## 2. Model Stack Phase Table (8 Phases)
 
 | Phase | Phase Name | Provider / Engine | Model / Settings | Input Fields / Triggers | Output Fields / Status |
 | :---: | :--- | :--- | :--- | :--- | :--- |
-| **Phase 1** | **Akeneo Scrape & Catalog Verification** | Akeneo PIM API + Shopify Client | Active ingestion + strict Shopify catalog check + base-wide dedup | Fresh category product (Chandelier, Pendant, etc.) | `Furniture Item`, `SKU`, `Item Name`, `Category` -> Status: `In progress`<br>*(Strictly NO Price Field)* |
+| **Phase 1** | **Akeneo Scrape & Catalog Verification** | Akeneo PIM API + Shopify Client | Active ingestion + strict Shopify catalog check + base-wide dedup | Fresh category product (Chandelier, Pendant, etc.) | `Furniture Item`, `SKU`, `Item Name`, `Product Type`, `Category` -> Status: `In progress`<br>*(Strictly NO Price Field)* |
 | **Phase 2** | **Krea Room Interior Generation** | Krea AI | `krea-2-medium` (9:16, 1K)<br>Preset category Moodboard | Category Moodboard ID + Room Prompt | `Room Interior`, `Interior Prompt` -> Status: `Interior Generated` |
-| **Phase 3** | **Claude Vision Prompting & Headline** | Fal AI | `anthropic/claude-sonnet-5` | Product Photo + Room Interior | `Blending Prompt`, `Reel Headline` -> Status: `Prompt Generated`<br>*(No Sketch Prompt, No Video Prompt, No Caption)* |
+| **Phase 3** | **Claude Vision Prompting & Headline** | Fal AI | `anthropic/claude-sonnet-5` | Product Photo + Room Interior | `Blending Prompt`, `Reel Headline` -> Status: `Prompt Generated`<br>*(Generates dynamic music prompt, No Caption)* |
 | **Phase 4** | **Nano Banana Pro Photorealistic Blend** | Fal AI + YOLO-World | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: 9:16, Resolution: 1K | Room Interior + Product + Blending Prompt | `Blended Image` + `Blended Image with Name text` -> Status: `Blended Image Generated` |
 | **Phase 5** | **Auto Draw Outline & Cover Generation** | Local Auto Draw Engine + Pillow | Canny edge subtraction + Pillow Poppins Bold | Room Interior (BEFORE) + Blended Image (AFTER) + `Reel Headline` | `Sketch Image` + `Thumbnail with Generated Text` -> Status: `Sketch Generated` |
-| **Phase 6** | **Auto Draw Vector Animation** | Local Auto Draw Engine via FFmpeg | Vector stroke path tracing directly to FFmpeg rawvideo pipe | Room Interior + Blended Image | `Raw Video` -> Status: `Video Generated` |
-| **Phase 7** | **FFmpeg Outro & Completion** | Local FFmpeg (`imageio-ffmpeg`) | Zero-API Local Video Compositor (Zero ElevenLabs) | `Raw Video` + `assets/outro_layout.jpg` | `Final Video` + `Outro` -> Status: `Done` (C) + auto PHT timestamp |
+| **Phase 6** | **Auto Draw Vector Animation** | Local Auto Draw Engine via FFmpeg | Vector stroke path tracing directly to FFmpeg rawvideo pipe | Room Interior + Blended Image (with 2-line floating tag reveal) | `Raw Video` -> Status: `Video Generated` |
+| **Phase 7** | **Fal AI ElevenLabs Music Generation** | Fal AI / ElevenLabs | `fal-ai/elevenlabs/music` (14s luxury ambient track) | Claude Music Prompt or default luxury lounge | `Music Generated` -> Status: `Music Generated` |
+| **Phase 8** | **FFmpeg Outro & Audio Muxing** | Local FFmpeg (`imageio-ffmpeg`) | Video & Audio Compositor with 1.5s outro audio fade | `Raw Video` + `assets/outro_layout.jpg` + ElevenLabs audio | `Final Video` + `Outro` -> Status: `Done` (C) + auto PHT timestamp |
 
 ---
 
@@ -75,7 +76,7 @@ Rows marked "no Airtable table yet" cannot be run until a real table exists: cre
 
 ---
 
-## 5. Streamlined 19-Field Airtable Database Schema
+## 5. Streamlined 21-Field Airtable Database Schema
 
 | # | Field Name | Type | Operational Description |
 | :-: | :--- | :--- | :--- |
@@ -86,20 +87,22 @@ Rows marked "no Airtable table yet" cannot be run until a real table exists: cre
 | 5 | `Furniture Item` | `multipleAttachments` | Isolated cutout product photo from Akeneo PIM |
 | 6 | `SKU` | `singleLineText` | Verified active SKU from Akeneo/Shopify |
 | 7 | `Item Name` | `singleLineText` | Clean product title |
-| 8 | `Category` | `singleLineText` / `singleSelect` | Lighting fixture category name |
-| 9 | `Room Interior` | `multipleAttachments` | 9:16 luxury empty room interior from Krea AI (BEFORE scene) |
-| 10 | `Interior Prompt` | `multilineText` | Prompt used to generate the interior |
-| 11 | `Blending Prompt` | `multilineText` | Claude Sonnet 5 vision blend prompt |
-| 12 | `Blended Image` | `multipleAttachments` | Photorealistic 9:16 room with lit fixture (AFTER scene) |
-| 13 | `Blended Image with Name text` | `multipleAttachments` | YOLO-World tagged variant with floating luxury pill badge |
-| 14 | `Sketch Image` | `multipleAttachments` | 9:16 outline preview generated via Auto Draw Canny subtraction |
-| 15 | `Reel Headline` | `singleLineText` | Claude 3-5 word hook (e.g. "From Sketch to Real") |
-| 16 | `Thumbnail with Generated Text` | `multipleAttachments` | 9:16 cover photo with dimmed outline and centered Poppins typography |
-| 17 | `Raw Video` | `multipleAttachments` | Real-time line-drawing reveal video rendered via Auto Draw |
-| 18 | `Outro` | `multipleAttachments` | Branded HomeCartel Outro (`assets/outro_layout.jpg`) |
-| 19 | `Final Video` | `multipleAttachments` | Final 9:16 vertical video reel with Outro (Zero ElevenLabs) |
+| 8 | `Product Type` | `singleLineText` | Extracted product type (e.g. Chandelier, Pendant Light) |
+| 9 | `Category` | `singleLineText` / `singleSelect` | Lighting fixture category name |
+| 10 | `Room Interior` | `multipleAttachments` | 9:16 luxury empty room interior from Krea AI (BEFORE scene) |
+| 11 | `Interior Prompt` | `multilineText` | Prompt used to generate the interior |
+| 12 | `Blending Prompt` | `multilineText` | Claude Sonnet 5 vision blend prompt |
+| 13 | `Blended Image` | `multipleAttachments` | Photorealistic 9:16 room with lit fixture (AFTER scene) |
+| 14 | `Blended Image with Name text` | `multipleAttachments` | YOLO-World tagged variant with floating luxury 2-line pill badge |
+| 15 | `Sketch Image` | `multipleAttachments` | 9:16 outline preview generated via Auto Draw Canny subtraction |
+| 16 | `Reel Headline` | `singleLineText` | Claude 3-5 word hook (e.g. "From Sketch to Real") |
+| 17 | `Thumbnail with Generated Text` | `multipleAttachments` | 9:16 cover photo with dimmed outline, centered headline & subtitle |
+| 18 | `Raw Video` | `multipleAttachments` | Real-time line-drawing reveal video rendered via Auto Draw |
+| 19 | `Music Generated` | `multipleAttachments` | 14s luxury ambient background soundtrack via Fal AI ElevenLabs Music |
+| 20 | `Outro` | `multipleAttachments` | Branded HomeCartel Outro (`assets/outro_layout.jpg`) |
+| 21 | `Final Video` | `multipleAttachments` | Final 9:16 vertical video reel with Outro and ElevenLabs audio |
 
-*(Note: Price, Caption Generated, Sketch Prompt, Video Prompt, and Music Generated fields are omitted per specifications).*
+*(Note: Price, Caption Generated, Sketch Prompt, and Video Prompt fields are omitted per specifications).*
 
 ---
 

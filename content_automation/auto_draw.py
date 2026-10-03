@@ -182,6 +182,7 @@ def render_auto_draw_video(
     line_width: float = 1.2,
     target_width: int = 1080,
     fps: int = 30,
+    after_tagged_path: Path | str | None = None,
 ) -> Path:
     """Render frame-by-frame animated line-drawing reveal video via FFmpeg."""
     before_img = load_rgb(before_path)
@@ -192,6 +193,11 @@ def render_auto_draw_video(
 
     if not paths:
         raise ValueError("No usable outlines could be extracted for Auto Draw video.")
+
+    tagged_arr: np.ndarray | None = None
+    if after_tagged_path and Path(after_tagged_path).is_file():
+        tagged_img = load_rgb(after_tagged_path)
+        tagged_arr = np.array(tagged_img.resize((w, h), Image.Resampling.LANCZOS)).astype(np.float32)
 
     segments: list[tuple[np.ndarray, np.ndarray, float]] = []
     for path in paths:
@@ -236,6 +242,8 @@ def render_auto_draw_video(
     end = finished_arr.astype(np.float32)
 
     total_frames = math.ceil(duration * fps)
+    transition_end = transition_start + transition_seconds
+    tag_fade_dur = 0.4
     try:
         for frame_number in range(total_frames):
             t = frame_number / fps
@@ -250,11 +258,15 @@ def render_auto_draw_video(
                 a, b, length = segments[index]
                 stroke(a, a + (b - a) * min(1.0, (target - completed) / length))
 
-            blend = ease((t - transition_start) / transition_seconds)
-            if blend >= 1.0:
-                frame = finished_arr
-            else:
+            if t < transition_end:
+                blend = ease((t - transition_start) / transition_seconds)
                 frame = composite(bg * (1.0 - blend) + end * blend, 1.0 - blend)
+            else:
+                if tagged_arr is not None:
+                    tag_blend = ease((t - transition_end) / tag_fade_dur)
+                    frame = np.clip(end * (1.0 - tag_blend) + tagged_arr * tag_blend, 0, 255).astype(np.uint8)
+                else:
+                    frame = finished_arr
             process.stdin.write(frame.tobytes())
 
         process.stdin.close()
@@ -267,3 +279,4 @@ def render_auto_draw_video(
         raise
 
     return out_p
+

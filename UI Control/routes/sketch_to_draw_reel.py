@@ -165,7 +165,8 @@ PHASE_LABELS: dict[int, str] = {
     4: "Phase 4: Fal Nano Banana Pro Room Blend & YOLO Tagging",
     5: "Phase 5: Auto Draw Outline & Cover Generation",
     6: "Phase 6: Auto Draw Reveal Video Rendering",
-    7: "Phase 7: FFmpeg Outro Concatenation",
+    7: "Phase 7: Fal AI ElevenLabs Music Generation",
+    8: "Phase 8: FFmpeg Outro & Audio Muxing",
 }
 
 _EXEC_STATE: dict[str, Any] = {
@@ -174,7 +175,7 @@ _EXEC_STATE: dict[str, Any] = {
     "active_table_id": None,
     "current_phase": "",
     "current_phase_index": 0,
-    "total_phases": 7,
+    "total_phases": 8,
     "elapsed_seconds": 0,
     "logs": [],
     "error": None,
@@ -326,7 +327,7 @@ def run_pipeline_route():
             "active_table_id": fix_info["table_id"],
             "current_phase": "Starting pipeline...",
             "current_phase_index": 0,
-            "total_phases": 7,
+            "total_phases": 8,
             "elapsed_seconds": 0,
             "logs": [f"[{time.strftime('%X')}] Triggering Sketch to Real Reel for {fix_info['name']} ({max_items} row(s))..."],
             "error": None,
@@ -388,7 +389,7 @@ def run_pipeline_route():
                 if rc == 0:
                     _EXEC_STATE["status"] = "completed"
                     _EXEC_STATE["current_phase"] = "Completed"
-                    _EXEC_STATE["current_phase_index"] = 7
+                    _EXEC_STATE["current_phase_index"] = 8
                     _EXEC_STATE["logs"].append(f"[{time.strftime('%X')}] Sketch to Real Reel completed successfully.")
                 else:
                     _EXEC_STATE["status"] = "error"

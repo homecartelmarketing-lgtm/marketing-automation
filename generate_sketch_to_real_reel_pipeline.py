@@ -193,6 +193,7 @@ FIELD_STATUS = "Status"
 FIELD_FURNITURE = "Furniture Item"
 FIELD_SKU = "SKU"
 FIELD_ITEM_NAME = "Item Name"
+FIELD_PRODUCT_TYPE = "Product Type"
 FIELD_CATEGORY = "Category"
 FIELD_INTERIOR = "Room Interior"
 FIELD_INTERIOR_PROMPT = "Interior Prompt"
@@ -203,12 +204,21 @@ FIELD_SKETCH_IMAGE = "Sketch Image"
 FIELD_HEADLINE = "Reel Headline"
 FIELD_THUMBNAIL_TEXT = "Thumbnail with Generated Text"
 FIELD_RAW_VIDEO = "Raw Video"
+FIELD_MUSIC = "Music Generated"
 FIELD_OUTRO = "Outro"
 FIELD_FINAL_VIDEO = "Final Video"
 
 # Status values
 STATUS_IN_PROGRESS = "In progress"
 STATUS_DONE = "Done"
+
+# ElevenLabs Music configuration via Fal AI
+DEFAULT_MUSIC_PROMPT = (
+    "Sophisticated modern luxury lounge instrumental, warm ambient Rhodes chords, "
+    "gentle acoustic double bass, soft brushed drums, elegant boutique vibe, seamless finish"
+)
+MUSIC_MODEL = "fal-ai/elevenlabs/music"
+MUSIC_DURATION = 14  # seconds
 
 # Outro assets
 OUTRO_CANDIDATES = [
@@ -218,7 +228,7 @@ OUTRO_CANDIDATES = [
     Path("Outro for All Reels/Outro.jpg"),
 ]
 
-# Audio candidates (optional local audio, NO ElevenLabs calls)
+# Audio candidates (fallback local audio if Fal AI music is unavailable or offline)
 AUDIO_CANDIDATES = [
     REPO_ROOT / "assets" / "audio.mp3",
     REPO_ROOT / "assets" / "jazz_music.mp3",
@@ -230,6 +240,11 @@ FONT_BOLD_CANDIDATES = [
     REPO_ROOT / "content_automation" / "fonts" / "Poppins-Bold.ttf",
     REPO_ROOT / "python-content-script" / "Poppins-Bold.ttf",
     REPO_ROOT / "assets" / "Poppins-Bold.ttf",
+]
+FONT_REGULAR_CANDIDATES = [
+    REPO_ROOT / "content_automation" / "fonts" / "Poppins-Regular.ttf",
+    REPO_ROOT / "python-content-script" / "Poppins-Regular.ttf",
+    REPO_ROOT / "assets" / "Poppins-Regular.ttf",
 ]
 
 
@@ -254,14 +269,24 @@ class PipelineClients:
         self.krea = KreaClient(token=settings.krea_token, base_url=settings.krea_base_url)
         self.table_id = table_id
 
+        # Auto-provision Product Type and Music Generated fields if not present
+        try:
+            self.airtable.ensure_fields({
+                FIELD_PRODUCT_TYPE: "singleLineText",
+                FIELD_MUSIC: "multipleAttachments",
+            })
+        except Exception:
+            pass
 
-def resolve_font(size: int = 54) -> ImageFont.FreeTypeFont:
+
+def resolve_font(size: int = 54, bold: bool = True) -> ImageFont.FreeTypeFont:
+    candidates = FONT_BOLD_CANDIDATES if bold else FONT_REGULAR_CANDIDATES
+    for candidate in candidates:
+        if candidate.is_file():
+            return ImageFont.truetype(str(candidate), size=size)
     for candidate in FONT_BOLD_CANDIDATES:
         if candidate.is_file():
-            try:
-                return ImageFont.truetype(str(candidate), size)
-            except Exception:
-                pass
+            return ImageFont.truetype(str(candidate), size=size)
     return ImageFont.load_default()
 
 
@@ -373,7 +398,7 @@ def run_phase_1_scrape(
 
         sku = (cand.sku or "").strip()
         item_name = (cand.item_name or "").strip()
-        clean_name, _ = split_item_name(item_name)
+        clean_name, product_type = split_item_name(item_name, fallback_product_type=cfg["name"])
         norm_sku = sku.lower()
         norm_name = clean_name.lower()
 
@@ -410,6 +435,7 @@ def run_phase_1_scrape(
             FIELD_FK_ID: fk_id,
             FIELD_SKU: sku,
             FIELD_ITEM_NAME: clean_name,
+            FIELD_PRODUCT_TYPE: product_type,
             FIELD_CATEGORY: cfg["name"],
         }
 
@@ -509,9 +535,10 @@ def run_phase_3_claude(
 - Category: {category}
 - SKU: {sku}
 
-Generate a JSON object with EXACTLY these 2 keys:
+Generate a JSON object with EXACTLY these 3 keys:
 1. "blending_prompt": A highly specific instruction for Fal Nano Banana Pro to place this exact lighting fixture naturally into the room interior. Describe its physical positioning, suspension/mount, scale, and that it is fully turned on casting a warm ambient luxury glow.
 2. "reel_headline": A punchy, luxury 3-to-5 word headline / hook for the reel cover (e.g. "From Sketch to Real", "The Art of Illumination", "Architect's Vision Realized").
+3. "music_prompt": A short, elegant prompt for Fal AI ElevenLabs Music capturing the luxury architectural ambiance of this room (e.g. "Sophisticated modern lounge jazz, warm acoustic double bass, gentle brushed drums, ambient chords, elegant boutique vibe").
 
 Return ONLY the raw JSON object without markdown fences."""
 
@@ -531,7 +558,11 @@ Return ONLY the raw JSON object without markdown fences."""
         data = {
             "blending_prompt": f"Install this {item_name} seamlessly into the room interior. It is installed and illuminated with a warm ambient golden glow.",
             "reel_headline": "From Sketch to Real",
+            "music_prompt": DEFAULT_MUSIC_PROMPT,
         }
+
+    if not data.get("music_prompt"):
+        data["music_prompt"] = DEFAULT_MUSIC_PROMPT
 
     updates: dict[str, Any] = {
         FIELD_BLEND_PROMPT: data.get("blending_prompt", ""),
@@ -550,7 +581,7 @@ Return ONLY the raw JSON object without markdown fences."""
 def run_phase_4_blend(
     clients: PipelineClients,
     record_id: str,
-) -> tuple[str, Path]:
+) -> tuple[str, Path, Path | None]:
     """Blend product into room interior using Fal Nano Banana Pro (AFTER scene for Auto Draw)."""
     print(f"\n[PHASE 4] Nano Banana Pro photorealistic blend for record {record_id}...")
     rec = clients.airtable.get_record(record_id)
@@ -559,7 +590,10 @@ def run_phase_4_blend(
     interior_atts = fields.get(FIELD_INTERIOR) or []
     furniture_atts = fields.get(FIELD_FURNITURE) or []
     blend_prompt = str(fields.get(FIELD_BLEND_PROMPT) or "").strip()
-    item_name = str(fields.get(FIELD_ITEM_NAME) or "Lighting Fixture")
+    raw_item_name = str(fields.get(FIELD_ITEM_NAME) or "Lighting Fixture").strip()
+    prod_type_val = str(fields.get(FIELD_PRODUCT_TYPE) or fields.get(FIELD_CATEGORY) or "").strip()
+    item_title, product_type = split_item_name(raw_item_name, fallback_product_type=prod_type_val or "Lighting Fixture")
+    category = str(fields.get(FIELD_CATEGORY) or prod_type_val or "lighting").strip()
 
     if not interior_atts or not furniture_atts or not blend_prompt:
         raise AutomationError(f"Record {record_id} missing inputs for room blending.")
@@ -587,24 +621,51 @@ def run_phase_4_blend(
     temp_blended = Path(downloaded_blended.path)
     clients.airtable.upload_attachment(record_id, FIELD_BLENDED_IMAGE, downloaded_blended, f"blended_{record_id}.jpg")
 
-    # YOLO-World luxury floating product tagging
+    # YOLO-World luxury floating product tagging (Item Name + Product Type)
+    tagged_local: Path | None = None
     try:
-        print("  [INFO] Running YOLO-World item tagger on blended image...")
+        from content_automation.item_tagger import tag_blended_image
+        print(f"  [INFO] Running YOLO-World item tagger ('{item_title}' • '{product_type}')...")
+        tagged_paths: list[Path] = []
         tag_and_upload_blended_image(
             airtable=clients.airtable,
             record_id=record_id,
             blended_source=temp_blended,
-            item_name=item_name,
+            item_name=item_title,
+            product_type=product_type,
+            category=category,
             target_field=FIELD_BLENDED_TAGGED,
             output_filename_prefix=f"blended_tagged_{record_id}",
             fallback_if_undetected=True,
+            output_tagged_paths=tagged_paths,
         )
-        print(f"  [OK] Tagged blended variant attached to '{FIELD_BLENDED_TAGGED}'.")
+        if tagged_paths and tagged_paths[0].is_file():
+            tagged_local = tagged_paths[0]
+            print(f"  [OK] Tagged blended variant attached to '{FIELD_BLENDED_TAGGED}' and saved to {tagged_local}.")
     except Exception as e:
         print(f"  [WARN] YOLO item tagger notice: {e}")
 
+    # Fallback local tagging if needed
+    if not tagged_local or not tagged_local.is_file():
+        try:
+            from content_automation.item_tagger import tag_blended_image
+            fallback_path = temp_blended.with_name(f"blended_tagged_{record_id}.jpg")
+            tagged_img, _ = tag_blended_image(
+                image_input=temp_blended,
+                item_name=item_title,
+                product_type=product_type,
+                category=category,
+                destination=fallback_path,
+                fallback_if_undetected=True,
+            )
+            if tagged_img is not None and fallback_path.is_file():
+                tagged_local = fallback_path
+                print(f"  [OK] Local tagged fallback generated: {tagged_local}")
+        except Exception as fb_err:
+            print(f"  [WARN] Local tagged fallback error: {fb_err}")
+
     clients.airtable.update_record(record_id, {FIELD_STATUS: "Blended Image Generated"})
-    return blended_url, temp_blended
+    return blended_url, temp_blended, tagged_local
 
 
 # --------------------------------------------------------------------------
@@ -622,6 +683,9 @@ def run_phase_5_sketch(
     rec = clients.airtable.get_record(record_id)
     fields = rec.get("fields", {})
     headline = str(fields.get(FIELD_HEADLINE) or "From Sketch to Real").strip()
+    raw_item_name = str(fields.get(FIELD_ITEM_NAME) or "").strip()
+    prod_type_val = str(fields.get(FIELD_PRODUCT_TYPE) or fields.get(FIELD_CATEGORY) or "").strip()
+    item_title, product_type = split_item_name(raw_item_name, fallback_product_type=prod_type_val)
 
     # 1. Local Auto Draw Edge Subtraction (BEFORE vs AFTER)
     outline_preview_path = Path(tempfile.gettempdir()) / f"sketch_outline_{record_id}.png"
@@ -643,8 +707,8 @@ def run_phase_5_sketch(
         f"sketch_outline_{record_id}.png",
     )
 
-    # 2. Local Pillow Cover: Dim outline slightly and stamp centered Poppins-Bold headline
-    print(f"  [INFO] Stamping centered cover typography: \"{headline}\"...")
+    # 2. Local Pillow Cover: Dim outline slightly and stamp centered Poppins-Bold headline + item subtitle
+    print(f"  [INFO] Stamping centered cover typography: \"{headline}\" (Featuring {item_title} • {product_type})...")
     cover_path = Path(tempfile.gettempdir()) / f"sketch_cover_{record_id}.jpg"
     with Image.open(outline_preview_path) as img:
         img = img.convert("RGB")
@@ -656,7 +720,7 @@ def run_phase_5_sketch(
         cover_img = enhancer.enhance(0.85)
 
         draw = ImageDraw.Draw(cover_img)
-        font = resolve_font(size=56)
+        font = resolve_font(size=56, bold=True)
 
         # Word wrap headline
         words = headline.split()
@@ -684,6 +748,17 @@ def run_phase_5_sketch(
             draw.text((x + 2, y + 2), line, font=font, fill=(0, 0, 0, 180))
             draw.text((x, y), line, font=font, fill=(255, 255, 255, 255))
 
+        # Stamped product identification subtitle (Item Name + Product Type)
+        if item_title:
+            sub_text = f"{item_title} • {product_type}" if product_type else item_title
+            sub_font = resolve_font(size=30, bold=False)
+            sub_bbox = sub_font.getbbox(sub_text)
+            sub_w = sub_bbox[2] - sub_bbox[0]
+            sub_x = (1080 - sub_w) // 2
+            sub_y = start_y + (len(lines) * 70) + 24
+            draw.text((sub_x + 2, sub_y + 2), sub_text, font=sub_font, fill=(0, 0, 0, 180))
+            draw.text((sub_x, sub_y), sub_text, font=sub_font, fill=(255, 255, 255, 230))
+
         cover_img.save(cover_path, "JPEG", quality=95)
 
     clients.airtable.upload_attachment(
@@ -706,6 +781,7 @@ def run_phase_6_video(
     record_id: str,
     before_path: Path,
     after_path: Path,
+    tagged_path: Path | None = None,
 ) -> Path:
     """Render real-time line-drawing reveal video via Auto Draw vector path tracing."""
     print(f"\n[PHASE 6] Auto Draw line-drawing reveal video rendering for record {record_id}...")
@@ -722,6 +798,7 @@ def run_phase_6_video(
         line_width=1.2,
         target_width=1080,
         fps=30,
+        after_tagged_path=tagged_path,
     )
     print(f"  [OK] Auto Draw reveal video compiled: {raw_video_path}")
 
@@ -731,18 +808,81 @@ def run_phase_6_video(
 
 
 # --------------------------------------------------------------------------
-# PHASE 7: Local FFmpeg Outro Concatenation (Silent / Local Audio, Zero ElevenLabs)
+# PHASE 7: Fal AI ElevenLabs Music Generation
 # --------------------------------------------------------------------------
 
-def run_phase_7_outro(
+def run_phase_7_music(
+    clients: PipelineClients,
+    record_id: str,
+    music_prompt: str = "",
+    enabled: bool = True,
+) -> Path | None:
+    """Generate ambient luxury background music via Fal AI ElevenLabs Music."""
+    print(f"\n[PHASE 7] Fal AI ElevenLabs music generation for record {record_id}...")
+    if not enabled:
+        print("  [INFO] Music generation disabled (--no-music) -> reel will use local audio fallback.")
+        return None
+
+    prompt = (music_prompt or "").strip() or DEFAULT_MUSIC_PROMPT
+    print(f"  [INFO] Synthesizing background soundtrack via Fal AI ElevenLabs Music ({MUSIC_MODEL})...")
+    print(f"  [PROMPT] \"{prompt}\"")
+
+    try:
+        audio_url = clients.fal.generate_elevenlabs_music(
+            prompt=prompt,
+            duration=MUSIC_DURATION,
+            model=MUSIC_MODEL,
+        )
+    except Exception as err:
+        print(f"  [WARN] Fal AI ElevenLabs music generation notice: {err}; will fallback to local audio or silent reel.")
+        return None
+
+    if not audio_url:
+        print("  [WARN] No audio URL returned from ElevenLabs; will fallback to local audio or silent reel.")
+        return None
+
+    dest = Path(tempfile.gettempdir()) / f"music_{record_id}.mp3"
+    try:
+        resp = requests.get(audio_url, timeout=30)
+        resp.raise_for_status()
+        with open(dest, "wb") as f:
+            f.write(resp.content)
+    except Exception as dl_err:
+        print(f"  [WARN] Could not download ElevenLabs audio ({dl_err}); will fallback to local audio.")
+        return None
+
+    if not dest.is_file() or dest.stat().st_size == 0:
+        return None
+
+    print(f"  [OK] ElevenLabs background music generated & downloaded: {dest}")
+
+    # Upload attachment to Airtable field 'Music Generated'
+    try:
+        clients.airtable.upload_attachment(record_id, FIELD_MUSIC, dest, f"music_{record_id}.mp3")
+        clients.airtable.update_record(record_id, {FIELD_STATUS: "Music Generated"})
+        print(f"  [OK] Attached music to Airtable field '{FIELD_MUSIC}'.")
+    except Exception as up_err:
+        print(f"  [WARN] Could not upload music to Airtable ({up_err}); proceeding with local audio file.")
+
+    return dest
+
+
+# --------------------------------------------------------------------------
+# PHASE 8: FFmpeg Outro & Audio Muxing
+# --------------------------------------------------------------------------
+
+def run_phase_8_outro(
     clients: PipelineClients,
     record_id: str,
     raw_video_path: Path,
+    audio_path: Path | None = None,
 ) -> Path:
-    """Concatenate with HomeCartel outro card silently or with local audio (ZERO ElevenLabs calls)."""
-    print(f"\n[PHASE 7] Final outro concatenation for record {record_id} (Zero ElevenLabs)...")
+    """Concatenate with HomeCartel outro card and mux ElevenLabs background music."""
+    print(f"\n[PHASE 8] Final outro concatenation & audio muxing for record {record_id}...")
     outro_file = resolve_outro_file()
-    audio_file = resolve_audio_file()
+
+    # Prioritize generated ElevenLabs audio, fallback to local candidate
+    audio_file = audio_path if (audio_path and audio_path.is_file()) else resolve_audio_file()
 
     final_video_path = Path(tempfile.gettempdir()) / f"final_reel_{record_id}.mp4"
     ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
@@ -777,7 +917,10 @@ def run_phase_7_outro(
     ]
 
     if audio_file and audio_file.is_file():
-        print(f"  [INFO] Muxing local soundtrack: {audio_file.name} (with outro audio fade)...")
+        audio_name = audio_file.name
+        is_elevenlabs = "music_" in audio_name
+        source_label = "ElevenLabs soundtrack" if is_elevenlabs else f"local soundtrack ({audio_name})"
+        print(f"  [INFO] Muxing {source_label} with 1.5s outro audio fade-out...")
         filters.append(
             f"[2:a]atrim=duration={total_dur:g},asetpts=PTS-STARTPTS,afade=t=out:st={total_dur - 1.5:g}:d=1.5[a]"
         )
@@ -836,6 +979,8 @@ def run_pipeline(
     record_id: str | None = None,
     moodboard_id: str = "",
     interior_prompt: str = "",
+    no_music: bool = False,
+    music_prompt: str = "",
 ) -> None:
     """Execute end-to-end Sketch to Real Reel pipeline."""
     target_key = target.lower().strip()
@@ -863,7 +1008,8 @@ def run_pipeline(
     print(f"Table ID:        {resolved_table_id}")
     print(f"Mode:            {mode}")
     print(f"Max Items:       {max_items}")
-    print("Zero-API Engine: Auto Draw (Canny Subtraction & Vector Reveal)")
+    print("Video Engine:    Auto Draw (Canny Subtraction & Vector Reveal)")
+    print(f"Audio Engine:    {'DISABLED (--no-music)' if no_music else 'Fal AI ElevenLabs Music (fal-ai/elevenlabs/music)'}")
     print("=" * 70)
 
     clients = PipelineClients(table_id=resolved_table_id)
@@ -888,11 +1034,12 @@ def run_pipeline(
                 custom_prompt=interior_prompt,
             )
 
-            # Phase 3: Claude vision analysis (Blending Prompt & Headline ONLY)
-            run_phase_3_claude(clients, record_id=rec_id)
+            # Phase 3: Claude vision analysis (Blending Prompt, Headline, Music Prompt)
+            claude_data = run_phase_3_claude(clients, record_id=rec_id)
+            chosen_music_prompt = music_prompt or claude_data.get("music_prompt") or DEFAULT_MUSIC_PROMPT
 
             # Phase 4: Fal Nano Banana Pro room blend (AFTER scene) + YOLO tagging
-            blended_url, blended_local = run_phase_4_blend(clients, record_id=rec_id)
+            blended_url, blended_local, tagged_local = run_phase_4_blend(clients, record_id=rec_id)
 
             # Phase 5: Auto Draw outline extraction & cover generation
             outline_path, cover_path = run_phase_5_sketch(
@@ -902,19 +1049,29 @@ def run_pipeline(
                 after_path=blended_local,
             )
 
-            # Phase 6: Auto Draw reveal video rendering
+            # Phase 6: Auto Draw reveal video rendering (with 2-line floating item tag reveal)
             raw_video_path = run_phase_6_video(
                 clients,
                 record_id=rec_id,
                 before_path=interior_local,
                 after_path=blended_local,
+                tagged_path=tagged_local,
             )
 
-            # Phase 7: Local FFmpeg Outro & Audio Muxing (Silent / Local Audio, Zero ElevenLabs)
-            final_video_path = run_phase_7_outro(
+            # Phase 7: Fal AI ElevenLabs Music Generation
+            audio_path = run_phase_7_music(
+                clients,
+                record_id=rec_id,
+                music_prompt=chosen_music_prompt,
+                enabled=not no_music,
+            )
+
+            # Phase 8: FFmpeg Outro & Audio Muxing
+            final_video_path = run_phase_8_outro(
                 clients,
                 record_id=rec_id,
                 raw_video_path=raw_video_path,
+                audio_path=audio_path,
             )
 
             print(f"\n>>> COMPLETED RECORD {rec_id} SUCCESSFULLY! <<<")
@@ -942,6 +1099,8 @@ def main() -> int:
     parser.add_argument("--record-id", default=None, help="Explicit record ID to re-process (skips scrape)")
     parser.add_argument("--moodboard-id", default="", help="Custom Krea moodboard ID")
     parser.add_argument("--interior-prompt", default="", help="Custom Krea interior prompt override")
+    parser.add_argument("--no-music", action="store_true", help="Disable Fal AI ElevenLabs music generation")
+    parser.add_argument("--music-prompt", default="", help="Custom Fal AI ElevenLabs music prompt override")
 
     args = parser.parse_args()
 
@@ -953,6 +1112,8 @@ def main() -> int:
         record_id=args.record_id,
         moodboard_id=args.moodboard_id,
         interior_prompt=args.interior_prompt,
+        no_music=args.no_music,
+        music_prompt=args.music_prompt,
     )
     return 0
 

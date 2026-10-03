@@ -68,7 +68,7 @@ Editable settings and run actions use the dashboard PIN when one is configured:
 - **Style Reel Slideshow**: 5-room whole-home lifestyle slideshow tour across 4 fixture categories.
 - **1 Product 3 Styles Reel**: Single chandelier blended into 3 distinct interior styles (5s, 4s, 4s holds + 5s outro).
 - **One at a time Lights Reel**: ~11s silent bedroom reel; 3 fixtures (Table Lamp, Ceiling Mounted, Pendant) are lit one at a time via progressive Nano Banana Pro variations, then all together, joined by local FFmpeg crossfades and a branded outro.
-- **Sketch to Real Reel**: 2 runnable categories (Chandelier, Pendant); a hand-drawn outline of the Krea room animates line by line into the photorealistic lit interior (local Auto Draw + FFmpeg), with cover and branded outro. Served by `/api/sketch-to-draw-reel/*`, which always runs `generate_sketch_to_real_reel_pipeline.py`.
+- **Sketch to Real Reel**: 2 runnable categories (Chandelier, Pendant); a hand-drawn outline of the Krea room animates line by line into the photorealistic lit interior (local Auto Draw + FFmpeg), with cover, Fal AI ElevenLabs luxury background music, and branded outro. Served by `/api/sketch-to-draw-reel/*`, which always runs `generate_sketch_to_real_reel_pipeline.py`.
 
 ### 4. Ad Covers Workspace (1:1 1080 x 1080 px + 9:16 Story 1080 x 1920 px)
 - **Standalone 4th Top-Level Tab**: Dedicated paid-creative generator producing twin deliverables per run.
