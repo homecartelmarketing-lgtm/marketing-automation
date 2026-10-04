@@ -2,6 +2,8 @@
 
 > **Welcome AI Agents & Vibe Coders!**  
 > This file is the primary single source of truth for understanding, running, modifying, and extending the HomeCartel Marketing AI Content Automation system. Read this document before making any changes.
+>
+> Step-by-step procedures (adding a pipeline, shipping, debugging, layouts, scraping) live in **skills** under `.agents/skills/` (see §12). This file keeps the rules that always apply; load the matching skill when you start that kind of task.
 
 ---
 
@@ -30,6 +32,7 @@ marketing-automation/
 ├── README.md                                # Workspace overview & documentation index
 ├── .env                                     # Environment variables (API tokens, Table IDs, Moodboards)
 ├── .env.example                             # Environment template with all 60+ table keys
+├── .agents/skills/                          # Agent skills (procedures loaded on demand, see §12)
 │
 ├── generate_*_pipeline.py                   # Self-contained pipeline MONOLITHS (real generators).
 │                                            #   e.g. generate_cta_story_pipeline.py,
@@ -58,6 +61,7 @@ marketing-automation/
 │   ├── AUTO_POST_SCHEDULER.md               # Instagram auto-publish worker (external, cross-repo dependency)
 │   ├── OPERATIONS_AND_UTILITIES.md          # Airtable maintenance / tagging / diagnostic scripts
 │   ├── GIT_PUSH_AND_DEPLOY.md               # Detailed AI commit/push/deploy walkthrough (expands §11)
+│   ├── SKILLS_GUIDE.md                      # What each agent skill is for and when to load it
 │   ├── UI_CONTROL_CONFIG.md                 # Studio moodboard/prompt overrides & config keys
 │   ├── CLOUDFLARE_TUNNEL_GUIDE.md           # Tunnel guide
 │   ├── superpowers/                         # Planned-but-NOT-implemented designs (see index note)
@@ -239,55 +243,21 @@ The Row Inspector modal queries `/api/rows?table_id=<table_id>` and constructs d
 ## 5. Scraping & Deduplication Rules
 
 > [!CAUTION]
-> ### CRITICAL RULE: Always Generate Brand-New Rows (Scrape Fresh & Process End-to-End)
-> **AI agents frequently make the mistake of scanning Airtable for leftover, pending, or incomplete rows and attempting to re-process them. THIS IS STRICTLY PROHIBITED.**
-> - **Every single pipeline run** (whether triggered via Web Studio UI or CLI default `--phase all` / without `--record-id`) MUST:
->   1. Scrape fresh active products directly from Akeneo.
->   2. Cross-verify every product against Shopify to ensure it is **Active and Published**.
->   3. Run base-wide deduplication across all 60+ tables to guarantee it has never been featured anywhere in the base.
->   4. Create a **brand-new Airtable row** (e.g. 4 fresh active Table Lamps for Product Closeup Reel; 4 fresh active fixtures for Collection Category Feed; 1 fresh active fixture for Single-slide Story/Feed).
->   5. Process that brand-new row **end-to-end (every phase, 1 through N)** until it reaches `Complete`/`Done` (`C`).
-> - **NEVER iterate over, query, or rerun remaining, old, or incomplete rows in the table.**
-> - Existing rows in the table must remain 100% untouched. The ONLY exception is if a developer explicitly passes an exact `--record-id <rec_id>` via CLI to re-render a specific record.
+> These apply to every run. Agents break them often, so they stay in this always-loaded file.
+> - **Brand-new row every run.** Scrape fresh from Akeneo, verify, dedup, insert a new row, and process it end-to-end until `Complete`/`Done`. **Never** query, loop over, or re-run existing, leftover, or incomplete rows. The only exception is an explicit `--record-id <rec_id>` passed by a developer.
+> - **Shopify Active & Published, exact match only.** `enabled=True` in Akeneo is not enough. Skip anything that is Draft, Inactive, Archived, or Unlisted on `homecartel.net/products.json`. Match on exact normalized SKU or exact title (or pre-pipe title). Substring matching is banned.
+> - **Base-wide dedup.** Check SKU and item name against all 60+ tables (`fetch_all_base_existing_identities`) before inserting.
+> - **Category routing.** Linear and cluster chandeliers go to their own tables, not standard chandelier ones.
 
-> [!IMPORTANT]
-> ### CRITICAL RULE: Strict Shopify "Active & Published" Cross-Deduplication
-> - **Having `enabled=True` in Akeneo PIM is NOT enough.** Akeneo contains discontinued, draft, or out-of-stock items that have not yet been disabled in PIM.
-> - **Every single candidate product scraped from Akeneo MUST be strictly verified against Shopify (`homecartel.net/products.json`).**
-> - If an item is **Draft, Inactive, Archived, or Not Published on Shopify**, it MUST be skipped immediately:
->   `[SHOPIFY DRAFT/INACTIVE SKIP] Item '<name>' (SKU: <sku>) is not active on Shopify -> skipping`
-> - **Strict Matching Only**: Matching against Shopify MUST use exact normalized SKU equality or exact Title equality (or pre-pipe title). Substring matching (e.g. `s in clean_sku`, which mistakenly matches short tokens like `'dl'`) is strictly banned.
-> - **Catalog Cache Refresh & Zero Partial-Cache Guarantee**: The Shopify catalog index cache auto-refreshes every 24 hours (configurable via `SHOPIFY_CACHE_TTL_HOURS`) from `https://homecartel.net/products.json`. To prevent Cloudflare bot challenges, `ShopifyClient` uses `curl_cffi` with Chrome 120 TLS fingerprint impersonation (falling back to `requests`), with instant fast-fail detection on Cloudflare challenge mitigations. If a storefront crawl experiences unrecovered failed pages or catalog shrinkage (<75% of previous cache SKUs), the disk cache is NEVER overwritten, falling back safely to the existing cache to prevent false product rejections. The crawler uses 4 workers with per-slot initial delays (0.35s/worker), 1.0s inter-batch pauses, `Retry-After` header parsing (or jittered exponential backoff up to 7 attempts capped at 30s), and a sequential single-threaded retry pass for failed pages. You can check status or force-refresh the cache anytime with `python -m content_automation.shopify_client [--status|--refresh]`.
-
-### 3. Base-Wide Cross-Table Deduplication
-- Before inserting any product into ANY Story, Feed, or Reel table, cross-check its SKU and Item Name against ALL 60+ tables across the entire Airtable base using `fetch_all_base_existing_identities`.
-- Products already featured in any Story, Feed, or Reel table must be excluded to prevent repetitive content across the brand's social feeds.
-
-### 4. Category-Specific Inclusions / Exclusions
-- In standard Chandelier categories, skip linear chandeliers and cluster chandeliers (route them to their dedicated cluster tables).
-- Always verify slot room compatibility (e.g. Table Lamps for bedside nightstands; Chandeliers for high-ceiling living/dining spaces).
+Full mechanics (skip-log format, Shopify cache/crawler behavior and the partial-cache guarantee, room-slot compatibility): **`.agents/skills/fresh-row-scrape/SKILL.md`**.
 
 ---
 
 ## 6. Local Pillow Rendering Guidelines (Zero API Cost)
 
-All local layout rendering lives in **`content_automation/overlay.py`** (plus `item_tagger.py` for YOLO name tags). There is no `text_overlays/` package.
+All layout rendering is local Pillow in **`content_automation/overlay.py`** (plus `item_tagger.py` for YOLO name tags). There is no `text_overlays/` package. Canvases: Story `1080 x 1920`, Feed `1080 x 1350`, Ad Cover `1080 x 1080` (+ 9:16 twin). Fonts come from `content_automation/fonts/` (Poppins), the logo is `assets/homecartel_logo.png`, and coordinates come from `JSON Prompts/<Format>/*.json`.
 
-- **Canvas Dimensions**:
-  - **Story (9:16)**: `1080 x 1920 px`
-  - **Feed (4:5)**: `1080 x 1350 px`
-  - **Ad Cover (1:1)**: `1080 x 1080 px`, plus its 9:16 Story twin at `1080 x 1920 px` (`overlay.py::AD_COVER_STORY_CANVAS_SIZE`)
-- **Typography Engine**:
-  - Fonts are resolved by `overlay.py::_resolve_font_path` from **`content_automation/fonts/Poppins-Bold.ttf`, `Poppins-Regular.ttf`, `Poppins-Light.ttf`** (plus `Poppins-ExtraBold.ttf` for the Tips & Edu Story title and `Poppins-Medium.ttf` for banners) (not `assets/fonts/`).
-  - Always implement auto-scaling font protection (e.g. scale font down from 48px to 24px if text width exceeds bounding box).
-- **Brand Logo**:
-  - Local fallback asset is **`assets/homecartel_logo.png`** (not `assets/Logo.png`); resolution via `overlay.py::find_homecartel_logo_path` / `content_automation/assets.py::AssetCatalog`.
-  - Logo bounding boxes: `HOMECARTEL_LOGO_BOX` (4:5 feeds) and `HOMECARTEL_STORY_LOGO_BOX` (9:16 stories) in `overlay.py`.
-  - Story reference placement: `Width = 190.3 px`, `Height = 63.5 px`, top-right `X = 781.7 px`, `Y = 108.0 px` (108px margin from top and right).
-- **Layout Templates**:
-  - Watermark/layout images in `assets/*_layout.jpg` (`find_cta_layout_path` / `_resolve_asset_file`), per-format layout coordinates in `JSON Prompts/<Format>/*.json`.
-- **Watermarks & Drop Shadows**:
-  - Apply soft multi-directional shadow `(0, 0, 0, 180)` for legibility across any room background.
+Font sizes, logo boxes, watermark templates, shadows, auto-scaling and how to preview: **`.agents/skills/pillow-layout/SKILL.md`**.
 
 ---
 
@@ -343,30 +313,9 @@ Studio moodboard/prompt pencils, persistent config keys, and completed count beh
 
 ---
 
-## 8. Step-by-Step: How to Add a New Table or Subtab
+## 8. Adding a New Table, Subtab, Pipeline or Fixture
 
-When adding a new table or subtab, follow this strict checklist to prevent regressions:
-
-1. **Add Table ID to `content_automation/foreign_key.py`**:
-   - Register the table ID in `TABLE_PREFIX_MAP` with the standard `<IDEA>-<FORMAT>-<FIXTURE>` prefix.
-2. **Verify Airtable Schema**:
-   - Ensure table has `"Foreign Key ID"` (`singleLineText`), `"ID"` (`number`), `"Date and Time Generated"` (`dateTime`), and `"Status"` (`singleSelect`).
-3. **Create/Update Blueprint in `UI Control/routes/`**:
-   - Implement `GET /counts`, `GET /status`, `POST /run`, `POST /stop`, `POST /moodboard`, `POST /prompt`.
-   - Use `fetch_status_breakdown(table_id)` from `content_automation.airtable_client`.
-4. **Register Blueprint in `UI Control/api_server.py`**:
-   - Import blueprint and register with `app.register_blueprint(bp)`.
-5. **Wire the Frontend (data-driven — `App.tsx` needs no per-pipeline edits)** in `UI Control/src/app/`:
-   - `constants/fixtures.ts`: add the `*_FIXTURES` array (`id`, `name`, `tableId`, `moodboardId`, `prompt`) and return it from the subtab switch for its format/index.
-   - `constants/pipelines.ts`: add a `PipelineConfig` entry (`type`, `format`, `subtabIndex`, `subTabLabel`, run/status/stop/counts/moodboard/prompt endpoints, `totalPhases`, `phaseSummary`, `hasMoodboard`, `hasPrompt`).
-   - `types/index.ts`: add the new id to the `PipelineType` union.
-   - `hooks/usePipelineData.ts`: seed default moodboard/prompt overrides if the pipeline has pencils.
-6. **Compile Frontend**:
-   - Run `npm run build` in `UI Control/` (must exit with code 0).
-7. **Restart Server**:
-   - Kill previous server task, then run `python "UI Control/api_server.py"` as daemon (there is no root `api_server.py`).
-8. **Document in Workspace**:
-   - Create or update dedicated pipeline `.md` document and link it in `README.md`.
+Follow **`.agents/skills/add-new-pipeline/SKILL.md`**. It covers the generator shape, `TABLE_PREFIX_MAP`, the required Airtable fields, the blueprint endpoints and `api_server.py` registration, the data-driven frontend wiring (`fixtures.ts`, `pipelines.ts`, `types/index.ts`, `usePipelineData.ts`), the build, and verification. Skipping a layer usually fails silently, so go through the whole checklist.
 
 ### Docs to update when you change X
 
@@ -379,7 +328,8 @@ Read this file (auto-loaded) plus only the doc for the pipeline you touch — do
 | A new env key or table ID | `.env.example`, `content_automation/foreign_key.py`, the pipeline doc's env table |
 | The frontend layout | `UI Control/README.md` and this file's §2 tree |
 | A design decision that isn't obvious from the diff | a note in `docs/memory/decisions/` (see §10) |
-| The git / push / deploy workflow (branches, Dockerfile, CI, hooks) | `docs/GIT_PUSH_AND_DEPLOY.md` and §11 of this file |
+| The git / push / deploy workflow (branches, Dockerfile, CI, hooks) | `docs/GIT_PUSH_AND_DEPLOY.md`, `.agents/skills/ship-to-railway/SKILL.md`, and §11 of this file |
+| An agent skill (added, removed, or repurposed) | this file §12 and `docs/SKILLS_GUIDE.md` |
 
 ---
 
@@ -461,85 +411,45 @@ Root scripts that migrate/backfill Airtable data, tag furniture in room photos, 
 ### Project memory protocol
 [`docs/memory/`](docs/memory/) holds incidents, design decisions, and architecture notes that aren't derivable from reading the code alone (see [`docs/memory/README.md`](docs/memory/README.md)). It's meant to be opened as an Obsidian vault rooted at `docs/`.
 
-- **Before debugging a pipeline failure** (especially a Shopify/Akeneo cross-check failure or anything resembling a past incident), check `docs/memory/incidents/` first — it may already be root-caused.
+- **Before debugging a pipeline failure** (especially a Shopify/Akeneo cross-check failure or anything resembling a past incident), check `docs/memory/incidents/` first — it may already be root-caused. The **`.agents/skills/debug-pipeline-run/SKILL.md`** skill maps the recurring symptoms to their known causes.
 - **After resolving anything non-trivial** — a failure that took real investigation, or a design decision made without an obvious paper trail — add a short note under `docs/memory/incidents/` or `docs/memory/decisions/`. A few sentences is enough. This applies to AI agents working in this repo, not just humans.
 
 ---
 
 ## 11. Git, Deployment & Push Protocol for AI Agents
 
-Every AI agent (and developer) working on this repository MUST strictly follow this Git & CI/CD deployment protocol before staging, committing, or pushing code. **Full step-by-step walkthrough (commands, failure handling, what the AI will never do): [`docs/GIT_PUSH_AND_DEPLOY.md`](docs/GIT_PUSH_AND_DEPLOY.md).** Commit/push only when the user asks; tell the user before pushing `main`, because that is a production deploy.
+The always-on rules are below. The step-by-step sequence is in **`.agents/skills/ship-to-railway/SKILL.md`**, and the full walkthrough with failure handling is [`docs/GIT_PUSH_AND_DEPLOY.md`](docs/GIT_PUSH_AND_DEPLOY.md).
 
-### 1. Working Directory & Remote Verification
-- Always verify the current working directory and remote origin before running any git commands:
-  ```bash
-  git remote -v
-  ```
-  Expected remote: `https://github.com/homecartelmarketing-lgtm/marketing-automation.git`. Never run git commands from sibling directories (e.g., `Downloads/Marketing Output UI`).
-
-### 2. Zero Secret Leak Policy
-- **NEVER** stage or commit `.env`, `.env.*`, API keys, private tokens, or customer data.
-- Always inspect `git status` before committing to confirm that `.env` is ignored.
-- Model weights (`*.pt`, `*.onnx`), node caches (`node_modules/`), and temp files (`output/`, `tmp/`) must remain shielded by `.gitignore`.
-
-### 3. Pre-Push Static Compilation Check
-- **Zero-syntax-error guarantee**: Never push code that has not been statically compiled. Always run:
-  ```bash
-  python -m py_compile <modified_file_1>.py <modified_file_2>.py
-  ```
-  Fix all syntax or import errors before staging.
-
-### 4. Frontend Build Sync for Railway Deployment
-- Railway builds the production Docker container from `Dockerfile`, which copies `UI Control/dist/` directly into the image.
-- If any changes are made to the React frontend (`UI Control/src/`), the frontend **MUST be recompiled** before committing:
-  ```bash
-  cd "UI Control" && npm run build && cd ..
-  ```
-- `UI Control/dist/` is explicitly whitelisted in `.gitignore` so that Railway's Docker build immediately serves the fresh React UI.
-
-### 5. Conventional Commits Standard
-- Format all commit messages with conventional prefixes:
-  - `feat: <description>` — New pipelines, features, or prompt templates.
-  - `fix: <description>` — Bug fixes, layout adjustments, or API repairs.
-  - `refactor: <description>` — Architecture improvements without behavior change.
-  - `docs: <description>` — Updates to documentation, guides, or memory files.
-  - `chore: <description>` — Dependency bumps, gitignore updates, or build configs.
-
-### 6. Dual-Branch Push & Railway Deployment (`marketing-automation` $\rightarrow$ `main`)
-- Active development occurs on branch **`marketing-automation`**.
-- Because Railway automatically builds and deploys the **`main`** branch by default:
-  1. Commit and push to `marketing-automation`:
-     ```bash
-     git add <reviewed paths>   # check `git status` first; do not sweep in stray files (see the guide)
-     git commit -m "feat: ..."
-     git push origin marketing-automation
-     ```
-  2. Fast-forward `main` and push to trigger the automatic Railway CI/CD deployment:
-     ```bash
-     git checkout main
-     git merge --ff-only marketing-automation
-     git push origin main
-     git checkout marketing-automation
-     ```
-  3. Return the active local branch to `marketing-automation`.
+- **Commit/push only when the user asks.** Finishing a task is not a push request.
+- **Right repo.** `git remote -v` must show `https://github.com/homecartelmarketing-lgtm/marketing-automation.git`. Never run git from sibling folders (e.g. `Downloads/Marketing Output UI`).
+- **No secrets.** Never stage `.env`, `.env.*` (except `*.example`), keys, tokens, or customer data. Model weights, `node_modules/`, `output/`, and `tmp/` stay ignored. Stage named paths after reading `git status`.
+- **Compile and test first.** Run `python -m py_compile <changed files>` and `python -m unittest discover tests`. Never push code that fails either.
+- **Rebuild `UI Control/dist/`** whenever `UI Control/src/` changed. Railway serves the committed `dist/` as-is.
+- **Conventional commits:** `feat:`, `fix:`, `refactor:`, `docs:`, `chore:`.
+- **Two branches.** Develop and push on `marketing-automation`. `main` is the Railway production deploy, so tell the user before fast-forwarding and pushing it (`git merge --ff-only marketing-automation`), then switch back to `marketing-automation`.
+- **Never** force-push, `reset --hard`, amend or rebase pushed commits, or use `--no-verify`. Undo a bad deploy with `git revert`.
 
 ---
 
 ## 12. Integrated Workspace Agent Skills (`.agents/skills/`)
 
-The workspace includes 5 curated, version-controlled agent skills in `.agents/skills/` (whitelisted in `.gitignore`) for autonomous agents operating on this repository:
+The workspace includes 11 version-controlled agent skills in `.agents/skills/` (whitelisted in `.gitignore`). Load the matching skill when a task starts. Each one holds the detail this file only summarizes.
 
-1. **`airtable-automation`** (`.agents/skills/airtable-automation`):
-   - Schema enforcement, batch updates (10-records-per-call max), and `update_record` convenience patterns across 60+ tables.
-2. **`prompt-optimizer`** (`.agents/skills/prompt-optimizer`):
-   - Claude Sonnet 5 Vision JSON prompt templates, system instructions, and Krea diffusion prompt tuning.
-3. **`python-testing-patterns`** (`.agents/skills/python-testing-patterns`):
-   - Unittest isolation, mocking external AI APIs (Akeneo, Fal, Krea), and pre-commit checks (`python -m unittest discover -s tests -p "test_*.py"`).
-4. **`vercel-react-best-practices`** (`.agents/skills/vercel-react-best-practices`):
-   - React hook composition (`usePipelineData`, `usePipelineRunner`, `useQueue`), memoization, and Web Studio performance.
-5. **`vite`** (`.agents/skills/vite`):
-   - Production Vite bundling (`UI Control/dist/`), asset hashing, and SPA routing integration with Flask.
-6. **`git-guardrails-claude-code`** (`.agents/skills/git-guardrails-claude-code`):
-   - Safety hooks and guardrails blocking destructive git commands (`git push --force`, `git reset --hard`, accidental wipeouts).
+**Repo workflow skills (specific to this codebase):**
 
-See [`docs/SKILLS_GUIDE.md`](docs/SKILLS_GUIDE.md) for detailed workflows.
+1. **`add-new-pipeline`** — Full wiring checklist for a new pipeline, subtab, table, or fixture: generator shape, FK map, schema, blueprint, frontend config, build, verification, docs.
+2. **`ship-to-railway`** — Commit/push/deploy sequence: pre-flight, secret scan, compile + tests, `dist/` rebuild, `marketing-automation` push, confirmed fast-forward of `main`.
+3. **`debug-pipeline-run`** — Triage for failed, stuck, or wrong-output runs: maps recurring symptoms to past incidents, narrow `--record-id` reproduction, regression tests, incident notes.
+4. **`pillow-layout`** — Local Pillow rules: canvas sizes, Poppins fonts, logo boxes, watermarks, shadows, Canva coordinates, auto-scaling, previews.
+5. **`fresh-row-scrape`** — Brand-new-row rule, strict Shopify Active & Published matching, cache/crawler behavior, base-wide dedup, category routing.
+
+**General skills (installed from external sources):**
+
+6. **`airtable-automation`** — Schema enforcement, batch updates (10-records-per-call max), and `update_record` convenience patterns across 60+ tables.
+7. **`prompt-optimizer`** — Claude Sonnet 5 Vision JSON prompt templates, system instructions, and Krea diffusion prompt tuning.
+8. **`python-testing-patterns`** — Unittest isolation, mocking external AI APIs (Akeneo, Fal, Krea), and pre-commit checks (`python -m unittest discover -s tests -p "test_*.py"`).
+9. **`vercel-react-best-practices`** — React hook composition (`usePipelineData`, `usePipelineRunner`, `useQueue`), memoization, and Web Studio performance.
+10. **`vite`** — Production Vite bundling (`UI Control/dist/`), asset hashing, and SPA routing integration with Flask.
+11. **`git-guardrails-claude-code`** — Safety hooks blocking destructive git commands (`git push --force`, `git reset --hard`, accidental wipeouts).
+
+See [`docs/SKILLS_GUIDE.md`](docs/SKILLS_GUIDE.md) for when to use each one.
