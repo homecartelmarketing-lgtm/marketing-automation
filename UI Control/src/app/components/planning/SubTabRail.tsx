@@ -1,9 +1,6 @@
 import { TabType } from './FormatTabs';
 
-export interface SubTabCount {
-  completed: number | null;
-  total: number;
-}
+export type SubTabCount = number | null;
 
 interface SubTabRailProps {
   activeTab: TabType;
@@ -22,7 +19,6 @@ export function SubTabRail({
   runningSubTab,
   counts,
 }: SubTabRailProps) {
-  // Determine active colors based on format (Feed: Yellow/Amber, Story: Light Blue/Sky, Reel: Green)
   const getActiveClass = () => {
     switch (activeTab) {
       case 'feed':
@@ -42,6 +38,7 @@ export function SubTabRail({
         {items.map((item, idx) => {
           const isActive = idx === activeSubTab;
           const subCount = counts?.[idx];
+          const hasCount = subCount !== undefined;
           return (
             <button
               key={item + idx}
@@ -53,11 +50,11 @@ export function SubTabRail({
               }`}
             >
               <span>{item}</span>
-              {subCount && (
+              {hasCount && (
                 <span
-                  title={subCount.completed === null
+                  title={subCount === null
                     ? `Waiting for verified Airtable completion counts in ${item}`
-                    : `${subCount.completed} completed of ${subCount.total} target items in ${item}`}
+                    : `${subCount} completed records in ${item}`}
                   className={`text-[11px] px-1.5 py-0.5 rounded-full font-medium tabular-nums transition-colors ${
                     isActive
                       ? activeTab === 'feed'
@@ -70,7 +67,7 @@ export function SubTabRail({
                       : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700'
                   }`}
                 >
-                  {subCount.completed === null ? '—' : subCount.completed}
+                  {subCount === null ? '—' : subCount}
                 </span>
               )}
               {runningSubTab === idx && (
