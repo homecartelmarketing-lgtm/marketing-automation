@@ -1,6 +1,3 @@
-Eto yung **updated YAML**, nasa baba ng message na ito. I-copy lahat mula `name:` hanggang pinakahuling `EOF`, tapos i-paste sa editor ng `.github/workflows/tests.yml`.
-
-```yaml
 name: Continuous Integration & Tests
 
 on:
@@ -107,4 +104,3 @@ jobs:
               "are documented in .env.example"
           )
           EOF
-```
