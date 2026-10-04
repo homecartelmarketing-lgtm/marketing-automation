@@ -31,7 +31,7 @@ cd "UI Control"
 python api_server.py
 ```
 Open **`http://localhost:5200`** to access:
-- **Interactive Format Tabs**: Switch between **Feed** (7 subtabs), **Story** (10 subtabs), **Reel** (7 subtabs), **Christmas Banner** ([`CHRISTMAS_BANNER.md`](docs/banners/CHRISTMAS_BANNER.md), a standalone 5th top-level Studio tab with two sub-tabs: the 21:9 Christmas banner from 5 fixtures and the 1800x600 [Sale Banner](docs/banners/SALE_BANNER.md)), and **Ad Covers** — a standalone 4th top-level Studio tab (not a sub-tab family) of per-fixture run cards, one press producing both the 1:1 cover and its 9:16 Story twin — with summed completed counts on each format and subtab.
+- **Interactive Format Tabs**: Switch between **Feed** (7 subtabs), **Story** (10 subtabs), **Reel** (8 subtabs), **Banner** ([`BANNER_SET.md`](docs/banners/BANNER_SET.md), a standalone 5th top-level Studio tab with one sub-tab, "Banner Set": one run makes the 21:9 Christmas banner, the 1800x600 Sale banner and the 1800x600 third banner on a single Airtable row), and **Ad Covers** — a standalone 4th top-level Studio tab (not a sub-tab family) of per-fixture run cards, one press producing both the 1:1 cover and its 9:16 Story twin — with summed completed counts on each format and subtab.
 - **Live Airtable Synchronization**: Real-time `P, S, C, D, FM` status badges on every lighting fixture card.
 - **Row Inspector Modal**: Instant search, status filtering, one-click Foreign Key ID copying, and direct deep links into Airtable rows (`Open in Airtable ↗`).
 - **Inline Settings & Security**: Krea moodboard and interior-prompt edits persist in `output/config_overrides.json` and `.env`; `DASHBOARD_PIN` protects edits when configured. See the [UI configuration map](docs/UI_CONTROL_CONFIG.md).
@@ -115,6 +115,20 @@ Open **`http://localhost:5200`** to access:
 
 ---
 
+### 5. Banners
+
+The Studio **Banner** tab has one sub-tab, "Banner Set": one run writes all three banners to **one** Airtable row (table `tblgNk1Tp6qKUcduw`, Foreign Key `XMS-BANNER-ALL-<ID>`). The individual banner scripts stay available for CLI re-runs with `--record-id`.
+
+| Pipeline Guide | Size | Description | Script | Studio State |
+| :--- | :---: | :--- | :--- | :--- |
+| [**`BANNER_SET.md`**](docs/banners/BANNER_SET.md) | 21:9 + 1800x600 + 1800x600 | One run, one row, all three banners below (15 phases); 10 fresh products scraped once. | `generate_banner_set_pipeline.py` | **Runnable** (Banner Set sub-tab) |
+| [**`CHRISTMAS_BANNER.md`**](docs/banners/CHRISTMAS_BANNER.md) | 21:9 | Main banner: 5 fixtures blended into one Krea Christmas living room, Claude title/subtitle stamped locally (Poppins, soft shadow). | `generate_christmas_banner_pipeline.py` | Part of Banner Set; CLI |
+| [**`SALE_BANNER.md`**](docs/banners/SALE_BANNER.md) | 1800x600 | Dining room + 1 pendant (left), kitchen + 2 pendants (right), sale panel in a Claude-picked colour with promotions-calendar captions. | `generate_sale_banner_pipeline.py` | Part of Banner Set; CLI |
+| [**`THIRD_BANNER.md`**](docs/banners/THIRD_BANNER.md) | 1800x600 | Krea Christmas bedroom with 2 table lamps and a panel in the Sale banner's colour. Requires `--record-id`. | `generate_third_banner_pipeline.py` | Part of Banner Set; CLI |
+| [**`PROMO_BANNER.md`**](docs/banners/PROMO_BANNER.md) | 1080x1920 (9:16) | "Your Story" promo: main banner extended to 9:16 by Nano Banana Pro, Claude tagline, local Pillow layout. No Airtable row. | `generate_promo_banner_pipeline.py` | CLI only |
+
+---
+
 ## 🏗️ Technical Architecture & Model Stack
 
 ```mermaid
@@ -134,6 +148,15 @@ graph TD
 - **Photorealistic Blending**: Fal AI Nano Banana Pro (`fal-ai/nano-banana-pro/edit`).
 - **Logo & Watermark Compositing**: Local Python Pillow (`PIL`) with smart background auto-removal and sub-pixel Canva coordinate alignment (**Zero API cost**).
 - **Video & Audio Rendering**: Fal AI Kling Video (`image-to-video`), Stable Audio 3, and local FFmpeg.
+
+### Root config files
+
+| File | What it is |
+| :--- | :--- |
+| `Dockerfile` | The image Railway builds and runs (single gunicorn worker on port `5200`). |
+| `app-config.json` | Zoho Catalyst AppSail app config (Docker build, `UI Control/api_server.py`, port `5200`, 2 GB, 1 instance). Not used by the Railway deploy; kept as an alternate deploy target. |
+| `catalyst.json` | Zoho Catalyst project file that registers the AppSail service above. Not used by Railway. |
+| `skills-lock.json` | Lockfile for the AI agent skills in `.agents/skills` (currently `git-guardrails-claude-code` from `mattpocock/skills`), pinned by content hash. |
 
 ---
 
