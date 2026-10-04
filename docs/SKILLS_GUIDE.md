@@ -3,28 +3,60 @@
 > **Location:** `.agents/skills/`  
 > This directory contains curated agent skills integrated directly into the workspace. Any AI agent (Antigravity, Claude Code, Cursor, Copilot) operating on this repository automatically inherits these skills.
 
+There are two kinds. **Repo workflow skills** hold procedures specific to this codebase that used to live inline in `AGENTS.md`. **General skills** were installed from external sources (tracked in `skills-lock.json` when installed via `npx skills`).
+
 ---
 
 ## 1. Summary of Workspace Skills
 
+### Repo workflow skills
+
+| Skill | Directory | Load it when… |
+| :--- | :--- | :--- |
+| **`add-new-pipeline`** | [`.agents/skills/add-new-pipeline`](../.agents/skills/add-new-pipeline/SKILL.md) | Adding a pipeline, Studio subtab, Airtable table, or fixture (including Ad Cover fixtures). |
+| **`ship-to-railway`** | [`.agents/skills/ship-to-railway`](../.agents/skills/ship-to-railway/SKILL.md) | The user asks to commit, push, or deploy. |
+| **`debug-pipeline-run`** | [`.agents/skills/debug-pipeline-run`](../.agents/skills/debug-pipeline-run/SKILL.md) | A run fails, hangs, flickers, skips a phase, or produces wrong output. |
+| **`pillow-layout`** | [`.agents/skills/pillow-layout`](../.agents/skills/pillow-layout/SKILL.md) | Building or changing any text, logo, watermark, pill, or name-tag layout. |
+| **`fresh-row-scrape`** | [`.agents/skills/fresh-row-scrape`](../.agents/skills/fresh-row-scrape/SKILL.md) | Touching scrape phases, product selection, Shopify checks, or dedup, or tempted to reprocess old rows. |
+
+### General skills
+
 | Skill | Directory | Primary Purpose in this Repo |
 | :--- | :--- | :--- |
-| **`airtable-automation`** | [`.agents/skills/airtable-automation`](file:///c:/Users/User/Desktop/marketing-automation/.agents/skills/airtable-automation/SKILL.md) | Airtable slot-based schema rules, batch updates (10-per-call), and `update_record` convenience patterns across 60+ tables. |
-| **`prompt-optimizer`** | [`.agents/skills/prompt-optimizer`](file:///c:/Users/User/Desktop/marketing-automation/.agents/skills/prompt-optimizer/SKILL.md) | Structured JSON prompt engineering for Claude Sonnet 5 Vision analysis (Phase 3 in Stories/Feeds/Reels) and Krea moodboard prompts. |
-| **`python-testing-patterns`** | [`.agents/skills/python-testing-patterns`](file:///c:/Users/User/Desktop/marketing-automation/.agents/skills/python-testing-patterns/SKILL.md) | Unittest suite organization, test isolation, mocking external AI APIs (Akeneo, Fal, Krea), and pre-commit checks. |
-| **`vercel-react-best-practices`** | [`.agents/skills/vercel-react-best-practices`](file:///c:/Users/User/Desktop/marketing-automation/.agents/skills/vercel-react-best-practices/SKILL.md) | React component optimization, hook composition (`usePipelineData`, `usePipelineRunner`, `useQueue`), and eliminating unnecessary re-renders in Web Studio. |
-| **`vite`** | [`.agents/skills/vite`](file:///c:/Users/User/Desktop/marketing-automation/.agents/skills/vite/SKILL.md) | Production Vite bundling (`UI Control/dist/`), asset hashing, and client-side SPA routing integration with Flask. |
-| **`git-guardrails-claude-code`** | [`.agents/skills/git-guardrails-claude-code`](file:///c:/Users/User/Desktop/marketing-automation/.agents/skills/git-guardrails-claude-code/SKILL.md) | Intercepts and blocks destructive git operations (`git push --force`, `git reset --hard`, accidental wipeouts). |
+| **`airtable-automation`** | [`.agents/skills/airtable-automation`](../.agents/skills/airtable-automation/SKILL.md) | Airtable slot-based schema rules, batch updates (10-per-call), and `update_record` convenience patterns across 60+ tables. |
+| **`prompt-optimizer`** | [`.agents/skills/prompt-optimizer`](../.agents/skills/prompt-optimizer/SKILL.md) | Structured JSON prompt engineering for Claude Sonnet 5 Vision analysis (Phase 3 in Stories/Feeds/Reels) and Krea moodboard prompts. |
+| **`python-testing-patterns`** | [`.agents/skills/python-testing-patterns`](../.agents/skills/python-testing-patterns/SKILL.md) | Unittest suite organization, test isolation, mocking external AI APIs (Akeneo, Fal, Krea), and pre-commit checks. |
+| **`vercel-react-best-practices`** | [`.agents/skills/vercel-react-best-practices`](../.agents/skills/vercel-react-best-practices/SKILL.md) | React component optimization, hook composition (`usePipelineData`, `usePipelineRunner`, `useQueue`), and eliminating unnecessary re-renders in Web Studio. |
+| **`vite`** | [`.agents/skills/vite`](../.agents/skills/vite/SKILL.md) | Production Vite bundling (`UI Control/dist/`), asset hashing, and client-side SPA routing integration with Flask. |
+| **`git-guardrails-claude-code`** | [`.agents/skills/git-guardrails-claude-code`](../.agents/skills/git-guardrails-claude-code/SKILL.md) | Intercepts and blocks destructive git operations (`git push --force`, `git reset --hard`, accidental wipeouts). |
 
 ---
 
 ## 2. How to Use Each Skill
 
+### `add-new-pipeline`
+- Used for any new generator, Studio subtab, table ID, or fixture.
+- **Rule:** Wire every layer (generator, `TABLE_PREFIX_MAP`, blueprint + `api_server.py`, `fixtures.ts`/`pipelines.ts`/`types`, build) and update the docs in the AGENTS.md §8 table in the same commit.
+
+### `ship-to-railway`
+- Used only when the user asks to commit, push, or deploy.
+- **Rule:** Push `marketing-automation` freely after checks. Pushing `main` is a live Railway deploy, so confirm with the user first and fast-forward only. Full detail in [`GIT_PUSH_AND_DEPLOY.md`](GIT_PUSH_AND_DEPLOY.md).
+
+### `debug-pipeline-run`
+- Used when a Studio or CLI run misbehaves.
+- **Rule:** Check `docs/memory/incidents/` first, reproduce with `--record-id` (never by sweeping old rows), add a regression test, and write an incident note if it took real investigation.
+
+### `pillow-layout`
+- Used when editing `content_automation/overlay.py`, `item_tagger.py`, or any final-layout phase.
+- **Rule:** Typography, logos, and watermarks are local Pillow only. Image models never render layout text.
+
+### `fresh-row-scrape`
+- Used when editing `content_automation/scraping/`, `shopify_client.py`, `akeneo_client.py`, or any Phase 1 scrape.
+- **Rule:** New row every run. Exact SKU/title Shopify match only. Base-wide dedup. Never overwrite the Shopify cache with a partial crawl.
+
 ### `git-guardrails-claude-code`
 - Used whenever running git commands or automating git pushes.
 - **Rule:** Blocks destructive commands like `git push --force`, `git reset --hard`, or indiscriminate file additions. Keeps deployments strictly aligned with [`docs/GIT_PUSH_AND_DEPLOY.md`](GIT_PUSH_AND_DEPLOY.md).
-
-
 
 ### `airtable-automation`
 - Used whenever modifying `content_automation/airtable_client.py`, `content_automation/scraping/airtable.py`, or any pipeline's Airtable writes.
@@ -49,8 +81,8 @@
 ---
 
 ## 3. Maintenance & Updates
-To update any workspace skill, run:
-```bash
-npx skills add <owner/repo@skill> -y
-```
-from the repository root. Git will track changes to `.agents/skills/` while ignoring temporary IDE configs.
+
+- **General skills:** to update one, run `npx skills add <owner/repo@skill> -y` from the repository root.
+- **Repo workflow skills:** edit the `SKILL.md` directly. When the procedure it describes changes (e.g. a new deploy step), update the skill in the same commit and follow the AGENTS.md §8 "Docs to update" table.
+
+Git tracks changes to `.agents/skills/` while ignoring temporary IDE configs.
