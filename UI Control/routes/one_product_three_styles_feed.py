@@ -244,13 +244,28 @@ def get_live_counts():
                 "pageSize": 100,
             }
 
-            for _ in range(20):  # Cap pagination at 2000 records
-                if offset:
-                    params["offset"] = offset
-                try:
-                    resp = requests.get(url, headers=headers, params=params, timeout=20)
-                    if not resp.ok:
+            try:
+                for _ in range(20):  # Cap pagination at 2000 records
+                    if offset:
+                        params["offset"] = offset
+                    resp = None
+                    for attempt in range(3):
+                        try:
+                            resp = requests.get(url, headers=headers, params=params, timeout=15)
+                        except requests.RequestException:
+                            if attempt == 2:
+                                break
+                            time.sleep(1.0 * (attempt + 1))
+                            continue
+                        if getattr(resp, "status_code", 200) == 429:
+                            time.sleep(1.2 * (attempt + 1))
+                            continue
                         break
+
+                    if resp is None or not getattr(resp, "ok", False):
+                        print(f"[WARN] Airtable count for {key} ({table_id}) failed: HTTP {getattr(resp, 'status_code', 'no response')}")
+                        break
+
                     body = resp.json()
                     records = body.get("records", [])
                     for rec in records:
@@ -281,8 +296,8 @@ def get_live_counts():
                     offset = body.get("offset")
                     if not offset:
                         break
-                except Exception:
-                    break
+            except Exception as exc:
+                print(f"[ERROR] Exception while fetching 1 Product 3 Styles count for {key} ({table_id}): {exc}")
 
             return key, {
                 "id": fix["id"],
@@ -303,8 +318,13 @@ def get_live_counts():
 
         fixtures = get_fixtures()
         with ThreadPoolExecutor(max_workers=len(fixtures)) as pool:
-            for k, v in pool.map(fetch_fixture_count, fixtures.items()):
-                results[k] = v
+            futures = [pool.submit(fetch_fixture_count, item) for item in fixtures.items()]
+            for fut in futures:
+                try:
+                    k, v = fut.result()
+                    results[k] = v
+                except Exception as exc:
+                    print(f"[ERROR] Error getting 1 Product 3 Styles fixture count: {exc}")
 
         with STATE_LOCK:
             COUNTS_CACHE["timestamp"] = now
@@ -316,6 +336,14 @@ def get_live_counts():
             "cached": False,
         })
     except Exception as err:
+        with STATE_LOCK:
+            if COUNTS_CACHE["data"]:
+                return jsonify({
+                    "status": "success",
+                    "counts": COUNTS_CACHE["data"],
+                    "cached": True,
+                    "warning": str(err),
+                })
         return jsonify({"status": "error", "error": str(err)}), 500
 
 

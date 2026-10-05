@@ -130,7 +130,7 @@ export function usePipelineData(): UsePipelineDataResult {
           })
           .catch(() => null);
 
-        const countPromises = PIPELINES.map(async pipe => {
+        const fetchPipe = async (pipe: (typeof PIPELINES)[number]) => {
           try {
             const res = await fetch(`${pipe.countsEndpoint}?refresh=${refresh ? 'true' : 'false'}`);
             if (!res.ok) return null;
@@ -139,9 +139,22 @@ export function usePipelineData(): UsePipelineDataResult {
           } catch {
             return null;
           }
-        });
+        };
 
-        const [_, ...results] = await Promise.all([tunnelPromise, ...countPromises]);
+        // Chunk pipelines into batches of 5 to respect Airtable's 5 req/s limit
+        // and avoid saturating server worker threads
+        const chunkSize = 5;
+        const results: Array<{ pipe: (typeof PIPELINES)[number]; data: any } | null> = [];
+        for (let i = 0; i < PIPELINES.length; i += chunkSize) {
+          const chunk = PIPELINES.slice(i, i + chunkSize);
+          const chunkResults = await Promise.all(chunk.map(fetchPipe));
+          results.push(...chunkResults);
+          if (i + chunkSize < PIPELINES.length) {
+            await new Promise(r => setTimeout(r, 150));
+          }
+        }
+
+        await tunnelPromise;
 
         const newProgress: Record<string, number> = {};
         const newMbOverrides: Record<string, Record<string, string>> = {};

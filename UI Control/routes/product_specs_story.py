@@ -116,15 +116,30 @@ def get_product_specs_counts():
             fm_count = 0
             offset = None
 
-            while True:
-                req_params = dict(params)
-                if offset:
-                    req_params["offset"] = offset
+            try:
+                while True:
+                    req_params = dict(params)
+                    if offset:
+                        req_params["offset"] = offset
 
-                try:
-                    resp = requests.get(url, headers=headers, params=req_params, timeout=12)
-                    if not resp.ok:
-                        raise RuntimeError(f"Airtable count request failed with HTTP {resp.status_code}")
+                    resp = None
+                    for attempt in range(3):
+                        try:
+                            resp = requests.get(url, headers=headers, params=req_params, timeout=12)
+                        except requests.RequestException:
+                            if attempt == 2:
+                                break
+                            time.sleep(1.0 * (attempt + 1))
+                            continue
+                        if getattr(resp, "status_code", 200) == 429:
+                            time.sleep(1.2 * (attempt + 1))
+                            continue
+                        break
+
+                    if resp is None or not getattr(resp, "ok", False):
+                        print(f"[WARN] Airtable count for {key} ({table_id}) failed: HTTP {getattr(resp, 'status_code', 'no response')}")
+                        break
+
                     body = resp.json()
                     records = body.get("records", [])
                     for rec in records:
@@ -143,8 +158,8 @@ def get_product_specs_counts():
                     offset = body.get("offset")
                     if not offset:
                         break
-                except Exception:
-                    raise
+            except Exception as exc:
+                print(f"[ERROR] Exception while fetching Product Specs count for {key} ({table_id}): {exc}")
 
             return key, {
                 "id": fix["id"],
@@ -163,8 +178,13 @@ def get_product_specs_counts():
 
         fixtures = get_product_specs_fixtures()
         with ThreadPoolExecutor(max_workers=len(fixtures)) as pool:
-            for k, v in pool.map(fetch_specs_count, fixtures.items()):
-                results[k] = v
+            futures = [pool.submit(fetch_specs_count, item) for item in fixtures.items()]
+            for fut in futures:
+                try:
+                    k, v = fut.result()
+                    results[k] = v
+                except Exception as exc:
+                    print(f"[ERROR] Error getting Product Specs fixture count: {exc}")
 
         with PRODUCT_SPECS_STATE_LOCK:
             PRODUCT_SPECS_COUNTS_CACHE["timestamp"] = now
@@ -176,6 +196,14 @@ def get_product_specs_counts():
             "cached": False,
         })
     except Exception as err:
+        with PRODUCT_SPECS_STATE_LOCK:
+            if PRODUCT_SPECS_COUNTS_CACHE["data"]:
+                return jsonify({
+                    "status": "success",
+                    "counts": PRODUCT_SPECS_COUNTS_CACHE["data"],
+                    "cached": True,
+                    "warning": str(err),
+                })
         return jsonify({"status": "error", "error": str(err)}), 500
 
 
