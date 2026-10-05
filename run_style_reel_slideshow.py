@@ -272,6 +272,22 @@ SLOTS: list[SlotConfig] = [
 ]
 
 
+def resolve_slots() -> list[SlotConfig]:
+    """Return a copy of SLOTS with Studio UI config overrides applied to Slot 1 (Cover)."""
+    import dataclasses
+    slots = list(SLOTS)
+    cover_mb = (os.environ.get("KREA_MOODBOARD_ID_STYLE_REEL_SLIDESHOW") or "").strip()
+    cover_prompt = (os.environ.get("PROMPT_STYLE_REEL_SLIDESHOW") or "").strip()
+    overrides: dict[str, str] = {}
+    if cover_mb:
+        overrides["moodboard_id"] = cover_mb
+    if cover_prompt:
+        overrides["interior_prompt"] = cover_prompt
+    if overrides:
+        slots[0] = dataclasses.replace(slots[0], **overrides)
+    return slots
+
+
 # ── Audit & Error Logging ────────────────────────────────────────────────
 
 AUDIT_LOG_DIR = Path("output") / "logs"
@@ -974,7 +990,7 @@ def run_phase_2_for_record(
     generated_urls: dict[int, str] = {}
     log_slots: list[dict[str, Any]] = []
 
-    for slot in SLOTS:
+    for slot in resolve_slots():
         interior_field_name = resolve_field_name(known_fields, slot.interior_field_candidates)
         existing_interior = get_field_val(fields, slot.interior_field_candidates)
 

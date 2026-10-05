@@ -238,12 +238,12 @@ AUDIO_CANDIDATES = [
 # Font paths
 FONT_BOLD_CANDIDATES = [
     REPO_ROOT / "content_automation" / "fonts" / "Poppins-Bold.ttf",
-    REPO_ROOT / "python-content-script" / "Poppins-Bold.ttf",
+    REPO_ROOT / "assets" / "fonts" / "Poppins-Bold.ttf",
     REPO_ROOT / "assets" / "Poppins-Bold.ttf",
 ]
 FONT_REGULAR_CANDIDATES = [
     REPO_ROOT / "content_automation" / "fonts" / "Poppins-Regular.ttf",
-    REPO_ROOT / "python-content-script" / "Poppins-Regular.ttf",
+    REPO_ROOT / "assets" / "fonts" / "Poppins-Regular.ttf",
     REPO_ROOT / "assets" / "Poppins-Regular.ttf",
 ]
 

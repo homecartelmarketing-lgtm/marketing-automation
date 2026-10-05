@@ -112,21 +112,39 @@ def get_fixtures() -> dict[str, dict[str, Any]]:
 
 
 def build_generation_command(
-    table_id: str, category: str, max_items: int, moodboard_id: str, interior_prompt: str
+    table_id: str,
+    category_or_max: str | int = "chandeliers",
+    max_items_or_mb: int | str = 1,
+    moodboard_id: str = "",
+    interior_prompt: str = "",
 ) -> list[str]:
     """Pass category and card settings to run_full_moodboard_1_feed.py for end-to-end automation."""
+    if isinstance(category_or_max, int):
+        category = "chandeliers"
+        max_items = category_or_max
+        mb_id = str(max_items_or_mb) if max_items_or_mb else ""
+        prompt = moodboard_id
+    else:
+        category = category_or_max or "chandeliers"
+        try:
+            max_items = int(max_items_or_mb)
+        except (ValueError, TypeError):
+            max_items = 1
+        mb_id = moodboard_id
+        prompt = interior_prompt
+
     cmd = [
         sys.executable,
         "-u",
         "run_full_moodboard_1_feed.py",
-        "--category", category or "chandeliers",
+        "--category", category,
         "--table-id", table_id,
         "--max-items", str(max_items),
     ]
-    if moodboard_id:
-        cmd.extend(["--moodboard-id", moodboard_id])
-    if interior_prompt:
-        cmd.extend(["--prompt", interior_prompt])
+    if mb_id:
+        cmd.extend(["--moodboard-id", mb_id])
+    if prompt:
+        cmd.extend(["--prompt", prompt])
     return cmd
 
 

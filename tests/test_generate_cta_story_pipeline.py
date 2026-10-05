@@ -109,7 +109,7 @@ class TestCtaStoryPipeline(unittest.TestCase):
 
     def test_generate_claude_blending_prompts(self):
         mock_fal = mock.MagicMock()
-        mock_fal.analyze_image.return_value = "Hang chandelier gracefully in living room."
+        mock_fal.generate_vision_prompt.return_value = "Hang chandelier gracefully in living room."
 
         mock_airtable = mock.MagicMock()
         mock_airtable.list_records.return_value = [
@@ -126,7 +126,7 @@ class TestCtaStoryPipeline(unittest.TestCase):
 
         success = generate_claude_blending_prompts(mock_fal, mock_airtable)
         self.assertTrue(success)
-        mock_fal.analyze_image.assert_called_once()
+        mock_fal.generate_vision_prompt.assert_called_once()
         mock_airtable.update_records.assert_has_calls([
             mock.call([("rec1", {"Blending Prompt": "Hang chandelier gracefully in living room."})]),
             mock.call([("rec1", {"Status": "Blending Prompt Generated"})]),

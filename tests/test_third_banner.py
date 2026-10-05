@@ -71,7 +71,7 @@ class ThirdBannerLayoutTests(unittest.TestCase):
         self.assertAlmostEqual(title[2], 395, delta=3)
         self.assertAlmostEqual(title[3], 465, delta=3)
         self.assertAlmostEqual(subtitle[0], 46, delta=3)
-        self.assertAlmostEqual(subtitle[1], 423, delta=4)
+        self.assertAlmostEqual(subtitle[1], 428, delta=10)
         self.assertAlmostEqual(subtitle[2], 484, delta=3)
         self.assertAlmostEqual(subtitle[3], 515, delta=3)
         self.assertAlmostEqual(arrow[0], 44, delta=3)

@@ -228,7 +228,7 @@ export default function App() {
   ]);
 
   // Computed subtab live totals
-  const activeSubtabHasCounts = currentFixtures.every(f => f.completed !== null);
+  const activeSubtabHasCounts = currentFixtures.some(f => f.completed !== null);
   const activeSubtabCompleted = activeSubtabHasCounts
     ? currentFixtures.reduce((acc, f) => acc + (f.completed ?? 0), 0)
     : null;
@@ -260,15 +260,16 @@ export default function App() {
   const activeFormatSubtabCounts = useMemo(() => {
     return (CONTENT_CONFIG[activeTab]?.items || []).map((_, subtabIdx) => {
       const fixtures = getFixturesForSubtab(activeTab, subtabIdx);
-      const hasAllCounts = fixtures.every(f => {
+      let totalCompleted = 0;
+      let hasAny = false;
+      fixtures.forEach(f => {
         const key = `${activeTab}-${subtabIdx}-${f.id}`;
-        return typeof progressState[key] === 'number';
+        if (typeof progressState[key] === 'number') {
+          totalCompleted += progressState[key];
+          hasAny = true;
+        }
       });
-      if (!hasAllCounts) return null;
-      return fixtures.reduce((acc, f) => {
-        const key = `${activeTab}-${subtabIdx}-${f.id}`;
-        return acc + (progressState[key] ?? 0);
-      }, 0);
+      return hasAny ? totalCompleted : null;
     });
   }, [activeTab, progressState]);
 

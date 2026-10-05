@@ -41,3 +41,14 @@ New Text Document.txt
 
 # Large model weights (downloaded during Docker build via RUN instruction)
 yolov8s-worldv2.pt
+
+# Dev-only tooling, archives and tests (not needed at runtime)
+archive/
+tests/
+scripts/
+.workbuddy-ai/
+.agents/
+.kilo/
+.claude/
+docs/
+*.md
