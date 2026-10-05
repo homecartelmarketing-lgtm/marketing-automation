@@ -11,3 +11,4 @@ pyairtable>=3.0,<4
 numpy>=1.26,<3
 soundfile>=0.13,<1
 gunicorn>=23.0,<24
+openpyxl>=3.1,<4

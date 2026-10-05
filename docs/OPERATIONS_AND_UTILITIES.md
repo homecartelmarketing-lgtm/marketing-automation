@@ -9,6 +9,17 @@ Scripts that keep the system healthy but aren't Story/Feed/Reel/Ad Cover content
 | [`run_auto_post_scheduler.py`](../run_auto_post_scheduler.py) | Polls an external scheduling API every 60s and publishes due Stories/Feeds/Reels to Instagram at their scheduled PHT time. See [`AUTO_POST_SCHEDULER.md`](AUTO_POST_SCHEDULER.md) — has an undocumented cross-repo dependency worth reading before debugging it. |
 | [`launch_studio_cloudflare.py`](../launch_studio_cloudflare.py) | Exposes the local Studio (`localhost:5200`) to the internet via a free Cloudflare Quick Tunnel, for sharing with coworkers without deploying anywhere. See [`CLOUDFLARE_TUNNEL_GUIDE.md`](CLOUDFLARE_TUNNEL_GUIDE.md). |
 
+## Content calendar import
+
+| Script | Purpose |
+| :--- | :--- |
+| [`import_content_calendar.py`](../scripts/ops/import_content_calendar.py) | Enqueues a month's `TO DO` slots from the Content Calendar XLSX into the Studio job queue (`POST /api/queue/enqueue`). Dry-run first: `python scripts/ops/import_content_calendar.py --file "Content Calendar.xlsx" --month October --dry-run` (remove `--dry-run` to enqueue for real; Studio must be running at `http://127.0.0.1:5200`). |
+
+- Only slots with status `TO DO` are enqueued; Posted / Scheduled (via UI) / Scheduled (Manual Edit) / NONE / N/A / blank are skipped and counted by reason.
+- Fixtures cycle round-robin per pipeline; pointer persisted in `output/calendar_fixture_state.json` (gitignored, do not commit).
+- Idea→pipeline mapping lives in `assets/calendar_pipeline_map.json` (edit ideas/endpoints there, no code change); unknown ideas are skipped and reported.
+- Same-date Day + Night (D&N) story slots collapse into one job.
+
 ## Airtable data maintenance
 
 | Script | Purpose |
