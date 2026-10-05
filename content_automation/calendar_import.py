@@ -77,3 +77,9 @@ def collapse_day_night(slots: list[dict]) -> list[dict]:
             out[day_i]["idea"] = "Day & Night"
             drop.add(night_i)
     return [s for i, s in enumerate(out) if i not in drop]
+
+
+def pick_fixture(pipeline_type: str, state: dict, fixtures: list[str]) -> str:
+    idx = int(state.get(pipeline_type, 0)) % len(fixtures)
+    state[pipeline_type] = int(state.get(pipeline_type, 0)) + 1
+    return fixtures[idx]

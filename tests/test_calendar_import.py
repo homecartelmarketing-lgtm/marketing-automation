@@ -49,5 +49,26 @@ class TestCollapseDayNight(unittest.TestCase):
         self.assertEqual(job["pipeline_type"], "day-night-story")
 
 
+class TestPickFixture(unittest.TestCase):
+    def test_round_robin_cycles(self):
+        from content_automation.calendar_import import pick_fixture
+        state = {}
+        got = [pick_fixture("moodboard-story", state, ["chandelier", "pendant", "floor-lamp"]) for _ in range(4)]
+        self.assertEqual(got, ["chandelier", "pendant", "floor-lamp", "chandelier"])
+
+    def test_round_robin_state_and_independence(self):
+        from content_automation.calendar_import import pick_fixture
+        state = {}
+        fixtures = ["chandelier", "pendant", "floor-lamp"]
+        for _ in range(4):
+            pick_fixture("moodboard-story", state, fixtures)
+        self.assertEqual(state, {"moodboard-story": 4})
+        state2 = {}
+        self.assertEqual(pick_fixture("moodboard-story", state2, fixtures), "chandelier")
+        self.assertEqual(pick_fixture("cta", state2, fixtures), "chandelier")
+        self.assertEqual(pick_fixture("moodboard-story", state2, fixtures), "pendant")
+        self.assertEqual(pick_fixture("cta", state2, fixtures), "pendant")
+
+
 if __name__ == "__main__":
     unittest.main()
