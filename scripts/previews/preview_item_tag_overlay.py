@@ -9,8 +9,13 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 import time
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from PIL import Image
 
@@ -18,6 +23,7 @@ from content_automation.item_tagger import (
     DEFAULT_CONFIDENCE_THRESHOLD,
     DEFAULT_FONT_SIZE,
     detect_item_bbox,
+    lower_right_fallback_position,
     render_item_name_tag,
     tag_blended_image,
 )
@@ -61,6 +67,18 @@ def parse_args():
         default=DEFAULT_CONFIDENCE_THRESHOLD,
         help="YOLO-World confidence threshold (default: 0.20)",
     )
+    parser.add_argument(
+        "--format",
+        "-f",
+        default="story",
+        choices=["feed", "story", "reel"],
+        help="Output format for the deterministic lower-right fallback (default: story)",
+    )
+    parser.add_argument(
+        "--force-fallback",
+        action="store_true",
+        help="Skip detection and render the deterministic lower-right fallback directly",
+    )
     return parser.parse_args()
 
 
@@ -85,23 +103,36 @@ def main():
     print(f"[INFO] Line 2 (Regular, 19px): '{args.type}'")
 
     start_time = time.perf_counter()
-    bbox = detect_item_bbox(img, category=args.category, confidence_threshold=args.conf)
+    if args.force_fallback:
+        bbox = None
+        print(f"[INFO] Forced deterministic lower-right fallback (format: {args.format})")
+    else:
+        bbox = detect_item_bbox(img, category=args.category, confidence_threshold=args.conf)
     detect_time = time.perf_counter() - start_time
 
     if bbox is None:
-        print(f"[WARN] No item detected for category '{args.category}' with confidence >= {args.conf}")
-        print("[WARN] Strict mode: Stamping skipped to prevent misplacement.")
-        return 1
+        pos = lower_right_fallback_position(
+            img.size, item_name=args.name, product_type=args.type, output_format=args.format
+        )
+        print(f"[INFO] Lower-right fallback position: (X={pos[0]}, Y={pos[1]}) for format '{args.format}'")
+        tagged_img = render_item_name_tag(
+            image=img,
+            bbox=None,
+            item_name=args.name,
+            product_type=args.type,
+            position=pos,
+            font_size=DEFAULT_FONT_SIZE,
+        )
+    else:
+        print(f"[OK] Detected bounding box: (X1={bbox[0]}, Y1={bbox[1]}, X2={bbox[2]}, Y2={bbox[3]}) in {detect_time:.3f}s")
 
-    print(f"[OK] Detected bounding box: (X1={bbox[0]}, Y1={bbox[1]}, X2={bbox[2]}, Y2={bbox[3]}) in {detect_time:.3f}s")
-
-    tagged_img = render_item_name_tag(
-        image=img,
-        bbox=bbox,
-        item_name=args.name,
-        product_type=args.type,
-        font_size=DEFAULT_FONT_SIZE,
-    )
+        tagged_img = render_item_name_tag(
+            image=img,
+            bbox=bbox,
+            item_name=args.name,
+            product_type=args.type,
+            font_size=DEFAULT_FONT_SIZE,
+        )
 
     out_path = Path(args.output)
     out_path.parent.mkdir(parents=True, exist_ok=True)

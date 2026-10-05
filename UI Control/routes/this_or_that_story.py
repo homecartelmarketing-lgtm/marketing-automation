@@ -331,6 +331,7 @@ def run_this_or_that_pipeline():
                 env=child_env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,
                 text=True,
                 bufsize=1,
             )

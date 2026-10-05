@@ -363,7 +363,7 @@ export default function App() {
       }
       if (res.ok) {
         updateMoodboard(activePipelineConfig.type, editMoodboardFixture.id, newMb);
-        toast.success(`Updated Krea Moodboard ID for ${editMoodboardFixture.name} in .env`);
+        toast.success(`Saved Krea Moodboard ID for ${editMoodboardFixture.name} (Studio setting)`);
         setEditMoodboardFixture(null);
       } else {
         toast.error(data.error || 'Failed to update Moodboard ID');
@@ -408,7 +408,7 @@ export default function App() {
       }
       if (res.ok) {
         updatePrompt(activePipelineConfig.type, editPromptFixture.id, newPr);
-        toast.success(`Updated Krea Prompt for ${editPromptFixture.name} in .env`);
+        toast.success(`Saved Krea Prompt for ${editPromptFixture.name} (Studio setting)`);
         setEditPromptFixture(null);
       } else {
         toast.error(data.error || 'Failed to update Prompt');
@@ -690,6 +690,7 @@ export default function App() {
         history={queueHistory}
         pipelineState={pipelineState}
         phaseSummary={(activeQueueJob ? getPipelineByType(activeQueueJob.pipeline_type as PipelineType) : runningPipelineConfig)?.phaseSummary}
+        studioPin={studioPin}
         onStop={() => handleStopActiveJob(studioPin, handleStopPipeline)}
         onCancelJob={(jobId, fixName) => handleCancelQueueItem(jobId, fixName, studioPin)}
         onClearQueue={() => handleClearQueue(studioPin)}

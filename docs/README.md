@@ -22,6 +22,7 @@ docs/
 ├── OPERATIONS_AND_UTILITIES.md          # Maintenance / tagging / diagnostic scripts
 ├── CLOUDFLARE_TUNNEL_GUIDE.md           # Quick Tunnel sharing guide
 ├── GIT_PUSH_AND_DEPLOY.md               # How the AI commits, pushes, and deploys to Railway (step by step)
+├── plans/                               # Implemented implementation plans (e.g. 2026-10-05-calendar-import.md)
 │
 ├── stories/                             # 10 Story Pipelines (9:16 vertical, 1080 x 1920 px)
 │   ├── CTA_STORY.md
@@ -52,8 +53,7 @@ docs/
 │   ├── STYLE_REEL_SLIDESHOW.md
 │   ├── ONE_PRODUCT_THREE_STYLES_REEL.md
 │   ├── ONE_AT_A_TIME_LIGHTS_REEL.md
-│   ├── SKETCH_TO_REAL_REEL.md
-│   └── SKETCH_TO_DRAW_REEL.md           # superseded by SKETCH_TO_REAL_REEL.md
+│   └── SKETCH_TO_REAL_REEL.md
 │
 ├── ads/                                 # Ad Cover Pipeline (1:1 1080 x 1080 + 9:16 Story 1080 x 1920)
 │   └── AD_COVER.md
@@ -64,10 +64,6 @@ docs/
 │   ├── PROMO_BANNER.md                  # 9:16 "Your Story" promo from the main banner (standalone CLI)
 │   ├── CHRISTMAS_BANNER.md
 │   └── SALE_BANNER.md
-│
-├── superpowers/                         # Planned-but-NOT-implemented designs (reference only)
-│   ├── plans/2026-09-16-studio-new-record-run-scope.md
-│   └── specs/2026-09-16-studio-new-record-run-scope-design.md
 │
 └── memory/                              # Incidents, decisions, architecture notes (Obsidian vault)
     ├── incidents/
@@ -128,7 +124,6 @@ docs/
 | [`STYLE_REEL_SLIDESHOW.md`](reels/STYLE_REEL_SLIDESHOW.md) | `tblFFEvkHb3jLKrcv` (5-Room Set) | 11.0s | 5-room whole-home slideshow tour. |
 | [`ONE_AT_A_TIME_LIGHTS_REEL.md`](reels/ONE_AT_A_TIME_LIGHTS_REEL.md) | `tblJpEtBudQZda319` (One at a time Lights) | ~11.0s | Bedroom where 3 lights (table lamp, ceiling mounted, pendant) turn on one at a time via progressive Nano Banana Pro lighting blends, local FFmpeg crossfades, silent audio + brand outro. |
 | [`SKETCH_TO_REAL_REEL.md`](reels/SKETCH_TO_REAL_REEL.md) | `tblUFR6OvFQaHnG1V` (Chandelier), `tblSALsUd5MXXnkp6` (Pendant) | ~11.0s | Hand-drawn outline of the room animating line by line into the photorealistic lit interior + Instagram cover + Fal AI ElevenLabs luxury background music + outro. Studio subtab 7 "Sketch to Real" (Chandelier and Pendant runnable). |
-| [`SKETCH_TO_DRAW_REEL.md`](reels/SKETCH_TO_DRAW_REEL.md) | *superseded: alias of Sketch to Real* | ~12.0s | Original spec (Nano Banana sketch + AI video); the code now runs the Sketch to Real pipeline. |
 
 ---
 
@@ -186,14 +181,15 @@ Second sub-tab of the **Banner** tab. A red sale panel with `10%` and `15%` bloc
 | [`memory/incidents/2026-09-21-day-night-feed-stamp-lost-in-refactor.md`](memory/incidents/2026-09-21-day-night-feed-stamp-lost-in-refactor.md) | Why Day & Night Feed rows shipped with an un-watermarked Day image and an empty `STORY - Day & Night (2)` field: the stamped temp file was consumed by YOLO tagging then deleted, and a refactor dropped the final slide upload. |
 | [`memory/incidents/2026-09-21-item-name-stamp-inconsistencies.md`](memory/incidents/2026-09-21-item-name-stamp-inconsistencies.md) | One symptom family — missing item-name stamps — across 1 Product 3 Styles Feed, Collection Category Feed, Moodboard Reel and Style This Story, with three distinct root causes. |
 | [`memory/incidents/2026-10-02-mb-reel-item-name-material-duplicates.md`](memory/incidents/2026-10-02-mb-reel-item-name-material-duplicates.md) | MB Reel regression: Phase 3's 0-based `Item Name{slot}` lookup stamped placeholders/shifted names, and un-normalized material words (`BRASS,` vs `Brass`) duplicated across slots. |
+| [`memory/incidents/2026-10-05-tag-line2-anchor-fallback.md`](memory/incidents/2026-10-05-tag-line2-anchor-fallback.md) | Tag Line-2 lost when Product Type field empty (anchor handoff) + Floor Lamp Moodboard Story registry `KeyError`; fixed by shared `resolve_tag_names`. |
 
-## 🚧 7. Planned but NOT Implemented (`docs/superpowers/`)
+## 🚧 7. Implementation plans (`docs/plans/`)
 
 | Doc | Status |
 | :--- | :--- |
-| [`superpowers/plans/2026-09-16-studio-new-record-run-scope.md`](superpowers/plans/2026-09-16-studio-new-record-run-scope.md) | Design/plan only. The modules it names (`content_automation/studio_run_scope.py`, `UI Control/routes/studio_runs.py`) do **not** exist in the codebase. |
-| [`superpowers/specs/2026-09-16-studio-new-record-run-scope-design.md`](superpowers/specs/2026-09-16-studio-new-record-run-scope-design.md) | Same — spec for an unimplemented run-scope feature. Do not assume it is active behavior. |
-| [`superpowers/plans/2026-09-28-one-at-a-time-lights-reel.md`](superpowers/plans/2026-09-28-one-at-a-time-lights-reel.md) | **Superseded.** Describes a Seedance 2.0 / 4-fixture design. The shipped One at a time Lights Reel uses 3 fixtures + progressive Nano Banana blends + FFmpeg crossfade — see [`reels/ONE_AT_A_TIME_LIGHTS_REEL.md`](reels/ONE_AT_A_TIME_LIGHTS_REEL.md). |
+| [`plans/2026-10-05-calendar-import.md`](plans/2026-10-05-calendar-import.md) | Content Calendar XLSX → Studio queue import (implemented: `content_automation/calendar_import.py`, `UI Control/routes/calendar.py`, `scripts/ops/import_content_calendar.py`). |
+
+> The old `docs/superpowers/` draft specs were removed 2026-10-05 (broken links cleaned).
 
 ## 📂 8. Legacy Per-Folder Notes
 

@@ -36,6 +36,8 @@ from content_automation.krea_client import KreaClient
 from content_automation.media import download_to_temp_file
 from content_automation.item_tagger import (
     TARGET_BLENDED_FIELD,
+    fixture_display_type,
+    resolve_tag_names,
     tag_and_upload_blended_image,
 )
 from content_automation.overlay import HOMECARTEL_LOGO_BOX, stamp_logo
@@ -459,14 +461,21 @@ def generate_moodboard_v1_blends(
                 context=f"Download blended image from {image_url}",
             )
             # Auto-tag furniture item name beside detected object using local zero-cost YOLO-World
-            from content_automation.akeneo_client import split_item_name
+            from types import SimpleNamespace
+
             category_inferred = "chandeliers"
             if getattr(airtable, "table_id", "") == "tblOvvYdgsNTXh2zK" or "pendant" in str(item_label).lower():
                 category_inferred = "pendant_lights"
             elif getattr(airtable, "table_id", "") == "tbl6uTmwM23KK9ocO" or "floor" in str(item_label).lower():
                 category_inferred = "floor_lamps"
 
-            item_title, prod_type = split_item_name(str(item_label), fallback_product_type="Lighting")
+            anchor = SimpleNamespace(item_name="", product_type="", fields=fields)
+            item_title, prod_type = resolve_tag_names(
+                str(item_label),
+                anchor,
+                type_hint=fixture_display_type(category_inferred)
+                or str(fields.get("Product Type") or ""),
+            )
             tagged_paths: list[Path] = []
             try:
                 tag_and_upload_blended_image(
@@ -479,6 +488,7 @@ def generate_moodboard_v1_blends(
                     target_field=TARGET_BLENDED_FIELD,
                     fallback_if_undetected=True,
                     output_tagged_paths=tagged_paths,
+                    output_format="feed",
                 )
             except Exception as tag_err:
                 print(f"[WARN] Failed auto-tagging item name onto blended image for record {record_id}: {tag_err}")

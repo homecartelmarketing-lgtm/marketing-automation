@@ -32,6 +32,21 @@ from PIL import Image
 from content_automation.airtable_client import fetch_multiple_tables_status_breakdown
 from content_automation.akeneo_client import split_item_name
 from content_automation.config import TABLES, load_settings
+from content_automation.fixture_catalog import (
+    active_fixtures as _catalog_active_fixtures,
+)
+from content_automation.fixture_catalog import (
+    load_studio_overrides as _load_studio_overrides,
+)
+from content_automation.fixture_catalog import (
+    resolve_moodboard_id as _catalog_resolve_moodboard_id,
+)
+from content_automation.fixture_catalog import (
+    resolve_prompt as _catalog_resolve_prompt,
+)
+from content_automation.fixture_catalog import (
+    resolve_table_id as _catalog_resolve_table_id,
+)
 from content_automation.cta_conversion import run_cta_conversion
 from content_automation.errors import AutomationError
 from content_automation.fal_client import FalClient
@@ -56,171 +71,30 @@ from content_automation.scraping.categories import (
 )
 from standalone_scrape_akeneo import run_category_scrape
 
-CTA_STORY_TABLES: dict[str, dict[str, str]] = {
-    "tblYHdVq14FjMWg5o": {
-        "category_code": "chandelier_cta_story",
-        "label": "CTA Story Chandelier",
-        "default_moodboard_id": (
-            os.getenv("KREA_MOODBOARD_ID_CHANDELIER_CTA", "").strip()
-            or os.getenv("KREA_MOODBOARD_ID_CHANDELIERS", "").strip()
-            or "de6ad512-870d-4ab7-a48c-3f3ca85faf24"
-        ),
-        "default_prompt": (
-            os.getenv("CTA_PROMPT_CHANDELIER", "").strip()
-            or os.getenv("PROMPT_CHANDELIER", "").strip()
-            or "Generate me a modern living room"
-        ),
-    },
-    "tblfl7fqFZa2vUieB": {
-        "category_code": "pendant_lights_cta_story",
-        "label": "CTA Story Pendant Light",
-        "default_moodboard_id": (
-            os.getenv("KREA_MOODBOARD_ID_PENDANT_LIGHTS_CTA", "").strip()
-            or os.getenv("KREA_MOODBOARD_ID_PENDANT_LIGHTS", "").strip()
-            or "0844ad92-c34a-4dc8-9d70-d09498dc098c"
-        ),
-        "default_prompt": (
-            os.getenv("CTA_PROMPT_PENDANT_LIGHTS", "").strip()
-            or os.getenv("PROMPT_PENDANT_LIGHTS", "").strip()
-            or "Generate me a modern dining room"
-        ),
-    },
-    "tblSpGJLO3faYfIDY": {
-        "category_code": "cluster_chandelier_cta_story",
-        "label": "CTA Story Cluster Chandelier",
-        "default_moodboard_id": (
-            os.getenv("KREA_MOODBOARD_ID_CLUSTER_CHANDELIER_CTA", "").strip()
-            or os.getenv("KREA_MOODBOARD_ID_CLUSTER_CHANDELIER_DAY_NIGHT_STORY", "").strip()
-            or os.getenv("KREA_MOODBOARD_ID_CLUSTER_CHANDELIER", "").strip()
-            or "b5ffdcbb-192e-4528-8d86-d1a4cf496887"
-        ),
-        "default_prompt": (
-            os.getenv("CTA_PROMPT_CLUSTER_CHANDELIER", "").strip()
-            or os.getenv("PROMPT_CLUSTER_CHANDELIER", "").strip()
-            or (
-                "Modern high-ceiling room interior, luxury contemporary architecture, warm neutral tones, "
-                "clean open ceiling space ready for cluster chandelier integration, photorealistic 8k vertical portrait"
-            )
-        ),
-    },
-    "tblKJeCCp4zQ6g7Em": {
-        "category_code": "table_lamps_cta_story",
-        "label": "CTA Story Table Lamp",
-        "default_moodboard_id": (
-            os.getenv("KREA_MOODBOARD_ID_TABLE_LAMPS_CTA", "").strip()
-            or os.getenv("KREA_MOODBOARD_ID_TABLE_LAMPS_DAY_NIGHT_STORY", "").strip()
-            or os.getenv("KREA_MOODBOARD_ID_TABLE_LAMPS", "").strip()
-            or "257569e1-7be8-4412-a90f-acbc347e4646"
-        ),
-        "default_prompt": (
-            os.getenv("CTA_PROMPT_TABLE_LAMPS", "").strip()
-            or os.getenv("PROMPT_TABLE_LAMPS", "").strip()
-            or "Generate me a modern bedroom with a table lamp side by side"
-        ),
-    },
-    "tblPKSYyjgbgMypE2": {
-        "category_code": "floor_lamp_cta_story",
-        "label": "CTA Story Floor Lamp",
-        "default_moodboard_id": (
-            os.getenv("KREA_MOODBOARD_ID_FLOOR_LAMP_CTA", "").strip()
-            or os.getenv("KREA_MOODBOARD_ID_FLOOR_LAMPS", "").strip()
-            or "c4c15a18-a92d-4465-924f-c85cfe1958bc"
-        ),
-        "default_prompt": (
-            os.getenv("CTA_PROMPT_FLOOR_LAMPS", "").strip()
-            or os.getenv("PROMPT_FLOOR_LAMPS", "").strip()
-            or (
-                "Modern living room interior, stylish lounge chair, warm ambient lighting, "
-                "spacious floor corner ready for floor lamp integration, photorealistic 8k vertical portrait"
-            )
-        ),
-    },
-}
+_load_studio_overrides()
+
+
+def _build_cta_tables() -> dict[str, dict[str, str]]:
+    """CTA table_id -> config, resolved live from env + catalog defaults."""
+    from content_automation.fixture_catalog import get_fixture as _get_fixture
+
+    tables: dict[str, dict[str, str]] = {}
+    for e in _catalog_active_fixtures("cta-story"):
+        tables[_catalog_resolve_table_id(e)] = {
+            "category_code": e.category_code,
+            "label": f"CTA Story {e.name}",
+            "default_moodboard_id": _catalog_resolve_moodboard_id(e),
+            "default_prompt": _catalog_resolve_prompt(e),
+        }
+    return tables
+
+
+CTA_STORY_TABLES: dict[str, dict[str, str]] = _build_cta_tables()
 
 
 def get_cta_tables() -> dict[str, dict[str, str]]:
-    """Return dynamically refreshed CTA tables config from .env."""
-    return {
-        (os.getenv("AIRTABLE_TABLE_ID_CHANDELIER_CTA", "").strip() or "tblYHdVq14FjMWg5o"): {
-            "category_code": "chandelier_cta_story",
-            "label": "CTA Story Chandelier",
-            "default_moodboard_id": (
-                os.getenv("KREA_MOODBOARD_ID_CHANDELIER_CTA", "").strip()
-                or os.getenv("KREA_MOODBOARD_ID_CHANDELIERS", "").strip()
-                or "de6ad512-870d-4ab7-a48c-3f3ca85faf24"
-            ),
-            "default_prompt": (
-                os.getenv("CTA_PROMPT_CHANDELIER", "").strip()
-                or os.getenv("PROMPT_CHANDELIER", "").strip()
-                or "Generate me a modern living room"
-            ),
-        },
-        (os.getenv("AIRTABLE_TABLE_ID_PENDANT_LIGHTS_CTA", "").strip() or "tblfl7fqFZa2vUieB"): {
-            "category_code": "pendant_lights_cta_story",
-            "label": "CTA Story Pendant Light",
-            "default_moodboard_id": (
-                os.getenv("KREA_MOODBOARD_ID_PENDANT_LIGHTS_CTA", "").strip()
-                or os.getenv("KREA_MOODBOARD_ID_PENDANT_LIGHTS", "").strip()
-                or "0844ad92-c34a-4dc8-9d70-d09498dc098c"
-            ),
-            "default_prompt": (
-                os.getenv("CTA_PROMPT_PENDANT_LIGHTS", "").strip()
-                or os.getenv("PROMPT_PENDANT_LIGHTS", "").strip()
-                or "Generate me a modern dining room"
-            ),
-        },
-        (os.getenv("AIRTABLE_TABLE_ID_CLUSTER_CHANDELIER_CTA", "").strip() or "tblSpGJLO3faYfIDY"): {
-            "category_code": "cluster_chandelier_cta_story",
-            "label": "CTA Story Cluster Chandelier",
-            "default_moodboard_id": (
-                os.getenv("KREA_MOODBOARD_ID_CLUSTER_CHANDELIER_CTA", "").strip()
-                or os.getenv("KREA_MOODBOARD_ID_CLUSTER_CHANDELIER_DAY_NIGHT_STORY", "").strip()
-                or os.getenv("KREA_MOODBOARD_ID_CLUSTER_CHANDELIER", "").strip()
-                or "b5ffdcbb-192e-4528-8d86-d1a4cf496887"
-            ),
-            "default_prompt": (
-                os.getenv("CTA_PROMPT_CLUSTER_CHANDELIER", "").strip()
-                or os.getenv("PROMPT_CLUSTER_CHANDELIER", "").strip()
-                or (
-                    "Modern high-ceiling room interior, luxury contemporary architecture, warm neutral tones, "
-                    "clean open ceiling space ready for cluster chandelier integration, photorealistic 8k vertical portrait"
-                )
-            ),
-        },
-        (os.getenv("AIRTABLE_TABLE_ID_TABLE_LAMPS_CTA", "").strip() or "tblKJeCCp4zQ6g7Em"): {
-            "category_code": "table_lamps_cta_story",
-            "label": "CTA Story Table Lamp",
-            "default_moodboard_id": (
-                os.getenv("KREA_MOODBOARD_ID_TABLE_LAMPS_CTA", "").strip()
-                or os.getenv("KREA_MOODBOARD_ID_TABLE_LAMPS_DAY_NIGHT_STORY", "").strip()
-                or os.getenv("KREA_MOODBOARD_ID_TABLE_LAMPS", "").strip()
-                or "257569e1-7be8-4412-a90f-acbc347e4646"
-            ),
-            "default_prompt": (
-                os.getenv("CTA_PROMPT_TABLE_LAMPS", "").strip()
-                or os.getenv("PROMPT_TABLE_LAMPS", "").strip()
-                or "Generate me a modern bedroom with a table lamp side by side"
-            ),
-        },
-        (os.getenv("AIRTABLE_TABLE_ID_FLOOR_LAMP_CTA", "").strip() or "tblPKSYyjgbgMypE2"): {
-            "category_code": "floor_lamp_cta_story",
-            "label": "CTA Story Floor Lamp",
-            "default_moodboard_id": (
-                os.getenv("KREA_MOODBOARD_ID_FLOOR_LAMPS_CTA", "").strip()
-                or os.getenv("KREA_MOODBOARD_ID_FLOOR_LAMP_CTA", "").strip()
-                or os.getenv("KREA_MOODBOARD_ID_FLOOR_LAMPS", "").strip()
-                or "c4c15a18-a92d-4465-924f-c85cfe1958bc"
-            ),
-            "default_prompt": (
-                os.getenv("CTA_PROMPT_FLOOR_LAMPS", "").strip()
-                or os.getenv("PROMPT_FLOOR_LAMPS", "").strip()
-                or (
-                    "Modern living room interior, stylish lounge chair, warm ambient lighting, "
-                    "spacious floor corner ready for floor lamp integration, photorealistic 8k vertical portrait"
-                )
-            ),
-        },
-    }
+    """Return dynamically refreshed CTA tables config from env + catalog."""
+    return _build_cta_tables()
 
 
 def find_cta_table_by_category(category_code: str) -> tuple[str, dict[str, str]] | None:

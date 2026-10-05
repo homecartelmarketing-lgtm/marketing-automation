@@ -64,7 +64,6 @@ marketing-automation/
 │   ├── SKILLS_GUIDE.md                      # What each agent skill is for and when to load it
 │   ├── UI_CONTROL_CONFIG.md                 # Studio moodboard/prompt overrides & config keys
 │   ├── CLOUDFLARE_TUNNEL_GUIDE.md           # Tunnel guide
-│   ├── superpowers/                         # Planned-but-NOT-implemented designs (see index note)
 │   └── memory/                              # incidents/, decisions/, architecture/ (Obsidian vault)
 │
 ├── content_automation/                      # Core automation package
@@ -72,6 +71,9 @@ marketing-automation/
 │   ├── isolated_config.py                   # Per-pipeline isolated .env settings loader
 │   ├── airtable_client.py                   # Airtable REST client, fetch_status_breakdown, current_pht_timestamp
 │   ├── foreign_key.py                       # TABLE_PREFIX_MAP & generate_foreign_key (FK IDs)
+│   ├── fixture_catalog.py                   # Single source of truth: per-pipeline fixture wiring
+│   │                                        #   (table_id, FK prefix, moodboard/prompt env keys + defaults).
+│   │                                        #   Pilot: CTA Story. Enforced by tests/test_cta_catalog_consistency.py
 │   ├── akeneo_client.py                     # Akeneo PIM API client (product scraping, split_item_name)
 │   ├── shopify_client.py                    # Strict Shopify live-catalog verification (products.json, 24h cache)
 │   ├── krea_client.py                       # Krea AI client (room interior generation)
@@ -80,7 +82,8 @@ marketing-automation/
 │   ├── overlay.py                           # LOCAL Python Pillow rendering engine (logos, watermarks, typography)
 │   ├── story_tip.py                         # Tips & Edu Story: Claude "Style Tip of the Day" prompt, sanitizer, fallback tips
 │   ├── banner_common.py / promo_calendar.py # Christmas/Sale Banner shared helpers; promotions calendar (assets/calendar_config.json)
-│   ├── item_tagger.py                       # YOLO-World furniture tagging on blended images
+│   ├── item_tagger.py                       # YOLO-World furniture tagging on blended images (resolve_tag_names: anchor.product_type-first fallback)
+│   ├── calendar_import.py                   # Content Calendar XLSX parser (parse_month_slots, resolve_job, pick_fixture, build_jobs)
 │   ├── media.py / video.py / audio.py       # Temp downloads; imageio-ffmpeg video & audio muxing
 │   ├── assets.py                            # AssetCatalog: workspace, assets/, JSON Prompts/ lookups
 │   ├── phased_content.py                    # PhasedContentRunner: resumable per-record phase engine (JSONL logs)
@@ -101,7 +104,7 @@ marketing-automation/
 ├── UI Control/                              # Full-stack Web Dashboard ("Studio")
 │   ├── api_server.py                        # THE Flask backend server (port 5200). NOTE: there is NO
 │   │                                        #   root-level api_server.py.
-│   ├── routes/                              # 26 pipeline blueprints + infrastructure:
+│   ├── routes/                              # 27 pipeline blueprints + infrastructure:
 │   │   ├── cta_story.py                     # Story: /api/cta/*          tips_edu_story.py  /api/tips-edu/*
 │   │   ├── collection_story.py              # /api/collection-story/*    day_night_story.py  /api/day-night-story/*
 │   │   ├── moodboard_story.py               # /api/moodboard-story/*     product_specs_story.py /api/product-specs/*
@@ -119,6 +122,7 @@ marketing-automation/
 │   │   ├── ad_cover.py                      # Ad Cover: /api/ad-cover/* (1:1 + 9:16 Story, per-fixture run)
 │   │   ├── christmas_banner.py              # Banner (Christmas + Sale + third, one run/row): /api/christmas-banner/*   sale_banner.py /api/sale-banner/* (API/CLI only)
 │   │   ├── queue_manager.py                 # In-memory FIFO job queue (/api/queue/*) — see §3
+│   │   ├── calendar.py                      # Content Calendar XLSX import (/api/calendar/preview|enqueue) — RunCenter button
 │   │   ├── rows.py                          # Row Inspector & Airtable deep links (/api/rows)
 │   │   └── common.py                        # PIN verification, config overrides, helpers
 │   ├── src/                                 # React + TypeScript Vite frontend
@@ -126,11 +130,12 @@ marketing-automation/
 │   │   ├── app/constants/                   # fixtures.ts (*_FIXTURES + subtab switch), pipelines.ts (PipelineConfig per pipeline)
 │   │   ├── app/hooks/                       # usePipelineData, usePipelineRunner, useQueue
 │   │   ├── app/types/index.ts               # PipelineType union, FixtureData, status-count types
-│   │   └── app/components/                  # planning/ (FixtureCard, RowInspectorModal, RunConfirmModal, RunCenter = bottom status bar + run panel), modals/
+│   │   └── app/components/                  # planning/ (FixtureCard, RowInspectorModal, RunConfirmModal, RunCenter = bottom status bar + run panel + CalendarImportModal), modals/
 │   └── dist/                                # Compiled production assets served by Flask
 │
 ├── assets/                                  # homecartel_logo.png, *_layout.jpg watermark templates, emojis,
 │   │                                        #   chand-collection.png, trending.png, etc. (1:1) + ad-cover-*-story.png (9:16)
+│   │                                        #   calendar_pipeline_map.json (Content Calendar idea→pipeline map), calendar_config.json
 │   └── models/                              # yolov8s-worldv2.pt (YOLO-World weights for item tagging)
 ├── JSON Prompts/                            # Per-format layout JSON + moodboard templates (Canva exports)
 ├── output/                                  # Generated local image composites & exports
@@ -138,10 +143,10 @@ marketing-automation/
 ```
 
 > [!IMPORTANT]
-> The root folder contains the active generators and runners (~54 `.py` scripts). The naming pattern matters:
+> The root folder contains the active generators and runners (~55 `.py` scripts). The naming pattern matters:
 > - `generate_*` (e.g. `generate_*_pipeline.py`) — self-contained monoliths that actually run Phases 1..N. **Flask routes spawn these directly as subprocesses.**
 > - `run_*.py` — CLI entrypoints: either *thin aliases* that call a monolith's `main()`, or *orchestrators* that scrape and then invoke `run_content_automation.py`.
-> - Root utilities with internal pipeline callers (`standalone_scrape_akeneo.py`, `photo_video_maker.py`, `standalone_item_tagger.py`, and category scrapers imported by runners) remain in root to guarantee zero breaking changes.
+> - Root utilities with internal pipeline callers (`standalone_scrape_akeneo.py` and category scrapers imported by runners) remain in root to guarantee zero breaking changes. Standalone tools with no callers were tidied away 2026-10-05: `scripts/ops/photo_video_maker.py`, `scripts/ops/standalone_item_tagger.py`, `scripts/scrapers/generate_krea_interiors.py`, and the legacy dashboard `archive/run_dashboard.py`.
 > - One-off utility scripts, standalone test scrapers, and layout previews live organized under `scripts/ops/`, `scripts/scrapers/`, and `scripts/previews/`.
 > - There is **no** `content_automation/text_overlays/` and **no** root `api_server.py` — Pillow rendering lives in `content_automation/overlay.py` and the server lives in `UI Control/api_server.py`.
 
@@ -292,7 +297,7 @@ Font sizes, logo boxes, watermark templates, shadows, auto-scaling and how to pr
 5. **Style Reel Slideshow** ([`docs/reels/STYLE_REEL_SLIDESHOW.md`](docs/reels/STYLE_REEL_SLIDESHOW.md)) — Fast-paced lifestyle video slideshow.
 6. **1 Product, 3 Styles Reel** ([`docs/reels/ONE_PRODUCT_THREE_STYLES_REEL.md`](docs/reels/ONE_PRODUCT_THREE_STYLES_REEL.md)) — Chandelier-only blended photo Reel with 5s, 4s, 4s holds and 5s outro.
 7. **One at a time Lights Reel** ([`docs/reels/ONE_AT_A_TIME_LIGHTS_REEL.md`](docs/reels/ONE_AT_A_TIME_LIGHTS_REEL.md), prefix: `OATL-REEL`) — ~11-second silent bedroom reel: 3 fresh fixtures (Table Lamp, Ceiling Mounted, Pendant) blended into one Krea interior, three progressive "only this light is ON" Nano Banana Pro variations, then local FFmpeg crossfades + branded outro. Table `tblJpEtBudQZda319`.
-8. **Sketch to Real Reel** ([`docs/reels/SKETCH_TO_REAL_REEL.md`](docs/reels/SKETCH_TO_REAL_REEL.md), prefix: `STR-REEL`) — ~11-second reel: hand-drawn outline of a Krea room animates line by line (local Auto Draw + FFmpeg) into the Nano Banana Pro blended interior, with cover and branded outro. Studio Reel subtab 7 "Sketch to Real" (route `/api/sketch-to-draw-reel/*`); Chandelier `tblUFR6OvFQaHnG1V` and Pendant `tblSALsUd5MXXnkp6` are runnable. `docs/reels/SKETCH_TO_DRAW_REEL.md` is the superseded original spec.
+8. **Sketch to Real Reel** ([`docs/reels/SKETCH_TO_REAL_REEL.md`](docs/reels/SKETCH_TO_REAL_REEL.md), prefix: `STR-REEL`) — ~11-second reel: hand-drawn outline of a Krea room animates line by line (local Auto Draw + FFmpeg) into the Nano Banana Pro blended interior, with cover and branded outro. Studio Reel subtab 7 "Sketch to Real" (route `/api/sketch-to-draw-reel/*`); Chandelier `tblUFR6OvFQaHnG1V` and Pendant `tblSALsUd5MXXnkp6` are runnable.
 
 ### Ad Cover Pipeline (1 Pipeline, 1:1 Square + 9:16 Story)
 1. **Ad Cover** ([`docs/ads/AD_COVER.md`](docs/ads/AD_COVER.md), prefix: `ADC-ADS`) — Standalone 4th top-level Studio tab (not a sub-tab family): one run button per fixture. All 9 fixtures are fully runnable with dedicated Airtable tables (Chandelier: `tblwIsDGZBPuYJV2Z`, Floor Lamp: `tbl27FKuDUD4FdJUR`, Table Lamp: `tblk3RfFqawHZ5Wrk`, Cluster Chandelier: `tbltouegkjgQwdr1u`, Pendant Light: `tbl99Cwda2Xn93giT`, Wall Light: `tblUO5nybG9fIkhTT`, New Collection: `tbluMexgzcWE1pDZJ`, On Sale Designs: `tbleQIVBooVazAyk3`, On Stock Designs: `tblX7tpTJhfH0UXmm`). 7 phases: highest-priced newest Akeneo fixture → Krea 1:1 interior → Claude blending prompt → Nano Banana Pro blend → **local Pillow** composite of the transparent ad-cover overlay → Nano Banana Pro **9:16 extension** of that blend → **local Pillow** composite of the 9:16 story overlay (tagline + logo baked into PNG overlays, zero API cost for typography). One run produces **both** the 1:1 `Ad Cover Converted Image` and the 9:16 `Ad Cover Converted Image Story`; `Complete` is written by Phase 7 only.

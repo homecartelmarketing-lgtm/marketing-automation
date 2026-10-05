@@ -483,10 +483,10 @@ def update_ad_cover_moodboard():
             "status": "success",
             "fixture_id": fixture_id,
             "moodboard_id": new_moodboard_id,
-            "message": f"Successfully updated Moodboard ID for {fixture_id} in .env",
+            "message": f"Successfully updated Moodboard ID for {fixture_id} (Studio setting)",
         })
     except Exception as err:
-        return jsonify({"status": "error", "error": f"Failed to update .env: {err}"}), 500
+        return jsonify({"status": "error", "error": f"Failed to update Studio setting: {err}"}), 500
 
 
 @ad_cover_bp.route("/prompt", methods=["POST"])
@@ -516,10 +516,10 @@ def update_ad_cover_prompt():
             "status": "success",
             "fixture_id": fixture_id,
             "prompt": new_prompt,
-            "message": f"Successfully updated prompt for {fixture_id} in .env",
+            "message": f"Successfully updated prompt for {fixture_id} (Studio setting)",
         })
     except Exception as err:
-        return jsonify({"status": "error", "error": f"Failed to update .env: {err}"}), 500
+        return jsonify({"status": "error", "error": f"Failed to update Studio setting: {err}"}), 500
 
 
 @ad_cover_bp.route("/run", methods=["POST"])
@@ -623,6 +623,7 @@ def run_ad_cover_pipeline():
                 cwd=str(MARKETING_DIR),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,
                 text=True,
                 bufsize=1,
             )

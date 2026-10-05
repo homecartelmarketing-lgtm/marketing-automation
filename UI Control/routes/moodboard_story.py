@@ -318,7 +318,7 @@ def get_moodboard_counts():
 
 @moodboard_story_bp.route("/moodboard", methods=["POST"])
 def update_moodboard_story_moodboard():
-    """Update and persist Krea Moodboard ID in .env for a Moodboard Story fixture."""
+    """Update and $persist Krea Moodboard ID as a Studio setting for a Moodboard Story fixture."""
     if not is_authorized(request):
         return jsonify({
             "status": "error",
@@ -356,18 +356,18 @@ def update_moodboard_story_moodboard():
             "status": "success",
             "fixture_id": fixture_id,
             "moodboard_id": new_moodboard_id,
-            "message": f"Successfully updated Moodboard ID for {fixture_id} in .env",
+            "message": f"Successfully updated Moodboard ID for {fixture_id} (Studio setting)",
         })
     except Exception as err:
         return jsonify({
             "status": "error",
-            "error": f"Failed to update .env: {err}",
+            "error": f"Failed to update Studio setting: {err}",
         }), 500
 
 
 @moodboard_story_bp.route("/prompt", methods=["POST"])
 def update_moodboard_story_prompt():
-    """Update and persist Krea Interior Generation Prompt in .env for a Moodboard Story fixture."""
+    """Update and $persist Krea Interior Generation Prompt as a Studio setting for a Moodboard Story fixture."""
     if not is_authorized(request):
         return jsonify({
             "status": "error",
@@ -405,12 +405,12 @@ def update_moodboard_story_prompt():
             "status": "success",
             "fixture_id": fixture_id,
             "prompt": new_prompt,
-            "message": f"Successfully updated prompt for {fixture_id} in .env",
+            "message": f"Successfully updated prompt for {fixture_id} (Studio setting)",
         })
     except Exception as err:
         return jsonify({
             "status": "error",
-            "error": f"Failed to update .env: {err}",
+            "error": f"Failed to update Studio setting: {err}",
         }), 500
 
 
@@ -513,6 +513,7 @@ def run_moodboard_pipeline():
                 env=child_env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,
                 text=True,
                 bufsize=1,
             )

@@ -185,7 +185,7 @@ export function FixtureCard({
             }`}
             title={
               onEditMoodboard
-                ? `Click to edit Moodboard ID (.env)\n${fixture.moodboardId || 'Not configured'}`
+                ? `Click to edit Moodboard ID (Studio setting)\n${fixture.moodboardId || 'Not configured'}`
                 : fixture.moodboardId || 'Not configured'
             }
           >
@@ -209,7 +209,7 @@ export function FixtureCard({
             }`}
             title={
               onEditPrompt
-                ? `Click to edit Prompt (.env)\n"${fixture.prompt || 'Default prompt'}"`
+                ? `Click to edit Prompt (Studio setting)\n"${fixture.prompt || 'Default prompt'}"`
                 : fixture.prompt || 'Default prompt'
             }
           >

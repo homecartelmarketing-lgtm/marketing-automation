@@ -55,3 +55,9 @@ UI Control/.pnpm-store/
 tools/cloudflared.exe
 .workbuddy-ai/
 
+# Local Content Calendar workbooks (real monthly XLSX with customer planning data).
+# Test fixtures under tests/fixtures/ are still committable.
+assets/oct-calendar.xlsx
+Content Calendar.xlsx
+*.xlsm
+

@@ -4,11 +4,27 @@ import os
 import sys
 from pathlib import Path
 
-from ..akeneo_client import split_item_name
-from ..item_tagger import TARGET_BLENDED_FIELD, tag_and_upload_blended_image
+from ..item_tagger import (
+    TARGET_BLENDED_FIELD,
+    fixture_display_type,
+    resolve_tag_names,
+    tag_and_upload_blended_image,
+)
 from ..models import AssetRequirement, CallEstimate, LocalImage
 from ..overlay import HOMECARTEL_STORY_LOGO_BOX
 from .base import BaseWorkflow
+
+
+def resolve_item_tag_names(anchor, type_hint: str = "") -> tuple[str, str]:
+    """Split the 2-line YOLO tag into (item title, product type).
+
+    Kept as a thin wrapper so existing imports keep working; the logic
+    lives in `item_tagger.resolve_tag_names`.
+    """
+    raw_item_name = str(
+        anchor.item_name or anchor.fields.get("Item Name") or anchor.sku or ""
+    ).strip()
+    return resolve_tag_names(raw_item_name, anchor, type_hint=type_hint)
 
 
 class MoodboardStoryWorkflow(BaseWorkflow):
@@ -109,11 +125,11 @@ class MoodboardStoryWorkflow(BaseWorkflow):
 
         # Auto-tag furniture item name onto 9:16 Blended Image using zero-cost local YOLO-World
         try:
-            raw_item_name = str(anchor.item_name or anchor.fields.get("Item Name") or sku).strip()
-            item_title, product_type = split_item_name(
-                raw_item_name, fallback_product_type=str(anchor.fields.get("Product Type") or "")
-            )
+            sku = anchor.sku or anchor.fields.get("SKU") or "N/A"
             raw_cat = str(self.ctx.definition.table_code or "pendant_lights").lower()
+            item_title, product_type = resolve_item_tag_names(
+                anchor, type_hint=fixture_display_type(raw_cat)
+            )
             if "chandelier" in raw_cat:
                 clean_category = "chandeliers"
             elif "pendant" in raw_cat:
@@ -125,7 +141,7 @@ class MoodboardStoryWorkflow(BaseWorkflow):
 
             print(f"\n [ITEM TAGGING] Stamping item name ('{item_title}') onto Blended Image -> '{TARGET_BLENDED_FIELD}'...")
             print(f"   * Category:      {clean_category}")
-            print(f"   * Safe Fallback: Mid-Left safe zone (X=100, Y=800) if undetected")
+            print(f"   * Safe Fallback: lower-right (format-aware) if undetected")
             tag_and_upload_blended_image(
                 airtable=self.ctx.airtable,
                 record_id=anchor.record_id,
@@ -136,7 +152,7 @@ class MoodboardStoryWorkflow(BaseWorkflow):
                 target_field=TARGET_BLENDED_FIELD,
                 output_filename_prefix="moodboard_story_tagged",
                 fallback_if_undetected=True,
-                fallback_position=(100, 800),
+                output_format="story",
             )
         except Exception as tag_err:
             print(f"  [WARN] Failed auto-tagging item name onto Moodboard Story blended image: {tag_err}")

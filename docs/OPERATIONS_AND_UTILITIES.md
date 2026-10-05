@@ -19,6 +19,7 @@ Scripts that keep the system healthy but aren't Story/Feed/Reel/Ad Cover content
 - Fixtures cycle round-robin per pipeline; pointer persisted in `output/calendar_fixture_state.json` (gitignored, do not commit).
 - Idea→pipeline mapping lives in `assets/calendar_pipeline_map.json` (edit ideas/endpoints there, no code change); unknown ideas are skipped and reported.
 - Same-date Day + Night (D&N) story slots collapse into one job.
+- Studio path (no CLI): RunCenter bottom bar → **Calendar** button (`UI Control/src/app/components/planning/CalendarImportModal.tsx`) uploads the workbook and calls `POST /api/calendar/preview` then `POST /api/calendar/enqueue` (`UI Control/routes/calendar.py`). Preview uses a copy of the fixture pointer so nothing is consumed; enqueue POSTs each job to `/api/queue/enqueue` and then saves the pointer. Studio PIN is forwarded from `App.tsx` via the `studioPin` prop.
 
 ## Airtable data maintenance
 
@@ -40,7 +41,7 @@ Scripts that keep the system healthy but aren't Story/Feed/Reel/Ad Cover content
 
 | Script | Purpose |
 | :--- | :--- |
-| [`standalone_item_tagger.py`](../standalone_item_tagger.py) | Interactive local web app: upload a room photo, detect furniture fixtures with local open-vocabulary YOLO-World, stamp editorial name labels, download the result. Manual/ad-hoc use. |
+| [`standalone_item_tagger.py`](../scripts/ops/standalone_item_tagger.py) | Interactive local web app: upload a room photo, detect furniture fixtures with local open-vocabulary YOLO-World, stamp editorial name labels, download the result. Manual/ad-hoc use. |
 | [`run_blended_item_tagger.py`](../scripts/ops/run_blended_item_tagger.py) | Batch CLI version: scans an Airtable table for rows with a blended image, detects and tags furniture automatically, uploads the tagged photo back to the record. |
 
 ## Orchestration variants
@@ -53,7 +54,7 @@ Scripts that keep the system healthy but aren't Story/Feed/Reel/Ad Cover content
 
 | Script | Purpose |
 | :--- | :--- |
-| [`photo_video_maker.py`](../photo_video_maker.py) | Standalone vertical (9:16) product-photo video generator: Ken Burns zoom + push transitions between photos, optional title text, optional brand end card, optional audio track. Not wired to Airtable — takes a local photo folder and writes an MP4. |
+| [`photo_video_maker.py`](../scripts/ops/photo_video_maker.py) | Standalone vertical (9:16) product-photo video generator: Ken Burns zoom + push transitions between photos, optional title text, optional brand end card, optional audio track. Not wired to Airtable — takes a local photo folder and writes an MP4. |
 | [`compile_product_description_videos.py`](../scripts/ops/compile_product_description_videos.py) | Assembles the Product Closeup w/ Description Story's 9:16 video reel: generates background music via Fal AI ElevenLabs Music, stitches the converted closeup card with the outro layout, uploads the result to `Product Closeup Video Reel` and marks the record `Complete`. |
 
 ## Diagnostics (read-only, safe to run anytime)
@@ -61,6 +62,7 @@ Scripts that keep the system healthy but aren't Story/Feed/Reel/Ad Cover content
 | Script | Purpose |
 | :--- | :--- |
 | [`probe_akeneo.py`](../scripts/ops/probe_akeneo.py) | Prints how many products a given Akeneo category/style query matches, plus a sample. Read-only sanity check for credentials and category codes — use this first when a pipeline reports zero/unexpected candidates, before assuming a code bug (see [`docs/memory/incidents/`](memory/incidents/) for a worked example). |
+| [`akeneo_category_tree.py`](../scripts/akeneo_category_tree.py) | Prints or exports the Akeneo PIM category tree via the REST API. Needs only `AKENEO_HOST`, `AKENEO_CLIENT_ID`, `AKENEO_SECRET`, `AKENEO_USERNAME`, `AKENEO_PASSWORD` plus `requests`/`python-dotenv`. Usage: `python scripts/akeneo_category_tree.py --root master --locale en_US` or `--json tree.json`. |
 | [`preview_item_tag_overlay.py`](../scripts/previews/preview_item_tag_overlay.py) | Renders a single test image of the item-name-tag overlay (used by the YOLO-World item taggers above) onto a room photo, without touching Airtable. Use to iterate on tag placement/typography quickly. |
 | [`preview_tips_edu_thumbnail.py`](../scripts/previews/preview_tips_edu_thumbnail.py) | Renders a single test image of the Tips & Educational Feed thumbnail title/subtitle text overlay onto a base image, without touching Airtable. |
 | [`preview_logo_overlay.py`](../scripts/previews/preview_logo_overlay.py) | Renders a single test image of the HomeCartel logo watermark overlay, without touching Airtable. |
@@ -73,8 +75,8 @@ Scripts that keep the system healthy but aren't Story/Feed/Reel/Ad Cover content
 
 | Script | Purpose |
 | :--- | :--- |
-| [`generate_krea_interiors.py`](../generate_krea_interiors.py) | CLI to scrape Akeneo products and/or generate Krea room-interior photos. Run with no arguments in a terminal for an interactive menu; the implementation lives in `content_automation.scraping`. |
-| [`run_dashboard.py`](../run_dashboard.py) | An older, separate web dashboard for Collection Category Feed automation. It reads from Google Drive (`G:/My Drive/Collection Category Feed`) and can open a free Cloudflare Tunnel (`--port`, `--no-tunnel`). It is **not** the Studio on port 5200 (`UI Control/api_server.py`). |
+| [`generate_krea_interiors.py`](../scripts/scrapers/generate_krea_interiors.py) | CLI to scrape Akeneo products and/or generate Krea room-interior photos. Run with no arguments in a terminal for an interactive menu; the implementation lives in `content_automation.scraping`. |
+| [`run_dashboard.py`](../archive/run_dashboard.py) | An older, separate web dashboard for Collection Category Feed automation. It reads from Google Drive (`G:/My Drive/Collection Category Feed`) and can open a free Cloudflare Tunnel (`--port`, `--no-tunnel`). It is **not** the Studio on port 5200 (`UI Control/api_server.py`). |
 | [`scrape_product_description_story.py`](../scrape_product_description_story.py) | Scrapes Akeneo products into the Product Closeup w/ Description Story tables (Chandelier, Pendant Light, Floor Lamp, and others); imported by that story's runners. |
 
 Thin aliases at root: `run_this_or_that.py` → `generate_this_or_that_pipeline.main`. Redundant and superseded alias stubs (`generate_before_after_reel.py`, `generate_sketch_to_draw_reel_pipeline.py`, `run_one_product_three_styles_feed.py`, `run_1_style_3_products_feed.py`, `run_3_products_1_style_feed.py`, and older `generate_moodboard_reel.py`) have been consolidated into `archive/legacy_runners/`.
@@ -86,6 +88,7 @@ Stdlib `unittest` suites; run all with `python -m unittest discover tests` from 
 | File | Covers |
 | :--- | :--- |
 | `tests/test_foreign_key.py` | Foreign Key ID generation and `TABLE_PREFIX_MAP` prefixes |
+| `tests/test_cta_catalog_consistency.py` | CTA fixture catalog agreement: routes, `fixtures.ts`, docs, and FK map must match `content_automation/fixture_catalog.py` |
 | `tests/test_fal_client.py` | `FalClient.generate_seedance_video` (currently unused by any pipeline; see `docs/memory/decisions/one-at-a-time-lights-pivot-from-seedance.md`) |
 | `tests/test_one_at_a_time_lights_pipeline.py` / `test_one_at_a_time_lights_route.py` | One at a time Lights Reel monolith (blend prompt, variations, item tags, crossfade assembly) and its Studio blueprint |
 | `tests/test_generate_cta_story_pipeline.py`, `test_media_download_retry.py`, `test_studio_config_overrides.py` | CTA Story monolith, media download retry, Studio moodboard/prompt override persistence |

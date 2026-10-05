@@ -49,6 +49,11 @@ _JOB_HISTORY: list[dict[str, Any]] = []
 _WORKER_THREAD: threading.Thread | None = None
 _SERVER_PORT: int = 5200
 
+# Watchdog: a job running longer than this is presumed wedged (dead child,
+# killed process, restart without report) and is failed so the queue advances.
+# Normal runs take minutes; the longest pipelines finish well within an hour.
+MAX_JOB_RUNTIME_SECONDS = int(os.getenv("QUEUE_MAX_JOB_RUNTIME_SECONDS", "10800"))
+
 
 def set_server_port(port: int) -> None:
     global _SERVER_PORT
@@ -242,6 +247,33 @@ def _queue_worker_loop() -> None:
                         _ACTIVE_JOB = None
 
                 # Cool-off pause between consecutive queue items
+                time.sleep(2.0)
+            elif time.time() - curr_job.get("started_at", time.time()) > MAX_JOB_RUNTIME_SECONDS:
+                # Watchdog: job exceeded max runtime — presume the child is wedged
+                # or dead without reporting; fail it so the queue advances.
+                with _QUEUE_LOCK:
+                    if _ACTIVE_JOB and _ACTIVE_JOB["id"] == curr_job["id"]:
+                        _ACTIVE_JOB["logs"].append(
+                            f"[{time.strftime('%X')}] WATCHDOG: job exceeded "
+                            f"{MAX_JOB_RUNTIME_SECONDS}s max runtime — marking error."
+                        )
+                        try:
+                            _dispatch_job_stop(curr_job)
+                        except Exception:
+                            pass
+                        hist_item = dict(_ACTIVE_JOB)
+                        hist_item["status"] = "error"
+                        hist_item["error"] = (
+                            f"Watchdog: job exceeded max runtime "
+                            f"({MAX_JOB_RUNTIME_SECONDS}s). The pipeline process may "
+                            f"have died or hung without reporting."
+                        )
+                        hist_item["finished_at"] = time.time()
+                        hist_item["duration_seconds"] = int(time.time() - hist_item.get("started_at", time.time()))
+                        _JOB_HISTORY.insert(0, hist_item)
+                        if len(_JOB_HISTORY) > 30:
+                            _JOB_HISTORY.pop()
+                        _ACTIVE_JOB = None
                 time.sleep(2.0)
             else:
                 time.sleep(1.5)

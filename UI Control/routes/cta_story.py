@@ -24,157 +24,64 @@ from .common import (
     unregister_pipeline,
 )
 
+from content_automation.fixture_catalog import (
+    active_fixtures as _catalog_active_fixtures,
+)
+from content_automation.fixture_catalog import (
+    fixture_dict as _catalog_fixture_dict,
+)
+from content_automation.fixture_catalog import (
+    get_fixture as _catalog_get_fixture,
+)
+from content_automation.fixture_catalog import (
+    resolve_moodboard_id as _catalog_resolve_moodboard_id,
+)
+from content_automation.fixture_catalog import (
+    resolve_prompt as _catalog_resolve_prompt,
+)
+
 cta_bp = Blueprint("cta_story", __name__, url_prefix="/api/cta")
 
+# Single source of truth: content_automation/fixture_catalog.py (CTA_FIXTURES).
+# The dicts below are derived views kept for backward compatibility.
+
+
+def _cta_entry(fixture_id: str):
+    return _catalog_get_fixture("cta-story", fixture_id)
+
+
 CTA_STORY_MOODBOARD_CONFIG: dict[str, dict[str, str]] = {
-    "chandelier": {
-        "env_key": "KREA_MOODBOARD_ID_CHANDELIER_CTA",
-        "default": "de6ad512-870d-4ab7-a48c-3f3ca85faf24",
-    },
-    "pendant": {
-        "env_key": "KREA_MOODBOARD_ID_PENDANT_LIGHTS_CTA",
-        "default": "0844ad92-c34a-4dc8-9d70-d09498dc098c",
-    },
-    "cluster-chandelier": {
-        "env_key": "KREA_MOODBOARD_ID_CLUSTER_CHANDELIER_CTA",
-        "default": "b5ffdcbb-192e-4528-8d86-d1a4cf496887",
-    },
-    "table-lamp": {
-        "env_key": "KREA_MOODBOARD_ID_TABLE_LAMPS_CTA",
-        "default": "351d992d-19e3-4b1e-aa46-08a842796c61",
-    },
-    "floor-lamp": {
-        "env_key": "KREA_MOODBOARD_ID_FLOOR_LAMP_CTA",
-        "default": "c4c15a18-a92d-4465-924f-c85cfe1958bc",
-    },
+    e.fixture_id: {"env_key": e.moodboard_env_key, "default": e.default_moodboard_id}
+    for e in _catalog_active_fixtures("cta-story")
 }
 
 CTA_STORY_PROMPT_CONFIG: dict[str, dict[str, str]] = {
-    "chandelier": {
-        "env_key": "CTA_PROMPT_CHANDELIER",
-        "default": "Generate me a modern living room",
-    },
-    "pendant": {
-        "env_key": "CTA_PROMPT_PENDANT_LIGHTS",
-        "default": "Generate me a modern dining room",
-    },
-    "cluster-chandelier": {
-        "env_key": "CTA_PROMPT_CLUSTER_CHANDELIER",
-        "default": "Modern high-ceiling room interior, luxury contemporary architecture, warm neutral tones, clean open ceiling space ready for cluster chandelier integration, photorealistic 8k vertical portrait",
-    },
-    "table-lamp": {
-        "env_key": "CTA_PROMPT_TABLE_LAMPS",
-        "default": "Generate me a modern bedroom with a table lamp side by side",
-    },
-    "floor-lamp": {
-        "env_key": "CTA_PROMPT_FLOOR_LAMPS",
-        "default": "Modern living room interior, stylish lounge chair, warm ambient lighting, spacious floor corner ready for floor lamp integration, photorealistic 8k vertical portrait",
-    },
+    e.fixture_id: {"env_key": e.prompt_env_key, "default": e.default_prompt}
+    for e in _catalog_active_fixtures("cta-story")
 }
 
 
 def resolve_cta_moodboard_id(fixture_id: str) -> str:
-    """Resolve active Krea Moodboard ID from .env or preset fallback."""
-    cfg = CTA_STORY_MOODBOARD_CONFIG.get(fixture_id, {})
-    env_key = cfg.get("env_key")
-    default = cfg.get("default", "")
-    if env_key:
-        val = os.getenv(env_key, "").strip()
-        if val:
-            return val
-    # Fallback checks for alternate env var names
-    if fixture_id == "floor-lamp":
-        val = (
-            os.getenv("KREA_MOODBOARD_ID_FLOOR_LAMP_CTA", "").strip()
-            or os.getenv("KREA_MOODBOARD_ID_FLOOR_LAMPS", "").strip()
-        )
-        if val:
-            return val
-    elif fixture_id == "table-lamp":
-        val = (
-            os.getenv("KREA_MOODBOARD_ID_TABLE_LAMPS_DAY_NIGHT_STORY", "").strip()
-            or os.getenv("KREA_MOODBOARD_ID_TABLE_LAMPS", "").strip()
-        )
-        if val:
-            return val
-    elif fixture_id == "chandelier":
-        val = os.getenv("KREA_MOODBOARD_ID_CHANDELIERS", "").strip()
-        if val:
-            return val
-    elif fixture_id == "pendant":
-        val = os.getenv("KREA_MOODBOARD_ID_PENDANT_LIGHTS", "").strip()
-        if val:
-            return val
-    elif fixture_id == "cluster-chandelier":
-        val = (
-            os.getenv("KREA_MOODBOARD_ID_CLUSTER_CHANDELIER_DAY_NIGHT_STORY", "").strip()
-            or os.getenv("KREA_MOODBOARD_ID_CLUSTER_CHANDELIER", "").strip()
-        )
-        if val:
-            return val
-    return default
+    """Resolve active Krea Moodboard ID from Studio overrides, .env, or catalog default."""
+    try:
+        return _catalog_resolve_moodboard_id(_cta_entry(fixture_id))
+    except KeyError:
+        return ""
 
 
 def resolve_cta_prompt(fixture_id: str) -> str:
-    """Resolve active Krea Prompt from .env or preset fallback."""
-    cfg = CTA_STORY_PROMPT_CONFIG.get(fixture_id, {})
-    env_key = cfg.get("env_key")
-    default = cfg.get("default", "")
-    if env_key:
-        val = os.getenv(env_key, "").strip()
-        if val:
-            return val
-    return default
+    """Resolve active Krea Prompt from Studio overrides, .env, or catalog default."""
+    try:
+        return _catalog_resolve_prompt(_cta_entry(fixture_id))
+    except KeyError:
+        return ""
 
 
 def get_cta_fixtures() -> dict[str, dict[str, Any]]:
     """Return the 5 supported CTA Story fixture tables with table IDs, moodboard IDs, and prompts."""
     return {
-        "chandelier": {
-            "id": "chandelier",
-            "name": "Chandelier",
-            "table_id": (os.getenv("AIRTABLE_TABLE_ID_CHANDELIER_CTA") or "tblYHdVq14FjMWg5o").strip(),
-            "category_code": "chandelier_cta_story",
-            "moodboard_id": resolve_cta_moodboard_id("chandelier"),
-            "prompt": resolve_cta_prompt("chandelier"),
-            "total": 100,
-        },
-        "pendant": {
-            "id": "pendant",
-            "name": "Pendant Lights",
-            "table_id": (os.getenv("AIRTABLE_TABLE_ID_PENDANT_LIGHTS_CTA") or "tblfl7fqFZa2vUieB").strip(),
-            "category_code": "pendant_lights_cta_story",
-            "moodboard_id": resolve_cta_moodboard_id("pendant"),
-            "prompt": resolve_cta_prompt("pendant"),
-            "total": 100,
-        },
-        "cluster-chandelier": {
-            "id": "cluster-chandelier",
-            "name": "Cluster Chandelier",
-            "table_id": (os.getenv("AIRTABLE_TABLE_ID_CLUSTER_CHANDELIER_CTA") or "tblSpGJLO3faYfIDY").strip(),
-            "category_code": "cluster_chandelier_cta_story",
-            "moodboard_id": resolve_cta_moodboard_id("cluster-chandelier"),
-            "prompt": resolve_cta_prompt("cluster-chandelier"),
-            "total": 100,
-        },
-        "table-lamp": {
-            "id": "table-lamp",
-            "name": "Table Lamps",
-            "table_id": (os.getenv("AIRTABLE_TABLE_ID_TABLE_LAMPS_CTA") or "tblKJeCCp4zQ6g7Em").strip(),
-            "category_code": "table_lamps_cta_story",
-            "moodboard_id": resolve_cta_moodboard_id("table-lamp"),
-            "prompt": resolve_cta_prompt("table-lamp"),
-            "total": 100,
-        },
-        "floor-lamp": {
-            "id": "floor-lamp",
-            "name": "Floor Lamp",
-            "table_id": (os.getenv("AIRTABLE_TABLE_ID_FLOOR_LAMPS_CTA") or os.getenv("AIRTABLE_TABLE_ID_FLOOR_LAMP_CTA") or "tblPKSYyjgbgMypE2").strip(),
-            "category_code": "floor_lamp_cta_story",
-            "moodboard_id": resolve_cta_moodboard_id("floor-lamp"),
-            "prompt": resolve_cta_prompt("floor-lamp"),
-            "total": 100,
-        },
+        e.fixture_id: _catalog_fixture_dict(e)
+        for e in _catalog_active_fixtures("cta-story")
     }
 
 # Backward compatibility alias
@@ -358,7 +265,7 @@ def get_cta_counts():
 
 @cta_bp.route("/moodboard", methods=["POST"])
 def update_cta_moodboard():
-    """Update and persist Krea Moodboard ID in .env for a CTA Story fixture."""
+    """Update and persist Krea Moodboard ID as a Studio setting for a CTA Story fixture."""
     if not is_authorized(request):
         return jsonify({
             "status": "error",
@@ -384,20 +291,9 @@ def update_cta_moodboard():
 
     cfg = CTA_STORY_MOODBOARD_CONFIG[fixture_id]
     env_key = cfg["env_key"]
-    env_file = MARKETING_DIR / ".env"
 
     try:
-        if fixture_id == "floor-lamp":
-            env_content = env_file.read_text(encoding="utf-8") if env_file.is_file() else ""
-            if "KREA_MOODBOARD_ID_FLOOR_LAMP_CTA" in env_content:
-                env_key = "KREA_MOODBOARD_ID_FLOOR_LAMP_CTA"
-            elif "KREA_MOODBOARD_ID_FLOOR_LAMPS_CTA" in env_content:
-                env_key = "KREA_MOODBOARD_ID_FLOOR_LAMPS_CTA"
-
         save_config_override(env_key, new_moodboard_id)
-        if fixture_id == "floor-lamp":
-            save_config_override("KREA_MOODBOARD_ID_FLOOR_LAMP_CTA", new_moodboard_id)
-            save_config_override("KREA_MOODBOARD_ID_FLOOR_LAMPS_CTA", new_moodboard_id)
 
         # Invalidate counts cache so next fetch reflects new moodboard
         with STATE_LOCK:
@@ -407,18 +303,18 @@ def update_cta_moodboard():
             "status": "success",
             "fixture_id": fixture_id,
             "moodboard_id": new_moodboard_id,
-            "message": f"Successfully updated Moodboard ID for {fixture_id} in .env",
+            "message": f"Successfully updated Moodboard ID for {fixture_id} (Studio setting)",
         })
     except Exception as err:
         return jsonify({
             "status": "error",
-            "error": f"Failed to update .env: {err}",
+            "error": f"Failed to update Studio setting: {err}",
         }), 500
 
 
 @cta_bp.route("/prompt", methods=["POST"])
 def update_cta_prompt():
-    """Update and persist Krea Interior Generation Prompt in .env for a CTA Story fixture."""
+    """Update and persist Krea Interior Generation Prompt as a Studio setting for a CTA Story fixture."""
     if not is_authorized(request):
         return jsonify({
             "status": "error",
@@ -444,7 +340,6 @@ def update_cta_prompt():
 
     cfg = CTA_STORY_PROMPT_CONFIG[fixture_id]
     env_key = cfg["env_key"]
-    env_file = MARKETING_DIR / ".env"
 
     try:
         save_config_override(env_key, new_prompt)
@@ -456,12 +351,12 @@ def update_cta_prompt():
             "status": "success",
             "fixture_id": fixture_id,
             "prompt": new_prompt,
-            "message": f"Successfully updated prompt for {fixture_id} in .env",
+            "message": f"Successfully updated prompt for {fixture_id} (Studio setting)",
         })
     except Exception as err:
         return jsonify({
             "status": "error",
-            "error": f"Failed to update .env: {err}",
+            "error": f"Failed to update Studio setting: {err}",
         }), 500
 
 
@@ -490,27 +385,17 @@ def run_cta_pipeline():
     active_moodboard_id = custom_moodboard_id or fix.get("moodboard_id") or resolve_cta_moodboard_id(fixture_id)
     active_prompt = custom_prompt or fix.get("prompt") or resolve_cta_prompt(fixture_id)
 
-    # Persist overridden moodboard to overrides/env if explicitly provided and changed
+    # Persist overridden moodboard as a Studio setting if explicitly provided and changed
     if custom_moodboard_id and custom_moodboard_id != fix.get("moodboard_id"):
         cfg = CTA_STORY_MOODBOARD_CONFIG.get(fixture_id, {})
         env_key = cfg.get("env_key")
-        env_file = MARKETING_DIR / ".env"
-        if fixture_id == "floor-lamp":
-            env_content = env_file.read_text(encoding="utf-8") if env_file.is_file() else ""
-            if "KREA_MOODBOARD_ID_FLOOR_LAMP_CTA" in env_content:
-                env_key = "KREA_MOODBOARD_ID_FLOOR_LAMP_CTA"
-            elif "KREA_MOODBOARD_ID_FLOOR_LAMPS_CTA" in env_content:
-                env_key = "KREA_MOODBOARD_ID_FLOOR_LAMPS_CTA"
         if env_key:
             try:
                 save_config_override(env_key, custom_moodboard_id)
-                if fixture_id == "floor-lamp":
-                    save_config_override("KREA_MOODBOARD_ID_FLOOR_LAMP_CTA", custom_moodboard_id)
-                    save_config_override("KREA_MOODBOARD_ID_FLOOR_LAMPS_CTA", custom_moodboard_id)
             except Exception as e:
                 print(f"[WARN] Failed to auto-persist moodboard_id: {e}")
 
-    # Persist overridden prompt to overrides/env if explicitly provided and changed
+    # Persist overridden prompt as a Studio setting if explicitly provided and changed
     if custom_prompt and custom_prompt != fix.get("prompt"):
         p_cfg = CTA_STORY_PROMPT_CONFIG.get(fixture_id, {})
         p_key = p_cfg.get("env_key")
@@ -572,6 +457,7 @@ def run_cta_pipeline():
                 cwd=str(MARKETING_DIR),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,
                 text=True,
                 bufsize=1,
             )

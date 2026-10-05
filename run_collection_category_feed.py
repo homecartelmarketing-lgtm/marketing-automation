@@ -1286,13 +1286,19 @@ def stamp_item_name_tag(image_path: Path, item_name: str, slot: SlotConfig, fiel
     Returns True only when a tag was really drawn; failures are logged and never abort the run.
     """
     try:
-        from content_automation.akeneo_client import split_item_name
-        from content_automation.item_tagger import tag_blended_image
+        from types import SimpleNamespace
+
+        from content_automation.item_tagger import (
+            fixture_display_type,
+            resolve_tag_names,
+            tag_blended_image,
+        )
 
         category = parse_suggested_category(get_field_val(fields, slot.suggest_field_candidates))
         # Second tag line is the product type (e.g. "Table Lamp"), never the room name.
-        type_fallback = CATEGORY_PRODUCT_TYPE.get(category, "")
-        item_title, product_type = split_item_name(item_name, fallback_product_type=type_fallback)
+        type_fallback = CATEGORY_PRODUCT_TYPE.get(category, "") or fixture_display_type(category)
+        anchor = SimpleNamespace(item_name="", product_type="", fields=fields)
+        item_title, product_type = resolve_tag_names(item_name, anchor, type_hint=type_fallback)
         category = category or product_type or slot.label
         tagged, bbox = tag_blended_image(
             image_input=image_path,
@@ -1301,6 +1307,7 @@ def stamp_item_name_tag(image_path: Path, item_name: str, slot: SlotConfig, fiel
             category=category,
             destination=image_path,
             fallback_if_undetected=True,
+            output_format="feed",
         )
         if tagged is None:
             print(f"    [WARN] Item name tag not stamped on Slot {slot.slot_index} (nothing drawn).")

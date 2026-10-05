@@ -276,6 +276,7 @@ def run_product_specs_pipeline():
                 cwd=str(MARKETING_DIR),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,
                 text=True,
                 bufsize=1,
             )

@@ -332,6 +332,7 @@ def run_product_description_pipeline():
                 env=child_env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,
                 text=True,
                 bufsize=1,
             )

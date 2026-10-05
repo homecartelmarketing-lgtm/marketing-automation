@@ -4,9 +4,8 @@ import os
 import shutil
 from pathlib import Path
 
-from ..akeneo_client import split_item_name
 from ..config import DAY_NIGHT_STORY_TABLES
-from ..item_tagger import TARGET_BLENDED_FIELD, tag_and_upload_blended_image
+from ..item_tagger import TARGET_BLENDED_FIELD, fixture_display_type, resolve_tag_names, tag_and_upload_blended_image
 from ..models import CallEstimate, LocalImage
 from ..overlay import HOMECARTEL_STORY_LOGO_BOX
 from .base import BaseWorkflow, NIGHT_PROMPT
@@ -96,8 +95,10 @@ class DayNightStoryWorkflow(BaseWorkflow):
         # Auto-tag furniture item name onto 9:16 Day & Night Story photos using zero-cost local YOLO-World
         try:
             raw_item_name = str(anchor.item_name or anchor.fields.get("Item Name") or anchor.sku or anchor.record_id).strip()
-            item_title, product_type = split_item_name(
-                raw_item_name, fallback_product_type=str(anchor.fields.get("Product Type") or "")
+            item_title, product_type = resolve_tag_names(
+                raw_item_name,
+                anchor,
+                type_hint=fixture_display_type(self.ctx.definition.table_code),
             )
             print(f"\n [ITEM TAGGING] Stamping item name ('{item_title}') onto Day & Night Story photos -> '{TARGET_BLENDED_FIELD}'...")
             tag_and_upload_blended_image(
@@ -109,6 +110,7 @@ class DayNightStoryWorkflow(BaseWorkflow):
                 category=str(self.ctx.definition.table_code or "chandeliers"),
                 target_field=TARGET_BLENDED_FIELD,
                 output_filename_prefix="day_night_story_tagged",
+                output_format="story",
             )
         except Exception as tag_err:
             print(f"  [WARN] Failed auto-tagging item name onto Day & Night Story photos: {tag_err}")

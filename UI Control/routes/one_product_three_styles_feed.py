@@ -218,7 +218,7 @@ def get_live_counts():
         if not token or not base_id:
             return jsonify({
                 "status": "error",
-                "error": "Missing AIRTABLE_TOKEN or AIRTABLE_BASE_ID in .env",
+                "error": "Missing AIRTABLE_TOKEN or AIRTABLE_BASE_ID (Studio setting)",
             }), 500
 
         headers = {
@@ -349,7 +349,7 @@ def get_live_counts():
 
 @one_product_three_styles_bp.route("/moodboard", methods=["POST"])
 def update_moodboard():
-    """Update and persist Krea Moodboard ID in .env for a 1 Product 3 Styles Feed fixture."""
+    """Update and $persist Krea Moodboard ID as a Studio setting for a 1 Product 3 Styles Feed fixture."""
     if not is_authorized(request):
         return jsonify({
             "status": "error",
@@ -390,18 +390,18 @@ def update_moodboard():
             "status": "success",
             "fixture_id": fixture_id,
             "moodboard_id": new_moodboard_id,
-            "message": f"Successfully updated Moodboard ID for {fixture_id} in .env",
+            "message": f"Successfully updated Moodboard ID for {fixture_id} (Studio setting)",
         })
     except Exception as err:
         return jsonify({
             "status": "error",
-            "error": f"Failed to update .env: {err}",
+            "error": f"Failed to update Studio setting: {err}",
         }), 500
 
 
 @one_product_three_styles_bp.route("/prompt", methods=["POST"])
 def update_prompt():
-    """Update and persist Krea Room Style 1 prompt in .env for a 1 Product 3 Styles Feed fixture."""
+    """Update and $persist Krea Room Style 1 prompt as a Studio setting for a 1 Product 3 Styles Feed fixture."""
     if not is_authorized(request):
         return jsonify({
             "status": "error",
@@ -442,12 +442,12 @@ def update_prompt():
             "status": "success",
             "fixture_id": fixture_id,
             "prompt": new_prompt,
-            "message": f"Successfully updated Krea Prompt for {fixture_id} in .env",
+            "message": f"Successfully updated Krea Prompt for {fixture_id} (Studio setting)",
         })
     except Exception as err:
         return jsonify({
             "status": "error",
-            "error": f"Failed to update .env: {err}",
+            "error": f"Failed to update Studio setting: {err}",
         }), 500
 
 
@@ -555,6 +555,7 @@ def run_pipeline():
                 cwd=str(MARKETING_DIR),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,
                 text=True,
                 bufsize=1,
             )

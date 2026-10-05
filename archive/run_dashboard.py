@@ -44,7 +44,9 @@ LOCAL_REELS_DIR = Path("output/content/before_after_reel")
 LOCAL_SLIDESHOW_DIR = Path("output/slideshow_reels")
 
 TOOLS_DIR = Path("tools")
-PENDING_IG_FILE = Path(__file__).resolve().parent / "pending_ig_posts.json"
+# Archived copy (moved from repo root 2026-10-05): runtime files stay at the
+# workspace root, not inside archive/.
+PENDING_IG_FILE = Path(__file__).resolve().parent.parent / "pending_ig_posts.json"
 CLOUDFLARED_PATH = TOOLS_DIR / "cloudflared.exe"
 CLOUDFLARED_URL = (
     "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
@@ -1416,7 +1418,7 @@ def main():
         print("[INFO] Use --force only if you are certain no other instance is live.")
         sys.exit(0)
 
-    trim_log_file(Path(__file__).resolve().parent / "dashboard.log")
+    trim_log_file(Path(__file__).resolve().parent.parent / "dashboard.log")
 
     port = args.port
     print("\n" + "=" * 72)

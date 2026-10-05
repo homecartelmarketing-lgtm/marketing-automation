@@ -143,7 +143,13 @@ def load_config_overrides() -> dict[str, str]:
 
 
 def save_config_override(key: str, value: str) -> None:
-    """Persist an editable Studio setting before exposing it to running jobs."""
+    """Persist an editable Studio setting before exposing it to running jobs.
+
+    Studio settings live in ``output/config_overrides.json`` (overlaid onto
+    ``os.environ`` at startup) and are never written to ``.env`` — the secrets
+    file must not be rewritten by a UI action. Standalone CLI runs pick the
+    same values up via ``content_automation.fixture_catalog.load_studio_overrides``.
+    """
     if not key or not value.strip():
         raise ValueError("A configuration key and value are required")
     if value.strip().lower() in ("none", "null", "undefined"):
@@ -157,12 +163,6 @@ def save_config_override(key: str, value: str) -> None:
         pending = OVERRIDES_FILE.with_name(OVERRIDES_FILE.name + ".pending")
         try:
             pending.write_text(json.dumps(data, indent=2), encoding="utf-8")
-            env_file = MARKETING_DIR / ".env"
-            if env_file.is_file():
-                from dotenv import set_key
-
-                if not set_key(str(env_file), key, value, quote_mode="always"):
-                    raise OSError(f"Could not update {env_file}")
             pending.replace(OVERRIDES_FILE)
             os.environ[key] = value
         finally:

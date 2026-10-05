@@ -43,7 +43,8 @@ class StudioConfigOverrideTests(unittest.TestCase):
         self.common.save_config_override(key, prompt)
 
         self.assertEqual(self.common.load_config_overrides()[key], prompt)
-        self.assertEqual(dotenv_values(self.workspace / ".env")[key], prompt)
+        # Studio saves go to config_overrides.json only — .env is never rewritten.
+        self.assertNotIn(key, dotenv_values(self.workspace / ".env"))
         self.assertEqual(os.environ[key], prompt)
         os.environ.pop(key, None)
 

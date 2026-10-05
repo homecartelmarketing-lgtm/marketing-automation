@@ -192,7 +192,7 @@ def find_ffmpeg() -> str:
 # --------------------------------------------------------------------------
 
 FONT_DIRECTORIES = (
-    str(Path(__file__).parent / "content_automation" / "fonts"),
+    str(Path(__file__).parent.parent.parent / "content_automation" / "fonts"),
     str(Path("content_automation/fonts")),
     "C:/Windows/Fonts",
     "/usr/share/fonts",

@@ -31,6 +31,14 @@ DEFAULT_CONFIDENCE_THRESHOLD = 0.20
 DEFAULT_MARGIN = 24
 DEFAULT_CANVAS_PADDING = 40
 
+# Deterministic lower-right fallback geometry per output format.
+# Bottom margins clear Instagram chrome (feed image is clean; story has the
+# reply bar; reel has caption + progress bar). The reel right margin additionally
+# clears the like/comment/share action rail (x ~ 950-1080).
+FALLBACK_BOTTOM_MARGIN = {"feed": 120, "story": 320, "reel": 320}
+FALLBACK_RIGHT_MARGIN = {"feed": 60, "story": 60, "reel": 180}
+FALLBACK_LINE_SPACING = 5
+
 # Category to open-vocabulary detection queries
 CATEGORY_DETECTION_MAP: dict[str, list[str]] = {
     "chandeliers": ["chandelier", "ceiling light fixture", "hanging light", "pendant light"],
@@ -72,6 +80,140 @@ def resolve_font_path(font_name: str) -> Path | None:
         if candidate.is_file():
             return candidate
     return None
+
+
+def resolve_tag_names(
+    raw_item_name: str, anchor: Any, type_hint: str = ""
+) -> tuple[str, str]:
+    """Split the 2-line YOLO tag into (item title, product type).
+
+    `AirtableClient.product_from_record` already splits "Name | Type" into
+    a bare `anchor.item_name` + `anchor.product_type`. The bare name has no
+    pipe left, so the anchor's own product_type must head the fallback
+    chain; otherwise rows with an empty "Product Type" field render
+    Line 1 only.
+
+    `type_hint` (fixture/category display type, e.g. "Pendant Light") is the
+    final fallback so Line 2 is never empty and never an invented word.
+    """
+    fields = getattr(anchor, "fields", {}) or {}
+    return split_item_name(
+        str(raw_item_name or "").strip(),
+        fallback_product_type=str(
+            getattr(anchor, "product_type", "")
+            or fields.get("Product Type")
+            or type_hint
+            or ""
+        ),
+    )
+
+
+# Fixture/category code -> human display type for guaranteed Line 2.
+CATEGORY_FIXTURE_TYPE: dict[str, str] = {
+    "chandelier": "Chandelier",
+    "chandeliers": "Chandelier",
+    "cluster": "Cluster Chandelier",
+    "cluster_chandelier": "Cluster Chandelier",
+    "cluster_chandeliers": "Cluster Chandelier",
+    "pendant": "Pendant Light",
+    "pendant_light": "Pendant Light",
+    "pendant_lights": "Pendant Light",
+    "floor_lamp": "Floor Lamp",
+    "floor_lamps": "Floor Lamp",
+    "table_lamp": "Table Lamp",
+    "table_lamps": "Table Lamp",
+    "wall_light": "Wall Light",
+    "wall_lights": "Wall Light",
+    "wall_sconce": "Wall Sconce",
+    "wall_sconces": "Wall Sconce",
+    "ceiling_mounted": "Ceiling Light",
+    "ceiling_light": "Ceiling Light",
+    "flush_mount": "Ceiling Light",
+    "linear_chandelier": "Linear Chandelier",
+}
+
+
+def fixture_display_type(category: str) -> str:
+    """Human display type for a fixture/category code (guaranteed Line 2)."""
+    cat_key = str(category or "").strip().lower().replace("-", "_")
+    if cat_key in CATEGORY_FIXTURE_TYPE:
+        return CATEGORY_FIXTURE_TYPE[cat_key]
+    for key in sorted(CATEGORY_FIXTURE_TYPE, key=len, reverse=True):
+        if key in cat_key:
+            return CATEGORY_FIXTURE_TYPE[key]
+    return ""
+
+
+def normalize_output_format(output_format: str | None) -> str:
+    """Normalize to ``feed`` | ``story`` | ``reel`` (defaults to ``story``)."""
+    key = str(output_format or "").strip().lower()
+    if key in FALLBACK_BOTTOM_MARGIN:
+        return key
+    if "feed" in key or "4:5" in key or "4x5" in key:
+        return "feed"
+    if "reel" in key:
+        return "reel"
+    return "story"
+
+
+def measure_tag_pill(
+    item_name: str = "",
+    product_type: str = "",
+    font_size: int = DEFAULT_FONT_SIZE,
+) -> tuple[int, int]:
+    """Measure the (width, height) of the 2-line tag pill in pixels."""
+    raw_title = str(item_name or "").strip()
+    raw_sub = str(product_type or "").strip()
+    if "|" in raw_title and not raw_sub:
+        raw_title, raw_sub = split_item_name(raw_title)
+    title, subtitle = raw_title.strip(), raw_sub.strip()
+
+    bold_path = resolve_font_path("Poppins-Bold.ttf")
+    reg_path = resolve_font_path("Poppins-Regular.ttf") or bold_path
+    try:
+        font_title = ImageFont.truetype(str(bold_path), font_size) if bold_path else ImageFont.load_default()
+    except Exception:
+        font_title = ImageFont.load_default()
+    try:
+        font_subtitle = ImageFont.truetype(str(reg_path), font_size) if reg_path else font_title
+    except Exception:
+        font_subtitle = font_title
+
+    probe = Image.new("RGBA", (8, 8), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(probe)
+
+    def _size(text: str, font: ImageFont.ImageFont) -> tuple[int, int]:
+        if not text:
+            return 0, 0
+        box = draw.textbbox((0, 0), text, font=font)
+        return box[2] - box[0], box[3] - box[1]
+
+    title_w, title_h = _size(title, font_title)
+    sub_w, sub_h = _size(subtitle, font_subtitle) if subtitle else (0, 0)
+    return max(title_w, sub_w), title_h + (FALLBACK_LINE_SPACING + sub_h if subtitle else 0)
+
+
+def lower_right_fallback_position(
+    image_size: tuple[int, int],
+    item_name: str = "",
+    product_type: str = "",
+    output_format: str | None = "story",
+    font_size: int = DEFAULT_FONT_SIZE,
+) -> tuple[int, int]:
+    """Deterministic lower-right tag position for an output format.
+
+    Right/bottom margins clear per-format Instagram chrome (see
+    ``FALLBACK_*_MARGIN``). The pill is measured from the actual tag text so
+    long item names stay fully inside the canvas.
+    """
+    fmt = normalize_output_format(output_format)
+    w, h = image_size
+    pill_w, pill_h = measure_tag_pill(item_name, product_type, font_size)
+    right_margin = FALLBACK_RIGHT_MARGIN[fmt]
+    bottom_margin = FALLBACK_BOTTOM_MARGIN[fmt]
+    x = max(0, w - pill_w - right_margin)
+    y = max(0, h - pill_h - bottom_margin)
+    return x, y
 
 
 def get_detection_queries_for_category(category: str) -> list[str]:
@@ -178,6 +320,91 @@ def detect_item_bbox(
             best_box = (x1, y1, x2, y2)
 
     return best_box
+
+
+def brightest_region_center(
+    image: Image.Image,
+    grid: int = 6,
+) -> tuple[int, int]:
+    """Center of the brightest grid cell (cheap lighting-fixture saliency cue)."""
+    gray = image.convert("L")
+    w, h = gray.size
+    px = gray.load()
+    best: tuple[int, int] | None = None
+    best_score = -1.0
+    for gy in range(grid):
+        for gx in range(grid):
+            x0, y0 = gx * w // grid, gy * h // grid
+            x1, y1 = (gx + 1) * w // grid, (gy + 1) * h // grid
+            total = 0
+            count = 0
+            for yy in range(y0, y1, max(1, (y1 - y0) // 8)):
+                for xx in range(x0, x1, max(1, (x1 - x0) // 8)):
+                    total += px[xx, yy]
+                    count += 1
+            score = total / max(count, 1)
+            if score > best_score:
+                best_score = score
+                best = ((x0 + x1) // 2, (y0 + y1) // 2)
+    return best or (w // 2, h // 2)
+
+
+def bbox_near_point(
+    bbox: tuple[int, int, int, int],
+    point: tuple[int, int],
+    tolerance: float = 0.35,
+    image_size: tuple[int, int] | None = None,
+) -> bool:
+    """True when a bbox edge/center is within tolerance (fraction of diagonal)."""
+    x1, y1, x2, y2 = bbox
+    cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
+    px, py = point
+    corners = [(x1, y1), (x2, y1), (x1, y2), (x2, y2), (cx, cy)]
+    if image_size is None:
+        diag = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5 or 1.0
+    else:
+        diag = (image_size[0] ** 2 + image_size[1] ** 2) ** 0.5 or 1.0
+    return any((((cx_ - px) ** 2 + (cy_ - py) ** 2) ** 0.5) / diag <= tolerance for cx_, cy_ in corners)
+
+
+def detect_with_retry_ladder(
+    image: Image.Image,
+    category: str = "",
+    *,
+    thresholds: tuple[float, ...] = (DEFAULT_CONFIDENCE_THRESHOLD, 0.10),
+    generic_queries: list[str] | None = None,
+    validate_saliency: bool = True,
+) -> tuple[int, int, int, int] | None:
+    """YOLO-World detection with a retry ladder + brightness-saliency validation.
+
+    Tries category queries at each threshold (high to low), then generic
+    queries at the lowest threshold. A hit far from the brightest region is
+    treated as a likely false positive (e.g. window/daylight) and retried —
+    only the final fallback position is deterministic lower-right.
+    """
+    tried: list[tuple[float, list[str]]] = [
+        (t, get_detection_queries_for_category(category)) for t in thresholds
+    ]
+    if generic_queries:
+        tried.append((thresholds[-1], generic_queries))
+
+    bright = brightest_region_center(image) if validate_saliency else None
+    for threshold, queries in tried:
+        try:
+            bbox = detect_item_bbox(image, category=category, queries=queries, confidence_threshold=threshold)
+        except Exception:
+            continue
+        if bbox is None:
+            continue
+        if validate_saliency and bright is not None:
+            if not bbox_near_point(bbox, bright, image_size=image.size):
+                logger.info(
+                    f"[TAGGER] Rejecting bbox {bbox} (far from bright region) at "
+                    f"conf {threshold}; retrying..."
+                )
+                continue
+        return bbox
+    return None
 
 
 def calculate_adaptive_text_position(
@@ -331,13 +558,20 @@ def tag_blended_image(
     destination: Path | str | None = None,
     fallback_if_undetected: bool = True,
     fallback_position: tuple[int, int] | None = None,
+    output_format: str | None = "story",
+    retry_thresholds: tuple[float, ...] = (DEFAULT_CONFIDENCE_THRESHOLD, 0.10),
+    retry_queries: tuple[str, ...] = ("lamp", "chandelier", "light fixture"),
 ) -> tuple[Image.Image | None, tuple[int, int, int, int] | None]:
     """Detect item and stamp the 2-line floating tag onto a blended image.
+
+    Detection runs a retry ladder (category queries at each threshold, then
+    generic queries) before falling back to the deterministic lower-right
+    position for ``output_format`` (``feed`` | ``story`` | ``reel``).
 
     Returns:
         (tagged_image, bbox) or (None, None) if detection failed in strict mode.
         If fallback_if_undetected is True, returns (tagged_image, None) with
-        the tag positioned at the safe fallback coordinates.
+        the tag positioned at the lower-right fallback coordinates.
     """
     if isinstance(image_input, Image.Image):
         image = image_input
@@ -345,33 +579,37 @@ def tag_blended_image(
         image = Image.open(image_input)
 
     try:
-        bbox = detect_item_bbox(image, category=category, confidence_threshold=confidence_threshold)
+        bbox = detect_with_retry_ladder(
+            image,
+            category=category,
+            thresholds=retry_thresholds,
+            generic_queries=list(retry_queries),
+        )
     except Exception as detect_err:
         # YOLO-World needs ultralytics + CLIP; hosted images may lack them. Treat that as
-        # "undetected" so the tag still lands at the safe fallback position.
+        # "undetected" so the tag still lands at the deterministic fallback position.
         logger.warning(f"[TAGGER] Item detection unavailable ({detect_err}); using fallback handling.")
         bbox = None
     if bbox is None:
         if not fallback_if_undetected:
             logger.warning(
-                f"[STRICT MODE] Item '{item_name}' (category: '{category}') was not detected above "
-                f"confidence {confidence_threshold}. Skipping name tag to prevent misplacement."
+                f"[STRICT MODE] Item '{item_name}' (category: '{category}') was not detected. "
+                f"Skipping name tag to prevent misplacement."
             )
             return None, None
 
         logger.info(
-            f"[FALLBACK MODE] Item '{item_name}' (category: '{category}') undetected above {confidence_threshold}. "
-            f"Applying safe fallback tag position (Upper/Mid-Left)..."
+            f"[FALLBACK MODE] Item '{item_name}' (category: '{category}') undetected. "
+            f"Applying deterministic lower-right tag position ({normalize_output_format(output_format)})..."
         )
         pos = fallback_position
         if pos is None:
-            w, h = image.size
-            if (h / w) < 1.45:
-                # 4:5 Vertical Feed format (1080x1350) safe zone
-                pos = (int(round(90 * w / 1080)), int(round(560 * h / 1350)))
-            else:
-                # 9:16 Vertical Story/Reel format (1080x1920) safe zone
-                pos = (int(round(100 * w / 1080)), int(round(800 * h / 1920)))
+            pos = lower_right_fallback_position(
+                image.size,
+                item_name=item_name,
+                product_type=product_type,
+                output_format=output_format,
+            )
 
         tagged_image = render_item_name_tag(
             image=image,
@@ -416,6 +654,7 @@ def tag_and_upload_blended_image(
     fallback_if_undetected: bool = True,
     fallback_position: tuple[int, int] | None = None,
     output_tagged_paths: list[Path] | None = None,
+    output_format: str | None = "story",
 ) -> bool:
     """Helper to process one or multiple blended images and upload to Airtable field."""
     # Resolve image URL(s) or file path(s)
@@ -473,6 +712,7 @@ def tag_and_upload_blended_image(
                 category=category,
                 fallback_if_undetected=fallback_if_undetected,
                 fallback_position=fallback_position,
+                output_format=output_format,
                 destination=out_file,
             )
             if tagged_img is None:

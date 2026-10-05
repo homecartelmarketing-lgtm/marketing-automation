@@ -85,6 +85,7 @@ When a row reaches Complete (C), the pipeline automatically writes the Philippin
 ## 6. Local Pillow & YOLO Detection Specs
 
 - **Zero-Cost YOLO-World**: Local zero-API object detection tags bounding boxes around the lighting fixture to coordinate layout positioning without third-party API expense.
+- **Tag-name fallback chain (2026-10-05 fix)**: 2-line tag is split by the shared `content_automation/item_tagger.py::resolve_tag_names` (same helper as Moodboard Story). `anchor.product_type` heads the fallback chain, then `fields["Product Type"]`, so rows with an empty Product Type field still render Line 2 instead of Line 1 only. Test: `tests/test_moodboard_story_tag_names.py`.
 - **Brand Logo Coordinates (`HOMECARTEL_STORY_LOGO_BOX`)**:
   - Sourced from Airtable `Logo` attachment field (or local fallback `assets/homecartel_logo.png`).
   - Target Placement: Top-right corner of 9:16 vertical canvas (`1080 x 1920 px`).

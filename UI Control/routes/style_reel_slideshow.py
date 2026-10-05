@@ -265,6 +265,7 @@ def run_pipeline():
                 cwd=str(MARKETING_DIR),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,
                 env=env_copy,
                 text=True,
                 bufsize=1,

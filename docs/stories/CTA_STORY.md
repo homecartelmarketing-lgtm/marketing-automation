@@ -56,7 +56,9 @@ $$\text{Format: } \mathbf{CTA\text{-}STORY\text{-}\langle FIXTURE\rangle\text{-}
 | **Pendant Lights** | `PE` | `tblfl7fqFZa2vUieB` | `CTA-STORY-PE` | `0844ad92-c34a-4dc8-9d70-d09498dc098c` | `AIRTABLE_TABLE_ID_PENDANT_LIGHTS_CTA` |
 | **Cluster Chandeliers** | `CL` | `tblSpGJLO3faYfIDY` | `CTA-STORY-CL` | `b5ffdcbb-192e-4528-8d86-d1a4cf496887` | `AIRTABLE_TABLE_ID_CLUSTER_CHANDELIER_CTA` |
 | **Table Lamps** | `TL` | `tblKJeCCp4zQ6g7Em` | `CTA-STORY-TL` | `257569e1-7be8-4412-a90f-acbc347e4646` | `AIRTABLE_TABLE_ID_TABLE_LAMPS_CTA` |
-| **Floor Lamps** | `FL` | `tblPKSYyjgbgMypE2` | `CTA-STORY-FL` | `c4c15a18-a92d-4465-924f-c85cfe1958bc` | `AIRTABLE_TABLE_ID_FLOOR_LAMP_CTA` |
+| **Floor Lamps** | `FL` | `tblPKSYyjgbgMypE2` | `CTA-STORY-FL` | `c4c15a18-a92d-4465-924f-c85cfe1958bc` | `AIRTABLE_TABLE_ID_FLOOR_LAMPS_CTA` |
+
+> Single source of truth for this table: `content_automation/fixture_catalog.py` (`CTA_FIXTURES`). Decisions frozen 2026-10-05: table-lamp moodboard is `257569e1-…`; wall-light is parked (config-only, no Studio card yet).
 
 ---
 

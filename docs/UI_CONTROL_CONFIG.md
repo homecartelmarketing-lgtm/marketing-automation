@@ -4,6 +4,8 @@ The Studio has 25 subtabs across 10 Story, 7 Feed, and 8 Reel, plus **Ad Covers*
 
 For an edit, the UI posts `{fixture_id, moodboard_id}` to the active blueprint's `/moodboard` endpoint or `{fixture_id, prompt}` to `/prompt`. A run posts the current fixture settings to `/run`. A value supplied in that run takes precedence over its saved setting. Route modules own the fixture-to-key maps; keep those maps aligned with the runner's CLI arguments or environment lookup when adding a fixture.
 
+Studio saves go to `output/config_overrides.json` (+ `os.environ`) only — never to `.env`. Standalone CLI runs read the same values via `content_automation.fixture_catalog.load_studio_overrides()`. Fixture wiring truth lives in `content_automation/fixture_catalog.py` (pilot: CTA Story; enforced by `tests/test_cta_catalog_consistency.py`).
+
 | Format | Editable subtab | API prefix | Interior-setting path |
 | --- | --- | --- | --- |
 | Story | CTA | `/api/cta` | Blueprint fixture settings → CLI runner |
@@ -36,3 +38,7 @@ Ad Cover pencils control Phases 1–2 only. The 9:16 extension prompt used by Ph
 `GET /counts` returns `completed` from the `C` status badge only. Posted, pending, and processing are tracked in `P`; scheduled in `S`; discarded in `D`; and manual/revision in `FM`. Format and subtab totals add fixture `C` values only after all fixture requests are available. Until then, the UI shows `—` rather than a guessed zero. Target capacities are reference values for progress percentages, not generated-row totals.
 
 The 1 Product, 3 Styles Reel uses the chandelier table configured by `AIRTABLE_TABLE_ID_CHANDELIER_ONE_PRODUCT_THREE_STYLES_REEL` (default `tbl6ls4AWcEcynBpZ`). Its three blended photos compile for 5, 4, and 4 seconds, followed by the existing 5-second outro. There are no Floor Lamp or other fixture table fields for that Reel's Studio card.
+
+### RunCenter utilities (no pencils)
+
+The **Calendar** import button in `RunCenter.tsx` (`components/planning/CalendarImportModal.tsx`, blueprint `routes/calendar.py`) has no moodboard/prompt settings — it uploads a Content Calendar workbook and enqueues `TO DO` slots via `POST /api/calendar/preview` + `POST /api/calendar/enqueue` into the queue above. Fixture pointer: `output/calendar_fixture_state.json` (gitignored). Idea→pipeline map: `assets/calendar_pipeline_map.json`.

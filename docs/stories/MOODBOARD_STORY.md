@@ -84,8 +84,9 @@ The pipeline executes **Zero-API Local Python Pillow** logo stamping and YOLO-Wo
   - Target Fields: Stamped directly onto `Blended Image`, `Homecartel Logo Overlay`, and carried over to `Blended Image with Name text`.
 - **YOLO-World Item Name Tagging & Safe Fallback**:
   - Automatically identifies the mounted fixture in the room interior and places the 2-line floating name pill relative to the detected bounding box.
-  - **Global 9:16 Safe Fallback**: If YOLO detection is below confidence or undetected, the tag automatically positions at the **Mid-Left Safe Zone (`X=100, Y=800`)**, ensuring zero collision with Instagram Story top header or bottom reply bars.
+  - **Deterministic lower-right fallback**: If YOLO detection is below confidence or undetected after the retry ladder (0.20 → 0.10 → generic queries + brightness-saliency check), the tag is placed lower-right (format-aware margins clearing Instagram chrome), measured from the actual tag text so long names stay inside the canvas.
   - Target Field: Uploaded to `Blended Image with Name text`.
+  - **Tag-name fallback chain (2026-10-05 fix)**: 2-line tag is split by `content_automation/item_tagger.py::resolve_tag_names`. `AirtableClient.product_from_record` already splits `"Name | Type"` into bare `anchor.item_name` + `anchor.product_type`, so the anchor's own `product_type` heads the fallback chain (then `fields["Product Type"]`). Without this, rows with an empty Product Type field rendered Line 1 only (e.g. `Trude Une` lost `Modern Floor Lamp`). `workflows/moodboard_story.py::resolve_item_tag_names` is a thin wrapper kept for existing imports. Test: `tests/test_moodboard_story_tag_names.py`.
 - **Zero API Rule**: All text rendering, badge background drawing, and logo overlays execute 100% locally via PIL without cloud API calls.
 
 ---

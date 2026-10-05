@@ -1,7 +1,11 @@
 from __future__ import annotations
 
-from ..akeneo_client import split_item_name
-from ..item_tagger import TARGET_BLENDED_FIELD, tag_and_upload_blended_image
+from ..item_tagger import (
+    TARGET_BLENDED_FIELD,
+    fixture_display_type,
+    resolve_tag_names,
+    tag_and_upload_blended_image,
+)
 from ..models import AssetRequirement, CallEstimate, LocalImage
 from ..overlay import HOMECARTEL_STORY_LOGO_BOX
 from .base import BaseWorkflow
@@ -41,8 +45,10 @@ class TipsEducationalStoryWorkflow(BaseWorkflow):
         try:
             anchor = self.ctx.anchor
             raw_item_name = str(anchor.item_name or anchor.fields.get("Item Name") or anchor.sku or anchor.record_id).strip()
-            item_title, product_type = split_item_name(
-                raw_item_name, fallback_product_type=str(anchor.fields.get("Product Type") or "")
+            item_title, product_type = resolve_tag_names(
+                raw_item_name,
+                anchor,
+                type_hint=fixture_display_type(self.ctx.definition.table_code),
             )
             print(f"\n [ITEM TAGGING] Stamping item name ('{item_title}') onto Blended Image -> '{TARGET_BLENDED_FIELD}'...")
             tag_and_upload_blended_image(
@@ -54,6 +60,7 @@ class TipsEducationalStoryWorkflow(BaseWorkflow):
                 category=str(self.ctx.definition.table_code or "pendant_lights"),
                 target_field=TARGET_BLENDED_FIELD,
                 output_filename_prefix="tips_edu_story_tagged",
+                output_format="story",
             )
         except Exception as tag_err:
             print(f"  [WARN] Failed auto-tagging item name onto Tips & Edu Story photos: {tag_err}")

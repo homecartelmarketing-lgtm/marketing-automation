@@ -62,7 +62,7 @@ export const CTA_STORY_FIXTURES: Omit<FixtureData, 'completed'>[] = [
   { id: 'chandelier', name: 'Chandelier', total: 100, tableId: 'tblYHdVq14FjMWg5o', moodboardId: 'de6ad512-870d-4ab7-a48c-3f3ca85faf24', prompt: 'Generate me a modern living room' },
   { id: 'pendant', name: 'Pendant Lights', total: 100, tableId: 'tblfl7fqFZa2vUieB', moodboardId: '0844ad92-c34a-4dc8-9d70-d09498dc098c', prompt: 'Generate me a modern dining room' },
   { id: 'cluster-chandelier', name: 'Cluster Chandelier', total: 100, tableId: 'tblSpGJLO3faYfIDY', moodboardId: 'b5ffdcbb-192e-4528-8d86-d1a4cf496887', prompt: 'Modern high-ceiling room interior, luxury contemporary architecture, warm neutral tones, clean open ceiling space ready for cluster chandelier integration, photorealistic 8k vertical portrait' },
-  { id: 'table-lamp', name: 'Table Lamps', total: 100, tableId: 'tblKJeCCp4zQ6g7Em', moodboardId: '351d992d-19e3-4b1e-aa46-08a842796c61', prompt: 'Generate me a modern bedroom with a table lamp side by side' },
+  { id: 'table-lamp', name: 'Table Lamps', total: 100, tableId: 'tblKJeCCp4zQ6g7Em', moodboardId: '257569e1-7be8-4412-a90f-acbc347e4646', prompt: 'Generate me a modern bedroom with a table lamp side by side' },
   { id: 'floor-lamp', name: 'Floor Lamp', total: 100, tableId: 'tblPKSYyjgbgMypE2', moodboardId: 'c4c15a18-a92d-4465-924f-c85cfe1958bc', prompt: 'Modern living room interior, stylish lounge chair, warm ambient lighting, spacious floor corner ready for floor lamp integration, photorealistic 8k vertical portrait' },
 ];
 
