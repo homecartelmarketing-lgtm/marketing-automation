@@ -59,6 +59,55 @@ class TestBuildJobs(unittest.TestCase):
         self.assertIn("unknown-idea", reasons)
         self.assertIn("no Studio pipeline exists for house tours", reasons)
 
+    def test_mixed_status_day_night_never_enqueues_posted(self):
+        from content_automation.calendar_import import build_jobs
+        day_todo = {"date": "2026-10-06", "format": "Stories",
+                    "idea": "Day (D&N)", "time": "", "status": "TO DO",
+                    "cell": "A1"}
+        night_posted = {"date": "2026-10-06", "format": "Stories",
+                        "idea": "Night (D&N)", "time": "", "status": "Posted",
+                        "cell": "A2"}
+        jobs, skipped = build_jobs([day_todo, night_posted], state={})
+        self.assertLessEqual(len(jobs), 1)
+        self.assertIn("not-todo:Posted", [s["reason"] for s in skipped])
+        day_posted = dict(day_todo, status="Posted")
+        night_todo = dict(night_posted, status="TO DO")
+        jobs, skipped = build_jobs([day_posted, night_todo], state={})
+        self.assertLessEqual(len(jobs), 1)
+        self.assertIn("not-todo:Posted", [s["reason"] for s in skipped])
+
+    def test_fixture_missing_pipeline_skipped_not_raised(self):
+        import content_automation.calendar_import as cal
+        fake_map = {"Feeds :: Fake Idea": {
+            "pipeline_type": "no-such-pipeline",
+            "run_endpoint": "/api/x/run",
+            "status_endpoint": "/api/x/status"}}
+        slots = [{"date": "2026-10-08", "format": "Feeds",
+                  "idea": "Fake Idea", "time": "", "status": "TO DO",
+                  "cell": "A1"}]
+        with mock.patch.object(cal, "_load_map", return_value=fake_map):
+            jobs, skipped = cal.build_jobs(slots, state={})
+        self.assertEqual(jobs, [])
+        self.assertEqual(len(skipped), 1)
+        self.assertEqual(skipped[0]["reason"], "unknown-pipeline")
+
+    def test_build_jobs_loads_map_once(self):
+        import content_automation.calendar_import as cal
+        real_map = cal._load_map()
+        slots = [
+            {"date": "2026-10-05", "format": "Feeds",
+             "idea": "Product Showcase", "time": "",
+             "status": "TO DO", "cell": "A1"},
+            {"date": "2026-10-06", "format": "Stories", "idea": "CTA",
+             "time": "", "status": "TO DO", "cell": "B1"},
+            {"date": "2026-10-07", "format": "Feeds", "idea": "No Such Idea",
+             "time": "", "status": "TO DO", "cell": "C1"},
+        ]
+        with mock.patch.object(cal, "_load_map",
+                               return_value=real_map) as loader:
+            cal.build_jobs(slots, state={})
+        self.assertEqual(loader.call_count, 1)
+
     def test_duplicate_date_pipeline_fixture_skipped(self):
         from content_automation.calendar_import import build_jobs
         slot = {"date": "2026-10-05", "format": "Feeds",

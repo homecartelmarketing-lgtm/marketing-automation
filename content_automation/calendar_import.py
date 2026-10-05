@@ -74,8 +74,10 @@ def collapse_day_night(slots: list[dict]) -> list[dict]:
         day_i = next((i for i in idxs if out[i].get("idea", "").strip() == "Day (D&N)"), None)
         night_i = next((i for i in idxs if out[i].get("idea", "").strip() == "Night (D&N)"), None)
         if day_i is not None and night_i is not None:
-            out[day_i]["idea"] = "Day & Night"
-            drop.add(night_i)
+            if (out[day_i].get("status") == "TO DO"
+                    and out[night_i].get("status") == "TO DO"):
+                out[day_i]["idea"] = "Day & Night"
+                drop.add(night_i)
     return [s for i, s in enumerate(out) if i not in drop]
 
 
@@ -145,15 +147,19 @@ def build_jobs(slots: list[dict], state: dict) -> tuple[list[dict], list[dict]]:
                             "reason": f"not-todo:{status}"})
             continue
         entry = pipeline_map.get(f"{s.get('format', '')} :: {(idea or '').strip()}")
-        job = resolve_job(s.get("format", ""), idea or "")
-        if job is None:
+        if entry is None or entry.get("skip"):
             reason = (entry or {}).get("reason") or "unknown-idea"
             skipped.append({"date": date, "idea": idea, "status": status,
                             "reason": reason})
             continue
+        job = dict(entry)
         pipeline_type = job["pipeline_type"]
-        fixture_id = pick_fixture(
-            pipeline_type, state, PIPELINE_FIXTURES[pipeline_type])
+        fixtures = PIPELINE_FIXTURES.get(pipeline_type)
+        if not fixtures:
+            skipped.append({"date": date, "idea": idea, "status": status,
+                            "reason": "unknown-pipeline"})
+            continue
+        fixture_id = pick_fixture(pipeline_type, state, fixtures)
         key = (date, pipeline_type, fixture_id)
         if key in seen:
             skipped.append({"date": date, "idea": idea, "status": status,

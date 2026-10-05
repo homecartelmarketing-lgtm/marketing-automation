@@ -48,6 +48,29 @@ class TestCollapseDayNight(unittest.TestCase):
         self.assertIsNotNone(job)
         self.assertEqual(job["pipeline_type"], "day-night-story")
 
+    def test_mixed_status_pairs_stay_uncollapsed(self):
+        from content_automation.calendar_import import collapse_day_night
+        day_todo_night_posted = [
+            {"date": "2026-10-05", "format": "Stories", "idea": "Day (D&N)",
+             "time": "", "status": "TO DO", "cell": "A1"},
+            {"date": "2026-10-05", "format": "Stories", "idea": "Night (D&N)",
+             "time": "", "status": "Posted", "cell": "A2"},
+        ]
+        out = collapse_day_night(day_todo_night_posted)
+        self.assertEqual(len(out), 2)
+        self.assertEqual(
+            sorted(s["idea"] for s in out), ["Day (D&N)", "Night (D&N)"])
+        day_posted_night_todo = [
+            {"date": "2026-10-05", "format": "Stories", "idea": "Day (D&N)",
+             "time": "", "status": "Posted", "cell": "A1"},
+            {"date": "2026-10-05", "format": "Stories", "idea": "Night (D&N)",
+             "time": "", "status": "TO DO", "cell": "A2"},
+        ]
+        out = collapse_day_night(day_posted_night_todo)
+        self.assertEqual(len(out), 2)
+        self.assertEqual(
+            sorted(s["idea"] for s in out), ["Day (D&N)", "Night (D&N)"])
+
 
 class TestPickFixture(unittest.TestCase):
     def test_round_robin_cycles(self):
