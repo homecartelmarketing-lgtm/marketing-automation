@@ -48,6 +48,7 @@ WORKFLOW_CLASSES: dict[str, Type[BaseWorkflow]] = {
     "moodboard_story": MoodboardStoryWorkflow,
     "chandelier_moodboard_story": MoodboardStoryWorkflow,
     "pendant_lights_moodboard_story": MoodboardStoryWorkflow,
+    "floor_lamps_moodboard_story": MoodboardStoryWorkflow,
     "product_specs_story": ProductSpecsStoryWorkflow,
     "style_this_story": StyleThisStoryWorkflow,
     "product_description_story": ProductDescriptionStoryWorkflow,
