@@ -1,6 +1,9 @@
 """Parse Content Calendar month sheets into slot records."""
 from __future__ import annotations
 import datetime
+import json
+from pathlib import Path
+
 import openpyxl
 
 DAY_COLS = {"SUN": 1, "MON": 5, "TUE": 9, "WED": 13, "THU": 17, "FRI": 21, "SAT": 25}
@@ -44,3 +47,33 @@ def parse_month_slots(path: str, month: str) -> list[dict]:
                 "cell": row[col - 1].coordinate,
             })
     return slots
+
+
+MAP_PATH = Path(__file__).resolve().parent.parent / "assets" / "calendar_pipeline_map.json"
+
+
+def _load_map() -> dict:
+    return json.loads(MAP_PATH.read_text(encoding="utf-8"))
+
+
+def resolve_job(format: str, idea: str) -> dict | None:
+    entry = _load_map().get(f"{format} :: {idea.strip()}")
+    if entry is None or entry.get("skip"):
+        return None
+    return dict(entry)
+
+
+def collapse_day_night(slots: list[dict]) -> list[dict]:
+    """Collapse a same-date Day (D&N) + Night (D&N) pair into one Day & Night slot."""
+    by_date: dict[str, list[int]] = {}
+    for i, s in enumerate(slots):
+        by_date.setdefault(s.get("date", ""), []).append(i)
+    drop: set[int] = set()
+    out = [dict(s) for s in slots]
+    for idxs in by_date.values():
+        day_i = next((i for i in idxs if out[i].get("idea", "").strip() == "Day (D&N)"), None)
+        night_i = next((i for i in idxs if out[i].get("idea", "").strip() == "Night (D&N)"), None)
+        if day_i is not None and night_i is not None:
+            out[day_i]["idea"] = "Day & Night"
+            drop.add(night_i)
+    return [s for i, s in enumerate(out) if i not in drop]
