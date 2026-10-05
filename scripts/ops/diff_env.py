@@ -56,8 +56,8 @@ def sanitize_value_for_example(key: str, raw_line: str) -> str:
 
 def diff_environments(sync: bool = False) -> int:
     if not ENV_FILE.is_file():
-        print(f"[ERROR] .env file not found at {ENV_FILE}")
-        return 1
+        print(f"[INFO] .env file not found at {ENV_FILE} (skipping drift check, expected in CI).")
+        return 0
     if not EXAMPLE_FILE.is_file():
         print(f"[ERROR] .env.example file not found at {EXAMPLE_FILE}")
         return 1

@@ -53,27 +53,30 @@ jobs:
 
       - name: Verify environment schema synchronization
         run: |
-          echo "Auditing .env vs .env.example drift..."
-          python scripts/ops/diff_env.py
-          echo "Checking for undocumented debug residue..."
-          python -c "
-          import re, sys
-          from pathlib import Path
-          env_file = Path('.env')
-          if not env_file.is_file():
-              print('.env is not committed (expected) - skipping residue scan')
-              sys.exit(0)
-          keys = set()
-          for line in env_file.read_text(encoding='utf-8', errors='ignore').splitlines():
-              line = line.strip()
-              if not line or line.startswith('#') or '=' not in line:
-                  continue
-              k = line.split('=', 1)[0].strip()
-              if re.fullmatch(r'[A-Z0-9_]+', k):
-                  keys.add(k)
-          residue = sorted(k for k in keys if k.startswith('TEST_') or k.endswith('_123'))
-          if residue:
-              print('Debug residue found in .env:', residue)
-              sys.exit(1)
-          print('No debug residue in .env')
-          "
+          echo "Verifying .env.example contains documented templates..."
+          python -c "from pathlib import Path; p = Path('.env.example'); assert p.is_file() and p.stat().st_size > 0, '.env.example missing'"
+          if [ -f .env ]; then
+            echo "Auditing .env vs .env.example drift..."
+            python scripts/ops/diff_env.py
+            echo "Checking for undocumented debug residue..."
+            python -c "
+            import re, sys
+            from pathlib import Path
+            env_file = Path('.env')
+            keys = set()
+            for line in env_file.read_text(encoding='utf-8', errors='ignore').splitlines():
+                line = line.strip()
+                if not line or line.startswith('#') or '=' not in line:
+                    continue
+                k = line.split('=', 1)[0].strip()
+                if re.fullmatch(r'[A-Z0-9_]+', k):
+                    keys.add(k)
+            residue = sorted(k for k in keys if k.startswith('TEST_') or k.endswith('_123'))
+            if residue:
+                print('Debug residue found in .env:', residue)
+                sys.exit(1)
+            print('No debug residue in .env')
+            "
+          else
+            echo ".env is not present in CI (expected, .env is git-ignored) - schema verified via .env.example"
+          fi
