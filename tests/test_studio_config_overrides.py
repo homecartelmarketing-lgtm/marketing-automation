@@ -83,7 +83,7 @@ class StudioConfigOverrideTests(unittest.TestCase):
         command = module.build_generation_command(
             "tbl9u5vjgx8kuE44R", 2, "new-moodboard-id", "Bright dining interior"
         )
-        self.assertEqual(command[1], "generate_moodboard_1_feed.py")
+        self.assertIn("run_full_moodboard_1_feed.py", command)
         self.assertEqual(command[command.index("--moodboard-id") + 1], "new-moodboard-id")
         self.assertEqual(command[command.index("--prompt") + 1], "Bright dining interior")
 
@@ -190,7 +190,7 @@ class StudioConfigOverrideTests(unittest.TestCase):
         ]})
         fake_breakdown = {"P": 1, "S": 0, "C": 1, "D": 0, "FM": 0}
         paths = sorted(rule.rule for rule in server.app.url_map.iter_rules() if rule.rule.endswith("/counts"))
-        self.assertEqual(len(paths), 23)
+        self.assertEqual(len(paths), 29)
         with patch.object(source.requests, "get", return_value=fake_response), patch.object(
             source, "fetch_status_breakdown", return_value=fake_breakdown
         ):
@@ -213,7 +213,7 @@ class StudioConfigOverrideTests(unittest.TestCase):
         routes = {rule.rule for rule in server.app.url_map.iter_rules()}
         moodboard_prefixes = {path.removesuffix("/moodboard") for path in routes if path.endswith("/moodboard")}
         prompt_prefixes = {path.removesuffix("/prompt") for path in routes if path.endswith("/prompt")}
-        self.assertEqual(len(moodboard_prefixes), 18)
+        self.assertEqual(len(moodboard_prefixes), 23)
         self.assertEqual(moodboard_prefixes, prompt_prefixes)
 
 

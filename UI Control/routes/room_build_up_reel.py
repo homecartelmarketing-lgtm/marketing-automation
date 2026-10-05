@@ -34,6 +34,13 @@ MOODBOARD_ENV_KEYS = (
     "KREA_MOODBOARD_ID_ROOM_BUILD_UP_REEL_ROOM2",
 )
 MOODBOARD_DEFAULT = "de5f4ff8-518c-4d6b-b606-ce1d5dac51f3"
+# Same for the Krea interior prompt: one Studio edit is applied to both rooms.
+# The pipeline reads these env keys directly (generate_room_build_up_reel_pipeline._room_prompt).
+PROMPT_ENV_KEYS = (
+    "PROMPT_ROOM_BUILD_UP_REEL_ROOM1",
+    "PROMPT_ROOM_BUILD_UP_REEL_ROOM2",
+)
+PROMPT_DEFAULT = "Generate me a modern living room"
 TOTAL_PHASES = 7
 
 PHASE_LABELS: dict[int, str] = {
@@ -66,6 +73,7 @@ def get_fixture() -> dict[str, Any]:
         "table_id": (os.getenv(TABLE_ENV_KEY) or TABLE_DEFAULT).strip(),
         "total": 100,
         "moodboard_id": (os.getenv(MOODBOARD_ENV_KEYS[0]) or MOODBOARD_DEFAULT).strip(),
+        "prompt": (os.getenv(PROMPT_ENV_KEYS[0]) or PROMPT_DEFAULT).strip(),
     }
 
 
@@ -113,6 +121,7 @@ def get_counts():
             "completed": sc["C"],
             "total": fixture["total"],
             "moodboard_id": fixture["moodboard_id"],
+            "prompt": fixture["prompt"],
             "status_counts": sc,
         }
     except Exception:
@@ -135,6 +144,20 @@ def update_moodboard():
         save_config_override(env_key, moodboard_id)
     _COUNTS_CACHE.clear()
     return jsonify({"status": "success", "fixture_id": FIXTURE_ID, "moodboard_id": moodboard_id})
+
+
+@room_build_up_reel_bp.route("/prompt", methods=["POST"])
+def update_prompt():
+    if not is_authorized(request):
+        return jsonify({"status": "error", "error": "Unauthorized"}), 401
+    data = request.get_json(silent=True) or {}
+    prompt_text = (data.get("prompt") or "").strip()
+    if not prompt_text:
+        return jsonify({"status": "error", "error": "prompt required"}), 400
+    for env_key in PROMPT_ENV_KEYS:
+        save_config_override(env_key, prompt_text)
+    _COUNTS_CACHE.clear()
+    return jsonify({"status": "success", "fixture_id": FIXTURE_ID, "prompt": prompt_text})
 
 
 @room_build_up_reel_bp.route("/status", methods=["GET"])

@@ -398,7 +398,11 @@ def get_ad_cover_counts():
 
         def fetch_count(item):
             key, fix = item
-            breakdown = fetch_status_breakdown(fix["table_id"])
+            from content_automation.airtable_client import fetch_status_breakdown
+            try:
+                breakdown = fetch_status_breakdown(fix["table_id"])
+            except Exception:
+                breakdown = {}
             return key, {
                 "id": fix["id"],
                 "name": fix["name"],
