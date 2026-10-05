@@ -57,6 +57,7 @@ from routes.christmas_banner import christmas_banner_bp
 from routes.sale_banner import sale_banner_bp
 from routes.rows import rows_bp
 from routes.queue_manager import queue_bp, set_server_port
+from routes.calendar import calendar_bp
 
 app = Flask(
     __name__,
@@ -96,6 +97,7 @@ app.register_blueprint(christmas_banner_bp)
 app.register_blueprint(sale_banner_bp)
 app.register_blueprint(rows_bp)
 app.register_blueprint(queue_bp)
+app.register_blueprint(calendar_bp)
 
 
 @app.errorhandler(OSError)

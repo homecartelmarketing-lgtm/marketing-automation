@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   AlertTriangle,
+  CalendarDays,
   CheckCircle2,
   ChevronRight,
   Clock,
@@ -14,6 +15,7 @@ import {
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '../ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { RunCenterRunning, formatElapsed } from './RunCenterRunning';
+import { CalendarImportModal } from './CalendarImportModal';
 import type { PipelineExecutionState, QueueHistoryItem, QueueJob } from '../../types';
 
 interface RunCenterProps {
@@ -21,6 +23,8 @@ interface RunCenterProps {
   pendingQueue: QueueJob[];
   history: QueueHistoryItem[];
   pipelineState: PipelineExecutionState;
+  /** Studio PIN, forwarded to the calendar import endpoints. */
+  studioPin: string;
   /** "A ➔ B ➔ C" summary of the running pipeline, used for the step list. */
   phaseSummary?: string;
   onStop: () => void | Promise<void>;
@@ -75,6 +79,7 @@ export function RunCenter({
   history,
   pipelineState,
   phaseSummary,
+  studioPin,
   onStop,
   onCancelJob,
   onClearQueue,
@@ -84,6 +89,7 @@ export function RunCenter({
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<PanelTab>('running');
   const [isStopping, setIsStopping] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   const isError = !activeJob && pipelineState.status === 'error';
   const isRunning = !!activeJob || pipelineState.status === 'running';
@@ -199,8 +205,20 @@ export function RunCenter({
             <ListOrdered className="h-3.5 w-3.5" />
             Queue ({pendingQueue.length})
           </button>
+
+          <button
+            type="button"
+            onClick={() => setCalendarOpen(true)}
+            title="Import Content Calendar (.xlsx) — enqueue TO DO slots"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-card px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+          >
+            <CalendarDays className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Calendar</span>
+          </button>
         </div>
       </div>
+
+      <CalendarImportModal open={calendarOpen} studioPin={studioPin} onClose={() => setCalendarOpen(false)} />
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="right" className="w-full gap-0 bg-card p-0 sm:max-w-md">
