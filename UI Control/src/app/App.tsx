@@ -257,17 +257,15 @@ export default function App() {
   }, [currentFixtures]);
 
   // Subtab count rollup for rail badges
+  // Fixtures without a live Airtable count yet are treated as 0 so the badge
+  // always shows a number instead of a dash.
   const activeFormatSubtabCounts = useMemo(() => {
     return (CONTENT_CONFIG[activeTab]?.items || []).map((_, subtabIdx) => {
       const fixtures = getFixturesForSubtab(activeTab, subtabIdx);
-      const hasAllCounts = fixtures.every(f => {
-        const key = `${activeTab}-${subtabIdx}-${f.id}`;
-        return typeof progressState[key] === 'number';
-      });
-      if (!hasAllCounts) return null;
       return fixtures.reduce((acc, f) => {
         const key = `${activeTab}-${subtabIdx}-${f.id}`;
-        return acc + (progressState[key] ?? 0);
+        const value = progressState[key];
+        return acc + (typeof value === 'number' ? value : 0);
       }, 0);
     });
   }, [activeTab, progressState]);
