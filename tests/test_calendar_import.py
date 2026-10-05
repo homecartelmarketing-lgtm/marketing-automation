@@ -26,6 +26,12 @@ class TestResolveJob(unittest.TestCase):
         self.assertIsNone(resolve_job("Reels", "NONE"))
         self.assertIsNone(resolve_job("Feeds", "No Such Idea"))
 
+    def test_pipeline_types_match_frontend_union(self):
+        from content_automation.calendar_import import resolve_job
+        self.assertEqual(resolve_job("Stories", "CTA")["pipeline_type"], "cta")
+        self.assertEqual(resolve_job("Stories", "Tips & Educational")["pipeline_type"], "tips-edu")
+        self.assertEqual(resolve_job("Reels", "Sketch to Real")["pipeline_type"], "sketch-to-draw-reel")
+
 
 class TestCollapseDayNight(unittest.TestCase):
     def test_collapse_day_night(self):
