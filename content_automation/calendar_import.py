@@ -83,3 +83,90 @@ def pick_fixture(pipeline_type: str, state: dict, fixtures: list[str]) -> str:
     idx = int(state.get(pipeline_type, 0)) % len(fixtures)
     state[pipeline_type] = int(state.get(pipeline_type, 0)) + 1
     return fixtures[idx]
+
+
+# Fixture `id` values copied verbatim from each route's get_*_fixtures()
+# (fixture ids for the config-driven reel routes are the TABLE_CONFIG keys,
+# since get_fixtures() sets each fixture's "id" to its config key).
+PIPELINE_FIXTURES: dict[str, list[str]] = {
+    "product-showcase-feed": ["table-lamp"],
+    "collection-feed": ["collection"],
+    "tips-edu-feed": ["chandelier", "pendant", "floor-lamp", "cluster-chandelier"],
+    "cta": ["chandelier", "pendant", "cluster-chandelier", "table-lamp", "floor-lamp"],
+    "tips-edu": ["pendant", "floor-lamp", "chandelier", "ceiling-mounted",
+                 "table-lamp", "cluster-chandelier"],
+    "sketch-to-draw-reel": ["chandeliers", "pendant", "floor_lamp",
+                             "table_lamp", "ceiling_mounted"],
+    "moodboard-reel": ["chandelier", "pendant", "cluster-chandelier",
+                       "linear-chandelier", "floor-lamp", "wall-sconce",
+                       "table-lamp"],
+    "one-product-3-styles": ["pendant", "floor-lamp", "chandelier"],
+    "day-night-feed": ["chandelier", "pendant", "floor-lamp", "table-lamp"],
+    "moodboard-1-feed": ["chandelier", "pendant", "floor-lamp"],
+    "moodboard-2-feed": ["chandelier", "pendant", "floor-lamp", "wall-light"],
+    "one-product-three-styles-reel": ["chandelier"],
+    "before-after-reel": ["pendant", "chandelier"],
+    "day-night-reel": ["pendant", "chandelier", "floor-lamp"],
+    "one-at-a-time-lights-reel": ["living-room"],
+    "product-closeup-reel": ["table-lamp"],
+    "style-reel-slideshow": ["style-tour"],
+    "collec-story": ["pendant", "wall-light", "chandelier", "floor-lamp",
+                     "cluster-chandelier"],
+    "day-night-story": ["chandelier", "pendant", "floor-lamp", "table-lamp",
+                        "cluster-chandelier"],
+    "moodboard-story": ["chandelier", "pendant", "floor-lamp"],
+    "product-specs": ["chandelier"],
+    "product-desc-story": ["chandelier", "pendant", "floor-lamp",
+                           "cluster-chandelier", "table-lamp", "wall-light"],
+    "style-this": ["chandelier", "floor-lamp"],
+    "myth-fact-story": ["chandelier", "floor-lamp", "pendant"],
+    "this-or-that-story": ["chandelier", "pendant", "floor-lamp",
+                           "cluster-chandelier", "table-lamp", "wall-light"],
+}
+
+
+def build_jobs(slots: list[dict], state: dict) -> tuple[list[dict], list[dict]]:
+    """Build queue jobs for the TO DO slots in one calendar import.
+
+    Returns (jobs, skipped) where each job has {date, pipeline_type,
+    pipeline_name, fixture_id, run_endpoint, status_endpoint, max_items: 1}
+    and each skipped entry has {date, idea, status, reason}.
+    """
+    jobs: list[dict] = []
+    skipped: list[dict] = []
+    seen: set[tuple] = set()
+    pipeline_map = _load_map()
+    for s in collapse_day_night(slots):
+        date = s.get("date")
+        idea = s.get("idea")
+        status = s.get("status", "")
+        if status != "TO DO":
+            skipped.append({"date": date, "idea": idea, "status": status,
+                            "reason": f"not-todo:{status}"})
+            continue
+        entry = pipeline_map.get(f"{s.get('format', '')} :: {(idea or '').strip()}")
+        job = resolve_job(s.get("format", ""), idea or "")
+        if job is None:
+            reason = (entry or {}).get("reason") or "unknown-idea"
+            skipped.append({"date": date, "idea": idea, "status": status,
+                            "reason": reason})
+            continue
+        pipeline_type = job["pipeline_type"]
+        fixture_id = pick_fixture(
+            pipeline_type, state, PIPELINE_FIXTURES[pipeline_type])
+        key = (date, pipeline_type, fixture_id)
+        if key in seen:
+            skipped.append({"date": date, "idea": idea, "status": status,
+                            "reason": "duplicate"})
+            continue
+        seen.add(key)
+        jobs.append({
+            "date": date,
+            "pipeline_type": pipeline_type,
+            "pipeline_name": pipeline_type,
+            "fixture_id": fixture_id,
+            "run_endpoint": job["run_endpoint"],
+            "status_endpoint": job["status_endpoint"],
+            "max_items": 1,
+        })
+    return jobs, skipped
