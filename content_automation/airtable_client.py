@@ -624,6 +624,10 @@ def fetch_status_breakdown(
 
     ``category`` (optional) counts only rows whose ``Category`` column equals it (case-insensitive), for
     tables shared by several pipelines such as the Christmas and Sale banners.
+
+    Raises ``RuntimeError`` when Airtable cannot be read (HTTP error, network failure). A failed read is
+    never reported as zero counts: callers skip the fixture so the Studio shows "not verified" instead
+    of a misleading 0.
     """
     import os
     # Smart detection: if first argument is a table_id (e.g. starts with "tbl")
@@ -652,43 +656,44 @@ def fetch_status_breakdown(
     if wanted_category:
         params.append(("fields[]", "Category"))
     offset = None
-    try:
-        while True:
-            req_params = list(params)
-            if offset:
-                req_params.append(("offset", offset))
-            resp = None
-            for attempt in range(3):
+    while True:
+        req_params = list(params)
+        if offset:
+            req_params.append(("offset", offset))
+        resp = None
+        for attempt in range(3):
+            try:
                 resp = requests.get(url, headers=headers, params=req_params, timeout=timeout)
-                if resp.status_code == 429:
-                    time.sleep(1.2 * (attempt + 1))
+            except requests.RequestException as error:
+                raise RuntimeError(f"Airtable count request failed for {table_id}: {error}") from error
+            if resp.status_code == 429:
+                time.sleep(1.2 * (attempt + 1))
+                continue
+            break
+        if resp is None or not resp.ok:
+            status = getattr(resp, "status_code", "no response")
+            raise RuntimeError(f"Airtable count request failed for {table_id} (HTTP {status})")
+        data = resp.json()
+        for rec in data.get("records", []):
+            if wanted_category:
+                row_category = " ".join(str(rec.get("fields", {}).get("Category") or "").split()).lower()
+                if row_category != wanted_category:
                     continue
-                break
-            if resp is None or not resp.ok:
-                break
-            data = resp.json()
-            for rec in data.get("records", []):
-                if wanted_category:
-                    row_category = " ".join(str(rec.get("fields", {}).get("Category") or "").split()).lower()
-                    if row_category != wanted_category:
-                        continue
-                raw = str(rec.get("fields", {}).get("Status") or "").strip().lower()
-                norm = " ".join(raw.split())
-                if norm in ("posted", "processing", "pending", "in progress"):
-                    counts["P"] += 1
-                elif norm in ("scheduled", "schedule"):
-                    counts["S"] += 1
-                elif norm in ("complete", "completed", "done", "already attached a room interior"):
-                    counts["C"] += 1
-                elif norm in ("discard", "discarded"):
-                    counts["D"] += 1
-                elif norm in ("for manual", "for  manual", "minor revision", "minor revisions", "fm"):
-                    counts["FM"] += 1
-            offset = data.get("offset")
-            if not offset:
-                break
-    except Exception:
-        pass
+            raw = str(rec.get("fields", {}).get("Status") or "").strip().lower()
+            norm = " ".join(raw.split())
+            if norm in ("posted", "processing", "pending", "in progress"):
+                counts["P"] += 1
+            elif norm in ("scheduled", "schedule"):
+                counts["S"] += 1
+            elif norm in ("complete", "completed", "done", "already attached a room interior"):
+                counts["C"] += 1
+            elif norm in ("discard", "discarded"):
+                counts["D"] += 1
+            elif norm in ("for manual", "for  manual", "minor revision", "minor revisions", "fm"):
+                counts["FM"] += 1
+        offset = data.get("offset")
+        if not offset:
+            break
     return counts
 
 
@@ -712,5 +717,5 @@ def fetch_multiple_tables_status_breakdown(
             try:
                 results[tid] = future.result()
             except Exception:
-                results[tid] = {"P": 0, "C": 0, "D": 0, "FM": 0}
+                results[tid] = {"P": 0, "S": 0, "C": 0, "D": 0, "FM": 0}
     return results
