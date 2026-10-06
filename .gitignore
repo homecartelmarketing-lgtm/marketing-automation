@@ -61,3 +61,6 @@ assets/oct-calendar.xlsx
 Content Calendar.xlsx
 *.xlsm
 
+# House Tour reference video (local inspiration footage, not for git).
+assets/house_tour_reference.mp4
+

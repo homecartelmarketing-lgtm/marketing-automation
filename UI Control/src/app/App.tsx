@@ -33,10 +33,12 @@ export default function App() {
   // Direct Edit Moodboard / Prompt Modal states
   const [editMoodboardFixture, setEditMoodboardFixture] = useState<FixtureData | null>(null);
   const [editMoodboardInput, setEditMoodboardInput] = useState<string>('');
+  const [editMoodboardRooms, setEditMoodboardRooms] = useState<Record<string, string> | null>(null);
   const [isSavingMoodboard, setIsSavingMoodboard] = useState<boolean>(false);
 
   const [editPromptFixture, setEditPromptFixture] = useState<FixtureData | null>(null);
   const [editPromptInput, setEditPromptInput] = useState<string>('');
+  const [editPromptRooms, setEditPromptRooms] = useState<Record<string, string> | null>(null);
   const [isSavingPrompt, setIsSavingPrompt] = useState<boolean>(false);
 
   // 1. Data hook: Consolidated moodboards, prompts, status counts & live sync
@@ -47,10 +49,12 @@ export default function App() {
     tunnelInfo,
     getMoodboard,
     getPrompt,
+    getRoomSettings,
     getStatusCounts,
     getTableId,
     updateMoodboard,
     updatePrompt,
+    updateRoomSettings,
     fetchLiveCounts,
   } = usePipelineData();
 
@@ -211,6 +215,7 @@ export default function App() {
         tableId: dynTableId,
         moodboardId: dynMoodboard,
         prompt: dynPrompt,
+        rooms: getRoomSettings(activePipelineType, base.id) ?? base.rooms,
         completed: progressState[key] ?? null,
         statusCounts: getStatusCounts(activePipelineType, base.id),
       };
@@ -222,6 +227,7 @@ export default function App() {
     activePipelineType,
     getMoodboard,
     getPrompt,
+    getRoomSettings,
     getTableId,
     getStatusCounts,
     progressState,
@@ -331,6 +337,14 @@ export default function App() {
   };
 
   const handleOpenEditMoodboard = (fixture: FixtureData) => {
+    const roomDefs = getRoomSettings(activePipelineType, fixture.id) ?? fixture.rooms;
+    if (roomDefs && roomDefs.length > 0) {
+      setEditMoodboardRooms(
+        Object.fromEntries(roomDefs.map(r => [r.key, r.moodboardId]))
+      );
+    } else {
+      setEditMoodboardRooms(null);
+    }
     const currentMb = getMoodboard(activePipelineType, fixture.id) || fixture.moodboardId || '';
     setEditMoodboardFixture(fixture);
     setEditMoodboardInput(currentMb);
@@ -338,6 +352,52 @@ export default function App() {
 
   const handleSaveMoodboard = async () => {
     if (!editMoodboardFixture || !activePipelineConfig?.moodboardEndpoint) return;
+    // Room-sectioned save (single-card multi-room pipelines, e.g. House Tour).
+    if (editMoodboardRooms) {
+      const rooms = { ...editMoodboardRooms };
+      if (Object.values(rooms).some(v => !v.trim())) {
+        toast.error('All 4 room moodboard IDs are required');
+        return;
+      }
+      setIsSavingMoodboard(true);
+      const pin = studioPin || localStorage.getItem('hc_studio_pin') || '';
+      try {
+        const res = await fetch(activePipelineConfig.moodboardEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(pin ? { Authorization: `Bearer ${pin}`, 'X-Dashboard-PIN': pin } : {}),
+          },
+          body: JSON.stringify({
+            fixture_id: editMoodboardFixture.id,
+            rooms,
+            pin,
+          }),
+        });
+        const data = await res.json();
+        if (res.status === 401 || data.needs_pin) {
+          setShowPinModal(true);
+          toast.error('Studio PIN required to update Moodboard IDs');
+          return;
+        }
+        if (res.ok) {
+          const patch: Record<string, { moodboard: string }> = Object.fromEntries(
+            Object.entries(rooms).map(([key, moodboard]) => [key, { moodboard }])
+          );
+          updateRoomSettings(activePipelineConfig.type, editMoodboardFixture.id, patch);
+          toast.success(`Saved 4 room Moodboard IDs for ${editMoodboardFixture.name} (Studio setting)`);
+          setEditMoodboardFixture(null);
+          setEditMoodboardRooms(null);
+        } else {
+          toast.error(data.error || 'Failed to update Moodboard IDs');
+        }
+      } catch (err) {
+        toast.error(`Error saving moodboards: ${err}`);
+      } finally {
+        setIsSavingMoodboard(false);
+      }
+      return;
+    }
     setIsSavingMoodboard(true);
     const newMb = editMoodboardInput.trim();
     const pin = studioPin || localStorage.getItem('hc_studio_pin') || '';
@@ -376,6 +436,14 @@ export default function App() {
   };
 
   const handleOpenEditPrompt = (fixture: FixtureData) => {
+    const roomDefs = getRoomSettings(activePipelineType, fixture.id) ?? fixture.rooms;
+    if (roomDefs && roomDefs.length > 0) {
+      setEditPromptRooms(
+        Object.fromEntries(roomDefs.map(r => [r.key, r.prompt]))
+      );
+    } else {
+      setEditPromptRooms(null);
+    }
     const currentPr = getPrompt(activePipelineType, fixture.id) ?? fixture.prompt ?? '';
     setEditPromptFixture(fixture);
     setEditPromptInput(currentPr);
@@ -383,6 +451,52 @@ export default function App() {
 
   const handleSavePrompt = async () => {
     if (!editPromptFixture || !activePipelineConfig?.promptEndpoint) return;
+    // Room-sectioned save (single-card multi-room pipelines, e.g. House Tour).
+    if (editPromptRooms) {
+      const rooms = { ...editPromptRooms };
+      if (Object.values(rooms).some(v => !v.trim())) {
+        toast.error('All 4 room prompts are required');
+        return;
+      }
+      setIsSavingPrompt(true);
+      const pin = studioPin || localStorage.getItem('hc_studio_pin') || '';
+      try {
+        const res = await fetch(activePipelineConfig.promptEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(pin ? { Authorization: `Bearer ${pin}`, 'X-Dashboard-PIN': pin } : {}),
+          },
+          body: JSON.stringify({
+            fixture_id: editPromptFixture.id,
+            rooms,
+            pin,
+          }),
+        });
+        const data = await res.json();
+        if (res.status === 401 || data.needs_pin) {
+          setShowPinModal(true);
+          toast.error('Studio PIN required to update Prompts');
+          return;
+        }
+        if (res.ok) {
+          const patch: Record<string, { prompt: string }> = Object.fromEntries(
+            Object.entries(rooms).map(([key, prompt]) => [key, { prompt }])
+          );
+          updateRoomSettings(activePipelineConfig.type, editPromptFixture.id, patch);
+          toast.success(`Saved 4 room Prompts for ${editPromptFixture.name} (Studio setting)`);
+          setEditPromptFixture(null);
+          setEditPromptRooms(null);
+        } else {
+          toast.error(data.error || 'Failed to update Prompts');
+        }
+      } catch (err) {
+        toast.error(`Error saving prompts: ${err}`);
+      } finally {
+        setIsSavingPrompt(false);
+      }
+      return;
+    }
     setIsSavingPrompt(true);
     const newPr = editPromptInput.trim();
     const pin = studioPin || localStorage.getItem('hc_studio_pin') || '';
@@ -646,8 +760,14 @@ export default function App() {
         moodboardInput={editMoodboardInput}
         onInputChange={setEditMoodboardInput}
         onSave={handleSaveMoodboard}
-        onClose={() => setEditMoodboardFixture(null)}
+        onClose={() => { setEditMoodboardFixture(null); setEditMoodboardRooms(null); }}
         isSaving={isSavingMoodboard}
+        rooms={editMoodboardRooms && editMoodboardFixture?.rooms?.map(r => ({
+          key: r.key,
+          label: r.label,
+          value: editMoodboardRooms[r.key] ?? '',
+        }))}
+        onRoomChange={(key, val) => setEditMoodboardRooms(prev => (prev ? { ...prev, [key]: val } : prev))}
       />
 
       {/* Edit Krea Prompt Modal */}
@@ -657,8 +777,14 @@ export default function App() {
         promptInput={editPromptInput}
         onInputChange={setEditPromptInput}
         onSave={handleSavePrompt}
-        onClose={() => setEditPromptFixture(null)}
+        onClose={() => { setEditPromptFixture(null); setEditPromptRooms(null); }}
         isSaving={isSavingPrompt}
+        rooms={editPromptRooms && editPromptFixture?.rooms?.map(r => ({
+          key: r.key,
+          label: r.label,
+          value: editPromptRooms[r.key] ?? '',
+        }))}
+        onRoomChange={(key, val) => setEditPromptRooms(prev => (prev ? { ...prev, [key]: val } : prev))}
       />
 
       {/* Studio PIN Configuration Modal */}

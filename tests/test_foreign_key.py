@@ -37,6 +37,15 @@ class ForeignKeyTests(unittest.TestCase):
         self.assertEqual(resolve_table_prefix("tblqBZ946hVdOpmDV"), "PCR-REEL-TL")
         self.assertEqual(resolve_table_prefix("tbl6ls4AWcEcynBpZ"), "OP3S-REEL-CH")
 
+    def test_house_tour_reel_prefix_registered(self):
+        self.assertEqual(TABLE_PREFIX_MAP["tblqXkdDw4O7hxJS4"], "HTR-REEL-SET")
+
+    def test_house_tour_reel_foreign_key(self):
+        self.assertEqual(
+            generate_foreign_key("tblqXkdDw4O7hxJS4", 7),
+            "HTR-REEL-SET-7",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

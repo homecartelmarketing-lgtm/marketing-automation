@@ -31,7 +31,7 @@ cd "UI Control"
 python api_server.py
 ```
 Open **`http://localhost:5200`** to access:
-- **Interactive Format Tabs**: Switch between **Feed** (7 subtabs), **Story** (10 subtabs), **Reel** (8 subtabs), **Banner** ([`BANNER_SET.md`](docs/banners/BANNER_SET.md), a standalone 5th top-level Studio tab with one sub-tab, "Banner Set": one run makes the 21:9 Christmas banner, the 1800x600 Sale banner and the 1800x600 third banner on a single Airtable row), and **Ad Covers** — a standalone 4th top-level Studio tab (not a sub-tab family) of per-fixture run cards, one press producing both the 1:1 cover and its 9:16 Story twin — with summed completed counts on each format and subtab.
+- **Interactive Format Tabs**: Switch between **Feed** (7 subtabs), **Story** (10 subtabs), **Reel** (9 subtabs), **Banner** ([`BANNER_SET.md`](docs/banners/BANNER_SET.md), a standalone 5th top-level Studio tab with one sub-tab, "Banner Set": one run makes the 21:9 Christmas banner, the 1800x600 Sale banner and the 1800x600 third banner on a single Airtable row), and **Ad Covers** — a standalone 4th top-level Studio tab (not a sub-tab family) of per-fixture run cards, one press producing both the 1:1 cover and its 9:16 Story twin — with summed completed counts on each format and subtab.
 - **Live Airtable Synchronization**: Real-time `P, S, C, D, FM` status badges on every lighting fixture card.
 - **Row Inspector Modal**: Instant search, status filtering, one-click Foreign Key ID copying, and direct deep links into Airtable rows (`Open in Airtable ↗`).
 - **Inline Settings & Security**: Krea moodboard and interior-prompt edits persist in `output/config_overrides.json` and `.env`; `DASHBOARD_PIN` protects edits when configured. See the [UI configuration map](docs/UI_CONTROL_CONFIG.md).
@@ -96,6 +96,7 @@ Open **`http://localhost:5200`** to access:
 | [**`ONE_PRODUCT_THREE_STYLES_REEL.md`**](docs/reels/ONE_PRODUCT_THREE_STYLES_REEL.md) | 18s | Chandelier 3-style blended-photo reel with custom holds and branded outro. | Krea, Fal Nano Banana Pro, YOLO-World, local FFmpeg |
 | [**`ONE_AT_A_TIME_LIGHTS_REEL.md`**](docs/reels/ONE_AT_A_TIME_LIGHTS_REEL.md) | ~11s | Silent bedroom reel where 3 lights (table lamp, ceiling, pendant) turn on one at a time, then all together, plus branded outro. | Krea, Fal Nano Banana Pro, YOLO-World, local FFmpeg |
 | [**`SKETCH_TO_REAL_REEL.md`**](docs/reels/SKETCH_TO_REAL_REEL.md) | ~11s | Hand-drawn room outline animates line by line into the photorealistic lit interior, with cover, ElevenLabs music, and branded outro (Chandelier and Pendant). | Krea, Fal Nano Banana Pro, YOLO-World, Fal AI ElevenLabs, local Auto Draw + FFmpeg |
+| [**`HOUSE_TOUR_REEL.md`**](docs/reels/HOUSE_TOUR_REEL.md) | ~22s | 11-room organic-modern/Japandi home tour (2.0s per room): Krea interiors (unified moodboard `fda7090c-…`) + Claude Vision room analysis, Nano Banana Pro blends, Kling motion clips, ElevenLabs music, and zero-API FFmpeg assembly with dynamic room titles and animated Poppins product reveals. | Krea, Fal Claude Sonnet 5, Fal Nano Banana Pro, Fal Kling Video, YOLO-World, Fal AI ElevenLabs, local FFmpeg |
 
 ---
 

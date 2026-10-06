@@ -119,6 +119,7 @@ marketing-automation/
 │   │   ├── style_reel_slideshow.py          # /api/style-reel-slideshow/* one_product_three_styles_reel.py
 │   │   ├── one_at_a_time_lights_reel.py     # /api/one-at-a-time-lights-reel/* (3-fixture progressive-lighting reel)
 │   │   ├── sketch_to_draw_reel.py           # /api/sketch-to-draw-reel/* (Studio "Sketch to Real" subtab; always runs generate_sketch_to_real_reel_pipeline.py)
+│   │   ├── house_tour_reel.py               # /api/house-tour-reel/* (Studio "House Tour" subtab 9; runs generate_house_tour_reel_pipeline.py)
 │   │   ├── ad_cover.py                      # Ad Cover: /api/ad-cover/* (1:1 + 9:16 Story, per-fixture run)
 │   │   ├── christmas_banner.py              # Banner (Christmas + Sale + third, one run/row): /api/christmas-banner/*   sale_banner.py /api/sale-banner/* (API/CLI only)
 │   │   ├── queue_manager.py                 # In-memory FIFO job queue (/api/queue/*) — see §3
@@ -216,7 +217,7 @@ Every record in every Story and Feed table must have a unique, human-readable Fo
 
 $$\text{Foreign Key ID} = \langle\text{Idea Abbr}\rangle\text{-}\langle\text{Format}\rangle\text{-}\langle\text{Fixture Code}\rangle\text{-}\langle\text{Row ID}\rangle$$
 
-- **Idea Abbr**: `CTA`, `TNE`, `CC`, `DN`, `MB`, `MB1`, `MB2`, `PCS`, `PCD`, `ST`, `MNF`, `TOT`, `OP3S`, `PS`, `PCR`, `BA`, `SRS`, `ADC`, `OATL`, `STR` (Sketch to Real; `STD` table aliases map to `STR`), `XMS` (Christmas/Sale Banner)
+- **Idea Abbr**: `CTA`, `TNE`, `CC`, `DN`, `MB`, `MB1`, `MB2`, `PCS`, `PCD`, `ST`, `MNF`, `TOT`, `OP3S`, `PS`, `PCR`, `BA`, `SRS`, `ADC`, `OATL`, `STR` (Sketch to Real; `STD` table aliases map to `STR`), `HTR` (House Tour Reel), `XMS` (Christmas/Sale Banner)
 - **Format**: `STORY` (9:16), `FEEDS` (4:5), `REEL` (9:16 video), `ADS` (Ad Cover row: carries the 1:1 cover and its 9:16 Story twin; the FK token stays `ADS`), or `BANNER` (Christmas/Sale Banner rows, `XMS-BANNER-ALL`)
 - **Fixture Code**: `CH` (Chandelier), `PE` (Pendant), `FL` (Floor Lamp), `TL` (Table Lamp), `CL` (Cluster Chandelier), `WL` (Wall Light), `CM` (Ceiling Mounted), `SET` (Multi-room / Carousel), `LR` (Living Room / Bedroom, One at a time Lights Reel), `NEW` / `SALE` / `STOCK` (New Collection / On Sale Designs / On Stock Designs, Ad Cover only), plus `LC` (Linear Chandelier) and `WS` (Wall Sconce) which appear only in `MB-REEL` table entries
 - **Examples**: `CTA-STORY-CH-24`, `TNE-FEEDS-FL-1`, `CC-FEEDS-SET-22`, `OP3S-FEEDS-PE-4`, `PCR-REEL-TL-1`
@@ -298,6 +299,7 @@ Font sizes, logo boxes, watermark templates, shadows, auto-scaling and how to pr
 6. **1 Product, 3 Styles Reel** ([`docs/reels/ONE_PRODUCT_THREE_STYLES_REEL.md`](docs/reels/ONE_PRODUCT_THREE_STYLES_REEL.md)) — Chandelier-only blended photo Reel with 5s, 4s, 4s holds and 5s outro.
 7. **One at a time Lights Reel** ([`docs/reels/ONE_AT_A_TIME_LIGHTS_REEL.md`](docs/reels/ONE_AT_A_TIME_LIGHTS_REEL.md), prefix: `OATL-REEL`) — ~11-second silent bedroom reel: 3 fresh fixtures (Table Lamp, Ceiling Mounted, Pendant) blended into one Krea interior, three progressive "only this light is ON" Nano Banana Pro variations, then local FFmpeg crossfades + branded outro. Table `tblJpEtBudQZda319`.
 8. **Sketch to Real Reel** ([`docs/reels/SKETCH_TO_REAL_REEL.md`](docs/reels/SKETCH_TO_REAL_REEL.md), prefix: `STR-REEL`) — ~11-second reel: hand-drawn outline of a Krea room animates line by line (local Auto Draw + FFmpeg) into the Nano Banana Pro blended interior, with cover and branded outro. Studio Reel subtab 7 "Sketch to Real" (route `/api/sketch-to-draw-reel/*`); Chandelier `tblUFR6OvFQaHnG1V` and Pendant `tblSALsUd5MXXnkp6` are runnable.
+9. **House Tour Reel** ([`docs/reels/HOUSE_TOUR_REEL.md`](docs/reels/HOUSE_TOUR_REEL.md), prefix: `HTR-REEL`) — 22.0-second 11-room organic-modern/Japandi home tour (2.0s per room): 11 pre-crafted detailed prompts (unified moodboard `fda7090c-787b-4116-94cd-3feef613eaaa`) → Krea room interiors → Claude 3.5 Sonnet Vision interior analysis (placement guidance + dynamic room title) → Claude blend prompts → Nano Banana Pro blends with YOLO-World tags → Kling 3 s motion clips trimmed to 2.0s (odd left) → ElevenLabs music → local FFmpeg snap-cut assembly (upper-third dynamic room title strictly from Claude Vision with ZERO default fallback, lower-third animated Item Name + Product Type reveal in Poppins-Medium) + optional outro. No caption. Studio Reel subtab 9 "House Tour" (route `/api/house-tour-reel/*`): single card on table `tblqXkdDw4O7hxJS4`.
 
 ### Ad Cover Pipeline (1 Pipeline, 1:1 Square + 9:16 Story)
 1. **Ad Cover** ([`docs/ads/AD_COVER.md`](docs/ads/AD_COVER.md), prefix: `ADC-ADS`) — Standalone 4th top-level Studio tab (not a sub-tab family): one run button per fixture. All 9 fixtures are fully runnable with dedicated Airtable tables (Chandelier: `tblwIsDGZBPuYJV2Z`, Floor Lamp: `tbl27FKuDUD4FdJUR`, Table Lamp: `tblk3RfFqawHZ5Wrk`, Cluster Chandelier: `tbltouegkjgQwdr1u`, Pendant Light: `tbl99Cwda2Xn93giT`, Wall Light: `tblUO5nybG9fIkhTT`, New Collection: `tbluMexgzcWE1pDZJ`, On Sale Designs: `tbleQIVBooVazAyk3`, On Stock Designs: `tblX7tpTJhfH0UXmm`). 7 phases: highest-priced newest Akeneo fixture → Krea 1:1 interior → Claude blending prompt → Nano Banana Pro blend → **local Pillow** composite of the transparent ad-cover overlay → Nano Banana Pro **9:16 extension** of that blend → **local Pillow** composite of the 9:16 story overlay (tagline + logo baked into PNG overlays, zero API cost for typography). One run produces **both** the 1:1 `Ad Cover Converted Image` and the 9:16 `Ad Cover Converted Image Story`; `Complete` is written by Phase 7 only.
@@ -385,6 +387,12 @@ python run_style_this_story.py --category chandeliers
 
 # Run the One at a time Lights Reel (thin alias; --phase all|scrape|generate, --max-rows N, --record-id, --force, --with-music)
 python run_one_at_a_time_lights_reel.py --phase all --max-rows 1
+
+# Run the House Tour Reel (thin alias; --phase all|scrape, --max-rows N, --record-id, --force, --no-music; --phase generate requires --record-id)
+python run_house_tour_reel.py --phase all --max-rows 1
+
+# Provision the House Tour Reel Airtable schema (idempotent)
+python scratch/ensure_house_tour_fields.py --table-id tblqXkdDw4O7hxJS4
 
 # Run the Ad Cover pipeline — modes: scrape|interior|prompt|blend|conversion|story-blend|story-conversion|all
 # One --mode all run produces BOTH the 1:1 cover and the 9:16 Story twin; see docs/ads/AD_COVER.md §7

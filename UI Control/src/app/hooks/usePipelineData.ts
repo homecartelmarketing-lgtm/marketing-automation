@@ -1,13 +1,21 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { PIPELINES, getPipelineByType } from '../constants/pipelines';
+import { HOUSE_TOUR_ROOMS } from '../constants/fixtures';
 import { PipelineType, StatusCountMap, StatusCounts } from '../types';
+import { FixtureRoomSetting } from '../components/planning/FixtureCard';
+
+export interface RoomOverrideValues {
+  moodboard?: string;
+  prompt?: string;
+}
 
 export interface UsePipelineDataResult {
   progressState: Record<string, number>;
   setProgressState: React.Dispatch<React.SetStateAction<Record<string, number>>>;
   moodboardOverrides: Record<string, Record<string, string>>;
   promptOverrides: Record<string, Record<string, string>>;
+  roomOverrides: Record<string, Record<string, Record<string, RoomOverrideValues>>>;
   statusCounts: Record<string, StatusCountMap>;
   tableIdOverrides: Record<string, Record<string, string>>;
   isLoadingCounts: boolean;
@@ -15,10 +23,16 @@ export interface UsePipelineDataResult {
   setTunnelInfo: React.Dispatch<React.SetStateAction<{ active: boolean; public_url: string }>>;
   getMoodboard: (pipelineType: PipelineType, fixtureId: string) => string;
   getPrompt: (pipelineType: PipelineType, fixtureId: string) => string | undefined;
+  getRoomSettings: (pipelineType: PipelineType, fixtureId: string) => FixtureRoomSetting[] | undefined;
   getStatusCounts: (pipelineType: PipelineType, fixtureId: string) => StatusCounts | undefined;
   getTableId: (pipelineType: PipelineType, fixtureId: string) => string | undefined;
   updateMoodboard: (pipelineType: PipelineType, fixtureId: string, moodboardId: string) => void;
   updatePrompt: (pipelineType: PipelineType, fixtureId: string, prompt: string) => void;
+  updateRoomSettings: (
+    pipelineType: PipelineType,
+    fixtureId: string,
+    rooms: Record<string, RoomOverrideValues>
+  ) => void;
   fetchLiveCounts: (refresh?: boolean, showToast?: boolean) => Promise<void>;
 }
 
@@ -39,6 +53,18 @@ export function usePipelineData(): UsePipelineDataResult {
   const [promptOverrides, setPromptOverrides] = useState<Record<string, Record<string, string>>>({
     'one-at-a-time-lights-reel': {
       'living-room': 'Generate me a modern bedroom',
+    },
+  });
+
+  // Per-room Studio settings for single-card multi-room pipelines (House Tour):
+  // pipeline -> fixture -> room key -> values.
+  const [roomOverrides, setRoomOverrides] = useState<
+    Record<string, Record<string, Record<string, RoomOverrideValues>>>
+  >({
+    'house-tour-reel': {
+      'house-tour': Object.fromEntries(
+        HOUSE_TOUR_ROOMS.map(r => [r.key, { moodboard: r.moodboardId, prompt: r.prompt }])
+      ),
     },
   });
 
@@ -67,6 +93,23 @@ export function usePipelineData(): UsePipelineDataResult {
       return fixture?.prompt;
     },
     [promptOverrides]
+  );
+
+  const getRoomSettings = useCallback(
+    (pipelineType: PipelineType, fixtureId: string): FixtureRoomSetting[] | undefined => {
+      if (!pipelineType) return undefined;
+      const pipeCfg = getPipelineByType(pipelineType);
+      const fixture = pipeCfg?.fixtures.find(f => f.id === fixtureId);
+      const baseRooms = fixture?.rooms;
+      if (!baseRooms || baseRooms.length === 0) return undefined;
+      const overrides = roomOverrides[pipelineType]?.[fixtureId] || {};
+      return baseRooms.map(room => ({
+        ...room,
+        moodboardId: overrides[room.key]?.moodboard ?? room.moodboardId,
+        prompt: overrides[room.key]?.prompt ?? room.prompt,
+      }));
+    },
+    [roomOverrides]
   );
 
   const getStatusCounts = useCallback(
@@ -117,6 +160,27 @@ export function usePipelineData(): UsePipelineDataResult {
     []
   );
 
+  const updateRoomSettings = useCallback(
+    (
+      pipelineType: PipelineType,
+      fixtureId: string,
+      rooms: Record<string, RoomOverrideValues>
+    ) => {
+      if (!pipelineType) return;
+      setRoomOverrides(prev => ({
+        ...prev,
+        [pipelineType]: {
+          ...(prev[pipelineType] || {}),
+          [fixtureId]: {
+            ...((prev[pipelineType] || {})[fixtureId] || {}),
+            ...rooms,
+          },
+        },
+      }));
+    },
+    []
+  );
+
   const fetchLiveCounts = useCallback(
     async (refresh = false, showToast = false) => {
       setIsLoadingCounts(true);
@@ -159,6 +223,7 @@ export function usePipelineData(): UsePipelineDataResult {
         const newProgress: Record<string, number> = {};
         const newMbOverrides: Record<string, Record<string, string>> = {};
         const newPrOverrides: Record<string, Record<string, string>> = {};
+        const newRoomOverrides: Record<string, Record<string, Record<string, RoomOverrideValues>>> = {};
         const newStatusCounts: Record<string, StatusCountMap> = {};
         const newTableOverrides: Record<string, Record<string, string>> = {};
 
@@ -169,6 +234,7 @@ export function usePipelineData(): UsePipelineDataResult {
 
           const mbUpdates: Record<string, string> = {};
           const prUpdates: Record<string, string> = {};
+          const roomUpdates: Record<string, Record<string, RoomOverrideValues>> = {};
           const statusUpdates: StatusCountMap = {};
           const tblUpdates: Record<string, string> = {};
 
@@ -178,12 +244,20 @@ export function usePipelineData(): UsePipelineDataResult {
             }
             if (fix.moodboard_id) mbUpdates[fixtureId] = fix.moodboard_id;
             if (fix.prompt) prUpdates[fixtureId] = fix.prompt;
+            if (Array.isArray(fix.rooms)) {
+              roomUpdates[fixtureId] = Object.fromEntries(
+                fix.rooms
+                  .filter((r: any) => r && r.key)
+                  .map((r: any) => [r.key, { moodboard: r.moodboard_id || '', prompt: r.prompt || '' }])
+              );
+            }
             if (fix.status_counts) statusUpdates[fixtureId] = fix.status_counts;
             if (fix.table_id) tblUpdates[fixtureId] = fix.table_id;
           });
 
           if (Object.keys(mbUpdates).length > 0) newMbOverrides[pipeType] = mbUpdates;
           if (Object.keys(prUpdates).length > 0) newPrOverrides[pipeType] = prUpdates;
+          if (Object.keys(roomUpdates).length > 0) newRoomOverrides[pipeType] = roomUpdates;
           if (Object.keys(statusUpdates).length > 0) newStatusCounts[pipeType] = statusUpdates;
           if (Object.keys(tblUpdates).length > 0) newTableOverrides[pipeType] = tblUpdates;
         });
@@ -205,6 +279,21 @@ export function usePipelineData(): UsePipelineDataResult {
             const next = { ...prev };
             Object.entries(newPrOverrides).forEach(([pType, prs]) => {
               next[pType] = { ...(next[pType] || {}), ...prs };
+            });
+            return next;
+          });
+        }
+        if (Object.keys(newRoomOverrides).length > 0) {
+          setRoomOverrides(prev => {
+            const next = { ...prev };
+            Object.entries(newRoomOverrides).forEach(([pType, fixtures]) => {
+              const mergedFixtures: Record<string, Record<string, RoomOverrideValues>> = {
+                ...(next[pType] || {}),
+              };
+              Object.entries(fixtures).forEach(([fixId, rooms]) => {
+                mergedFixtures[fixId] = { ...(mergedFixtures[fixId] || {}), ...rooms };
+              });
+              next[pType] = mergedFixtures;
             });
             return next;
           });
@@ -245,6 +334,7 @@ export function usePipelineData(): UsePipelineDataResult {
     setProgressState,
     moodboardOverrides,
     promptOverrides,
+    roomOverrides,
     statusCounts,
     tableIdOverrides,
     isLoadingCounts,
@@ -252,10 +342,12 @@ export function usePipelineData(): UsePipelineDataResult {
     setTunnelInfo,
     getMoodboard,
     getPrompt,
+    getRoomSettings,
     getStatusCounts,
     getTableId,
     updateMoodboard,
     updatePrompt,
+    updateRoomSettings,
     fetchLiveCounts,
   };
 }

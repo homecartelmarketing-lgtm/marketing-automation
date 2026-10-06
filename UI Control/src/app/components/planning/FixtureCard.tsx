@@ -1,6 +1,13 @@
 import { Check, Play, Loader2, Square, Table, Clock, X, Plus } from 'lucide-react';
 import { TabType } from './FormatTabs';
 
+export interface FixtureRoomSetting {
+  key: string;
+  label: string;
+  moodboardId: string;
+  prompt: string;
+}
+
 export interface FixtureData {
   id: string;
   name: string;
@@ -10,6 +17,7 @@ export interface FixtureData {
   moodboardId?: string;
   prompt?: string;
   runnable?: boolean;
+  rooms?: FixtureRoomSetting[];
   statusCounts?: {
     P: number;
     S?: number;
@@ -218,6 +226,78 @@ export function FixtureCard({
               {fixture.prompt ? `"${fixture.prompt}"` : <span className="text-gray-400 italic">Default</span>}
             </span>
           </button>
+        )}
+
+        {/* Per-room Moodboard Row (Directly Clickable, like other content).
+            Opens the room-sectioned moodboard editor (one field per room). */}
+        {!isComingSoon && fixture.rooms && fixture.rooms.length > 0 && (
+          <button
+            type="button"
+            disabled={!onEditMoodboard}
+            onClick={() => onEditMoodboard?.(fixture)}
+            className={`w-full my-1.5 p-1.5 rounded-md border text-[11px] flex items-center gap-1 transition text-left ${
+              onEditMoodboard
+                ? 'bg-gray-50/80 border-gray-100 hover:bg-gray-100 hover:border-gray-300 cursor-pointer active:scale-[0.99]'
+                : 'bg-gray-50/80 border-gray-100 cursor-default'
+            }`}
+            title={
+              onEditMoodboard
+                ? `Click to edit Moodboard IDs per room (Studio setting)\n${fixture.rooms.map(r => `${r.label}: ${r.moodboardId || 'Not configured'}`).join('\n')}`
+                : fixture.rooms.map(r => `${r.label}: ${r.moodboardId || 'Not configured'}`).join('\n')
+            }
+          >
+            <span className="text-gray-400 shrink-0 font-medium">MB:</span>
+            <span className="font-mono text-[10px] text-gray-700 truncate min-w-0 flex-1">
+              {fixture.rooms.length} rooms
+              {fixture.rooms[0]?.moodboardId ? ` · ${fixture.rooms[0].moodboardId}` : ''}
+            </span>
+          </button>
+        )}
+
+        {/* Per-room Prompt Row (Directly Clickable, like other content).
+            Opens the room-sectioned prompt editor (one field per room). */}
+        {!isComingSoon && fixture.rooms && fixture.rooms.length > 0 && (
+          <button
+            type="button"
+            disabled={!onEditPrompt}
+            onClick={() => onEditPrompt?.(fixture)}
+            className={`w-full my-1.5 p-1.5 rounded-md border text-[11px] flex items-center gap-1 transition text-left ${
+              onEditPrompt
+                ? 'bg-purple-50/50 border-purple-100/60 hover:bg-purple-100/70 hover:border-purple-200 cursor-pointer active:scale-[0.99]'
+                : 'bg-purple-50/50 border-purple-100/60 cursor-default'
+            }`}
+            title={
+              onEditPrompt
+                ? `Click to edit Prompts per room (Studio setting)\n${fixture.rooms.map(r => `${r.label}: ${r.prompt || 'Default prompt'}`).join('\n')}`
+                : fixture.rooms.map(r => `${r.label}: ${r.prompt || 'Default prompt'}`).join('\n')
+            }
+          >
+            <span className="text-purple-400 shrink-0 font-medium">Prompt:</span>
+            <span className="text-[10px] text-purple-900 truncate italic min-w-0 flex-1">
+              {fixture.rooms.length} rooms
+              {fixture.rooms[0]?.prompt ? ` · "${fixture.rooms[0].prompt}"` : ''}
+            </span>
+          </button>
+        )}
+
+        {/* Per-room settings detail (display-only; editing lives behind the
+            two pencil rows above). */}
+        {!isComingSoon && fixture.rooms && fixture.rooms.length > 0 && (
+          <div className="w-full my-1.5 rounded-md border border-gray-100 bg-gray-50/80 divide-y divide-gray-100">
+            {fixture.rooms.map(room => (
+              <div key={room.key} className="px-1.5 py-1 text-left" title={`${room.label}\nMB: ${room.moodboardId}\nPrompt: ${room.prompt}`}>
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-500 shrink-0 font-medium text-[11px]">{room.label}:</span>
+                  <span className="font-mono text-[10px] text-gray-700 truncate min-w-0 flex-1">
+                    {room.moodboardId || <span className="text-gray-400 italic">None</span>}
+                  </span>
+                </div>
+                <div className="text-[10px] text-purple-900 truncate italic pl-1">
+                  &ldquo;{room.prompt}&rdquo;
+                </div>
+              </div>
+            ))}
+          </div>
         )}
 
         {/* Live Running Phase Banner */}
