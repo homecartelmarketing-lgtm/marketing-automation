@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import {
   X,
   ExternalLink,
@@ -22,6 +22,7 @@ export interface RowRecord {
   date_and_time: string;
   thumbnail_url?: string | null;
   airtable_url: string;
+  extra_text?: Record<string, string>;
 }
 
 interface RowInspectorModalProps {
@@ -44,6 +45,7 @@ export function RowInspectorModal({
   const [activeFilter, setActiveFilter] = useState<string>(initialStatusFilter.toLowerCase());
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     setActiveFilter(initialStatusFilter.toLowerCase());
@@ -81,6 +83,41 @@ export function RowInspectorModal({
     navigator.clipboard.writeText(text);
     setCopiedId(text);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  // Rows carrying generated text (e.g. House Tour Interior JSON / Interior
+  // Prompt) get an expandable detail panel below the row.
+  const generatedTextOf = (row: RowRecord): { label: string; text: string }[] => {
+    const extras = row.extra_text || {};
+    const blocks: { label: string; text: string }[] = [];
+    const slotKeys = Object.keys(extras)
+      .filter(k => /^Interior JSON\d+$/.test(k) && extras[k]?.trim())
+      .sort((a, b) => parseInt(a.replace(/\D/g, '') || '0', 10) - parseInt(b.replace(/\D/g, '') || '0', 10));
+    for (const key of slotKeys) {
+      const n = key.replace(/\D/g, '');
+      blocks.push({ label: `Interior JSON ${n} (clip detail for Krea)`, text: extras[key] });
+    }
+    if (extras['Interior JSON']?.trim()) {
+      blocks.push({ label: 'Interior JSON (per-clip, from reference video)', text: extras['Interior JSON'] });
+    }
+    if (extras['Interior Prompt']?.trim()) {
+      blocks.push({ label: 'Interior Prompt (rendered Krea prose per slot)', text: extras['Interior Prompt'] });
+    }
+    return blocks;
+  };
+
+  const prettyJson = (text: string): string => {
+    try {
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((entry: any, i: number) => `--- Clip ${i + 1} ---\n${JSON.stringify(entry, null, 2)}`)
+          .join('\n\n');
+      }
+      return JSON.stringify(parsed, null, 2);
+    } catch {
+      return text;
+    }
   };
 
   const filteredRows = useMemo(() => {
@@ -324,11 +361,13 @@ export function RowInspectorModal({
                 <tbody className="divide-y divide-gray-100 bg-card">
                   {filteredRows.map((row) => {
                     const isCopied = copiedId === row.foreign_key_id;
+                    const genBlocks = generatedTextOf(row);
+                    const isExpanded = expandedId === row.record_id;
                     return (
-                      <tr
-                        key={row.record_id}
-                        className="hover:bg-purple-50/30 transition-colors group"
-                      >
+                      <Fragment key={row.record_id}>
+                        <tr
+                          className="hover:bg-purple-50/30 transition-colors group"
+                        >
                         {/* Foreign Key ID */}
                         <td className="py-2.5 px-3 font-mono font-bold text-gray-900 whitespace-nowrap">
                           <div className="inline-flex items-center gap-1.5 bg-gray-100 px-2 py-1 rounded-md border border-gray-200">
@@ -386,6 +425,20 @@ export function RowInspectorModal({
 
                         {/* Action Link */}
                         <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                          {genBlocks.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setExpandedId(isExpanded ? null : row.record_id)}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold border transition-all shadow-2xs mr-1.5 ${
+                                isExpanded
+                                  ? 'bg-purple-600 text-white border-purple-600'
+                                  : 'bg-gray-50 text-gray-700 hover:bg-purple-50 hover:text-purple-700 border-gray-200 hover:border-purple-300'
+                              }`}
+                              title="View generated Interior JSON / prompts for this row"
+                            >
+                              <span>{isExpanded ? 'Hide text' : 'Text'}</span>
+                            </button>
+                          )}
                           <a
                             href={row.airtable_url}
                             target="_blank"
@@ -398,6 +451,47 @@ export function RowInspectorModal({
                           </a>
                         </td>
                       </tr>
+                      {isExpanded && genBlocks.length > 0 && (
+                        <tr key={`${row.record_id}-text`}>
+                          <td colSpan={5} className="bg-gray-50/70 px-4 py-3">
+                            <div className="space-y-3">
+                              {genBlocks.map(block => {
+                                const isJson = block.label.startsWith('Interior JSON');
+                                const body = isJson ? prettyJson(block.text) : block.text;
+                                const isBodyCopied = copiedId === `${row.record_id}:${block.label}`;
+                                return (
+                                  <div key={block.label} className="rounded-lg border border-gray-200 bg-card overflow-hidden">
+                                    <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-100 bg-gray-50">
+                                      <span className="text-[11px] font-semibold text-gray-700">{block.label}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(body);
+                                          setCopiedId(`${row.record_id}:${block.label}`);
+                                          setTimeout(() => setCopiedId(null), 2000);
+                                        }}
+                                        className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-500 hover:text-gray-800 transition-colors"
+                                        title={`Copy ${block.label}`}
+                                      >
+                                        {isBodyCopied ? (
+                                          <Check className="w-3 h-3 text-emerald-600" />
+                                        ) : (
+                                          <Copy className="w-3 h-3" />
+                                        )}
+                                        <span>{isBodyCopied ? 'Copied' : 'Copy'}</span>
+                                      </button>
+                                    </div>
+                                    <pre className="m-0 p-3 text-[11px] leading-relaxed font-mono text-gray-800 whitespace-pre-wrap break-words max-h-72 overflow-y-auto">
+                                      {body}
+                                    </pre>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      </Fragment>
                     );
                   })}
                 </tbody>

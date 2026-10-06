@@ -26,6 +26,7 @@ import {
   ONE_AT_A_TIME_LIGHTS_REEL_FIXTURES,
   SKETCH_TO_DRAW_REEL_FIXTURES,
   ROOM_BUILD_UP_REEL_FIXTURES,
+  HOUSE_TOUR_REEL_FIXTURES,
   AD_COVER_FIXTURES,
   CHRISTMAS_BANNER_FIXTURES,
 } from './fixtures';
@@ -512,6 +513,25 @@ export const PIPELINES: PipelineConfig[] = [
     fixtures: ROOM_BUILD_UP_REEL_FIXTURES,
     hasMoodboard: true,
     hasPrompt: false,
+  },
+
+  {
+    type: 'house-tour-reel',
+    name: 'House Tour Reel',
+    format: 'reel',
+    subtabIndex: 9,
+    subTabLabel: 'House Tour',
+    runEndpoint: '/api/house-tour-reel/run',
+    statusEndpoint: '/api/house-tour-reel/status',
+    stopEndpoint: '/api/house-tour-reel/stop',
+    countsEndpoint: '/api/house-tour-reel/counts',
+    moodboardEndpoint: '/api/house-tour-reel/moodboard',
+    promptEndpoint: '/api/house-tour-reel/prompt',
+    totalPhases: 8,
+    phaseSummary: 'Akeneo 11-Fixture Scrape ➔ Clip JSON Descriptions ➔ Krea Clip-Guided Interiors ➔ Claude Prompts ➔ Banana Blend + YOLO Tags ➔ Kling 3s Pan Clips ➔ ElevenLabs Music ➔ FFmpeg xfade + Outro',
+    fixtures: HOUSE_TOUR_REEL_FIXTURES,
+    hasMoodboard: true,
+    hasPrompt: true,
   },
 
   // --- Ad Cover Pipeline ---

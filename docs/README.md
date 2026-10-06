@@ -45,7 +45,7 @@ docs/
 │   ├── DAY_NIGHT_FEED.md
 │   └── PRODUCT_SHOWCASE_FEED.md
 │
-├── reels/                               # 8 Reel Pipelines (9:16 video, 1080 x 1920 px)
+├── reels/                               # 9 Reel Pipelines (9:16 video, 1080 x 1920 px)
 │   ├── DAY_NIGHT_REEL.md
 │   ├── PRODUCT_CLOSEUP_REEL.md
 │   ├── BEFORE_AND_AFTER_REEL.md
@@ -53,7 +53,8 @@ docs/
 │   ├── STYLE_REEL_SLIDESHOW.md
 │   ├── ONE_PRODUCT_THREE_STYLES_REEL.md
 │   ├── ONE_AT_A_TIME_LIGHTS_REEL.md
-│   └── SKETCH_TO_REAL_REEL.md
+│   ├── SKETCH_TO_REAL_REEL.md
+│   └── HOUSE_TOUR_REEL.md
 │
 ├── ads/                                 # Ad Cover Pipeline (1:1 1080 x 1080 + 9:16 Story 1080 x 1920)
 │   └── AD_COVER.md
@@ -124,6 +125,7 @@ docs/
 | [`STYLE_REEL_SLIDESHOW.md`](reels/STYLE_REEL_SLIDESHOW.md) | `tblFFEvkHb3jLKrcv` (5-Room Set) | 11.0s | 5-room whole-home slideshow tour. |
 | [`ONE_AT_A_TIME_LIGHTS_REEL.md`](reels/ONE_AT_A_TIME_LIGHTS_REEL.md) | `tblJpEtBudQZda319` (One at a time Lights) | ~11.0s | Bedroom where 3 lights (table lamp, ceiling mounted, pendant) turn on one at a time via progressive Nano Banana Pro lighting blends, local FFmpeg crossfades, silent audio + brand outro. |
 | [`SKETCH_TO_REAL_REEL.md`](reels/SKETCH_TO_REAL_REEL.md) | `tblUFR6OvFQaHnG1V` (Chandelier), `tblSALsUd5MXXnkp6` (Pendant) | ~11.0s | Hand-drawn outline of the room animating line by line into the photorealistic lit interior + Instagram cover + Fal AI ElevenLabs luxury background music + outro. Studio subtab 7 "Sketch to Real" (Chandelier and Pendant runnable). |
+| [`HOUSE_TOUR_REEL.md`](reels/HOUSE_TOUR_REEL.md) | `tblqXkdDw4O7hxJS4` (House Tour Set) | 22.0s | 11-room organic-modern/Japandi home tour (2.0s per room): Krea interiors + Claude Vision room analysis + Kling 3s clips + animated Poppins typography + ElevenLabs music + optional outro. Studio subtab 9 "House Tour". |
 
 ---
 

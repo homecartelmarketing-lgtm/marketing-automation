@@ -43,6 +43,7 @@ export const CONTENT_CONFIG: Record<TabType, { name: string; ratio: string; item
       'One at a time Lights',
       'Sketch to Real',
       'Room Build-Up',
+      'House Tour',
     ],
   },
   adcover: {
@@ -236,6 +237,34 @@ export const ROOM_BUILD_UP_REEL_FIXTURES: Omit<FixtureData, 'completed'>[] = [
   { id: 'room-build-up', name: 'Room Build-Up', total: 100, tableId: 'tblhq1rz9CVCD7yiR', moodboardId: 'de5f4ff8-518c-4d6b-b606-ce1d5dac51f3' },
 ];
 
+// Reel Subtab 9: House Tour Reel (9:16). SINGLE card ("House Tour") on one table;
+// its moodboard + prompt pencils each carry 4 room values (resolve order per room:
+// per-room Studio setting -> generic fallback -> built-in default below).
+export interface HouseTourRoomDef {
+  key: string;
+  label: string;
+  moodboardId: string;
+  prompt: string;
+}
+
+export const HOUSE_TOUR_ROOMS: HouseTourRoomDef[] = [
+  { key: 'living-room', label: 'Living Room Corner', moodboardId: 'fda7090c-787b-4116-94cd-3feef613eaaa', prompt: 'An ultra-realistic, cinematic eye-level interior photo of a luxury organic-modern Japandi living room. Curved cream bouclé three-seater sofa, dark stained solid oak fluted media credenza, smooth off-white limewash walls, herringbone light oak flooring, textured beige wool rug, travertine side table, tall fiddle leaf fig in an earthy terracotta planter. Soft warm diffused daylight from sheer linen curtains, serene calm atmosphere, clean ceiling space ready for a flush-mounted ceiling light or chandelier, architectural digest photography, 8k.' },
+  { key: 'bedroom', label: 'Living Room Seating', moodboardId: 'fda7090c-787b-4116-94cd-3feef613eaaa', prompt: 'An eye-level architectural interior photo of a cozy Japandi living room seating corner. Low-profile ivory upholstered lounge armchairs, sculpted organic travertine low coffee table, pale microcement walls, large minimalist abstract canvas in warm stone tones, wide-plank white oak flooring. Warm golden hour ambient light, spacious uncluttered corner floor area ready for a standing sculptural floor lamp, luxury editorial interior styling, 8k.' },
+  { key: 'dining-room', label: 'Living Room Media Wall', moodboardId: 'fda7090c-787b-4116-94cd-3feef613eaaa', prompt: 'A wide cinematic perspective of an organic-modern living room media wall and lounge. Horizontal fluted dark walnut credenza beneath a frameless Samsung Frame artwork display, limewash beige plaster backdrop, sculptural travertine decorative pedestals, warm beige bouclé modular sofa section, natural light filtering through sheer drapes, empty credenza surface space ready for a ceramic table lamp, high-end Japandi interior design, 8k.' },
+  { key: 'kitchen', label: 'Dining Room Table', moodboardId: 'fda7090c-787b-4116-94cd-3feef613eaaa', prompt: 'An eye-level interior photo of a Japandi dining room centered on an expansive oval solid light oak dining table. Surrounded by six curved oak dining chairs with woven natural rope seats, warm grey microcement flooring, matte chalk-wash walls, ceramic footed fruit bowl centerpiece, soft diffused daylight, completely empty ceiling space directly above table ready for an organic-form pendant chandelier, 8k.' },
+  { key: 'lounge', label: 'Dining Room Credenza', moodboardId: 'fda7090c-787b-4116-94cd-3feef613eaaa', prompt: 'A medium architectural shot of an elegant dining room credenza feature wall. Low-profile fluted dark oak sideboard with honed beige marble top, smooth warm beige limewash plaster wall, shallow matte ceramic decorative urns, solid oak herringbone floor, soft warm architectural spotlighting, uncluttered upper wall space ready for mounted linear wall sconces, tranquil wabi-sabi Japandi atmosphere, 8k.' },
+  { key: 'hallway', label: 'Entryway Foyer', moodboardId: 'fda7090c-787b-4116-94cd-3feef613eaaa', prompt: 'A welcoming eye-level photo of a minimalist luxury entryway foyer. Seamless polished microcement flooring in warm greige, off-white limewash walls, floating curved dark oak console shelf, large organic asymmetrical wavy brass-framed full-length mirror leaning gracefully, small olive tree in a fluted raw clay vessel, warm afternoon sunlight with gentle shadows, uncluttered wall space ready for a designer wall sconce, 8k.' },
+  { key: 'office', label: 'Kitchen Island', moodboardId: 'fda7090c-787b-4116-94cd-3feef613eaaa', prompt: 'A cinematic perspective of a luxury open-concept Japandi kitchen. Two-tone custom cabinetry with warm matte taupe uppers and natural fluted oak base cabinets, honed light travertine countertops and waterfall island edge, integrated dark bronze cooktop, sculptural beige ceramic vase with dried bunny tails, soft natural morning daylight, completely clear ceiling zone directly above the island counter ready for multi-fixture pendant lighting, 8k.' },
+  { key: 'bathroom', label: 'Primary Dressing Alcove', moodboardId: 'fda7090c-787b-4116-94cd-3feef613eaaa', prompt: 'A tranquil eye-level perspective of a luxury primary bedroom dressing area and vanity alcove. Floor-to-ceiling built-in seamless natural white oak wardrobe millwork with integrated warm vertical LED channel glows, curved ivory bouclé vanity dressing stool, smooth chalk-white plaster alcove wall, plush high-pile beige wool carpet, open wall area beside the wardrobe ready for a minimalist contemporary wall lamp, serene Japandi ambiance, 8k.' },
+  { key: 'entryway', label: 'Primary Bed Suite', moodboardId: 'fda7090c-787b-4116-94cd-3feef613eaaa', prompt: 'An eye-level architectural interior photo of a serene Japandi primary bedroom suite. Low platform bed frame in natural bleached oak, layered washed beige linen duvet and waffle-knit oatmeal throw pillows, fluted vertical oak slat acoustic accent wall paneling behind bed, matching floating oak bedside nightstands, soft warm morning daylight streaming through floor-to-ceiling sheer curtains, uncluttered bedside tabletop ready for a table lamp, 8k.' },
+  { key: 'sunroom', label: 'Guest Bedroom Bed', moodboardId: 'fda7090c-787b-4116-94cd-3feef613eaaa', prompt: 'A bright eye-level shot of a wabi-sabi Japandi guest bedroom. Upholstered ivory linen platform bed frame, natural sand-hued stonewashed bedding, warm greige microcement feature wall, round travertine pedestal bedside nightstand, large leafy potted indoor ficus in rough stone planter, soft airy natural light, clear open ceiling expanse centered above bed ready for a flush-mounted ceiling light fixture, 8k.' },
+  { key: 'kids-room', label: 'Guest Dresser Corner', moodboardId: 'fda7090c-787b-4116-94cd-3feef613eaaa', prompt: 'A calm architectural vignette of a guest bedroom reading nook and vanity corner. Low four-drawer horizontal oak dresser chest, large circular backlit minimalist frameless mirror, small organic ceramic dish, curved ivory bouclé accent armchair, wide-plank blonde oak wood floor with textured neutral runner rug, spacious ceiling corner space directly above the reading chair ready for a low-hanging accent pendant light, 8k.' },
+];
+
+export const HOUSE_TOUR_REEL_FIXTURES: Omit<FixtureData, 'completed'>[] = [
+  { id: 'house-tour', name: 'House Tour', total: 100, tableId: 'tblqXkdDw4O7hxJS4', rooms: HOUSE_TOUR_ROOMS },
+];
+
 // Reel Subtab 7: Sketch to Real Reel (9:16)
 export const SKETCH_TO_DRAW_REEL_FIXTURES: Omit<FixtureData, 'completed'>[] = [
   { id: 'chandeliers', name: 'Chandeliers', total: 100, tableId: 'tblUFR6OvFQaHnG1V', moodboardId: 'b5ffdcbb-192e-4528-8d86-d1a4cf496887', prompt: 'Generate me a photo a modern luxury living room with high ceilings, clean architecture, warm natural daylight' },
@@ -315,6 +344,7 @@ export const getFixturesForSubtab = (tab: TabType, subtabIdx: number): Omit<Fixt
       case 6: return ONE_AT_A_TIME_LIGHTS_REEL_FIXTURES;
       case 7: return SKETCH_TO_DRAW_REEL_FIXTURES;
       case 8: return ROOM_BUILD_UP_REEL_FIXTURES;
+      case 9: return HOUSE_TOUR_REEL_FIXTURES;
       default: return DEFAULT_FIXTURES;
     }
   }

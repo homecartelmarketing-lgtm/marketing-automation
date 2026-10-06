@@ -141,6 +141,16 @@ def get_rows():
 
                 airtable_deep_link = f"https://airtable.com/{base_id}/{table_id}/{rid}"
 
+                # Plain-text extras (never attachments): lets Studio cards
+                # surface generated text like Interior JSON / Interior Prompt
+                # without bloating the payload with file URLs.
+                extra_text: dict[str, str] = {}
+                for key, value in fields.items():
+                    if isinstance(value, str) and value.strip():
+                        extra_text[str(key)] = value
+                    elif isinstance(value, (int, float)) and not isinstance(value, bool):
+                        extra_text[str(key)] = str(value)
+
                 all_rows.append({
                     "record_id": rid,
                     "id": row_id,
@@ -156,6 +166,7 @@ def get_rows():
                     ),
                     "thumbnail_url": thumbnail_url,
                     "airtable_url": airtable_deep_link,
+                    "extra_text": extra_text,
                 })
 
             offset = data.get("offset")
