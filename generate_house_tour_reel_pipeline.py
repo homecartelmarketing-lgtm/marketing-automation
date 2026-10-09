@@ -166,6 +166,15 @@ SLOT_ROOMS: dict[int, str] = {
 DEFAULT_MOODBOARD_ID = "fda7090c-787b-4116-94cd-3feef613eaaa"
 SLOT_MOODBOARD_DEFAULTS: dict[int, str] = {s: DEFAULT_MOODBOARD_ID for s in SLOTS}
 
+# Env keys the Studio card's per-room moodboard pencils write
+# (see UI Control/routes/house_tour_reel.py ROOMS[...]["moodboard_env"]).
+GENERIC_MOODBOARD_ENV_KEY = "KREA_MOODBOARD_ID_HOUSE_TOUR_REEL"
+
+
+def room_moodboard_env_key(slot: int) -> str:
+    return f"{GENERIC_MOODBOARD_ENV_KEY}_ROOM{slot}"
+
+
 # 11 Ultra-detailed reusable prompts derived frame-by-frame from assets/house_tour_reference.mp4
 DEFAULT_INTERIOR_PROMPTS: dict[int, str] = {
     1: (
@@ -254,26 +263,6 @@ DEFAULT_INTERIOR_PROMPTS: dict[int, str] = {
 SLOT_PROMPT_DEFAULTS = DEFAULT_INTERIOR_PROMPTS
 INTERIOR_ASPECT_RATIO = "9:16"
 INTERIOR_RESOLUTION = "1K"
-
-
-def resolve_slot_settings(slot: int, row_prompt: str = "") -> tuple[str, str]:
-    """Resolve (moodboard_id, prompt) for a room slot.
-
-    Precedence: per-room env override -> generic House Tour env ->
-    row prompt from Airtable -> built-in video-accurate prompt.
-    """
-    moodboard_id = (
-        os.getenv(f"KREA_MOODBOARD_ID_HOUSE_TOUR_REEL_ROOM{slot}", "").strip()
-        or os.getenv("KREA_MOODBOARD_ID_HOUSE_TOUR_REEL", "").strip()
-        or DEFAULT_MOODBOARD_ID
-    )
-    prompt = (
-        os.getenv(f"PROMPT_HOUSE_TOUR_REEL_ROOM{slot}", "").strip()
-        or os.getenv("PROMPT_HOUSE_TOUR_REEL", "").strip()
-        or row_prompt.strip()
-        or DEFAULT_INTERIOR_PROMPTS[slot]
-    )
-    return moodboard_id, prompt
 
 
 # Fal Claude Sonnet (Phase 3)
@@ -850,8 +839,18 @@ def resolve_slot_settings(
 ) -> tuple[str, str]:
     """Resolve (moodboard_id, interior_prompt) for a slot.
 
-    Unified Moodboard: fda7090c-787b-4116-94cd-3feef613eaaa across all 11 rooms.
-    Interior Prompt priority:
+    NOTE: this file used to define ``resolve_slot_settings`` twice. Python keeps
+    the last definition, and that one never read the per-room keys the Studio
+    card saves, so Studio moodboard edits were silently ignored and every run
+    used the hardcoded DEFAULT_MOODBOARD_ID. There is now ONE definition.
+
+    Moodboard priority:
+      1. moodboard_override (explicit argument)
+      2. KREA_MOODBOARD_ID_HOUSE_TOUR_REEL_ROOM{slot} (Studio per-room pencil;
+         CLI --moodboard-id also sets these for every room)
+      3. KREA_MOODBOARD_ID_HOUSE_TOUR_REEL (generic fallback for all rooms)
+      4. DEFAULT_MOODBOARD_ID
+    Interior Prompt priority (unchanged):
       1. prompt_override (CLI or Studio argument)
       2. os.getenv("PROMPT_HOUSE_TOUR_REEL")
       3. Airtable row field Interior Prompt{slot}
@@ -859,7 +858,8 @@ def resolve_slot_settings(
     """
     mb_id = (
         moodboard_override.strip()
-        or os.getenv("KREA_MOODBOARD_ID_HOUSE_TOUR_REEL", "").strip()
+        or os.getenv(room_moodboard_env_key(slot), "").strip()
+        or os.getenv(GENERIC_MOODBOARD_ENV_KEY, "").strip()
         or DEFAULT_MOODBOARD_ID
     )
 
@@ -894,7 +894,7 @@ def phase1_interiors(
         moodboard_id, interior_prompt = resolve_slot_settings(slot, fields=fields)
         moodboard_used[slot] = moodboard_id
         prompt_used[slot] = interior_prompt
-        print(f"    -> requesting Krea {SLOT_ROOMS[slot]} interior for slot {slot}...")
+        print(f"    -> requesting Krea {SLOT_ROOMS[slot]} interior for slot {slot} (moodboard {moodboard_id})...")
         url = clients.krea.generate_image(
             prompt=interior_prompt,
             moodboard_id=moodboard_id,
@@ -2079,7 +2079,11 @@ def main(argv=None) -> int:
     if args.with_music:
         MUSIC_ENABLED = True
     if args.moodboard_id:
-        os.environ["KREA_MOODBOARD_ID_HOUSE_TOUR_REEL"] = args.moodboard_id
+        # Apply to ALL rooms: per-room Studio keys outrank the generic key in
+        # resolve_slot_settings(), so set both.
+        os.environ[GENERIC_MOODBOARD_ENV_KEY] = args.moodboard_id
+        for slot in SLOTS:
+            os.environ[room_moodboard_env_key(slot)] = args.moodboard_id
     if args.prompt:
         os.environ["PROMPT_HOUSE_TOUR_REEL"] = args.prompt
 
