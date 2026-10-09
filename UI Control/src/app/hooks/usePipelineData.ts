@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { PIPELINES, getPipelineByType } from '../constants/pipelines';
-import { HOUSE_TOUR_ROOMS } from '../constants/fixtures';
+import { HOUSE_TOUR_ROOMS, THIS_MOOD_EVERY_NIGHT_ROOMS } from '../constants/fixtures';
 import { PipelineType, StatusCountMap, StatusCounts } from '../types';
 import { FixtureRoomSetting } from '../components/planning/FixtureCard';
 
@@ -64,6 +64,11 @@ export function usePipelineData(): UsePipelineDataResult {
     'house-tour-reel': {
       'house-tour': Object.fromEntries(
         HOUSE_TOUR_ROOMS.map(r => [r.key, { moodboard: r.moodboardId, prompt: r.prompt }])
+      ),
+    },
+    'this-mood-every-night-reel': {
+      'this-mood-every-night': Object.fromEntries(
+        THIS_MOOD_EVERY_NIGHT_ROOMS.map(r => [r.key, { moodboard: r.moodboardId, prompt: r.prompt }])
       ),
     },
   });

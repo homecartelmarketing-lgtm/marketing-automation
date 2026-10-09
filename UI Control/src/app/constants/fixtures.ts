@@ -44,6 +44,7 @@ export const CONTENT_CONFIG: Record<TabType, { name: string; ratio: string; item
       'Sketch to Real',
       'Room Build-Up',
       'House Tour',
+      'This Mood Every Night',
     ],
   },
   adcover: {
@@ -265,6 +266,21 @@ export const HOUSE_TOUR_REEL_FIXTURES: Omit<FixtureData, 'completed'>[] = [
   { id: 'house-tour', name: 'House Tour', total: 100, tableId: 'tblqXkdDw4O7hxJS4', rooms: HOUSE_TOUR_ROOMS },
 ];
 
+// Reel Subtab 10: This Mood Every Night Reel (9:16)
+export const THIS_MOOD_EVERY_NIGHT_ROOMS: HouseTourRoomDef[] = [
+  { key: 'living-room', label: 'Living Room Vista', moodboardId: 'fda7090c-787b-4116-94cd-3feef613eaaa', prompt: 'Generate me a photo of a luxury modern transitional living room at night, viewed through black steel-framed grid glass partition French doors, cozy white barrel lounge chairs, modern plaster fireplace with glowing warm flames in the hearth, built-in display shelving with warm recessed LED backlighting, dark night windows, medium oak hardwood floors, clean open ceiling centered in the room ready for a luxury chandelier, warm 2700K ambient glow, cinematic moody night interior, photorealistic 8k' },
+  { key: 'kitchen-island', label: 'Kitchen Island', moodboardId: 'fda7090c-787b-4116-94cd-3feef613eaaa', prompt: 'Generate me a photo of a luxury open-concept kitchen and dining room at night, large Calacatta marble waterfall kitchen island, brushed brass faucet, glass vase with delicate white floral branches, black steel grid glass divider in background, floor-to-ceiling windows showing pitch black night outside, clean ceiling space directly above the marble island ready for a statement pendant light, warm soft ambient glow, editorial interior, photorealistic 8k' },
+  { key: 'fireplace-hearth', label: 'Fireplace Hearth Wall', moodboardId: 'fda7090c-787b-4116-94cd-3feef613eaaa', prompt: 'Generate me a photo of a minimalist modern plaster fireplace mantel at night, warm roaring fire glowing in the black firebox, slim black flat screen TV mounted above, built-in arched alcove shelving with warm LED cove backlighting illuminating neutral ceramic vases and books, tapered candles flickering on the mantel, plush cream armchair in foreground, deep moody evening shadows, photorealistic 8k, serene luxury home' },
+  { key: 'kitchen-detail', label: 'Kitchen Island Detail', moodboardId: 'fda7090c-787b-4116-94cd-3feef613eaaa', prompt: 'Generate me a close-up macro photo of a luxury kitchen island at night, polished Calacatta marble countertop, elegant brushed brass gooseneck spring coil faucet, lit glass candle casting a warm golden flame reflection on marble, ceramic soap bottles on marble tray, potted indoor olive tree in background, clean overhead space ready for a suspended pendant light glow, warm 2700K lighting, photorealistic 8k' },
+  { key: 'dining-room', label: 'Dining Room Vista', moodboardId: 'fda7090c-787b-4116-94cd-3feef613eaaa', prompt: 'Generate me a photo of a modern luxury dining room at night viewed through a black steel grid glass partition, long natural oak dining table with minimalist modern dining chairs, lit pillar candle on table, tall pleated linen shade floor lamp glowing in the corner, dark exterior night through floor-to-ceiling glass patio doors, clean ceiling space centered directly above the dining table ready for a modern chandelier, cozy intimate dinner atmosphere, photorealistic 8k' },
+  { key: 'kitchen-open', label: 'Kitchen & Dining Vista', moodboardId: 'fda7090c-787b-4116-94cd-3feef613eaaa', prompt: 'Generate me a wide-angle photo of a modern transitional open-plan kitchen looking across to the dining area at night, expansive marble countertop with white floral centerpiece vase, dark taupe pleated drapery framing dark night windows, warm ambient layered lighting from fireplace and cove lights in the background, clean ceiling space centered over the kitchen island ready for a designer pendant light, warm cozy evening mood, photorealistic 8k' },
+  { key: 'staircase', label: 'Interior Staircase', moodboardId: 'fda7090c-787b-4116-94cd-3feef613eaaa', prompt: 'Generate me a photo looking up a modern architectural interior staircase at night, dark oak wood stair treads with white risers, clean horizontal black steel safety railing, smooth off-white plaster stairway wall, pitch black ambient darkness, wall surface along the stairs ready for square recessed step lights casting warm golden pools of light downward onto each tread, minimalist luxury home at night, photorealistic 8k' },
+];
+
+export const THIS_MOOD_EVERY_NIGHT_REEL_FIXTURES: Omit<FixtureData, 'completed'>[] = [
+  { id: 'this-mood-every-night', name: 'This Mood Every Night', total: 100, tableId: 'tblDa5UOTUTlU1Xxy', rooms: THIS_MOOD_EVERY_NIGHT_ROOMS },
+];
+
 // Reel Subtab 7: Sketch to Real Reel (9:16)
 export const SKETCH_TO_DRAW_REEL_FIXTURES: Omit<FixtureData, 'completed'>[] = [
   { id: 'chandeliers', name: 'Chandeliers', total: 100, tableId: 'tblUFR6OvFQaHnG1V', moodboardId: 'b5ffdcbb-192e-4528-8d86-d1a4cf496887', prompt: 'Generate me a photo a modern luxury living room with high ceilings, clean architecture, warm natural daylight' },
@@ -345,6 +361,7 @@ export const getFixturesForSubtab = (tab: TabType, subtabIdx: number): Omit<Fixt
       case 7: return SKETCH_TO_DRAW_REEL_FIXTURES;
       case 8: return ROOM_BUILD_UP_REEL_FIXTURES;
       case 9: return HOUSE_TOUR_REEL_FIXTURES;
+      case 10: return THIS_MOOD_EVERY_NIGHT_REEL_FIXTURES;
       default: return DEFAULT_FIXTURES;
     }
   }
