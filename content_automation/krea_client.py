@@ -115,12 +115,17 @@ class KreaClient:
 
     @staticmethod
     def _moodboard_rejected(response: requests.Response, moodboard_id: str) -> bool:
+        """True only when Krea's error reply actually blames the moodboard.
+
+        Previously ANY 400/404/422 whose body contained "invalid" or "not found"
+        (prompt too long, bad aspect ratio, bad field, ...) was relabelled as
+        "Moodboard Not Found", which hid the real Krea error. Everything else now
+        falls through to ``response_error`` so Krea's own message reaches the logs.
+        """
         if not moodboard_id or response.ok:
             return False
         text = (response.text or "").lower()
-        return response.status_code in (400, 404, 422) and (
-            "moodboard" in text or "invalid" in text or "uuid" in text or "not found" in text
-        )
+        return response.status_code in (400, 404, 422) and "moodboard" in text
 
     def download_image(self, image_url: str) -> DownloadedMedia:
         """Download a generated image to a temp file."""

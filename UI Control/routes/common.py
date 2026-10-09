@@ -209,6 +209,12 @@ def unregister_pipeline(name: str) -> None:
         _ACTIVE_PIPELINES.pop(name, None)
 
 
+MOODBOARD_NOT_FOUND_MESSAGE = (
+    "Moodboard Not Found: The specified Krea Moodboard ID was not found or is not "
+    "accessible with your Krea API key. Please verify or update the Moodboard ID in the card."
+)
+
+
 def extract_clean_error(
     logs: list[str],
     default_code: int | None = 1,
@@ -219,9 +225,18 @@ def extract_clean_error(
     """Analyze stdout/stderr logs to extract a user-friendly error summary."""
     full_text = "\n".join(logs).lower()
 
-    # 1. Krea Moodboard 404 / rejection
-    if "moodboard not found" in full_text or ("moodboard" in full_text and ("404" in full_text or "not accessible" in full_text or "invalid for this api key" in full_text)):
-        return "Moodboard Not Found: The specified Krea Moodboard ID was not found or is not accessible with your Krea API key. Please verify or update the Moodboard ID in the card."
+    # 1. Krea Moodboard rejection. Only trust the explicit "Moodboard Not Found"
+    #    raised by KreaClient (it carries the moodboard ID + Krea's raw reply), and
+    #    show that actual line so the Run Center tells you WHICH board and WHY.
+    #    (The old rule also fired on any log that merely mentioned "moodboard"
+    #    next to a "404", masking unrelated failures.)
+    if "moodboard not found" in full_text:
+        for line in reversed(logs):
+            stripped = line.strip()
+            if "moodboard not found" in stripped.lower():
+                idx = stripped.lower().find("moodboard not found")
+                return stripped[idx:idx + 500]
+        return MOODBOARD_NOT_FOUND_MESSAGE
 
     # 2. Akeneo / Shopify catalog check
     if "no eligible products found" in full_text:
