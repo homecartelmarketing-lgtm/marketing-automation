@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Toaster } from './components/ui/sonner';
 import { ThemeToggle } from './components/ThemeToggle';
-import { RefreshCw, Key, Globe, Check } from 'lucide-react';
+import { RefreshCw, Key, Check } from 'lucide-react';
 import { FormatTabs, TabType } from './components/planning/FormatTabs';
 import { SubTabRail } from './components/planning/SubTabRail';
 import { FixtureProgressGrid } from './components/planning/FixtureProgressGrid';
@@ -11,6 +11,7 @@ import { RunConfirmModal } from './components/planning/RunConfirmModal';
 import { RowInspectorModal } from './components/planning/RowInspectorModal';
 import { RunCenter } from './components/planning/RunCenter';
 import { EditMoodboardModal, EditPromptModal, StudioPinModal } from './components/modals';
+import { LoginScreen } from './components/auth';
 import { CONTENT_CONFIG, getFixturesForSubtab } from './constants/fixtures';
 import { getPipelineConfig, getPipelineByType, getPipelineHeaderTitle } from './constants/pipelines';
 import { usePipelineData, useQueue, usePipelineRunner } from './hooks';
@@ -21,10 +22,86 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('story');
   const [activeSubTab, setActiveSubTab] = useState<number>(0);
 
-  // Studio PIN management
-  const [studioPin, setStudioPin] = useState<string>(() => localStorage.getItem('hc_studio_pin') || '');
+  // Studio Authentication & PIN management
+  const [authRequired, setAuthRequired] = useState<boolean>(true);
+  const [isLoadingAuthConfig, setIsLoadingAuthConfig] = useState<boolean>(true);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [studioPin, setStudioPin] = useState<string>(
+    () => sessionStorage.getItem('hc_studio_pin') || ''
+  );
   const [showPinModal, setShowPinModal] = useState<boolean>(false);
   const [pinInput, setPinInput] = useState<string>('');
+
+  // Initial authentication check: Directs to login screen on visiting the Control UI
+  useEffect(() => {
+    let isMounted = true;
+    async function checkAuth() {
+      try {
+        // Clear any old permanent localStorage PIN so every fresh visit asks for login
+        localStorage.removeItem('hc_studio_pin');
+
+        const res = await fetch('/api/auth/config');
+        const data = await res.json().catch(() => ({}));
+        const required = Boolean(data.auth_required);
+        if (!isMounted) return;
+        setAuthRequired(required);
+
+        const sessionPin = sessionStorage.getItem('hc_studio_pin') || '';
+
+        if (required) {
+          if (sessionPin) {
+            const verifyRes = await fetch('/api/auth/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ pin: sessionPin }),
+            });
+            const verifyData = await verifyRes.json().catch(() => ({}));
+            if (!isMounted) return;
+            if (verifyRes.ok && verifyData.valid) {
+              setStudioPin(sessionPin);
+              setIsAuthenticated(true);
+            } else {
+              sessionStorage.removeItem('hc_studio_pin');
+              setStudioPin('');
+              setIsAuthenticated(false);
+            }
+          } else {
+            // Direct to login screen first
+            setIsAuthenticated(false);
+          }
+        } else {
+          // Open access
+          setIsAuthenticated(true);
+        }
+      } catch {
+        setIsAuthenticated(false);
+      } finally {
+        if (isMounted) {
+          setIsLoadingAuthConfig(false);
+        }
+      }
+    }
+
+    checkAuth();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleLoginSuccess = useCallback((pin: string) => {
+    sessionStorage.setItem('hc_studio_pin', pin);
+    localStorage.removeItem('hc_studio_pin');
+    setStudioPin(pin);
+    setIsAuthenticated(true);
+  }, []);
+
+  const handleLockStudio = useCallback(() => {
+    localStorage.removeItem('hc_studio_pin');
+    sessionStorage.removeItem('hc_studio_pin');
+    setStudioPin('');
+    setIsAuthenticated(false);
+    toast.info('Studio session locked');
+  }, []);
 
   // Row Inspector Modal state
   const [inspectFixture, setInspectFixture] = useState<FixtureData | null>(null);
@@ -537,6 +614,20 @@ export default function App() {
   const isMoodboardEditable = Boolean(activePipelineConfig?.hasMoodboard);
   const isPromptEditable = Boolean(activePipelineConfig?.hasPrompt);
 
+  // Authentication Gate: Render luxury LoginScreen if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <>
+        <Toaster position="top-right" richColors />
+        <LoginScreen
+          onLoginSuccess={handleLoginSuccess}
+          authRequired={authRequired}
+          isLoadingConfig={isLoadingAuthConfig}
+        />
+      </>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
       <Toaster position="top-right" richColors />
@@ -545,7 +636,11 @@ export default function App() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1">
         {/* Top Header & Branding */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-gray-200">
-          <div />
+          <div className="flex items-center">
+            <h1 className="text-sm font-semibold tracking-wide text-slate-800 dark:text-slate-200">
+              Marketing AI Content Automation
+            </h1>
+          </div>
 
           <div className="flex items-center gap-3">
             <ThemeToggle />
@@ -573,19 +668,7 @@ export default function App() {
               <Key className="w-3.5 h-3.5" />
               <span>{studioPin ? 'PIN Active' : 'Set PIN'}</span>
             </button>
-            {tunnelInfo.active && (
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(tunnelInfo.public_url);
-                  toast.success('Cloudflare public link copied to clipboard!');
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-lg transition shadow-xs cursor-pointer"
-              >
-                <Globe className="w-3.5 h-3.5 text-amber-600" />
-                <span>Public Live</span>
-              </button>
-            )}
+
           </div>
         </div>
 
@@ -794,17 +877,19 @@ export default function App() {
         pinInput={pinInput}
         onPinInputChange={setPinInput}
         onSavePin={() => {
-          localStorage.setItem('hc_studio_pin', pinInput.trim());
+          sessionStorage.setItem('hc_studio_pin', pinInput.trim());
           setStudioPin(pinInput.trim());
           setShowPinModal(false);
           toast.success(pinInput.trim() ? 'Studio PIN configured' : 'Studio PIN cleared');
         }}
         onClearPin={() => {
           localStorage.removeItem('hc_studio_pin');
+          sessionStorage.removeItem('hc_studio_pin');
           setStudioPin('');
           setPinInput('');
+          setIsAuthenticated(false);
           setShowPinModal(false);
-          toast.info('Studio PIN cleared');
+          toast.info('Studio PIN cleared — Signed out');
         }}
         onClose={() => setShowPinModal(false)}
       />

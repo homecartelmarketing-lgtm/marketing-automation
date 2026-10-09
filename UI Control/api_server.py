@@ -197,15 +197,28 @@ def auth_config():
 
 @app.route("/api/auth/verify", methods=["POST"])
 def auth_verify():
-    """Verify user PIN."""
+    """Verify user PIN with timing-safe comparison and rate limiting."""
     if not DASHBOARD_PIN:
         return jsonify({"valid": True, "auth_required": False})
 
+    from routes.common import _check_pin, clear_failed_attempts, is_rate_limited, record_failed_attempt
+
+    client_ip = getattr(request, "remote_addr", None) or "unknown"
+    if is_rate_limited(client_ip):
+        return jsonify({
+            "valid": False,
+            "auth_required": True,
+            "error": "Too many failed attempts. Temporary lockout active (5 minutes).",
+        }), 429
+
     data = request.get_json(silent=True) or {}
     pin = str(data.get("pin", "")).strip()
-    if pin == DASHBOARD_PIN:
+    if _check_pin(pin):
+        clear_failed_attempts(client_ip)
         return jsonify({"valid": True, "auth_required": True})
-    return jsonify({"valid": False, "auth_required": True, "error": "Invalid PIN"}), 401
+
+    record_failed_attempt(client_ip)
+    return jsonify({"valid": False, "auth_required": True, "error": "Invalid Studio Security PIN"}), 401
 
 
 @app.route("/api/tunnel/status", methods=["GET"])
