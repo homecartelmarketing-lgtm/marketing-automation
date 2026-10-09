@@ -238,6 +238,19 @@ def extract_clean_error(
                 return stripped[idx:idx + 500]
         return MOODBOARD_NOT_FOUND_MESSAGE
 
+    # 1b. Krea API credit / balance depleted (HTTP 402)
+    if "api balance is separate from your workspace compute balance" in full_text or (
+        "krea" in full_text and ("402" in full_text or "balance" in full_text)
+    ):
+        return (
+            "Krea API Error (402 Payment Required): Krea API balance is depleted. "
+            "Please top up your API balance at krea.ai/api."
+        )
+
+    # 1c. Krea API authentication (HTTP 401)
+    if "krea" in full_text and ("401" in full_text or "unauthorized" in full_text):
+        return "Krea Auth Error: Check your KREA_API_TOKEN in .env or Railway variables."
+
     # 2. Akeneo / Shopify catalog check
     if "no eligible products found" in full_text:
         return "Catalog Check: No eligible products found matching this category that are live on Shopify."
@@ -273,6 +286,12 @@ def extract_clean_error(
         if any(
             stripped.startswith(prefix)
             for prefix in (
+                "ProviderError:",
+                "content_automation.errors.ProviderError:",
+                "AutomationError:",
+                "content_automation.errors.AutomationError:",
+                "ConfigurationError:",
+                "content_automation.errors.ConfigurationError:",
                 "AttributeError:",
                 "TypeError:",
                 "ValueError:",
@@ -284,7 +303,7 @@ def extract_clean_error(
                 "NameError:",
                 "Exception:",
             )
-        ):
+        ) or (":" in stripped and any(stripped.split(":", 1)[0].endswith(err_name) for err_name in ("Error", "Exception"))):
             return stripped
 
     if default:

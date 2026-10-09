@@ -895,12 +895,28 @@ def phase1_interiors(
         moodboard_used[slot] = moodboard_id
         prompt_used[slot] = interior_prompt
         print(f"    -> requesting Krea {SLOT_ROOMS[slot]} interior for slot {slot} (moodboard {moodboard_id})...")
-        url = clients.krea.generate_image(
-            prompt=interior_prompt,
-            moodboard_id=moodboard_id,
-            aspect_ratio=INTERIOR_ASPECT_RATIO,
-            resolution=INTERIOR_RESOLUTION,
-        )
+        try:
+            url = clients.krea.generate_image(
+                prompt=interior_prompt,
+                moodboard_id=moodboard_id,
+                aspect_ratio=INTERIOR_ASPECT_RATIO,
+                resolution=INTERIOR_RESOLUTION,
+            )
+        except Exception as error:
+            print(f"    [WARN] Krea generation failed for slot {slot}: {error}")
+            print(f"    -> Falling back to Fal AI (Flux Schnell) for slot {slot} ({SLOT_ROOMS[slot]})...")
+            try:
+                url = clients.fal.generate(
+                    prompt=interior_prompt,
+                    image_urls=[],
+                    model="fal-ai/flux/schnell",
+                    image_size="portrait_16_9",
+                )
+            except Exception as fal_err:
+                raise AutomationError(
+                    f"Room interior generation failed for slot {slot} ({SLOT_ROOMS[slot]}): "
+                    f"Krea error: {error}; Fal fallback error: {fal_err}"
+                ) from fal_err
         updates[field_name] = [{"url": url}]
         print(f"    [OK] slot {slot} interior generated")
 
@@ -1876,87 +1892,95 @@ def process_row(
 
     clients.airtable.update_records([(record_id, {STATUS_FIELD: STATUS_IN_PROGRESS})])
 
-    with tempfile.TemporaryDirectory(prefix=f"housetour_{record_id}_") as tmpdir:
-        workdir = Path(tmpdir)
-        # Phase 1: Krea 11 room interiors
-        phase1_interiors(clients, record_id, fields)
+    try:
+        with tempfile.TemporaryDirectory(prefix=f"housetour_{record_id}_") as tmpdir:
+            workdir = Path(tmpdir)
+            # Phase 1: Krea 11 room interiors
+            phase1_interiors(clients, record_id, fields)
 
-        # Phase 2: Claude Sonnet 5 Vision analysis
-        phase2_analyze_interiors(clients, record_id, fields)
+            # Phase 2: Claude Sonnet 5 Vision analysis
+            phase2_analyze_interiors(clients, record_id, fields)
 
-        # Phase 3: Akeneo product scraper matching Claude's analysis
-        if not phase3_scrape(clients, record_id, fields):
-            print(f"[ROW {record_id}] FAILED -- product scraping failed.")
-            return False
+            # Phase 3: Akeneo product scraper matching Claude's analysis
+            if not phase3_scrape(clients, record_id, fields):
+                print(f"[ROW {record_id}] FAILED -- product scraping failed.")
+                return False
 
-        # Phase 4: Claude Sonnet 5 blend prompts
-        phase4_prompts(clients, record_id, fields)
+            # Phase 4: Claude Sonnet 5 blend prompts
+            phase4_prompts(clients, record_id, fields)
 
-        # Phase 5: Nano Banana Pro blends + YOLO tags
-        stills = phase5_blends(clients, record_id, fields, workdir)
-        if not stills:
-            print(f"[ROW {record_id}] FAILED -- no stills blended.")
-            return False
+            # Phase 5: Nano Banana Pro blends + YOLO tags
+            stills = phase5_blends(clients, record_id, fields, workdir)
+            if not stills:
+                print(f"[ROW {record_id}] FAILED -- no stills blended.")
+                return False
 
-        # Phase 6: Kling motion clips
-        clips = phase6_kling(clients, record_id, fields, workdir)
-        if not clips:
-            print(f"[ROW {record_id}] FAILED -- Kling video generation failed (Status = '{STATUS_KLING_FAILED}').")
-            return False
+            # Phase 6: Kling motion clips
+            clips = phase6_kling(clients, record_id, fields, workdir)
+            if not clips:
+                print(f"[ROW {record_id}] FAILED -- Kling video generation failed (Status = '{STATUS_KLING_FAILED}').")
+                return False
 
-        # Phase 7: ElevenLabs background music
-        outro = _resolve_outro(clients, record_id, fields, workdir)
-        audio = _generate_music(clients, record_id, fields, workdir)
+            # Phase 7: ElevenLabs background music
+            outro = _resolve_outro(clients, record_id, fields, workdir)
+            audio = _generate_music(clients, record_id, fields, workdir)
 
-        # Phase 8: Local FFmpeg assembly
-        slide_texts: list[tuple[str, str]] = []
-        room_titles: list[str] = []
-        for s in SLOTS:
-            raw = str(fields.get(ITEM_NAME_FIELDS[s]) or "").strip()
-            title, product_type = split_item_name(raw, fallback_product_type=SLOT_LABELS[s])
-            slide_texts.append((title, product_type))
-            if title:
-                print(f"    [TEXT] Slide {s}: '{title}' / '{product_type}'")
+            # Phase 8: Local FFmpeg assembly
+            slide_texts: list[tuple[str, str]] = []
+            room_titles: list[str] = []
+            for s in SLOTS:
+                raw = str(fields.get(ITEM_NAME_FIELDS[s]) or "").strip()
+                title, product_type = split_item_name(raw, fallback_product_type=SLOT_LABELS[s])
+                slide_texts.append((title, product_type))
+                if title:
+                    print(f"    [TEXT] Slide {s}: '{title}' / '{product_type}'")
 
-            analysis_text = str(fields.get(INTERIOR_ANALYSIS_FIELDS[s]) or "").strip()
-            room_title = extract_room_title_from_analysis(analysis_text, slot=s)
-            room_titles.append(room_title)
-            if room_title:
-                print(f"    [ROOM] Slide {s}: '{room_title}'")
+                analysis_text = str(fields.get(INTERIOR_ANALYSIS_FIELDS[s]) or "").strip()
+                room_title = extract_room_title_from_analysis(analysis_text, slot=s)
+                room_titles.append(room_title)
+                if room_title:
+                    print(f"    [ROOM] Slide {s}: '{room_title}'")
 
-        with_outro_val = None
-        if outro_style == "none":
-            with_outro_val = False
-        elif outro_style == "branded":
-            with_outro_val = True
+                with_outro_val = None
+                if outro_style == "none":
+                    with_outro_val = False
+                elif outro_style == "branded":
+                    with_outro_val = True
 
-        mp4_path = phase8_assemble(
-            clips,
-            workdir,
-            slide_texts=slide_texts,
-            room_titles=room_titles,
-            outro=outro,
-            audio=audio,
-            pacing=pacing,
-            cut_style=cut_style,
-            overlay_style=overlay_style,
-            with_outro=with_outro_val,
-        )
+            mp4_path = phase8_assemble(
+                clips,
+                workdir,
+                slide_texts=slide_texts,
+                room_titles=room_titles,
+                outro=outro,
+                audio=audio,
+                pacing=pacing,
+                cut_style=cut_style,
+                overlay_style=overlay_style,
+                with_outro=with_outro_val,
+            )
 
-        print(f"  [Upload] Uploading {mp4_path.name} to Airtable...")
-        clients.airtable.upload_attachment(
-            record_id, FINAL_VIDEO_FIELD, mp4_path, f"house_tour_reel_{record_id}.mp4"
-        )
-        clients.airtable.update_records([(record_id, {STATUS_FIELD: STATUS_DONE})])
-        print(f"[ROW {record_id}] COMPLETE -> Final Video uploaded & Status = Done")
+            print(f"  [Upload] Uploading {mp4_path.name} to Airtable...")
+            clients.airtable.upload_attachment(
+                record_id, FINAL_VIDEO_FIELD, mp4_path, f"house_tour_reel_{record_id}.mp4"
+            )
+            clients.airtable.update_records([(record_id, {STATUS_FIELD: STATUS_DONE})])
+            print(f"[ROW {record_id}] COMPLETE -> Final Video uploaded & Status = Done")
 
-        save_dir = Path("output") / "content" / "house_tour_reel"
-        save_dir.mkdir(parents=True, exist_ok=True)
-        local_copy = save_dir / f"house_tour_reel_{record_id}.mp4"
-        shutil.copyfile(mp4_path, local_copy)
-        print(f"[OK] Local video saved to: {local_copy}")
+            save_dir = Path("output") / "content" / "house_tour_reel"
+            save_dir.mkdir(parents=True, exist_ok=True)
+            local_copy = save_dir / f"house_tour_reel_{record_id}.mp4"
+            shutil.copyfile(mp4_path, local_copy)
+            print(f"[OK] Local video saved to: {local_copy}")
 
-    return True
+        return True
+    except Exception as error:
+        print(f"[ERROR] [ROW {record_id}] Processing failed: {error}", file=sys.stderr)
+        try:
+            clients.airtable.update_records([(record_id, {STATUS_FIELD: "Failed"})])
+        except Exception:
+            pass
+        return False
 
 
 # Backward-compatibility aliases for legacy test suites and external callers
@@ -2131,8 +2155,11 @@ def main(argv=None) -> int:
         else:
             failures += 1
 
-    print(f"\n[OK] Finished {done} brand-new row(s) end-to-end; {failures} failure(s).")
-    return 1 if failures else 0
+    if failures:
+        print(f"\n[ERROR] Finished {done} brand-new row(s) end-to-end; {failures} failure(s).", file=sys.stderr)
+        return 1
+    print(f"\n[OK] Finished {done} brand-new row(s) end-to-end; 0 failure(s).")
+    return 0
 
 
 if __name__ == "__main__":
