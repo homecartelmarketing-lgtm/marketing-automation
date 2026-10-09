@@ -133,3 +133,40 @@ To deploy the fix to the live Railway instance:
    curl https://marketing-automation-control-ui.up.railway.app/api/house-tour-reel/status
    ```
    The run will proceed through Phase 1 without crashing on depleted Krea credits, using Fal AI Flux Schnell when Krea returns 402.
+
+---
+
+## 6. Outro Assembly Fix & Final Video Completion
+
+### Problem Encountered
+In live pipeline runs, the video assembly finished and uploaded to Airtable `Final Video`, but the rendered MP4 did **not include the HomeCartel Outro card**, even though `_resolve_outro()` downloaded/attached `Outro.jpg` to the row's `Outro` field.
+
+### Root Cause
+1. **Pacing Guard in `phase8_assemble()`:**
+   Line 1801 previously evaluated:
+   ```python
+   has_outro = (with_outro is True) if with_outro is not None else (
+       (pacing == PACING_RELAXED) and (outro is not None and Path(outro).is_file())
+   )
+   ```
+   Under default reference pacing (`pacing == "reference"`), `has_outro` evaluated to `False`. The outro image input was never supplied to FFmpeg.
+2. **Variable Placement in `process_row()`:**
+   `with_outro_val` was defined inside the `for s in SLOTS:` loop and left as `None` when `outro_style` was `None`.
+3. **FFmpeg Filter Timebase & Offset:**
+   In `build_house_tour_filter()`, `concat=n=11:v=1:a=0` produced timebase `1/1000000` while `scale_pad` produced `1/30`. Without `settb=1/30`, FFmpeg `xfade` throws `Invalid argument (-22)`. Additionally, `offset={total:.2f}` (22.0s) caused the crossfade to cut off because the first stream had already finished at 22.0s.
+
+### Fix Applied
+1. **Default Outro Inclusion:** `has_outro` now defaults to `True` whenever `outro` is resolved and is a valid file:
+   ```python
+   has_outro = (with_outro is True) if with_outro is not None else (
+       outro is not None and Path(outro).is_file()
+   )
+   ```
+2. **Proper Variable Scope:** Moved `with_outro_val` outside the `SLOTS` loop in `process_row()`, passing `True` when `outro` is present unless explicitly set to `--outro none`.
+3. **Synchronized Timebase & Precise 24.5s Outro Pacing:**
+   - Added `settb=1/{VIDEO_FPS},fps={VIDEO_FPS}` to `scale_pad` and `concat`.
+   - Set crossfade offset to `21.50s` (`total - 0.50s`) with duration `0.50s`.
+   - Looped outro image for `3.0s` (`OUTRO_SECONDS + 0.5s fade`), producing an exact `24.5s` master reel (11 rooms @ 2.0s snap cuts + 0.5s dissolve + 2.5s outro hold).
+4. **Row Completion Verification:**
+   - Confirmed `clients.airtable.upload_attachment` stages and uploads `house_tour_reel_{record_id}.mp4` into the `Final Video` attachment field.
+   - Confirmed `clients.airtable.update_records` sets `Status` to `Done` (green Complete badge) and stamps `Date and Time Generated` with the current Philippine Time (PHT, UTC+8).

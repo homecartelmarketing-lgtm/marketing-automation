@@ -1598,7 +1598,7 @@ def build_house_tour_filter(
     scale_pad = (
         f"scale={VIDEO_WIDTH}:{VIDEO_HEIGHT}:force_original_aspect_ratio=decrease,"
         f"pad={VIDEO_WIDTH}:{VIDEO_HEIGHT}:(ow-iw)/2:(oh-ih)/2,"
-        f"setsar=1,fps={VIDEO_FPS},format=yuv420p"
+        f"setsar=1,fps={VIDEO_FPS},settb=1/{VIDEO_FPS},format=yuv420p"
     )
     parts: list[str] = []
 
@@ -1612,18 +1612,20 @@ def build_house_tour_filter(
             )
 
         concat_inputs = "".join(f"[v{i}]" for i in range(len(REFERENCE_SHOT_DURATIONS)))
-        parts.append(f"{concat_inputs}concat=n={len(REFERENCE_SHOT_DURATIONS)}:v=1:a=0[vbase]")
+        parts.append(f"{concat_inputs}concat=n={len(REFERENCE_SHOT_DURATIONS)}:v=1:a=0,settb=1/{VIDEO_FPS},fps={VIDEO_FPS}[vbase]")
         prev = "vbase"
         total = REFERENCE_TOTAL_SECONDS
 
         if with_outro:
             oi = len(SLOTS)
             parts.append(f"[{oi}:v]{scale_pad}[vout0]")
+            outro_fade = 0.5
+            fade_offset = total - outro_fade
             parts.append(
-                f"[{prev}][vout0]xfade=transition=fade:duration=0.5:offset={total:.2f}[vx]"
+                f"[{prev}][vout0]xfade=transition=fade:duration={outro_fade:.2f}:offset={fade_offset:.2f}[vx]"
             )
             prev = "vx"
-            total += OUTRO_SECONDS
+            total = fade_offset + OUTRO_SECONDS + outro_fade
 
         if overlay_style in (OVERLAY_STYLE_REFERENCE, OVERLAY_STYLE_HYBRID):
             font_title_path = POPPINS_MEDIUM if POPPINS_MEDIUM.is_file() else POPPINS_BOLD
@@ -1787,22 +1789,23 @@ def phase8_assemble(
     overlay_style: str = DEFAULT_OVERLAY_STYLE,
     with_outro: bool | None = None,
 ) -> Path:
+    has_outro = (with_outro is True) if with_outro is not None else (
+        outro is not None and Path(outro).is_file()
+    )
+    if has_outro and (outro is None or not Path(outro).is_file()):
+        has_outro = False
+
+    outro_str = " + outro" if has_outro else ""
     desc = (
-        f"22.0s reference pacing ({cut_style} cuts, {overlay_style} titles)"
+        f"{'24.5s' if has_outro else '22.0s'} reference pacing ({cut_style} cuts, {overlay_style} titles{outro_str})"
         if pacing == PACING_REFERENCE
-        else f"24.5s relaxed pacing ({cut_style} cuts, {overlay_style} titles)"
+        else f"{'24.5s' if has_outro else '23.0s'} relaxed pacing ({cut_style} cuts, {overlay_style} titles{outro_str})"
     )
     print(f"[PHASE 8/8] Assembling Kling clips with FFmpeg ({desc})...")
     if len(clips) != len(SLOTS) or any(not Path(p).is_file() for p in clips):
         raise AutomationError(f"Phase 8 requires all {len(SLOTS)} Kling clip MP4s")
 
     import imageio_ffmpeg
-
-    has_outro = (with_outro is True) if with_outro is not None else (
-        (pacing == PACING_RELAXED) and (outro is not None and Path(outro).is_file())
-    )
-    if has_outro and (outro is None or not Path(outro).is_file()):
-        has_outro = False
 
     filt, out_label, total = build_house_tour_filter(
         slide_texts,
@@ -1821,7 +1824,8 @@ def phase8_assemble(
     for clip in clips:
         cmd.extend(["-i", str(clip)])
     if has_outro and outro is not None:
-        cmd.extend(["-loop", "1", "-t", f"{OUTRO_SECONDS + XFADE_SECONDS:.1f}", "-i", str(outro)])
+        outro_dur = OUTRO_SECONDS + (0.5 if pacing == PACING_REFERENCE else XFADE_SECONDS)
+        cmd.extend(["-loop", "1", "-t", f"{outro_dur:.2f}", "-i", str(outro)])
     audio_idx: int | None = None
     if audio is not None and Path(audio).is_file():
         audio_idx = len(clips) + (1 if has_outro else 0)
@@ -1941,11 +1945,13 @@ def process_row(
                 if room_title:
                     print(f"    [ROOM] Slide {s}: '{room_title}'")
 
-                with_outro_val = None
-                if outro_style == "none":
-                    with_outro_val = False
-                elif outro_style == "branded":
-                    with_outro_val = True
+            with_outro_val: bool | None = None
+            if outro_style == "none":
+                with_outro_val = False
+            elif outro_style == "branded":
+                with_outro_val = True
+            else:
+                with_outro_val = True if (outro is not None and Path(outro).is_file()) else False
 
             mp4_path = phase8_assemble(
                 clips,
@@ -2074,7 +2080,7 @@ def parse_args(argv=None):
         dest="outro_style",
         choices=["none", "branded"],
         default=None,
-        help="Outro style: 'none' (seamless loop) or 'branded' (appends HomeCartel outro). Default: none for reference pacing, branded for relaxed",
+        help="Outro style: 'branded' (default: appends HomeCartel outro) or 'none' (omit outro).",
     )
     parser.add_argument(
         "--with-music",

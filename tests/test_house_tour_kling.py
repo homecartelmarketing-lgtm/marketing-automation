@@ -449,6 +449,58 @@ class AssemblyFilterTests(unittest.TestCase):
             self.assertIn("Poppins-Medium", filt)
             self.assertIn("-an", cmd)
 
+    def test_reference_pacing_twenty_four_point_five_seconds_with_outro(self):
+        titles = ["mini home tour", "living room"] + [""] * 9
+        filt, out_label, total = MODULE.build_house_tour_filter(
+            self.SLIDES,
+            with_outro=True,
+            pacing="reference",
+            cut_style="snap",
+            overlay_style="reference",
+            room_titles=titles,
+        )
+        self.assertAlmostEqual(total, 24.5, places=2)
+        self.assertIn("concat=n=11:v=1:a=0", filt)
+        self.assertIn("xfade=transition=fade:duration=0.50:offset=21.50", filt)
+        self.assertIn("settb=1/30", filt)
+
+    def test_reference_assemble_includes_outro_by_default_when_outro_file_exists(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            workdir = Path(tmp)
+            clips = []
+            for s in MODULE.SLOTS:
+                p = workdir / f"clip{s}.mp4"
+                p.write_bytes(b"fakevideo")
+                clips.append(p)
+            outro = workdir / "outro.jpg"
+            outro.write_bytes(b"fakeoutro")
+            captured = {}
+
+            def fake_run(cmd, **kwargs):
+                captured["cmd"] = cmd
+                Path(cmd[-1]).write_bytes(b"finalvideo")
+                return SimpleNamespace(returncode=0, stderr="")
+
+            with patch.object(MODULE.subprocess, "run", side_effect=fake_run):
+                out = MODULE.phase8_assemble(
+                    clips,
+                    workdir,
+                    slide_texts=self.SLIDES,
+                    outro=outro,
+                    audio=None,
+                    pacing="reference",
+                    cut_style="snap",
+                    overlay_style="reference",
+                    with_outro=None,  # Default: should auto-include because outro exists
+                )
+            self.assertTrue(out.is_file())
+            cmd = captured["cmd"]
+            self.assertIn("-loop", cmd)
+            self.assertIn("-t", cmd)
+            self.assertIn(str(outro), cmd)
+            filt = cmd[cmd.index("-filter_complex") + 1]
+            self.assertIn("xfade=transition=fade", filt)
+
     def test_legacy_relaxed_filter_has_xfades_plus_outro(self):
         filt, out_label, total = MODULE.build_house_tour_filter(
             self.SLIDES,
