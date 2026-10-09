@@ -45,7 +45,7 @@ docs/
 │   ├── DAY_NIGHT_FEED.md
 │   └── PRODUCT_SHOWCASE_FEED.md
 │
-├── reels/                               # 9 Reel Pipelines (9:16 video, 1080 x 1920 px)
+├── reels/                               # 10 Reel Pipelines (9:16 video, 1080 x 1920 px)
 │   ├── DAY_NIGHT_REEL.md
 │   ├── PRODUCT_CLOSEUP_REEL.md
 │   ├── BEFORE_AND_AFTER_REEL.md
@@ -54,7 +54,8 @@ docs/
 │   ├── ONE_PRODUCT_THREE_STYLES_REEL.md
 │   ├── ONE_AT_A_TIME_LIGHTS_REEL.md
 │   ├── SKETCH_TO_REAL_REEL.md
-│   └── HOUSE_TOUR_REEL.md
+│   ├── HOUSE_TOUR_REEL.md
+│   └── THIS_MOOD_EVERY_NIGHT_REEL.md
 │
 ├── ads/                                 # Ad Cover Pipeline (1:1 1080 x 1080 + 9:16 Story 1080 x 1920)
 │   └── AD_COVER.md
