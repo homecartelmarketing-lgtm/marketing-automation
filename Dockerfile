@@ -21,6 +21,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+# imageio-ffmpeg's bundled FFmpeg has NO drawtext filter (built without libfreetype),
+# which broke House Tour Phase 8 ("Filter not found"). Point imageio_ffmpeg.get_ffmpeg_exe()
+# at Debian's full FFmpeg instead, and fail the build early if drawtext is missing.
+ENV IMAGEIO_FFMPEG_EXE=/usr/bin/ffmpeg
+RUN ffmpeg -hide_banner -filters | grep -q " drawtext "
+
 WORKDIR /app
 
 # 2. Install Python dependencies
