@@ -191,7 +191,7 @@ class StudioConfigOverrideTests(unittest.TestCase):
         ]})
         fake_breakdown = {"P": 1, "S": 0, "C": 1, "D": 0, "FM": 0}
         paths = sorted(rule.rule for rule in server.app.url_map.iter_rules() if rule.rule.endswith("/counts"))
-        self.assertEqual(len(paths), 30)
+        self.assertEqual(len(paths), 31)
         with patch.object(source.requests, "get", return_value=fake_response), patch.object(
             source, "fetch_status_breakdown", return_value=fake_breakdown
         ):
@@ -214,7 +214,7 @@ class StudioConfigOverrideTests(unittest.TestCase):
         routes = {rule.rule for rule in server.app.url_map.iter_rules()}
         moodboard_prefixes = {path.removesuffix("/moodboard") for path in routes if path.endswith("/moodboard")}
         prompt_prefixes = {path.removesuffix("/prompt") for path in routes if path.endswith("/prompt")}
-        self.assertEqual(len(moodboard_prefixes), 24)
+        self.assertEqual(len(moodboard_prefixes), 25)
         self.assertEqual(moodboard_prefixes, prompt_prefixes)
 
 
