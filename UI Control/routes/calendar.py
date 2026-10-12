@@ -18,7 +18,7 @@ from typing import Any
 
 from flask import Blueprint, jsonify, request
 
-from .common import MARKETING_DIR, is_authorized
+from .common import MARKETING_DIR, internal_auth_headers, is_authorized
 from .queue_manager import get_server_port
 
 calendar_bp = Blueprint("calendar", __name__, url_prefix="/api/calendar")
@@ -107,7 +107,7 @@ def _post_queue_enqueue(job: dict[str, Any], pin: str) -> dict[str, Any]:
         "pin": pin,
     }
     payload = json.dumps(body).encode("utf-8")
-    headers = {"Content-Type": "application/json"}
+    headers = {"Content-Type": "application/json", **internal_auth_headers()}
     if pin:
         headers["Authorization"] = f"Bearer {pin}"
         headers["X-Dashboard-PIN"] = pin

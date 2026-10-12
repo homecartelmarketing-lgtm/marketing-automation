@@ -48,6 +48,11 @@ class CalendarRouteTests(unittest.TestCase):
         # repo .env (which sets a PIN); force open access for these tests.
         self.pin_patch = patch.object(self.common, "DASHBOARD_PIN", "")
         self.pin_patch.start()
+        # A real output/studio_users.json would also close the Studio; ignore it here.
+        self.accounts_patch = patch.object(
+            importlib.import_module("routes.studio_auth"), "accounts_enabled", return_value=False
+        )
+        self.accounts_patch.start()
 
         self.module = importlib.import_module("routes.calendar")
         self.state_patch = patch.object(
@@ -61,6 +66,7 @@ class CalendarRouteTests(unittest.TestCase):
         self.fixture_xlsx = repo_root / "tests" / "fixtures" / "mini_calendar.xlsx"
 
     def tearDown(self):
+        self.accounts_patch.stop()
         self.pin_patch.stop()
         self.state_patch.stop()
         self.overrides_patch.stop()

@@ -60,12 +60,17 @@ from routes.sale_banner import sale_banner_bp
 from routes.rows import rows_bp
 from routes.queue_manager import queue_bp, set_server_port
 from routes.calendar import calendar_bp
+from routes import studio_auth
 
 app = Flask(
     __name__,
     static_folder=str(DIST_DIR / "assets") if (DIST_DIR / "assets").exists() else None,
     static_url_path="/assets",
 )
+
+# Email + password login (cookie session) for the Studio
+studio_auth.init_app(app)
+app.register_blueprint(studio_auth.auth_bp)
 
 # Register modular Blueprints
 app.register_blueprint(cta_bp)
@@ -152,7 +157,7 @@ def health():
     return jsonify({
         "status": "ok",
         "service": "homecartel-marketing-studio",
-        "auth_required": bool(DASHBOARD_PIN),
+        "auth_required": studio_auth.auth_mode() != "open",
         "dist_exists": DIST_DIR.exists(),
         "modules": [
             "cta_story",
@@ -192,9 +197,11 @@ def health():
 
 @app.route("/api/auth/config", methods=["GET"])
 def auth_config():
-    """Return whether PIN authentication is required."""
+    """Return whether authentication is required and which kind (accounts | pin | open)."""
+    mode = studio_auth.auth_mode()
     return jsonify({
-        "auth_required": bool(DASHBOARD_PIN),
+        "auth_required": mode != "open",
+        "mode": mode,
     })
 
 
@@ -284,6 +291,6 @@ if __name__ == "__main__":
     print(f"Starting HomeCartel All-in-One Studio on http://{host}:{port}")
     print(f"  Root Dir : {MARKETING_DIR}")
     print(f"  Dist Dir : {DIST_DIR} (exists: {DIST_DIR.exists()})")
-    print(f"  PIN Auth : {'ENABLED' if DASHBOARD_PIN else 'DISABLED (Open)'}")
+    print(f"  Auth     : {studio_auth.auth_mode().upper()} (accounts | pin | open)")
     print(f"  Blueprints: 10 Story blueprints + 7 Feed blueprints + 7 Reel blueprints + rows inspector (/api/rows)")
     app.run(host=host, port=port, debug=False, threaded=True)

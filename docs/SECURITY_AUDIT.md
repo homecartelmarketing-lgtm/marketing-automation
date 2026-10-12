@@ -35,10 +35,10 @@ The server runs as **1 Gunicorn worker with 8 threads and a 600-second timeout**
 * * *
 ## What the login must do (or it's just a nicer PIN box)
 - [ ] **Block by default.** Add one `@app.before_request` that rejects any `/api/*` request without a valid session. Only `/api/health`, `/api/auth/login` and `/api/auth/config` stay open, and that includes the `/status`, `/counts`, `/fixtures`, `/rows` and `/queue/status` routes. New routes are then protected automatically.
-- [ ] **One account per person,** with passwords hashed (Werkzeug `generate_password_hash`, scrypt, or bcrypt). Keep users in a small table, never in the frontend.
-- [ ] **Server-side session cookie** set to `HttpOnly`, `Secure` and `SameSite=Lax`, with a strong `SECRET_KEY` from Railway variables. Expire it after 8 to 12 hours and rotate the session on login.
-- [ ] **Remove the PIN from the browser completely.** No `localStorage`, no `?pin=` query parameter, no `X-Dashboard-PIN` header.
-- [ ] **Handle the queue's internal calls.** The queue and calendar call `/run` over HTTP on 127.0.0.1 with the PIN today. Change that to a separate `INTERNAL_TOKEN` env secret, or call the run functions directly, otherwise the queue breaks once the PIN goes away.
+- [x] **One account per person,** with passwords hashed (Werkzeug `generate_password_hash`, scrypt, or bcrypt). Keep users in a small table, never in the frontend.
+- [x] **Server-side session cookie** (done 2026-10-12: `HttpOnly`, `SameSite=Lax`, `Secure` via `STUDIO_COOKIE_SECURE=1`, `STUDIO_SECRET_KEY`; no rotation beyond `session.clear()` on login) set to `HttpOnly`, `Secure` and `SameSite=Lax`, with a strong `SECRET_KEY` from Railway variables. Expire it after 8 to 12 hours and rotate the session on login.
+- [x] **Remove the PIN from the browser completely** (account mode only; PIN mode still keeps it in sessionStorage until the first account exists). No `localStorage`, no `?pin=` query parameter, no `X-Dashboard-PIN` header.
+- [x] **Handle the queue's internal calls** (done: per-process `X-Internal-Token`). The queue and calendar call `/run` over HTTP on 127.0.0.1 with the PIN today. Change that to a separate `INTERNAL_TOKEN` env secret, or call the run functions directly, otherwise the queue breaks once the PIN goes away.
 - [ ] **Rate-limit the login** with Flask-Limiter: about 5 attempts a minute per account and 20 per real IP, after adding `ProxyFix(x_for=1)`.
 - [ ] **Two roles:** a _viewer_ who can browse, and a _runner_ who can run, stop and edit prompts. Only an _admin_ can use cleanup and settings.
 - [ ] **Audit log:** record who ran what, when, and with which `max_items`. The shared PIN could never give you this.

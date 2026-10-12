@@ -1,0 +1,280 @@
+/* Studio login screen. Everything is scoped to .hc-login so theme.css stays untouched. */
+.hc-login {
+  --hc-cream: #fff9ec;
+  --hc-field: #fffdf6;
+  --hc-ink: #222220;
+  --hc-muted: #5f5e55;
+  --hc-line: #e0d9c3;
+  --hc-olive: #66742f;
+  --hc-green: #0d4a3e;
+  --hc-error: #a8261c;
+  --hc-error-bg: #fdeceb;
+
+  box-sizing: border-box;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif;
+  color: var(--hc-ink);
+  background:
+    radial-gradient(60% 50% at 8% 6%, rgb(160 205 150 / 0.55), transparent 70%),
+    radial-gradient(45% 45% at 96% 12%, rgb(120 185 140 / 0.4), transparent 70%),
+    radial-gradient(55% 45% at 85% 100%, rgb(170 215 160 / 0.5), transparent 70%),
+    radial-gradient(40% 40% at 4% 96%, rgb(190 225 175 / 0.45), transparent 70%),
+    #eef6ea;
+}
+
+:root.dark .hc-login {
+  background:
+    radial-gradient(60% 50% at 8% 6%, rgb(30 90 70 / 0.55), transparent 70%),
+    radial-gradient(55% 45% at 85% 100%, rgb(20 80 60 / 0.5), transparent 70%),
+    #07130f;
+}
+
+.hc-login *,
+.hc-login *::before,
+.hc-login *::after {
+  box-sizing: border-box;
+}
+
+.hc-login__card {
+  width: 100%;
+  max-width: 880px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--hc-cream);
+  box-shadow:
+    0 1px 2px rgb(20 40 30 / 0.06),
+    0 24px 60px -12px rgb(20 50 35 / 0.28);
+}
+
+.hc-login__panel {
+  padding: 32px 24px 28px;
+}
+
+.hc-login__photo {
+  order: -1;
+  min-height: 120px;
+  background-color: var(--hc-green);
+  background-size: cover;
+  background-position: 62% 60%;
+}
+
+@media (min-width: 768px) {
+  .hc-login__card {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr);
+    min-height: 540px;
+  }
+
+  .hc-login__panel {
+    padding: 52px 44px 40px;
+  }
+
+  .hc-login__photo {
+    order: 0;
+    min-height: 0;
+  }
+}
+
+.hc-login__logo {
+  display: block;
+  height: 22px;
+  width: auto;
+  margin-bottom: 28px;
+  /* The brand logo is white; the cream panel needs it dark. */
+  filter: invert(1);
+}
+
+.hc-login__title {
+  margin: 0 0 12px;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.hc-login__intro {
+  margin: 0 0 24px;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--hc-muted);
+  max-width: 30ch;
+}
+
+.hc-login__field {
+  margin-bottom: 14px;
+}
+
+.hc-login__label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.hc-login__input-wrap {
+  position: relative;
+}
+
+.hc-login__input {
+  width: 100%;
+  height: 44px;
+  padding: 0 16px;
+  font: inherit;
+  font-size: 1rem; /* 16px keeps iOS from zooming on focus */
+  color: var(--hc-ink);
+  background: var(--hc-field);
+  border: 1px solid var(--hc-line);
+  border-radius: 999px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.hc-login__input::placeholder {
+  color: #8b897c;
+}
+
+.hc-login__input:hover {
+  border-color: #cfc7ab;
+}
+
+.hc-login__input:focus-visible {
+  outline: none;
+  border-color: var(--hc-green);
+  box-shadow: 0 0 0 3px rgb(13 74 62 / 0.18);
+}
+
+.hc-login__input[aria-invalid='true'] {
+  border-color: var(--hc-error);
+}
+
+.hc-login__input--with-toggle {
+  padding-right: 46px;
+}
+
+.hc-login__toggle {
+  position: absolute;
+  inset-block: 0;
+  right: 6px;
+  width: 36px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--hc-olive);
+  background: none;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.hc-login__toggle:hover {
+  background: rgb(102 116 47 / 0.1);
+}
+
+.hc-login__toggle:focus-visible {
+  outline: 2px solid var(--hc-green);
+  outline-offset: 0;
+}
+
+.hc-login__link {
+  padding: 0;
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--hc-olive);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.hc-login__link:hover {
+  color: var(--hc-green);
+}
+
+.hc-login__link:focus-visible {
+  outline: 2px solid var(--hc-green);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.hc-login__notice {
+  margin: 10px 0 0;
+  padding: 10px 14px;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--hc-muted);
+  background: rgb(102 116 47 / 0.09);
+  border-radius: 12px;
+}
+
+.hc-login__error {
+  margin: 14px 0 0;
+  padding: 10px 14px;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--hc-error);
+  background: var(--hc-error-bg);
+  border-radius: 12px;
+}
+
+.hc-login__submit {
+  width: 100%;
+  height: 46px;
+  margin-top: 22px;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--hc-ink);
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.hc-login__submit:hover:not(:disabled) {
+  background: #000;
+}
+
+.hc-login__submit:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.hc-login__submit:focus-visible {
+  outline: 3px solid rgb(13 74 62 / 0.4);
+  outline-offset: 2px;
+}
+
+.hc-login__submit:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+@media (min-width: 480px) {
+  .hc-login__submit {
+    width: 156px;
+  }
+}
+
+.hc-login__foot {
+  margin: 18px 0 0;
+  font-size: 0.78rem;
+  color: var(--hc-muted);
+}
+
+.hc-login__skeleton {
+  height: 220px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hc-login * {
+    transition: none !important;
+  }
+}

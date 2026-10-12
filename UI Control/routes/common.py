@@ -2,6 +2,7 @@ import hmac
 import json
 import os
 from pathlib import Path
+import secrets
 import sys
 import threading
 import time
@@ -38,6 +39,17 @@ except ImportError:
 
 # Optional Dashboard PIN to protect paid AI generations
 DASHBOARD_PIN = os.getenv("DASHBOARD_PIN", "").strip()
+
+# Per-process secret for the Studio's own loopback calls (queue worker, calendar
+# import). Lets them authenticate without the browser's session cookie or a PIN.
+INTERNAL_TOKEN = secrets.token_urlsafe(32)
+INTERNAL_TOKEN_HEADER = "X-Internal-Token"
+
+
+def internal_auth_headers() -> dict[str, str]:
+    """Headers for Studio -> Studio loopback requests."""
+    return {INTERNAL_TOKEN_HEADER: INTERNAL_TOKEN}
+
 
 # Global pipeline concurrency tracker
 _GLOBAL_LOCK = threading.Lock()
@@ -84,8 +96,15 @@ def _check_pin(candidate: str) -> bool:
 
 
 def is_authorized(req: Any = None) -> bool:
-    """Verify authorization token or PIN with timing-safe comparison and rate limiting."""
-    if not DASHBOARD_PIN:
+    """Verify session, internal token or PIN with timing-safe comparison and rate limiting."""
+    try:
+        from routes import studio_auth
+        accounts_enabled = studio_auth.accounts_enabled()
+    except Exception:
+        studio_auth = None
+        accounts_enabled = False
+
+    if not DASHBOARD_PIN and not accounts_enabled:
         return True
 
     if req is None:
@@ -94,6 +113,18 @@ def is_authorized(req: Any = None) -> bool:
             req = flask_req
         except Exception:
             return False
+
+    # Studio's own loopback calls (queue dispatch, calendar enqueue)
+    internal = req.headers.get(INTERNAL_TOKEN_HEADER, "").strip()
+    if internal and hmac.compare_digest(internal, INTERNAL_TOKEN):
+        return True
+
+    # Logged-in browser session (email + password)
+    if studio_auth is not None and studio_auth.current_user() is not None:
+        return True
+
+    if not DASHBOARD_PIN:
+        return False
 
     client_ip = getattr(req, "remote_addr", None) or "unknown"
     if is_rate_limited(client_ip):
