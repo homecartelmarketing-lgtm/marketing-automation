@@ -641,6 +641,19 @@ class ScrapeAirtableClient:
             except Exception as e:
                 print(f"  [WARN] Failed to mirror upload to Zoho WorkDrive: {e}")
 
+    def upload_attachment_url(
+        self,
+        record_id: str,
+        field_name: str,
+        url: str,
+        filename: str = "",
+    ) -> None:
+        """Attach a publicly accessible URL to an Airtable attachment field."""
+        item: dict[str, Any] = {"url": url}
+        if filename:
+            item["filename"] = filename
+        self.update_records([(record_id, {field_name: [item]})])
+
     def clear_attachment_field(self, record_id: str, field_name: str) -> None:
         """Clear an attachment field before replacing its generated output."""
         self.update_records([(record_id, {field_name: []})])
