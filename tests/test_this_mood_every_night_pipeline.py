@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
+import sys
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from content_automation.config import Settings
 import generate_this_mood_every_night_reel_pipeline as pipeline
