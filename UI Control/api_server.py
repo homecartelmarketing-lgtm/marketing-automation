@@ -9,11 +9,13 @@ Entrypoint server registering modular Flask Blueprints:
 
 from __future__ import annotations
 
+import hmac
 import os
 from pathlib import Path
 import sys
 
 from flask import Flask, jsonify, request, send_from_directory
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 # Resolve paths
 CURRENT_DIR = Path(__file__).resolve().parent
@@ -25,7 +27,7 @@ if str(MARKETING_DIR) not in sys.path:
 if str(CURRENT_DIR) not in sys.path:
     sys.path.insert(0, str(CURRENT_DIR))
 
-from routes.common import DASHBOARD_PIN, is_authorized
+from routes.common import DASHBOARD_PIN, clamp_pin, is_authorized
 from routes.cta_story import cta_bp
 from routes.tips_edu_story import tips_edu_bp
 from routes.collection_story import collection_story_bp
@@ -72,6 +74,14 @@ app = Flask(
 studio_auth.init_app(app)
 app.register_blueprint(studio_auth.auth_bp)
 
+# Behind Railway (and any reverse proxy) request.remote_addr is the proxy's IP,
+# not the user's. The lockout/rate-limit in routes.common keys on remote_addr, so
+# without ProxyFix a single attacker's 10 bad guesses lock out *every* user behind
+# the shared proxy IP. Trust X-Forwarded-For for exactly one hop (the platform's
+# edge proxy). This is a no-op on the local dev server and the Cloudflare tunnel,
+# where remote_addr is already the real client.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=0, x_port=0, x_prefix=0)
+
 # Register modular Blueprints
 app.register_blueprint(cta_bp)
 app.register_blueprint(tips_edu_bp)
@@ -107,6 +117,82 @@ app.register_blueprint(sale_banner_bp)
 app.register_blueprint(rows_bp)
 app.register_blueprint(queue_bp)
 app.register_blueprint(calendar_bp)
+
+
+# Public endpoints reachable without a session. Keep this list minimal.
+#   /api/health         - liveness probe (no data)
+#   /api/auth/*         - login / logout / me / config / verify (the auth flow itself)
+# Everything else under /api/* requires authentication (see require_api_auth below).
+PUBLIC_API_PATHS = (
+    "/api/health",
+    "/api/auth/config",
+    "/api/auth/login",
+    "/api/auth/logout",
+    "/api/auth/me",
+    "/api/auth/verify",
+)
+
+# Optional service token so an external liveness/uptime probe can hit /api/health
+# and receive a truthful status even when the Studio requires auth. Leave empty to
+# keep /api/health fully open (it leaks nothing beyond uptime + build presence).
+HEALTHCHECK_TOKEN = os.getenv("HEALTHCHECK_TOKEN", "").strip()
+
+# Hard cap on incoming request bodies (the largest legitimate uploads are small
+# XLSX calendar files). Prevents memory-exhaustion via huge JSON/image payloads.
+app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_CONTENT_LENGTH", str(64 * 1024 * 1024)))  # 64 MiB
+
+
+@app.before_request
+def require_api_auth():
+    """Block-by-default gate for /api/*.
+
+    Unauthenticated access is allowed only for the explicit PUBLIC_API_PATHS
+    allowlist and CORS preflight (OPTIONS). Everything else falls through to the
+    per-route is_authorized() checks, so in open mode (no PIN and no accounts)
+    is_authorized() returns True and the Studio behaves exactly as before.
+    """
+    if request.method == "OPTIONS":
+        return None  # preflight is handled by add_cors_headers
+    path = request.path
+    if not path.startswith("/api/"):
+        return None  # SPA/static routes are served by serve_frontend
+    for public in PUBLIC_API_PATHS:
+        if path == public or path.startswith(public + "/"):
+            return None
+    if path == "/api/health":
+        token = request.args.get("token", "").strip()
+        if HEALTHCHECK_TOKEN and token and hmac.compare_digest(token, HEALTHCHECK_TOKEN):
+            return None
+    if is_authorized(request):
+        return None
+    return (
+        jsonify(
+            {
+                "status": "error",
+                "error": "Unauthorized",
+                "auth_required": True,
+                "mode": studio_auth.auth_mode(),
+            }
+        ),
+        401,
+    )
+
+
+@app.after_request
+def add_security_headers(response):
+    """Clickjacking / MIME-sniffing / referrer hardening on every response."""
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault(
+        "X-Frame-Options", "DENY"
+    )  # frames are not used anywhere -> deny is safe
+    response.headers.setdefault("X-Permitted-Cross-Domain-Policies", "none")
+    response.headers.setdefault("Cross-Origin-Resource-Policy", "same-origin")
+    response.headers.setdefault(
+        "Content-Security-Policy",
+        "frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
+    )
+    return response
 
 
 @app.errorhandler(OSError)
@@ -145,7 +231,11 @@ def add_cors_headers(response):
         elif "*" in origins:
             response.headers["Access-Control-Allow-Origin"] = "*"
     else:
-        response.headers["Access-Control-Allow-Origin"] = "*"
+        # No allowlist configured -> same-origin only. We intentionally do NOT
+        # emit Access-Control-Allow-Origin, so browsers block cross-origin use
+        # with credentials. Set ALLOWED_ORIGINS (comma-separated, or "*") to opt
+        # into cross-origin access.
+        pass
 
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Dashboard-PIN"
@@ -211,6 +301,7 @@ def auth_verify():
     if not DASHBOARD_PIN:
         return jsonify({"valid": True, "auth_required": False})
 
+    from routes.common import clamp_pin
     from routes.common import _check_pin, clear_failed_attempts, is_rate_limited, record_failed_attempt
 
     client_ip = getattr(request, "remote_addr", None) or "unknown"
@@ -222,7 +313,7 @@ def auth_verify():
         }), 429
 
     data = request.get_json(silent=True) or {}
-    pin = str(data.get("pin", "")).strip()
+    pin = clamp_pin(str(data.get("pin", "")).strip())
     if _check_pin(pin):
         clear_failed_attempts(client_ip)
         return jsonify({"valid": True, "auth_required": True})
@@ -247,12 +338,23 @@ def tunnel_status():
     })
 
 
-@app.route("/api/maintenance/cleanup", methods=["GET", "POST"])
+@app.route("/api/maintenance/cleanup", methods=["POST"])
 def maintenance_cleanup():
-    """Trigger scratchpad cleanup for temporary files in containerized hosting."""
+    """Trigger scratchpad cleanup for temporary files in containerized hosting.
+
+    Requires the same authorization as any other /api route. `hours` is clamped to a
+    safe minimum so a zero/negative value can never delete files a running job is
+    actively using.
+    """
+    if not is_authorized(request):
+        return jsonify({"status": "error", "error": "Unauthorized"}), 401
     try:
         from content_automation.cleanup import prune_scratchpad
-        hours = float(request.args.get("hours", 12.0))
+        try:
+            hours = float(request.values.get("hours", 12.0))
+        except (TypeError, ValueError):
+            return jsonify({"status": "error", "error": "hours must be a number"}), 400
+        hours = max(hours, 1.0)  # never prune anything younger than 1 hour
         result = prune_scratchpad(max_age_hours=hours)
         return jsonify(result)
     except Exception as err:

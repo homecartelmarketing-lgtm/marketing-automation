@@ -62,6 +62,67 @@ _OVERRIDES_LOCK = threading.Lock()
 MAX_FAILED_ATTEMPTS = 10
 LOCKOUT_SECONDS = 300  # 5 minutes lockout
 
+# Single ceiling for how many fresh products one /run may scrape+generate.
+# Every pipeline /run route AND the queue /enqueue clamp the client-supplied
+# max_items to 1..MAX_RUN_ITEMS so a forged request can't spin up an unbounded
+# number of paid AI generations in one job.
+MAX_RUN_ITEMS = 10
+
+
+def is_same_origin(req: Any = None) -> bool:
+    """True when the request has no cross-site Origin (same-origin or non-browser).
+
+    Same-origin fetches send either no Origin header or one equal to our host;
+    cross-site browsers send a foreign Origin. A *present* Origin that doesn't
+    match the request host is rejected — this is the CSRF guard for the internal
+    token / cookie-session paths.
+    """
+    try:
+        if req is None:
+            from flask import request as flask_req
+
+            req = flask_req
+        origin = (req.headers.get("Origin") or "").strip()
+        if not origin:
+            return True  # same-origin GET/curl/queue loopback: no Origin header
+        try:
+            from urllib.parse import urlparse
+
+            host = urlparse(origin).netloc.lower()
+        except Exception:
+            return False
+        if not host:
+            return False
+        if host == (req.host or "").lower():
+            return True
+        allowed = {
+            h.strip().lower()
+            for h in os.getenv("STUDIO_ALLOWED_ORIGINS", "").split(",")
+            if h.strip()
+        }
+        return host in allowed
+    except Exception:
+        return False
+
+
+def _forbid_pin_in_query(req: Any) -> None:
+    """Reject a PIN smuggled in the query string.
+
+    URLs leak into access logs, proxy logs, browser history and the Referer
+    header, so a PIN passed as ``?pin=...`` would be recorded in cleartext in
+    places we don't control. We no longer *read* the PIN from the query string;
+    if one is present we raise so the request is refused rather than silently
+    ignored (a silent ignore would look like a wrong-PIN to the caller).
+    """
+    try:
+        raw = (req.args.get("pin", "") if hasattr(req, "args") else "") or ""
+        if raw.strip():
+            raise ValueError("PIN must not be sent in the query string")
+    except ValueError:
+        raise
+    except Exception:
+        return
+
 
 def is_rate_limited(ip: str) -> bool:
     """Check if an IP has exceeded failed PIN attempts."""
@@ -95,6 +156,19 @@ def _check_pin(candidate: str) -> bool:
     return hmac.compare_digest(candidate.strip(), DASHBOARD_PIN.strip())
 
 
+# Reject over-long PINs before any comparison. compare_digest short-circuits on
+# length, so an unbounded submitted PIN can't leak via timing, and we avoid
+# wasting work on absurdly long inputs. 256 chars is far above any real PIN.
+MAX_PIN_LENGTH = 256
+
+
+def clamp_pin(candidate: str | None) -> str:
+    """Return a length-bounded candidate safe to compare against the PIN."""
+    if not candidate:
+        return ""
+    return candidate[:MAX_PIN_LENGTH]
+
+
 def is_authorized(req: Any = None) -> bool:
     """Verify session, internal token or PIN with timing-safe comparison and rate limiting."""
     try:
@@ -113,6 +187,13 @@ def is_authorized(req: Any = None) -> bool:
             req = flask_req
         except Exception:
             return False
+
+    # Reject cross-site browser requests outright (CSRF). A same-origin fetch
+    # carries no Origin header or one matching our host; the queue worker's
+    # urllib loopback sends none. A present foreign Origin is dropped before we
+    # even look at credentials, so a stolen session cookie alone can't act.
+    if not is_same_origin(req):
+        return False
 
     # Studio's own loopback calls (queue dispatch, calendar enqueue)
     internal = req.headers.get(INTERNAL_TOKEN_HEADER, "").strip()
@@ -141,9 +222,12 @@ def is_authorized(req: Any = None) -> bool:
     if not candidate:
         candidate = req.headers.get("X-Dashboard-PIN", "").strip() or None
 
-    # 3. Query Param ?pin=...
-    if not candidate and hasattr(req, "args"):
-        candidate = req.args.get("pin", "").strip() or None
+    # NOTE: the ?pin= query param is intentionally no longer accepted. URLs leak
+    # into access logs, proxy logs, and Referer headers, so a PIN passed that way
+    # ends up recorded in cleartext. Credentials belong in the Authorization /
+    # X-Dashboard-PIN headers or the JSON body only.
+    if not candidate and getattr(req, "args", None) is not None:
+        _forbid_pin_in_query(req)
 
     # 4. JSON payload pin field
     if not candidate and getattr(req, "is_json", False):
@@ -152,7 +236,7 @@ def is_authorized(req: Any = None) -> bool:
         if val:
             candidate = val
 
-    if candidate and _check_pin(candidate):
+    if candidate and _check_pin(clamp_pin(candidate)):
         clear_failed_attempts(client_ip)
         return True
 
@@ -160,6 +244,26 @@ def is_authorized(req: Any = None) -> bool:
         record_failed_attempt(client_ip)
 
     return False
+
+
+def _log_auth_event(event: str, req: Any = None, allowed: bool = False) -> None:
+    """Emit a single-line auth decision to stderr (gunicorn/Railway capture it).
+
+    Deliberately never logs the candidate secret (PIN/token), only the outcome
+    and a few request attributes, so the logs can't leak credentials.
+    """
+    try:
+        ip = getattr(req, "remote_addr", None) or "unknown"
+        method = getattr(req, "method", "-")
+        path = getattr(req, "path", "-")
+        print(
+            f"[AUTH] {'ALLOW' if allowed else 'DENY'} {event} "
+            f"{method} {path} ip={ip}",
+            file=sys.stderr,
+            flush=True,
+        )
+    except Exception:
+        pass
 
 
 def load_config_overrides() -> dict[str, str]:

@@ -215,7 +215,10 @@ def run_pipeline():
     fixture_id = data.get("fixture_id", "style-tour")
     custom_moodboard = (data.get("moodboard_id") or "").strip()
     custom_prompt = (data.get("prompt") or "").strip()
-    max_items = min(max(int(data.get("max_items", 1)), 1), 10)
+    try:
+        max_items = min(max(int(data.get("max_items", 1) or 1), 1), 10)  # clamp 1..10 to prevent oversized runs
+    except (TypeError, ValueError):
+        return jsonify({"error": "max_items must be an integer"}), 400
 
     fixtures = get_fixtures()
     if fixture_id not in fixtures:

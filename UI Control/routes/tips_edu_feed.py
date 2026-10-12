@@ -267,7 +267,10 @@ def run_pipeline():
         return jsonify({"status": "error", "error": "Unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     fixture_id = data.get("fixture_id", "chandelier")
-    max_items = min(max(int(data.get("max_items", 1)), 1), 10)
+    try:
+        max_items = min(max(int(data.get("max_items", 1) or 1), 1), 10)  # clamp 1..10 to prevent oversized runs
+    except (TypeError, ValueError):
+        return jsonify({"error": "max_items must be an integer"}), 400
     fixtures = get_fixtures()
     if fixture_id not in fixtures:
         return jsonify({"status": "error", "error": f"Invalid fixture_id: {fixture_id}"}), 400

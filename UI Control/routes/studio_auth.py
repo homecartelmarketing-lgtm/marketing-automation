@@ -130,13 +130,31 @@ def auth_mode() -> str:
     return "pin" if common.DASHBOARD_PIN else "open"
 
 
+def _harden_permissions(path: Path) -> None:
+    """Best-effort chmod 0600 so Werkzeug password hashes aren't world-readable.
+
+    On POSIX this tightens owner-only read/write. On Windows chmod only honors
+    the read-only bit, so failures are ignored and never break a write.
+    """
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
+
+
 def _write_file_users(users: dict[str, dict[str, Any]]) -> None:
     path = _users_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     records = [u for u in users.values() if not u.get("seeded")]
     tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps({"users": records}, indent=2), encoding="utf-8")
+    # Create the temp file with owner-only perms from the start so the hashes
+    # are never briefly world-readable, then harden again after the atomic swap.
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(json.dumps({"users": records}, indent=2))
+    _harden_permissions(tmp)
     tmp.replace(path)
+    _harden_permissions(path)
 
 
 def add_user(email: str, password: str, role: str = "user") -> dict[str, Any]:

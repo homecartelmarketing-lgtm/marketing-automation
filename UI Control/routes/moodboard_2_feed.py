@@ -258,7 +258,10 @@ def run_pipeline():
     fix_info = fixtures[fixture_id]
     custom_moodboard_id = (data.get("moodboard_id") or "").strip()
     custom_prompt = (data.get("prompt") or "").strip()
-    max_items = int(data.get("max_items") or 1)
+    try:
+        max_items = min(max(int(data.get("max_items") or 1), 1), 10)  # clamp 1..10 to prevent oversized runs
+    except (TypeError, ValueError):
+        return jsonify({"error": "max_items must be an integer"}), 400
 
     table_id = fix_info["table_id"]
     active_moodboard_id = custom_moodboard_id or fix_info["moodboard_id"]

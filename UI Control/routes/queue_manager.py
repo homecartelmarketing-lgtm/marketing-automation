@@ -71,6 +71,35 @@ def get_server_port() -> int:
 
 
 # ---------------------------------------------------------------------------
+# SSRF guard
+# ---------------------------------------------------------------------------
+def _is_safe_local_endpoint(endpoint: str) -> bool:
+    """True only for a plain same-host API path the worker may POST/GET.
+
+    The worker builds ``http://127.0.0.1:{port}{endpoint}``, so an endpoint that
+    could smuggle a scheme, host, credentials, whitespace or a path-traversal
+    sequence would let a queued job hit an arbitrary URL (SSRF). We therefore
+    accept nothing but ``/api/...`` absolute paths made of URL-safe characters.
+    """
+    if not endpoint or not endpoint.startswith("/api/"):
+        return False
+    if endpoint.startswith("//"):  # protocol-relative -> external host
+        return False
+    # Reject anything that could redirect the request off-loopback or traverse.
+    if any(ch.isspace() for ch in endpoint):
+        return False
+    if "://" in endpoint or "@" in endpoint or "?" in endpoint or "#" in endpoint:
+        return False
+    if ".." in endpoint or "\\" in endpoint:
+        return False
+    # Only unreserved + a few reserved path chars are expected in our routes.
+    allowed = set(
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~/"
+    )
+    return all(ch in allowed for ch in endpoint)
+
+
+# ---------------------------------------------------------------------------
 # Internal HTTP Helpers
 # ---------------------------------------------------------------------------
 def _dispatch_job_run(job: dict[str, Any]) -> tuple[bool, str]:
@@ -377,6 +406,7 @@ def enqueue_job():
     fixture_id = str(data.get("fixture_id", "")).strip()
     run_endpoint = str(data.get("run_endpoint", "")).strip()
     status_endpoint = str(data.get("status_endpoint", "")).strip()
+    stop_endpoint = str(data.get("stop_endpoint", "")).strip()
 
     if not pipeline_type or not fixture_id or not run_endpoint or not status_endpoint:
         return jsonify({
@@ -384,8 +414,28 @@ def enqueue_job():
             "error": "Missing required fields: pipeline_type, fixture_id, run_endpoint, status_endpoint",
         }), 400
 
+    # SSRF guard: the worker POSTs these endpoints over loopback, so reject
+    # anything that isn't a plain same-host /api/ path.
+    for endpoint, label in (
+        (run_endpoint, "run_endpoint"),
+        (status_endpoint, "status_endpoint"),
+        (stop_endpoint, "stop_endpoint"),
+    ):
+        if endpoint and not _is_safe_local_endpoint(endpoint):
+            return jsonify({
+                "status": "error",
+                "error": f"Invalid {label}: must be a local /api/ path",
+            }), 400
+
     job_id = f"job_{int(time.time() * 1000)}_{uuid.uuid4().hex[:6]}"
     pin = str(data.get("pin", "")).strip()
+    try:
+        max_items = min(max(int(data.get("max_items", 1) or 1), 1), 10)  # clamp 1..10 to prevent oversized runs
+    except (TypeError, ValueError):
+        return jsonify({
+            "status": "error",
+            "error": "max_items must be an integer",
+        }), 400
 
     new_job = {
         "id": job_id,
@@ -398,10 +448,10 @@ def enqueue_job():
         "table_id": str(data.get("table_id", "")),
         "moodboard_id": data.get("moodboard_id"),
         "prompt": data.get("prompt"),
-        "max_items": min(max(int(data.get("max_items", 1)), 1), 10),
+        "max_items": max_items,
         "run_endpoint": run_endpoint,
         "status_endpoint": status_endpoint,
-        "stop_endpoint": str(data.get("stop_endpoint", "")),
+        "stop_endpoint": stop_endpoint,
         "pin": pin,
         "enqueued_at": time.time(),
         "status": "pending",

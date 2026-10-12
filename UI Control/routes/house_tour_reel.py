@@ -379,7 +379,10 @@ def run_pipeline():
     fixture_id = (data.get("fixture_id") or FIXTURE_ID).strip()
     if fixture_id != FIXTURE_ID:
         return jsonify({"status": "error", "error": f"Invalid fixture: {fixture_id}"}), 400
-    max_items = min(max(int(data.get("max_items", 1)), 1), 10)
+    try:
+        max_items = min(max(int(data.get("max_items", 1) or 1), 1), 10)  # clamp 1..10 to prevent oversized runs
+    except (TypeError, ValueError):
+        return jsonify({"error": "max_items must be an integer"}), 400
     fixture = get_fixture()
 
     with _STATE_LOCK:
