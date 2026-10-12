@@ -1,149 +1,245 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
-import { ThemeToggle } from '../ThemeToggle';
 import homecartelLogo from '@/assets/homecartel_logo.png';
+import loginRoom from '@/assets/login-room.jpg';
+
+export type AuthMode = 'accounts' | 'pin' | 'open';
+
+export interface AuthUser {
+  email: string;
+  role: string;
+}
+
+export interface LoginResult {
+  /** Set after an email + password login (server session cookie). */
+  user?: AuthUser;
+  /** Set after a PIN login (legacy mode, used until the first account exists). */
+  pin?: string;
+}
 
 interface LoginScreenProps {
-  onLoginSuccess: (pin: string) => void;
-  authRequired: boolean;
+  mode: AuthMode;
+  /** Show the "Sign Up" (request access) link. Off once the account limit is reached. */
+  canRequestAccess?: boolean;
+  onLoginSuccess: (result: LoginResult) => void;
   isLoadingConfig?: boolean;
 }
 
+const ADMIN_EMAIL = 'homecartelmarketingclaude@gmail.com';
+const REQUEST_ACCESS_HREF = `mailto:${ADMIN_EMAIL}?subject=${encodeURIComponent('HomeCartel Studio access request')}`;
+const RESET_HREF = `mailto:${ADMIN_EMAIL}?subject=${encodeURIComponent('HomeCartel Studio password reset')}`;
+
 export function LoginScreen({
+  mode,
+  canRequestAccess = false,
   onLoginSuccess,
-  authRequired,
   isLoadingConfig = false,
 }: LoginScreenProps) {
-  const [pin, setPin] = useState('');
-  const [showPin, setShowPin] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showReset, setShowReset] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const firstFieldRef = useRef<HTMLInputElement>(null);
+  const errorId = useId();
+  const resetId = useId();
+
+  const usesEmail = mode === 'accounts';
+  const usesPassword = mode !== 'open';
 
   useEffect(() => {
-    if (!isLoadingConfig && inputRef.current) {
-      inputRef.current.focus();
+    // Don't pop the on-screen keyboard on touch devices.
+    if (!isLoadingConfig && window.matchMedia('(pointer: fine)').matches) {
+      firstFieldRef.current?.focus();
     }
-  }, [isLoadingConfig]);
+  }, [isLoadingConfig, mode]);
 
-  const handleVerify = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const clearError = () => {
+    if (error) setError(null);
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError(null);
 
-    if (!authRequired) {
-      onLoginSuccess(pin.trim());
+    if (mode === 'open') {
+      onLoginSuccess({});
       return;
     }
 
-    const candidate = pin.trim();
-    if (!candidate) {
-      setError('Please enter your PIN');
-      inputRef.current?.focus();
-      return;
-    }
-
-    setIsVerifying(true);
-
+    setIsSubmitting(true);
     try {
-      const res = await fetch('/api/auth/verify', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ pin: candidate }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (res.ok && data.valid) {
-        onLoginSuccess(candidate);
+      if (mode === 'accounts') {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email.trim(), password }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.ok && data.user) {
+          onLoginSuccess({ user: data.user });
+        } else {
+          setError(data.error || 'Could not log in. Please try again.');
+          setPassword('');
+        }
       } else {
-        setError(data.error || 'Incorrect PIN. Please try again.');
-        inputRef.current?.select();
+        const candidate = password.trim();
+        const res = await fetch('/api/auth/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin: candidate }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.valid) {
+          onLoginSuccess({ pin: candidate });
+        } else {
+          setError(data.error || 'Incorrect PIN. Please try again.');
+          setPassword('');
+        }
       }
     } catch {
-      setError('Could not connect to server.');
+      setError('Could not connect to the server.');
     } finally {
-      setIsVerifying(false);
+      setIsSubmitting(false);
     }
   };
 
+  const passwordLabel = mode === 'pin' ? 'Studio PIN' : 'Password';
+
   return (
-    <div className="min-h-screen w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col justify-between items-center p-4">
-      {/* Top right theme toggle */}
-      <div className="w-full flex justify-end p-2">
-        <ThemeToggle />
-      </div>
-
-      {/* Clean Login Card */}
-      <div className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 sm:p-8 shadow-xs">
-        <div className="text-center mb-6">
-          <img
-            src={homecartelLogo}
-            alt="HomeCartel"
-            className="h-7 w-auto mx-auto mb-4 invert dark:invert-0 object-contain"
-          />
-          <h1 className="text-base font-semibold text-slate-900 dark:text-slate-100">
-            Marketing Studio
+    <main className="hc-login">
+      <div className="hc-login__card">
+        <section className="hc-login__panel" aria-labelledby="hc-login-title">
+          <img src={homecartelLogo} alt="HomeCartel" className="hc-login__logo" />
+          <h1 id="hc-login-title" className="hc-login__title">
+            Log In To Your Account
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            {authRequired ? 'Enter your PIN to continue' : 'Open access studio'}
+          <p className="hc-login__intro">
+            {mode === 'open'
+              ? 'This Studio is open access. Continue to start creating content.'
+              : 'Sign in to the Marketing Studio to run pipelines, check rows, and manage your content queue.'}
           </p>
-        </div>
 
-        <form onSubmit={handleVerify} className="space-y-4">
-          {authRequired ? (
-            <div className="space-y-1.5">
-              <label
-                htmlFor="pin"
-                className="block text-xs font-medium text-slate-700 dark:text-slate-300"
-              >
-                PIN
-              </label>
-              <div className="relative">
-                <input
-                  ref={inputRef}
-                  id="pin"
-                  type={showPin ? 'text' : 'password'}
-                  value={pin}
-                  onChange={(e) => {
-                    setPin(e.target.value);
-                    if (error) setError(null);
-                  }}
-                  placeholder="Enter PIN"
-                  disabled={isVerifying}
-                  className="w-full px-3 py-2 pr-9 text-sm border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-300 font-mono"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPin(!showPin)}
-                  tabIndex={-1}
-                  className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                >
-                  {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+          {isLoadingConfig ? (
+            <div className="hc-login__skeleton" role="status" aria-label="Loading" />
+          ) : (
+            <form onSubmit={handleSubmit} aria-describedby={error ? errorId : undefined}>
+              {usesEmail && (
+                <div className="hc-login__field">
+                  <label htmlFor="email" className="hc-login__label">
+                    Email <span aria-hidden="true">*</span>
+                  </label>
+                  <input
+                    ref={firstFieldRef}
+                    id="email"
+                    name="email"
+                    type="email"
+                    autoComplete="username"
+                    spellCheck={false}
+                    enterKeyHint="next"
+                    required
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      clearError();
+                    }}
+                    placeholder="you@homecartel.net"
+                    disabled={isSubmitting}
+                    aria-invalid={error ? true : undefined}
+                    className="hc-login__input"
+                  />
+                </div>
+              )}
+
+              {usesPassword && (
+                <div className="hc-login__field">
+                  <label htmlFor="current-password" className="hc-login__label">
+                    {passwordLabel} <span aria-hidden="true">*</span>
+                  </label>
+                  <div className="hc-login__input-wrap">
+                    <input
+                      ref={usesEmail ? undefined : firstFieldRef}
+                      id="current-password"
+                      name={mode === 'pin' ? 'pin' : 'password'}
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete={mode === 'pin' ? 'off' : 'current-password'}
+                      inputMode={mode === 'pin' ? 'numeric' : undefined}
+                      spellCheck={false}
+                      enterKeyHint="done"
+                      required
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        clearError();
+                      }}
+                      placeholder={mode === 'pin' ? 'Enter your PIN' : 'Enter your password'}
+                      disabled={isSubmitting}
+                      aria-invalid={error ? true : undefined}
+                      className="hc-login__input hc-login__input--with-toggle"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      aria-label={showPassword ? `Hide ${passwordLabel.toLowerCase()}` : `Show ${passwordLabel.toLowerCase()}`}
+                      aria-pressed={showPassword}
+                      className="hc-login__toggle"
+                    >
+                      {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {mode === 'accounts' && (
+                <>
+                  <button
+                    type="button"
+                    className="hc-login__link"
+                    aria-expanded={showReset}
+                    aria-controls={resetId}
+                    onClick={() => setShowReset((v) => !v)}
+                  >
+                    Forgot Password
+                  </button>
+                  <div id={resetId} hidden={!showReset}>
+                    <p className="hc-login__notice">
+                      Passwords are reset by your Studio admin.{' '}
+                      <a className="hc-login__link" href={RESET_HREF}>
+                        Email {ADMIN_EMAIL}
+                      </a>{' '}
+                      and we'll set a new one.
+                    </p>
+                  </div>
+                </>
+              )}
+
+              <div id={errorId} role="alert">
+                {error && <p className="hc-login__error">{error}</p>}
               </div>
-            </div>
-          ) : null}
 
-          {error && (
-            <div className="p-2.5 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-xs text-red-600 dark:text-red-400">
-              {error}
-            </div>
+              <button type="submit" disabled={isSubmitting} className="hc-login__submit">
+                {isSubmitting ? 'Logging in…' : mode === 'open' ? 'Continue' : 'Log In'}
+              </button>
+
+              {mode === 'accounts' && canRequestAccess && (
+                <p className="hc-login__foot">
+                  Don't have an account?{' '}
+                  <a className="hc-login__link" href={REQUEST_ACCESS_HREF}>
+                    Sign Up
+                  </a>
+                </p>
+              )}
+            </form>
           )}
+        </section>
 
-          <button
-            type="submit"
-            disabled={isVerifying || isLoadingConfig}
-            className="w-full mt-2 py-2 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
-          >
-            {isVerifying ? 'Signing in...' : authRequired ? 'Sign in' : 'Continue'}
-          </button>
-        </form>
+        <div
+          className="hc-login__photo"
+          role="presentation"
+          style={{ backgroundImage: `url(${loginRoom})` }}
+        />
       </div>
-
-      {/* Clean bottom spacer */}
-      <div />
-    </div>
+    </main>
   );
 }

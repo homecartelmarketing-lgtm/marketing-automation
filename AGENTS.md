@@ -125,7 +125,9 @@ marketing-automation/
 │   │   ├── queue_manager.py                 # In-memory FIFO job queue (/api/queue/*) — see §3
 │   │   ├── calendar.py                      # Content Calendar XLSX import (/api/calendar/preview|enqueue) — RunCenter button
 │   │   ├── rows.py                          # Row Inspector & Airtable deep links (/api/rows)
-│   │   └── common.py                        # PIN verification, config overrides, helpers
+│   │   ├── studio_auth.py                   # Email + password login (cookie session), /api/auth/login|logout|me;
+│   │   │                                    #   accounts managed by scripts/ops/manage_studio_users.py
+│   │   └── common.py                        # is_authorized (session | internal token | PIN), config overrides, helpers
 │   ├── src/                                 # React + TypeScript Vite frontend
 │   │   ├── app/App.tsx                      # Dashboard shell (composes the hooks below; no per-pipeline wiring)
 │   │   ├── app/constants/                   # fixtures.ts (*_FIXTURES + subtab switch), pipelines.ts (PipelineConfig per pipeline)
@@ -161,7 +163,7 @@ Three execution patterns coexist. **Web Studio always uses Pattern A.**
 
 Tracing CTA Story end-to-end (every Story/Feed/Reel route follows this same shape):
 
-1. Frontend `POST`s to `/api/cta/run` (`UI Control/routes/cta_story.py`). The optional Studio PIN (`DASHBOARD_PIN`) is verified first.
+1. Frontend `POST`s to `/api/cta/run` (`UI Control/routes/cta_story.py`). Studio auth (`routes/common.py::is_authorized`: login session cookie, internal token, or the optional `DASHBOARD_PIN`) is verified first.
 2. The route spawns the generator as a **subprocess**:
    `subprocess.Popen([sys.executable, "-u", "generate_cta_story_pipeline.py", "--table-id", T, "--max-items", N, "--mode", "all", "--moodboard-id", M, "--prompt", P])`
 3. Child-process stdout streams into the route's in-memory `STATE["logs"]` (capped at 1000 lines); `detect_phase()` maps log lines to the current phase for the UI progress display.
@@ -316,7 +318,7 @@ One Studio run (and `python generate_banner_set_pipeline.py`) scrapes 10 fresh p
 ### Sale Banner Pipeline (1 Pipeline, 1800x600)
 1. **Sale Banner** ([`docs/banners/SALE_BANNER.md`](docs/banners/SALE_BANNER.md), shares table `tblgNk1Tp6qKUcduw` with the Christmas banner, rows told apart by `Category = Sale Banner`) — second sub-tab of the Studio **Banner** tab (`generate_sale_banner_pipeline.py`, `UI Control/routes/sale_banner.py`). 6 phases: 3 pendant lights from Akeneo (1 for the dining room, 2 for the kitchen island) → Krea 4:5 modern Christmas dining room (left) and kitchen (right) → Claude blending prompt per room → Nano Banana Pro 4:5 blend per room → percentages and captions (dates with the year) from the promotions calendar (`content_automation/promo_calendar.py`, `assets/calendar_config.json`) plus a panel hex colour suggested by Claude from the two blends (`Sale Panel Color`) → **local Pillow** composite (interiors either side of the coloured panel, Poppins text fitted to the Canva sample). Shared helpers live in `content_automation/banner_common.py`.
 
-Studio moodboard/prompt pencils, persistent config keys, and completed count behavior are mapped in [`docs/UI_CONTROL_CONFIG.md`](docs/UI_CONTROL_CONFIG.md). Use the `C` badge alone for completed totals; `P` includes posted, pending, and processing rows. The optional Studio PIN is `DASHBOARD_PIN`.
+Studio moodboard/prompt pencils, persistent config keys, and completed count behavior are mapped in [`docs/UI_CONTROL_CONFIG.md`](docs/UI_CONTROL_CONFIG.md). Use the `C` badge alone for completed totals; `P` includes posted, pending, and processing rows. Studio login is email + password (accounts via `python scripts/ops/manage_studio_users.py`, see `UI Control/README.md`); the optional legacy PIN is `DASHBOARD_PIN`.
 
 ---
 

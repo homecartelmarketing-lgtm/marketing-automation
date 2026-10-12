@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Toaster } from './components/ui/sonner';
 import { ThemeToggle } from './components/ThemeToggle';
-import { RefreshCw, Key, Check } from 'lucide-react';
+import { RefreshCw, Key, Check, LogOut } from 'lucide-react';
 import { FormatTabs, TabType } from './components/planning/FormatTabs';
 import { SubTabRail } from './components/planning/SubTabRail';
 import { FixtureProgressGrid } from './components/planning/FixtureProgressGrid';
@@ -12,6 +12,7 @@ import { RowInspectorModal } from './components/planning/RowInspectorModal';
 import { RunCenter } from './components/planning/RunCenter';
 import { EditMoodboardModal, EditPromptModal, StudioPinModal } from './components/modals';
 import { LoginScreen } from './components/auth';
+import type { AuthMode, AuthUser, LoginResult } from './components/auth';
 import { CONTENT_CONFIG, getFixturesForSubtab } from './constants/fixtures';
 import { getPipelineConfig, getPipelineByType, getPipelineHeaderTitle } from './constants/pipelines';
 import { usePipelineData, useQueue, usePipelineRunner } from './hooks';
@@ -22,85 +23,103 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('story');
   const [activeSubTab, setActiveSubTab] = useState<number>(0);
 
-  // Studio Authentication & PIN management
-  const [authRequired, setAuthRequired] = useState<boolean>(true);
+  // Studio authentication. 'accounts' = email + password with a server session cookie
+  // (nothing secret is kept in the browser); 'pin' = legacy shared PIN, used until the
+  // first account exists; 'open' = no login configured.
+  const [authMode, setAuthMode] = useState<AuthMode>('accounts');
   const [isLoadingAuthConfig, setIsLoadingAuthConfig] = useState<boolean>(true);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [canRequestAccess, setCanRequestAccess] = useState<boolean>(false);
   const [studioPin, setStudioPin] = useState<string>(
     () => sessionStorage.getItem('hc_studio_pin') || ''
   );
   const [showPinModal, setShowPinModal] = useState<boolean>(false);
   const [pinInput, setPinInput] = useState<string>('');
 
-  // Initial authentication check: Directs to login screen on visiting the Control UI
-  useEffect(() => {
-    let isMounted = true;
-    async function checkAuth() {
-      try {
-        // Clear any old permanent localStorage PIN so every fresh visit asks for login
-        localStorage.removeItem('hc_studio_pin');
+  // Ask the server who we are. Runs on load, when the tab regains focus and every 5
+  // minutes, so an expired session returns to the login screen instead of failing mid-run.
+  const checkAuth = useCallback(async (isInitial: boolean) => {
+    try {
+      // Clear any old permanent localStorage PIN so every fresh visit asks for login
+      localStorage.removeItem('hc_studio_pin');
 
-        const res = await fetch('/api/auth/config');
-        const data = await res.json().catch(() => ({}));
-        const required = Boolean(data.auth_required);
-        if (!isMounted) return;
-        setAuthRequired(required);
+      const res = await fetch('/api/auth/me', { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      const mode: AuthMode = data.mode === 'accounts' || data.mode === 'pin' ? data.mode : 'open';
+      setAuthMode(mode);
+      setCanRequestAccess(data.can_request_access === true);
 
+      if (mode === 'open') {
+        setAuthUser(null);
+        setIsAuthenticated(true);
+      } else if (mode === 'accounts') {
+        sessionStorage.removeItem('hc_studio_pin');
+        setStudioPin('');
+        setAuthUser(data.user ?? null);
+        setIsAuthenticated(Boolean(data.authenticated));
+      } else if (isInitial) {
         const sessionPin = sessionStorage.getItem('hc_studio_pin') || '';
-
-        if (required) {
-          if (sessionPin) {
-            const verifyRes = await fetch('/api/auth/verify', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ pin: sessionPin }),
-            });
-            const verifyData = await verifyRes.json().catch(() => ({}));
-            if (!isMounted) return;
-            if (verifyRes.ok && verifyData.valid) {
-              setStudioPin(sessionPin);
-              setIsAuthenticated(true);
-            } else {
-              sessionStorage.removeItem('hc_studio_pin');
-              setStudioPin('');
-              setIsAuthenticated(false);
-            }
-          } else {
-            // Direct to login screen first
-            setIsAuthenticated(false);
-          }
-        } else {
-          // Open access
-          setIsAuthenticated(true);
+        let valid = false;
+        if (sessionPin) {
+          const verifyRes = await fetch('/api/auth/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pin: sessionPin }),
+          });
+          const verifyData = await verifyRes.json().catch(() => ({}));
+          valid = verifyRes.ok && Boolean(verifyData.valid);
         }
-      } catch {
-        setIsAuthenticated(false);
-      } finally {
-        if (isMounted) {
-          setIsLoadingAuthConfig(false);
-        }
+        if (!valid) sessionStorage.removeItem('hc_studio_pin');
+        setStudioPin(valid ? sessionPin : '');
+        setIsAuthenticated(valid);
       }
+    } catch {
+      // A network blip must not log someone out mid-session; only the first load decides.
+      if (isInitial) setIsAuthenticated(false);
+    } finally {
+      if (isInitial) setIsLoadingAuthConfig(false);
     }
-
-    checkAuth();
-    return () => {
-      isMounted = false;
-    };
   }, []);
 
-  const handleLoginSuccess = useCallback((pin: string) => {
-    sessionStorage.setItem('hc_studio_pin', pin);
+  useEffect(() => {
+    checkAuth(true);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') checkAuth(false);
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    const timer = window.setInterval(() => checkAuth(false), 5 * 60 * 1000);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.clearInterval(timer);
+    };
+  }, [checkAuth]);
+
+  const handleLoginSuccess = useCallback((result: LoginResult) => {
     localStorage.removeItem('hc_studio_pin');
-    setStudioPin(pin);
+    if (result.pin) {
+      sessionStorage.setItem('hc_studio_pin', result.pin);
+      setStudioPin(result.pin);
+    } else {
+      sessionStorage.removeItem('hc_studio_pin');
+      setStudioPin('');
+    }
+    setAuthUser(result.user ?? null);
     setIsAuthenticated(true);
   }, []);
 
-  const handleLockStudio = useCallback(() => {
+  const handleLockStudio = useCallback(async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // Offline: still drop the local state below.
+    }
     localStorage.removeItem('hc_studio_pin');
     sessionStorage.removeItem('hc_studio_pin');
     setStudioPin('');
+    setAuthUser(null);
     setIsAuthenticated(false);
-    toast.info('Studio session locked');
+    toast.info('Signed out');
   }, []);
 
   // Row Inspector Modal state
@@ -141,7 +160,20 @@ export default function App() {
   }, [fetchLiveCounts]);
 
   // 2. Runner hook: enqueue / stop controls (status comes from the queue poller below)
-  const handleRequirePin = useCallback(() => setShowPinModal(true), []);
+  // A 401 means the session expired (accounts) or the PIN is missing/wrong (pin mode).
+  const handleRequirePin = useCallback(
+    (action?: string) => {
+      if (authMode === 'accounts') {
+        setIsAuthenticated(false);
+        setAuthUser(null);
+        toast.error(`Your session expired. Log in again${action ? ` to ${action}` : ''}.`);
+      } else {
+        setShowPinModal(true);
+        if (action) toast.error(`Studio PIN required to ${action}`);
+      }
+    },
+    [authMode]
+  );
 
   const {
     pipelineState,
@@ -453,8 +485,7 @@ export default function App() {
         });
         const data = await res.json();
         if (res.status === 401 || data.needs_pin) {
-          setShowPinModal(true);
-          toast.error('Studio PIN required to update Moodboard IDs');
+          handleRequirePin('update Moodboard IDs');
           return;
         }
         if (res.ok) {
@@ -494,8 +525,7 @@ export default function App() {
       });
       const data = await res.json();
       if (res.status === 401 || data.needs_pin) {
-        setShowPinModal(true);
-        toast.error('Studio PIN required to update Moodboard ID');
+        handleRequirePin('update the Moodboard ID');
         return;
       }
       if (res.ok) {
@@ -552,8 +582,7 @@ export default function App() {
         });
         const data = await res.json();
         if (res.status === 401 || data.needs_pin) {
-          setShowPinModal(true);
-          toast.error('Studio PIN required to update Prompts');
+          handleRequirePin('update Prompts');
           return;
         }
         if (res.ok) {
@@ -593,8 +622,7 @@ export default function App() {
       });
       const data = await res.json();
       if (res.status === 401 || data.needs_pin) {
-        setShowPinModal(true);
-        toast.error('Studio PIN required to update Prompt');
+        handleRequirePin('update the Prompt');
         return;
       }
       if (res.ok) {
@@ -620,8 +648,9 @@ export default function App() {
       <>
         <Toaster position="top-right" richColors />
         <LoginScreen
+          mode={authMode}
+          canRequestAccess={canRequestAccess}
           onLoginSuccess={handleLoginSuccess}
-          authRequired={authRequired}
           isLoadingConfig={isLoadingAuthConfig}
         />
       </>
@@ -653,21 +682,42 @@ export default function App() {
               <RefreshCw className={`w-3.5 h-3.5 ${isLoadingCounts ? 'animate-spin text-sky-600' : ''}`} />
               <span>Sync Airtable</span>
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setPinInput(studioPin);
-                setShowPinModal(true);
-              }}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition shadow-xs cursor-pointer ${
-                studioPin
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
-                  : 'bg-card text-slate-700 border-slate-300 hover:bg-slate-50'
-              }`}
-            >
-              <Key className="w-3.5 h-3.5" />
-              <span>{studioPin ? 'PIN Active' : 'Set PIN'}</span>
-            </button>
+            {authMode === 'accounts' ? (
+              <div className="inline-flex items-center gap-2">
+                {authUser && (
+                  <span
+                    className="hidden sm:inline max-w-[14rem] truncate text-xs text-slate-500 dark:text-slate-400"
+                    title={authUser.email}
+                  >
+                    {authUser.email}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={handleLockStudio}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-card border border-slate-300 rounded-lg hover:bg-slate-50 active:bg-slate-100 transition shadow-xs cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sign out</span>
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setPinInput(studioPin);
+                  setShowPinModal(true);
+                }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition shadow-xs cursor-pointer ${
+                  studioPin
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+                    : 'bg-card text-slate-700 border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                <Key className="w-3.5 h-3.5" />
+                <span>{studioPin ? 'PIN Active' : 'Set PIN'}</span>
+              </button>
+            )}
 
           </div>
         </div>

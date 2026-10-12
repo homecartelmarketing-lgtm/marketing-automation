@@ -35,7 +35,7 @@ if str(MARKETING_DIR) not in sys.path:
 if str(CURRENT_DIR) not in sys.path:
     sys.path.insert(0, str(CURRENT_DIR))
 
-from routes.common import DASHBOARD_PIN, is_authorized
+from routes.common import DASHBOARD_PIN, internal_auth_headers, is_authorized
 
 queue_bp = Blueprint("queue", __name__, url_prefix="/api/queue")
 
@@ -96,6 +96,7 @@ def _dispatch_job_run(job: dict[str, Any]) -> tuple[bool, str]:
 
     headers = {
         "Content-Type": "application/json",
+        **internal_auth_headers(),
     }
     pin = job.get("pin", "")
     if pin:
@@ -144,7 +145,7 @@ def _dispatch_job_stop(job: dict[str, Any]) -> tuple[bool, str]:
         return False, "No stop_endpoint specified"
 
     url = f"http://127.0.0.1:{port}{endpoint}"
-    headers = {"Content-Type": "application/json"}
+    headers = {"Content-Type": "application/json", **internal_auth_headers()}
     pin = job.get("pin", "")
     if pin:
         headers["Authorization"] = f"Bearer {pin}"

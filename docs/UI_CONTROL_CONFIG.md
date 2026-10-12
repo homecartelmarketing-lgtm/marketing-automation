@@ -43,3 +43,21 @@ The 1 Product, 3 Styles Reel uses the chandelier table configured by `AIRTABLE_T
 ### RunCenter utilities (no pencils)
 
 The **Calendar** import button in `RunCenter.tsx` (`components/planning/CalendarImportModal.tsx`, blueprint `routes/calendar.py`) has no moodboard/prompt settings — it uploads a Content Calendar workbook and enqueues `TO DO` slots via `POST /api/calendar/preview` + `POST /api/calendar/enqueue` into the queue above. Fixture pointer: `output/calendar_fixture_state.json` (gitignored). Idea→pipeline map: `assets/calendar_pipeline_map.json`.
+
+## Studio login (email + password)
+
+Not a Studio-editable setting: accounts and the session are configured through `.env` and the CLI.
+
+| Key / tool | Purpose |
+| :--- | :--- |
+| `python scripts/ops/manage_studio_users.py add\|list\|set-password\|remove` | Create and manage accounts (admin-managed; "Sign Up" and "Forgot Password" on the login screen email the admin) |
+| `STUDIO_USERS_PATH` | Accounts file, default `output/studio_users.json` |
+| `STUDIO_ADMIN_EMAIL` / `STUDIO_ADMIN_PASSWORD` | Optional env-seeded admin that survives a wiped disk |
+| `STUDIO_ADMIN_PASSWORD_HASH` | Hash of the admin password (print with `manage_studio_users.py env <email>`); use instead of the plaintext `STUDIO_ADMIN_PASSWORD` on Railway |
+| `STUDIO_ADMIN2_EMAIL` / `STUDIO_ADMIN2_PASSWORD_HASH` | Optional second env-seeded account (`manage_studio_users.py env <email> --second`); also set `STUDIO_MAX_ACCOUNTS=2` |
+| `STUDIO_SECRET_KEY` | Cookie signing key (auto-generated into `output/.studio_secret_key` when empty) |
+| `STUDIO_MAX_ACCOUNTS` | Account limit, default `1` (one shared team login). The env-seeded admin counts toward it |
+| `STUDIO_SESSION_HOURS`, `STUDIO_COOKIE_SECURE` | Session length (default 12) and the `Secure` cookie flag (set to `1` over HTTPS) |
+| `DASHBOARD_PIN` | Legacy shared PIN. Single-field login until the first account exists; afterwards only for scripts |
+
+Details: `UI Control/README.md` (Security & Access Control) and `docs/memory/decisions/2026-10-12-studio-email-password-login.md`.
