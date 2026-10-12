@@ -142,6 +142,17 @@ class StudioAuthTests(unittest.TestCase):
             self.assertEqual(self._login(email="owner@homecartel.net").status_code, 200)
             self.assertEqual(self._login(email="owner@homecartel.net", password="wrong password").status_code, 401)
 
+    def test_two_env_seeded_accounts(self):
+        env = {
+            "STUDIO_ADMIN_EMAIL": "one@homecartel.net", "STUDIO_ADMIN_PASSWORD": PASSWORD,
+            "STUDIO_ADMIN2_EMAIL": "two@homecartel.net", "STUDIO_ADMIN2_PASSWORD": "second account pw",
+        }
+        with patch.dict(os.environ, env):
+            self.assertEqual(self._login(email="one@homecartel.net").status_code, 200)
+            self.client.post("/api/auth/logout")
+            self.assertEqual(self._login(email="two@homecartel.net", password="second account pw").status_code, 200)
+            self.assertEqual(len(self.auth.load_users()), 2)
+
     def test_malformed_password_hash_does_not_crash_login(self):
         env = {"STUDIO_ADMIN_EMAIL": "owner@homecartel.net", "STUDIO_ADMIN_PASSWORD_HASH": "not-a-hash"}
         with patch.dict(os.environ, env):

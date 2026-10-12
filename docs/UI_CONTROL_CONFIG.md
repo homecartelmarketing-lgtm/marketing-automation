@@ -54,6 +54,7 @@ Not a Studio-editable setting: accounts and the session are configured through `
 | `STUDIO_USERS_PATH` | Accounts file, default `output/studio_users.json` |
 | `STUDIO_ADMIN_EMAIL` / `STUDIO_ADMIN_PASSWORD` | Optional env-seeded admin that survives a wiped disk |
 | `STUDIO_ADMIN_PASSWORD_HASH` | Hash of the admin password (print with `manage_studio_users.py env <email>`); use instead of the plaintext `STUDIO_ADMIN_PASSWORD` on Railway |
+| `STUDIO_ADMIN2_EMAIL` / `STUDIO_ADMIN2_PASSWORD_HASH` | Optional second env-seeded account (`manage_studio_users.py env <email> --second`); also set `STUDIO_MAX_ACCOUNTS=2` |
 | `STUDIO_SECRET_KEY` | Cookie signing key (auto-generated into `output/.studio_secret_key` when empty) |
 | `STUDIO_MAX_ACCOUNTS` | Account limit, default `1` (one shared team login). The env-seeded admin counts toward it |
 | `STUDIO_SESSION_HOURS`, `STUDIO_COOKIE_SECURE` | Session length (default 12) and the `Secure` cookie flag (set to `1` over HTTPS) |

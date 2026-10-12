@@ -40,6 +40,7 @@ _SESSION_KEY = "studio_user"
 
 _USERS_LOCK = threading.Lock()
 _SEED_CACHE: dict[str, Any] = {}
+_SEED_PREFIXES = ("STUDIO_ADMIN", "STUDIO_ADMIN2")
 # Checked for unknown emails so a miss takes as long as a wrong password.
 _DUMMY_HASH = generate_password_hash(secrets.token_urlsafe(16))
 
@@ -71,33 +72,38 @@ def _read_file_users() -> dict[str, dict[str, Any]]:
     return result
 
 
-def _seed_user() -> dict[str, Any] | None:
-    """Env-provided admin. STUDIO_ADMIN_PASSWORD_HASH (from `manage_studio_users.py env`) keeps
-    the plaintext password out of Railway; STUDIO_ADMIN_PASSWORD is the simpler alternative."""
-    email = normalize_email(os.getenv("STUDIO_ADMIN_EMAIL"))
-    password = os.getenv("STUDIO_ADMIN_PASSWORD", "")
-    password_hash = os.getenv("STUDIO_ADMIN_PASSWORD_HASH", "").strip()
-    if not email or not (password or password_hash):
-        return None
-    key = f"{email}\0{password}\0{password_hash}"
-    if _SEED_CACHE.get("key") != key:
-        _SEED_CACHE["key"] = key
-        _SEED_CACHE["record"] = {
-            "email": email,
-            "password_hash": password_hash or generate_password_hash(password),
-            "role": "admin",
-            "seeded": True,
-        }
-    return _SEED_CACHE["record"]
+def _seed_users() -> list[dict[str, Any]]:
+    """Env-provided accounts (STUDIO_ADMIN_* and STUDIO_ADMIN2_*) for hosts with no persistent disk.
+
+    Each takes STUDIO_*_PASSWORD_HASH (from `manage_studio_users.py env`, keeps the plaintext
+    password out of Railway) or the simpler STUDIO_*_PASSWORD."""
+    seeds = []
+    for prefix in _SEED_PREFIXES:
+        email = normalize_email(os.getenv(f"{prefix}_EMAIL"))
+        password = os.getenv(f"{prefix}_PASSWORD", "")
+        password_hash = os.getenv(f"{prefix}_PASSWORD_HASH", "").strip()
+        if not email or not (password or password_hash):
+            continue
+        key = (email, password, password_hash)
+        cached = _SEED_CACHE.get(prefix)
+        if cached is None or cached[0] != key:
+            record = {
+                "email": email,
+                "password_hash": password_hash or generate_password_hash(password),
+                "role": "admin",
+                "seeded": True,
+            }
+            _SEED_CACHE[prefix] = (key, record)
+        seeds.append(_SEED_CACHE[prefix][1])
+    return seeds
 
 
 def load_users() -> dict[str, dict[str, Any]]:
     """All accounts keyed by lower-cased email (file users, plus the env-seeded admin)."""
     with _USERS_LOCK:
         users = _read_file_users()
-    seed = _seed_user()
-    if seed and seed["email"] not in users:
-        users[seed["email"]] = seed
+    for seed in _seed_users():
+        users.setdefault(seed["email"], seed)
     return users
 
 

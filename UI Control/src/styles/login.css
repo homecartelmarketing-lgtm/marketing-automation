@@ -61,7 +61,7 @@
   min-height: 120px;
   background-color: var(--hc-green);
   background-size: cover;
-  background-position: 62% 60%;
+  background-position: 50% 35%;
 }
 
 @media (min-width: 768px) {
