@@ -45,7 +45,9 @@ DEFAULT_SHOPIFY_DOMAIN = (
     or os.getenv("SHOPIFY_DOMAIN", "").strip()
     or "homecartel.net"
 )
-SHOPIFY_CACHE_FILE = Path("output/cache/shopify_catalog_cache.json")
+PRIMARY_CACHE_FILE = Path("output/cache/shopify_catalog_cache.json")
+BUNDLED_CACHE_FILE = Path("assets/cache/shopify_catalog_cache.json")
+SHOPIFY_CACHE_FILE = PRIMARY_CACHE_FILE
 
 
 def normalize_shopify_text(text: object) -> str:
@@ -109,7 +111,13 @@ class ShopifyClient:
     ):
         clean_domain = domain.replace("https://", "").replace("http://", "").strip().rstrip("/")
         self.domain = clean_domain or "homecartel.net"
-        self.access_token = access_token or os.getenv("SHOPIFY_ACCESS_TOKEN", "").strip() or None
+        self.access_token = (
+            access_token
+            or os.getenv("SHOPIFY_ACCESS_TOKEN", "").strip()
+            or os.getenv("SHOPIFY_ADMIN_ACCESS_TOKEN", "").strip()
+            or None
+        )
+        self._cf_challenge_encountered = False
         if session is not None:
             self.session = session
         elif HAS_CURL_CFFI:
@@ -163,6 +171,7 @@ class ShopifyClient:
                     )
                 )
                 if is_cf_challenge:
+                    self._cf_challenge_encountered = True
                     print(
                         f"[WARN] Cloudflare bot challenge encountered on page {page_num} "
                         f"(HTTP {resp.status_code}, Cf-Mitigated: challenge). "
@@ -288,13 +297,21 @@ class ShopifyClient:
                     consecutive_empty = 0
                     products.extend(items)
 
+            if self._cf_challenge_encountered:
+                print(
+                    "[WARN] Cloudflare bot challenge encountered during storefront crawl. "
+                    "Aborting live crawl early to rely on catalog cache.",
+                    flush=True,
+                )
+                break
+
             if hit_end or len(page_numbers) < batch_size:
                 break
             current_page = batch_end
             time.sleep(1.0)  # Gentle 1.0s pause between batches
 
-        # Sequential single-threaded retry pass for failed pages
-        if failed_page_numbers:
+        # Sequential single-threaded retry pass for failed pages (skip if Cloudflare challenge was tripped)
+        if failed_page_numbers and not self._cf_challenge_encountered:
             print(
                 f"[INFO] Sequentially retrying {len(failed_page_numbers)} failed page(s): {sorted(failed_page_numbers)}...",
                 flush=True,
@@ -307,8 +324,10 @@ class ShopifyClient:
                         products.extend(items)
                     print(f"[OK] Sequential retry succeeded for page {p} ({len(items)} items).", flush=True)
                 else:
-                    print(f"[ERROR] Page {p} permanently failed after sequential retry.", flush=True)
+                    print(f"[WARN] Page {p} permanently failed after sequential retry; skipped.", flush=True)
                     failed_pages.append(p)
+        elif failed_page_numbers:
+            failed_pages.extend(sorted(failed_page_numbers))
 
         return products, sorted(failed_pages)
 
@@ -318,6 +337,7 @@ class ShopifyClient:
         Applies a configurable TTL cache policy (default 24 hours). If cache is fresh, loads from disk.
         If cache is expired, fetches live from Shopify and updates cache.
         Protects against partial cache truncation and catalog shrinkage.
+        Falls back to bundled cache (assets/cache/shopify_catalog_cache.json) on cold start or crawl failure.
         """
         ttl_hours = float(os.getenv("SHOPIFY_CACHE_TTL_HOURS", "24"))
         CACHE_MAX_AGE_SECONDS = ttl_hours * 3600
@@ -325,28 +345,37 @@ class ShopifyClient:
         if self._cached_index is not None and not force_refresh:
             return self._cached_index
 
-        cache_is_fresh = False
-        cached_skus_count = 0
-        if SHOPIFY_CACHE_FILE.is_file():
+        # 1. Try loading from disk or bundled cache first if not forced
+        target_file = None
+        if PRIMARY_CACHE_FILE.is_file():
             try:
-                age = time.time() - SHOPIFY_CACHE_FILE.stat().st_mtime
+                age = time.time() - PRIMARY_CACHE_FILE.stat().st_mtime
                 if age < CACHE_MAX_AGE_SECONDS:
-                    cache_is_fresh = True
+                    target_file = PRIMARY_CACHE_FILE
             except Exception:
                 pass
 
-        # 1. Try loading from disk cache first if not forced and cache is still fresh
-        if not force_refresh and cache_is_fresh:
+        if target_file is None:
+            if BUNDLED_CACHE_FILE.is_file():
+                target_file = BUNDLED_CACHE_FILE
+            elif PRIMARY_CACHE_FILE.is_file():
+                target_file = PRIMARY_CACHE_FILE
+
+        if not force_refresh and target_file is not None:
             try:
-                data = json.loads(SHOPIFY_CACHE_FILE.read_text(encoding="utf-8"))
+                data = json.loads(target_file.read_text(encoding="utf-8"))
                 skus = {normalize_shopify_text(s) for s in data.get("skus", []) if len(normalize_shopify_text(s)) >= 3}
                 titles = set(data.get("titles", []))
                 handles = set(data.get("handles", []))
                 if skus or titles:
                     self._cached_index = ShopifyCatalogIndex(skus=skus, titles=titles, handles=handles)
+                    source_label = "bundled" if target_file == BUNDLED_CACHE_FILE else (
+                        f"fresh, <{ttl_hours:g}h old" if target_file == PRIMARY_CACHE_FILE else "existing disk"
+                    )
                     print(
-                        f"[OK] Shopify Index loaded from cache (fresh, <{ttl_hours:g}h old): "
-                        f"{len(skus)} SKUs, and {len(titles)} titles indexed ({SHOPIFY_CACHE_FILE.name})."
+                        f"[OK] Shopify Index loaded from {source_label} cache: "
+                        f"{len(skus)} SKUs, and {len(titles)} titles indexed ({target_file.name}).",
+                        flush=True,
                     )
                     return self._cached_index
             except Exception:
@@ -391,9 +420,11 @@ class ShopifyClient:
 
         # Check existing disk cache content for fallback or shrinkage guard
         cached_data = None
-        if SHOPIFY_CACHE_FILE.is_file():
+        active_cache_source = PRIMARY_CACHE_FILE if PRIMARY_CACHE_FILE.is_file() else (BUNDLED_CACHE_FILE if BUNDLED_CACHE_FILE.is_file() else None)
+        cached_skus_count = 0
+        if active_cache_source and active_cache_source.is_file():
             try:
-                cached_data = json.loads(SHOPIFY_CACHE_FILE.read_text(encoding="utf-8"))
+                cached_data = json.loads(active_cache_source.read_text(encoding="utf-8"))
                 cached_skus_count = len(cached_data.get("skus", []))
             except Exception:
                 pass
@@ -411,9 +442,10 @@ class ShopifyClient:
                 cached_handles = set(cached_data.get("handles", []))
                 if cached_skus or cached_titles:
                     self._cached_index = ShopifyCatalogIndex(skus=cached_skus, titles=cached_titles, handles=cached_handles)
+                    src_label = active_cache_source.name if active_cache_source else "disk"
                     print(
-                        f"[OK] Fallback to existing disk cache successful: "
-                        f"{len(cached_skus)} SKUs, {len(cached_titles)} titles ({SHOPIFY_CACHE_FILE.name})."
+                        f"[OK] Fallback to existing {src_label} cache successful: "
+                        f"{len(cached_skus)} SKUs, {len(cached_titles)} titles."
                     )
                     return self._cached_index
 
