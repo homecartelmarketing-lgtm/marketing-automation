@@ -590,6 +590,7 @@ def phase5_blend(clients: Clients, record_id: str, fields: dict[str, Any]) -> bo
             )
             if blended_url:
                 clients.airtable.upload_attachment_url(record_id, BLENDED_FIELDS[slot], blended_url, f"blended_{slot}.jpg")
+                fields[BLENDED_FIELDS[slot]] = [{"url": blended_url}]
                 print(f"    [OK] Slot {slot} blended.")
         except Exception as err:
             print(f"    [ERROR] Blending failed for slot {slot}: {err}")
@@ -608,6 +609,10 @@ def phase5_blend(clients: Clients, record_id: str, fields: dict[str, Any]) -> bo
 
 def phase6_motion(clients: Clients, record_id: str, fields: dict[str, Any], use_kling: bool = True) -> bool:
     print("[PHASE 6/8] Generating motion clips for 7 night shots...")
+    # Refresh fields from Airtable to ensure all uploaded attachments are present
+    rec = clients.airtable.record(record_id)
+    fields.update(rec.get("fields", {}))
+
     fal = clients.fal()
     updates: dict[str, Any] = {}
 
@@ -632,6 +637,7 @@ def phase6_motion(clients: Clients, record_id: str, fields: dict[str, Any], use_
                 )
                 if vid_url:
                     clients.airtable.upload_attachment_url(record_id, KLING_FIELDS[slot], vid_url, f"motion_clip_{slot}.mp4")
+                    fields[KLING_FIELDS[slot]] = [{"url": vid_url}]
                     print(f"    [OK] Slot {slot} Kling motion clip attached.")
             except Exception as err:
                 print(f"    [WARN] Kling failed for slot {slot}: {err}")
@@ -686,6 +692,10 @@ def phase7_music(clients: Clients, record_id: str, fields: dict[str, Any]) -> bo
 
 def phase8_assemble(clients: Clients, record_id: str, fields: dict[str, Any]) -> bool:
     print("[PHASE 8/8] Assembling 9:16 vertical video reel with FFmpeg...")
+    # Refresh fields from Airtable to ensure all uploaded attachments are present
+    rec = clients.airtable.record(record_id)
+    fields.update(rec.get("fields", {}))
+
     import imageio_ffmpeg
     ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
 
