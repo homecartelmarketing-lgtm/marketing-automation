@@ -73,7 +73,7 @@ load_dotenv(REPO_ROOT / ".env")
 
 from content_automation.airtable_client import current_pht_timestamp
 from content_automation.akeneo_client import AkeneoClient, split_item_name
-from content_automation.config import load_settings
+from content_automation.config import Settings, load_settings
 from content_automation.errors import AutomationError
 from content_automation.fal_client import FalClient
 from content_automation.foreign_key import generate_foreign_key
@@ -248,8 +248,9 @@ CENTER_OVERLAY_TEXT = "this mood every night"
 
 class Clients:
     """Holds active API clients for pipeline execution."""
-    def __init__(self, airtable: ScrapeAirtableClient):
+    def __init__(self, airtable: ScrapeAirtableClient, settings: Settings | None = None):
         self.airtable = airtable
+        self.settings = settings or load_settings()
         self._krea: KreaClient | None = None
         self._fal: FalClient | None = None
         self._akeneo: AkeneoClient | None = None
@@ -257,17 +258,27 @@ class Clients:
 
     def krea(self) -> KreaClient:
         if self._krea is None:
-            self._krea = KreaClient()
+            self._krea = KreaClient(
+                token=self.settings.krea_token,
+                base_url=self.settings.krea_base_url,
+            )
         return self._krea
 
     def fal(self) -> FalClient:
         if self._fal is None:
-            self._fal = FalClient()
+            self._fal = FalClient(api_key=self.settings.fal_key)
         return self._fal
 
     def akeneo(self) -> AkeneoClient:
         if self._akeneo is None:
-            self._akeneo = AkeneoClient()
+            self._akeneo = AkeneoClient(
+                host=self.settings.akeneo_host or os.getenv("AKENEO_HOST", ""),
+                client_id=self.settings.akeneo_client_id or os.getenv("AKENEO_CLIENT_ID", ""),
+                secret=self.settings.akeneo_secret or os.getenv("AKENEO_SECRET", ""),
+                username=self.settings.akeneo_username or os.getenv("AKENEO_USERNAME", ""),
+                password=self.settings.akeneo_password or os.getenv("AKENEO_PASSWORD", ""),
+                channel_name=os.getenv("CHANNEL_NAME", ""),
+            )
         return self._akeneo
 
     def shopify(self) -> ShopifyClient:
@@ -308,6 +319,64 @@ def _download_file(url: str, dest: Path) -> Path:
 # Phase 1: Scrape 7 fresh fixtures
 # --------------------------------------------------------------------------
 
+def _plan_new_candidates(
+    slot: int,
+    needed: int,
+    akeneo: AkeneoClient,
+    style: str,
+    all_existing_filenames: set[str],
+    all_existing_names: set[str],
+    all_existing_skus: set[str],
+    shopify_index: Any | None,
+) -> list[ProductItem]:
+    category = SLOT_CATEGORIES[slot]
+    akeneo_category = categories.akeneo_category_code(category)
+    query: dict[str, Any] = {
+        "categories": [{"operator": "IN", "value": [akeneo_category]}],
+        "enabled": [{"operator": "=", "value": True}],
+    }
+    if style and style.lower() != "all":
+        query["Style2"] = [{"operator": "IN", "value": [style]}]
+
+    print(f"[INFO] Fetching {style} {category} products from Akeneo (slot {slot}: {SLOT_ROOMS[slot]})...")
+    raw_products = akeneo.fetch_products(query)
+
+    existing_names_query, existing_media_query = existing_product_identities(
+        raw_products, all_existing_skus
+    )
+    combined_names = all_existing_names | existing_names_query
+
+    selected, _stats = select_new_products(
+        raw_products,
+        all_existing_skus,
+        existing_item_names=combined_names,
+        existing_media_codes=existing_media_query,
+        category_code=category,
+    )
+
+    candidates: list[ProductItem] = []
+    for item in selected:
+        fn = attachment_filename(item.item_name, item.media_code)
+        if identity_key(fn) in all_existing_filenames:
+            continue
+        if item.sku and item.sku.strip() in all_existing_skus:
+            continue
+        if (item.item_name or "").strip().lower() in all_existing_names:
+            continue
+        if shopify_index is not None and not shopify_index.contains(item.sku, item.item_name):
+            continue
+
+        candidates.append(item)
+        all_existing_filenames.add(identity_key(fn))
+        if item.sku:
+            all_existing_skus.add(item.sku.strip())
+        all_existing_names.add((item.item_name or "").strip().lower())
+        if len(candidates) >= needed:
+            break
+
+    return candidates
+
+
 def phase1_scrape(clients: Clients, max_rows: int = 1, style: str = DEFAULT_STYLE) -> list[str]:
     """Scrapes 7 fresh products into brand-new Airtable row(s)."""
     print("[PHASE 1/8] Scraping 7 fresh fixtures into brand-new Airtable row...")
@@ -322,7 +391,7 @@ def phase1_scrape(clients: Clients, max_rows: int = 1, style: str = DEFAULT_STYL
     shopify_index = None
     try:
         shopify_index = clients.shopify().load_published_identities()
-        print(f"[OK] Shopify live catalog indexed ({len(shopify_index.published_skus)} published SKUs).")
+        print(f"[OK] Shopify live catalog indexed ({len(shopify_index.skus)} published SKUs).")
     except Exception as e:
         print(f"[WARN] Shopify catalog check notice: {e}")
 
@@ -332,22 +401,19 @@ def phase1_scrape(clients: Clients, max_rows: int = 1, style: str = DEFAULT_STYL
         # 1. Scrape 1 product per slot
         slot_items: dict[int, ProductItem] = {}
         for slot in SLOTS:
-            cat = SLOT_CATEGORIES[slot]
-            prods = akeneo.fetch_products_by_category(cat)
-            filtered = [
-                p for p in prods
-                if (not shopify_index or shopify_index.is_published(sku=p.sku, title=p.name))
-                and (p.sku and p.sku not in all_existing_skus)
-                and (p.name and p.name.lower() not in all_existing_names)
-            ]
-            if not filtered:
-                raise AutomationError(f"No fresh published candidates found for slot {slot} ({cat})")
-            selected = filtered[0]
-            slot_items[slot] = selected
-            if selected.sku:
-                all_existing_skus.add(selected.sku)
-            if selected.name:
-                all_existing_names.add(selected.name.lower())
+            candidates = _plan_new_candidates(
+                slot=slot,
+                needed=1,
+                akeneo=akeneo,
+                style=style,
+                all_existing_filenames=all_existing_filenames,
+                all_existing_names=all_existing_names,
+                all_existing_skus=all_existing_skus,
+                shopify_index=shopify_index,
+            )
+            if not candidates:
+                raise AutomationError(f"No fresh published candidates found for slot {slot} ({SLOT_CATEGORIES[slot]})")
+            slot_items[slot] = candidates[0]
 
         # 2. Create the brand-new row
         new_row_fields: dict[str, Any] = {
@@ -368,7 +434,7 @@ def phase1_scrape(clients: Clients, max_rows: int = 1, style: str = DEFAULT_STYL
         # 4. Upload product media & names
         scraped_summary = []
         for slot, item in slot_items.items():
-            name, ptype = split_item_name(item.name)
+            name, ptype = split_item_name(item.item_name)
             disp_name = f"{name} {ptype}".strip()
             row_updates[ITEM_NAME_FIELDS[slot]] = disp_name
             row_updates[SKU_FIELDS[slot]] = item.sku or ""
@@ -449,7 +515,7 @@ def phase3_analyze(clients: Clients, record_id: str, fields: dict[str, Any]) -> 
             "Be concise and output 2-3 sentences of placement instructions."
         )
         try:
-            analysis = fal.describe_image(image_url=int_url, prompt=prompt)
+            analysis = fal.analyze_image(prompt=prompt, image_urls=[int_url])
             updates[INTERIOR_ANALYSIS_FIELDS[slot]] = analysis.strip()
             print(f"    [OK] Slot {slot} analyzed.")
         except Exception as err:
@@ -512,10 +578,15 @@ def phase5_blend(clients: Clients, record_id: str, fields: dict[str, Any]) -> bo
 
         print(f"    [SLOT {slot}] Blending {SLOT_LABELS[slot]}...")
         try:
-            blended_url = fal.edit_image(
-                image_url=int_url,
+            image_urls = [int_url]
+            if prod_url:
+                image_urls.append(prod_url)
+            blended_url = fal.generate(
                 prompt=prompt,
+                image_urls=image_urls,
                 aspect_ratio="9:16",
+                resolution="1K",
+                model="fal-ai/nano-banana-pro/edit",
             )
             if blended_url:
                 clients.airtable.upload_attachment_url(record_id, BLENDED_FIELDS[slot], blended_url, f"blended_{slot}.jpg")
@@ -554,12 +625,11 @@ def phase6_motion(clients: Clients, record_id: str, fields: dict[str, Any], use_
             )
             print(f"    [SLOT {slot}] Calling Fal Kling V3 Turbo Pro...")
             try:
-                res = fal.kling_image_to_video(
-                    image_url=blend_url,
+                vid_url = fal.generate_kling_video(
                     prompt=motion_prompt,
+                    image_url=blend_url,
                     duration=3,
                 )
-                vid_url = res.get("video_url") if isinstance(res, dict) else str(res)
                 if vid_url:
                     clients.airtable.upload_attachment_url(record_id, KLING_FIELDS[slot], vid_url, f"motion_clip_{slot}.mp4")
                     print(f"    [OK] Slot {slot} Kling motion clip attached.")
@@ -588,10 +658,12 @@ def phase7_music(clients: Clients, record_id: str, fields: dict[str, Any]) -> bo
     ref_vid = REPO_ROOT / "assets" / "this_mood_every_night_reference.mp4"
     if ref_vid.is_file():
         try:
+            import imageio_ffmpeg
+            ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
             with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_audio:
                 tmp_audio_path = Path(tmp_audio.name)
             subprocess.run(
-                ["ffmpeg", "-y", "-i", str(ref_vid), "-vn", "-c:a", "libmp3lame", "-q:a", "2", str(tmp_audio_path)],
+                [ffmpeg_exe, "-y", "-i", str(ref_vid), "-vn", "-c:a", "libmp3lame", "-q:a", "2", str(tmp_audio_path)],
                 check=True,
                 capture_output=True,
             )
@@ -676,7 +748,7 @@ def phase8_assemble(clients: Clients, record_id: str, fields: dict[str, Any]) ->
 
         # 3. Apply center overlay: "this mood every night"
         font_path = REPO_ROOT / "content_automation" / "fonts" / "Poppins-Light.ttf"
-        font_arg = str(font_path.resolve()).replace("\\", "/")
+        font_arg = str(font_path.resolve()).replace("\\", "/").replace(":", "\\:")
         drawtext_filter = (
             f"drawtext=fontfile='{font_arg}':text='{CENTER_OVERLAY_TEXT}':"
             "fontsize=46:fontcolor=white@0.92:x=(w-text_w)/2:y=(h-text_h)/2:"
@@ -737,7 +809,7 @@ def run_pipeline(
         base_id=settings.airtable_base_id,
         table_id=table_id,
     )
-    clients = Clients(airtable)
+    clients = Clients(airtable, settings)
 
     target_records: list[str] = []
     if record_id:
