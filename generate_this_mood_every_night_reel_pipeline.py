@@ -242,8 +242,132 @@ ALL_READ_FIELDS = (
 
 # Typography & Video specifications
 SHOT_DURATION = 1.35  # seconds per shot
-TOTAL_REEL_DURATION = 9.45  # 7 * 1.35s
+TOTAL_SHOTS_DURATION = 9.45  # 7 * 1.35s
+TOTAL_REEL_DURATION = TOTAL_SHOTS_DURATION
+OUTRO_DURATION = 2.5  # seconds for HomeCartel outro card
 CENTER_OVERLAY_TEXT = "this mood every night"
+
+TITLE_FONT_SIZE = 22
+TYPE_FONT_SIZE = 19
+TAG_RIGHT_MARGIN = 180
+TAG_BOTTOM_MARGIN = 320
+TAG_LINE_SPACING = 5
+
+# HomeCartel outro candidates
+OUTRO_CANDIDATES = [
+    REPO_ROOT / "assets" / "outro_layout.jpg",
+    REPO_ROOT / "Outro for All Reels" / "Outro.jpg",
+    Path("assets/outro_layout.jpg"),
+    Path("Outro for All Reels/Outro.jpg"),
+]
+OUTRO_FIELD = "Outro"
+TARGET_BLENDED_NAMED_FIELD = "Blended Image with Name text"
+
+
+def resolve_outro_file() -> Path | None:
+    for cand in OUTRO_CANDIDATES:
+        if cand.is_file():
+            return cand
+    return None
+
+
+def _ffmpeg_escape_drawtext(text: str) -> str:
+    return (
+        str(text or "")
+        .replace("\\", "\\\\")
+        .replace("'", "\\'")
+        .replace(":", "\\:")
+        .replace("%", "\\%")
+        .replace(",", "\\,")
+    )
+
+
+def _ffmpeg_escape_fontfile(path: Path) -> str:
+    return str(path.resolve()).replace("\\", "/").replace(":", "\\:")
+
+
+def measure_tag_lines(
+    title: str, subtitle: str, title_size: int = TITLE_FONT_SIZE, type_size: int = TYPE_FONT_SIZE
+) -> tuple[int, int, int, int]:
+    """Measure the 2-line tag with the real Poppins fonts."""
+    from PIL import ImageFont
+
+    bold_path = REPO_ROOT / "content_automation" / "fonts" / "Poppins-Bold.ttf"
+    reg_path = REPO_ROOT / "content_automation" / "fonts" / "Poppins-Regular.ttf"
+    try:
+        font_title = ImageFont.truetype(str(bold_path), title_size)
+    except Exception:
+        font_title = ImageFont.load_default()
+    try:
+        font_type = ImageFont.truetype(str(reg_path), type_size)
+    except Exception:
+        font_type = font_title
+
+    def _size(text: str, font: Any) -> tuple[int, int]:
+        if not text:
+            return 0, 0
+        box = font.getbbox(text)
+        return box[2] - box[0], box[3] - box[1]
+
+    title_w, title_h = _size(title, font_title)
+    type_w, type_h = _size(subtitle, font_type)
+    return title_w, title_h, type_w, type_h
+
+
+def tag_reel_position(
+    title: str, subtitle: str, width: int = 1080, height: int = 1920
+) -> tuple[int, int, int]:
+    """Calculate lower-right (x, y_title, y_type) for reel tag stamping."""
+    title_w, title_h, type_w, type_h = measure_tag_lines(title, subtitle)
+    pill_w = max(title_w, type_w)
+    pill_h = title_h + (TAG_LINE_SPACING + type_h if subtitle else 0)
+    x = max(0, width - pill_w - TAG_RIGHT_MARGIN)
+    y_title = max(0, height - pill_h - TAG_BOTTOM_MARGIN)
+    y_type = y_title + title_h + TAG_LINE_SPACING
+    return x, y_title, y_type
+
+
+def format_item_display_name(title: str, product_type: str, fallback_label: str = "") -> str:
+    """Format a clean, luxury product display name combining item name and product type.
+
+    E.g.:
+      ('Mina 7', 'Chandelier') -> 'Mina 7 Chandelier'
+      ('Landon', 'Pendant Light') -> 'Landon Pendant Light'
+      ('Aria Pendant Light', 'Pendant Light') -> 'Aria Pendant Light'
+    """
+    clean_title = (title or "").strip()
+    clean_type = (product_type or fallback_label or "").strip()
+    if not clean_title:
+        return clean_type
+    if not clean_type:
+        return clean_title
+
+    # Remove generic marketing adjectives like Modern, LED, Luxury
+    clean_type_simplified = re.sub(
+        r"\b(modern|led|luxury|gold frost|designer)\b", "", clean_type, flags=re.IGNORECASE
+    ).strip()
+    clean_type_simplified = re.sub(r"\s+", " ", clean_type_simplified)
+    if not clean_type_simplified:
+        clean_type_simplified = clean_type
+
+    if clean_type_simplified.lower() in clean_title.lower():
+        return clean_title
+    return f"{clean_title} {clean_type_simplified}".strip()
+
+
+def measure_single_tag(text: str, font_size: int = TITLE_FONT_SIZE) -> tuple[int, int]:
+    """Measure single line width and height for luxury product tags."""
+    from PIL import ImageFont
+
+    bold_path = REPO_ROOT / "content_automation" / "fonts" / "Poppins-Bold.ttf"
+    try:
+        font = ImageFont.truetype(str(bold_path), font_size)
+    except Exception:
+        font = ImageFont.load_default()
+    box = font.getbbox(text or "")
+    return box[2] - box[0], box[3] - box[1]
+
+
 
 
 class Clients:
@@ -435,7 +559,8 @@ def phase1_scrape(clients: Clients, max_rows: int = 1, style: str = DEFAULT_STYL
         scraped_summary = []
         for slot, item in slot_items.items():
             name, ptype = split_item_name(item.item_name)
-            disp_name = f"{name} {ptype}".strip()
+            fallback_type = fixture_display_type(SLOT_CATEGORIES[slot])
+            disp_name = format_item_display_name(name, ptype or fallback_type)
             row_updates[ITEM_NAME_FIELDS[slot]] = disp_name
             row_updates[SKU_FIELDS[slot]] = item.sku or ""
             scraped_summary.append(f"Slot {slot} ({SLOT_LABELS[slot]}): {disp_name} ({item.sku})")
@@ -596,6 +721,34 @@ def phase5_blend(clients: Clients, record_id: str, fields: dict[str, Any]) -> bo
             print(f"    [ERROR] Blending failed for slot {slot}: {err}")
             return False
 
+    # Tag blended images and populate 'Blended Image with Name text'
+    existing_tagged = fields.get(TARGET_BLENDED_NAMED_FIELD)
+    if not existing_tagged or len(existing_tagged) < len(SLOTS):
+        print("    [TAGGING] Stamping product tags onto blended images -> 'Blended Image with Name text'...")
+        from content_automation.item_tagger import fixture_display_type, tag_and_upload_blended_image
+
+        for slot in SLOTS:
+            b_url = _first_attachment_url(fields, BLENDED_FIELDS[slot])
+            if not b_url:
+                continue
+            raw_name = str(fields.get(ITEM_NAME_FIELDS[slot]) or "").strip()
+            fallback_type = fixture_display_type(SLOT_CATEGORIES[slot])
+            title, product_type = split_item_name(raw_name, fallback_product_type=fallback_type)
+            try:
+                tag_and_upload_blended_image(
+                    airtable=clients.airtable,
+                    record_id=record_id,
+                    blended_source=b_url,
+                    item_name=title,
+                    product_type=product_type,
+                    category=SLOT_CATEGORIES[slot],
+                    target_field=TARGET_BLENDED_NAMED_FIELD,
+                    output_filename_prefix=f"TMEN_{record_id}_slot{slot}",
+                    output_format="reel",
+                )
+            except Exception as tag_err:
+                print(f"    [WARN] Failed tagging blended image for slot {slot}: {tag_err}")
+
     updates[STATUS_FIELD] = STATUS_BLENDED_GENERATED
     clients.airtable.update_records([(record_id, updates)])
     fields.update(updates)
@@ -699,6 +852,8 @@ def phase8_assemble(clients: Clients, record_id: str, fields: dict[str, Any]) ->
     import imageio_ffmpeg
     ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
 
+    from content_automation.item_tagger import fixture_display_type
+
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         clip_paths: list[Path] = []
@@ -716,7 +871,7 @@ def phase8_assemble(clients: Clients, record_id: str, fields: dict[str, Any]) ->
                     # Trim to exact shot duration (1.35s)
                     subprocess.run(
                         [ffmpeg_exe, "-y", "-ss", "0.5", "-i", str(raw_kling), "-t", str(SHOT_DURATION),
-                         "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920",
+                         "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30",
                          "-c:v", "libx264", "-pix_fmt", "yuv420p", str(clip_file)],
                         check=True,
                         capture_output=True,
@@ -732,7 +887,7 @@ def phase8_assemble(clients: Clients, record_id: str, fields: dict[str, Any]) ->
                 # Create subtle Ken Burns slow pan clip
                 subprocess.run(
                     [ffmpeg_exe, "-y", "-loop", "1", "-i", str(img_file), "-t", str(SHOT_DURATION),
-                     "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920",
+                     "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30",
                      "-c:v", "libx264", "-pix_fmt", "yuv420p", str(clip_file)],
                     check=True,
                     capture_output=True,
@@ -742,7 +897,31 @@ def phase8_assemble(clients: Clients, record_id: str, fields: dict[str, Any]) ->
         if len(clip_paths) < 7:
             raise AutomationError(f"Insufficient clips for assembly (found {len(clip_paths)}/7)")
 
-        # 2. Concat clips
+        # 2. Resolve & append HomeCartel Outro
+        outro_file = resolve_outro_file()
+        if outro_file:
+            print(f"    [INFO] Appending HomeCartel outro card ({outro_file.name})...")
+            # Ensure outro is uploaded to Airtable 'Outro' field if not present
+            if not _first_attachment_url(fields, OUTRO_FIELD):
+                try:
+                    clients.airtable.upload_attachment(record_id, OUTRO_FIELD, outro_file, "outro.jpg")
+                    print("    [OK] Outro attached to Airtable field 'Outro'.")
+                except Exception as o_err:
+                    print(f"    [WARN] Failed uploading Outro attachment: {o_err}")
+
+            outro_clip = tmp_path / "shot_outro.mp4"
+            subprocess.run(
+                [
+                    ffmpeg_exe, "-y", "-loop", "1", "-i", str(outro_file), "-t", str(OUTRO_DURATION),
+                    "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30,fade=t=in:st=0:d=0.5",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", str(outro_clip),
+                ],
+                check=True,
+                capture_output=True,
+            )
+            clip_paths.append(outro_clip)
+
+        # 3. Concat clips
         concat_txt = tmp_path / "concat.txt"
         with open(concat_txt, "w") as f:
             for cp in clip_paths:
@@ -756,24 +935,96 @@ def phase8_assemble(clients: Clients, record_id: str, fields: dict[str, Any]) ->
             capture_output=True,
         )
 
-        # 3. Apply center overlay: "this mood every night"
-        font_path = REPO_ROOT / "content_automation" / "fonts" / "Poppins-Light.ttf"
-        font_arg = str(font_path.resolve()).replace("\\", "/").replace(":", "\\:")
-        drawtext_filter = (
-            f"drawtext=fontfile='{font_arg}':text='{CENTER_OVERLAY_TEXT}':"
+        # 4. Construct drawtext filters
+        drawtext_filters: list[str] = []
+
+        # A) Center overlay: "this mood every night" (active ONLY during the 7 shots, t=0..9.45s)
+        font_light_path = REPO_ROOT / "content_automation" / "fonts" / "Poppins-Light.ttf"
+        font_light_arg = _ffmpeg_escape_fontfile(font_light_path)
+        drawtext_filters.append(
+            f"drawtext=fontfile='{font_light_arg}':text='{CENTER_OVERLAY_TEXT}':"
             "fontsize=46:fontcolor=white@0.92:x=(w-text_w)/2:y=(h-text_h)/2:"
-            "shadowcolor=black@0.4:shadowx=2:shadowy=2"
+            "shadowcolor=black@0.4:shadowx=2:shadowy=2:"
+            f"enable='between(t,0,{TOTAL_SHOTS_DURATION:.2f})'"
         )
 
+        # Ensure Airtable record's Item Name fields include the product type
+        airtable_item_updates = {}
+        for slot in SLOTS:
+            raw_name = str(fields.get(ITEM_NAME_FIELDS[slot]) or "").strip()
+            fallback_type = fixture_display_type(SLOT_CATEGORIES[slot])
+            title, subtitle = split_item_name(raw_name, fallback_product_type=fallback_type)
+            disp_name = format_item_display_name(title, subtitle)
+            if disp_name and disp_name != raw_name:
+                airtable_item_updates[ITEM_NAME_FIELDS[slot]] = disp_name
+                fields[ITEM_NAME_FIELDS[slot]] = disp_name
+        if airtable_item_updates:
+            try:
+                clients.airtable.update_records([(record_id, airtable_item_updates)])
+            except Exception as e_up:
+                print(f"    [WARN] Notice updating Item Name fields in Airtable: {e_up}")
+
+        # B) Lower-right Product Tag (Item Name + Product Type) with smooth fluid reveal and fade-out
+        font_bold_path = REPO_ROOT / "content_automation" / "fonts" / "Poppins-Bold.ttf"
+        font_bold_arg = _ffmpeg_escape_fontfile(font_bold_path)
+
+        for slot in SLOTS:
+            start_t = (slot - 1) * SHOT_DURATION
+            end_t = slot * SHOT_DURATION
+            raw_name = str(fields.get(ITEM_NAME_FIELDS[slot]) or "").strip()
+            fallback_type = fixture_display_type(SLOT_CATEGORIES[slot])
+            title, subtitle = split_item_name(raw_name, fallback_product_type=fallback_type)
+            display_name = format_item_display_name(title, subtitle)
+
+            if not display_name:
+                continue
+
+            tw, th = measure_single_tag(display_name, TITLE_FONT_SIZE)
+            x = max(0, 1080 - tw - TAG_RIGHT_MARGIN)
+            y_base = max(0, 1920 - th - TAG_BOTTOM_MARGIN)
+
+            # Smooth fluid transition timings within the 1.35s shot:
+            # - Starts at +0.10s
+            # - Fades in & slides 15px upward from +0.10s to +0.35s
+            # - Holds steady from +0.35s to (end - 0.20s)
+            # - Fades out smoothly from (end - 0.20s) to end
+            t_in_start = start_t + 0.10
+            t_in_end = start_t + 0.35
+            t_out_start = end_t - 0.20
+            t_out_end = end_t
+
+            alpha_expr = (
+                f"if(lt(t,{t_in_start:.2f}),0,"
+                f"if(lt(t,{t_in_end:.2f}),(t-{t_in_start:.2f})/0.25,"
+                f"if(lt(t,{t_out_start:.2f}),1,"
+                f"if(lt(t,{t_out_end:.2f}),({t_out_end:.2f}-t)/0.20,0))))"
+            )
+            y_expr = (
+                f"{y_base} + if(lt(t,{t_in_start:.2f}),15,"
+                f"if(lt(t,{t_in_end:.2f}),(1-(t-{t_in_start:.2f})/0.25)*15,0))"
+            )
+
+            esc_name = _ffmpeg_escape_drawtext(display_name)
+            window = f"enable='between(t,{start_t:.2f},{end_t:.2f})'"
+
+            drawtext_filters.append(
+                f"drawtext=fontfile='{font_bold_arg}':text='{esc_name}':"
+                f"fontsize={TITLE_FONT_SIZE}:fontcolor=white:x={x}:y='{y_expr}':alpha='{alpha_expr}':"
+                f"shadowcolor=black@0.45:shadowx=2:shadowy=2:{window}"
+            )
+
         video_with_text = tmp_path / "video_text.mp4"
+        vf_arg = ",".join(drawtext_filters)
         subprocess.run(
-            [ffmpeg_exe, "-y", "-i", str(raw_video), "-vf", drawtext_filter,
+            [ffmpeg_exe, "-y", "-i", str(raw_video), "-vf", vf_arg,
              "-c:v", "libx264", "-pix_fmt", "yuv420p", str(video_with_text)],
             check=True,
             capture_output=True,
         )
 
-        # 4. Mux Audio
+        # 5. Mux Audio with smooth outro audio fade
+        total_duration = TOTAL_SHOTS_DURATION + (OUTRO_DURATION if outro_file else 0.0)
+        fade_start = max(0.0, total_duration - 1.0)
         music_url = _first_attachment_url(fields, "Music Generated")
         final_output = tmp_path / "this_mood_every_night_reel.mp4"
 
@@ -781,16 +1032,21 @@ def phase8_assemble(clients: Clients, record_id: str, fields: dict[str, Any]) ->
             audio_file = tmp_path / "soundtrack.mp3"
             _download_file(music_url, audio_file)
             subprocess.run(
-                [ffmpeg_exe, "-y", "-i", str(video_with_text), "-stream_loop", "-1", "-i", str(audio_file),
-                 "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", str(final_output)],
+                [
+                    ffmpeg_exe, "-y", "-i", str(video_with_text), "-stream_loop", "-1", "-i", str(audio_file),
+                    "-filter_complex", f"[1:a]atrim=duration={total_duration:.2f},asetpts=PTS-STARTPTS,afade=t=out:st={fade_start:.2f}:d=1.0[a]",
+                    "-map", "0:v", "-map", "[a]",
+                    "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
+                    str(final_output)
+                ],
                 check=True,
                 capture_output=True,
             )
         else:
             final_output = video_with_text
 
-        # 5. Upload Final Video & Stamp Done
-        clients.airtable.upload_attachment(record_id, "Final Video", final_output, "this_mood_every_night_reel.mp4")
+        # 6. Upload Final Video & Stamp Done
+        clients.airtable.upload_attachment(record_id, "Final Video", final_output, f"TMEN_{record_id}_final.mp4")
         updates = {
             STATUS_FIELD: STATUS_DONE,
             "Date and Time Generated": current_pht_timestamp(),

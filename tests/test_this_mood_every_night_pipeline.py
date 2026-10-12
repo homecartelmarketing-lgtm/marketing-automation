@@ -124,6 +124,85 @@ class ThisMoodEveryNightPipelineTests(unittest.TestCase):
         self.assertTrue(res)
         mock_fal.generate_kling_video.assert_called_once()
 
+    def test_resolve_outro_file_finds_asset(self):
+        outro = pipeline.resolve_outro_file()
+        self.assertIsNotNone(outro)
+        self.assertTrue(outro.is_file())
+
+    def test_tag_reel_position_bounds(self):
+        x, y_title, y_sub = pipeline.tag_reel_position("Mina 7", "Chandelier")
+        self.assertGreater(x, 0)
+        self.assertLess(x, 1080)
+        self.assertGreater(y_title, 0)
+        self.assertLess(y_title, 1920)
+        self.assertGreater(y_sub, y_title)
+
+    def test_ffmpeg_escape_drawtext(self):
+        raw = "Mina's, Luxury: 100% Cotton \\ Test"
+        escaped = pipeline._ffmpeg_escape_drawtext(raw)
+        self.assertIn("\\'", escaped)
+        self.assertIn("\\,", escaped)
+        self.assertIn("\\:", escaped)
+        self.assertIn("\\%", escaped)
+
+    @patch("subprocess.run")
+    def test_phase8_assemble_creates_outro_and_drawtext(self, mock_subproc):
+        mock_subproc.return_value = MagicMock(returncode=0)
+        clients = pipeline.Clients(self.mock_airtable, self.mock_settings)
+
+        fields = {
+            "Item Name1": "Mina 7",
+            "Item Name2": "Landon",
+            "Item Name3": "Riley",
+            "Item Name4": "Landulf",
+            "Item Name5": "Alondra",
+            "Item Name6": "Hugi",
+            "Item Name7": "Gulla",
+        }
+        for slot in pipeline.SLOTS:
+            fields[pipeline.KLING_FIELDS[slot]] = [{"url": f"https://example.com/kling_{slot}.mp4"}]
+        fields["Music Generated"] = [{"url": "https://example.com/music.mp3"}]
+
+        self.mock_airtable.record.return_value = {"id": "rec123", "fields": fields}
+
+        with patch("generate_this_mood_every_night_reel_pipeline._download_file"):
+            res = pipeline.phase8_assemble(clients, "rec123", fields)
+
+        self.assertTrue(res)
+        # Verify airtable uploads for Outro and Final Video
+        upload_calls = self.mock_airtable.upload_attachment.call_args_list
+        fields_uploaded = [c[0][1] for c in upload_calls]
+        self.assertIn("Outro", fields_uploaded)
+        self.assertIn("Final Video", fields_uploaded)
+
+        # Inspect subprocess calls to verify drawtext commands
+        drawtext_commands = [
+            c[0][0] for c in mock_subproc.call_args_list
+            if any("-vf" in arg or any("drawtext=" in a for a in arg) for arg in c[0])
+        ]
+        self.assertTrue(len(drawtext_commands) > 0)
+        vf_args = [cmd[cmd.index("-vf") + 1] for cmd in drawtext_commands if "-vf" in cmd]
+        combined_vf = " ".join(vf_args)
+        self.assertIn("this mood every night", combined_vf)
+        self.assertIn("between(t,0,9.45)", combined_vf)
+        self.assertIn("Mina 7 Chandelier", combined_vf)
+        self.assertIn("alpha=", combined_vf)
+
+    def test_format_item_display_name(self):
+        cases = [
+            ("Mina 7", "Chandelier", "Mina 7 Chandelier"),
+            ("Landon", "Pendant Light", "Landon Pendant Light"),
+            ("Aria Pendant Light", "Pendant Light", "Aria Pendant Light"),
+            ("Riley", "Table Lamp", "Riley Table Lamp"),
+            ("Hugi", "Modern Floor Lamp", "Hugi Floor Lamp"),
+        ]
+        for title, ptype, expected in cases:
+            with self.subTest(title=title, ptype=ptype):
+                res = pipeline.format_item_display_name(title, ptype)
+                self.assertEqual(res, expected)
+
 
 if __name__ == "__main__":
     unittest.main()
+
+
