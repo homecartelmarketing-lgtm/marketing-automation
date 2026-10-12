@@ -10,6 +10,6 @@ The Studio's only gate was the shared `DASHBOARD_PIN`. It is now an email + pass
 - **Open mode now means no PIN and no accounts.** Removing the last account would silently open the Studio, so `manage_studio_users.py remove` refuses without `--force`.
 - **PIN mode kept.** With only `DASHBOARD_PIN` set the login screen shows one PIN field, so the existing deployment keeps working until the first account is created.
 
-## Not done (see `docs/SECURITY_AUDIT.md`)
+## Not done at the time (see `docs/SECURITY_AUDIT.md` addendum 2026-10-12 for status)
 
-No block-by-default `before_request` hook: `/api/rows`, `/api/queue/status`, counts/status routes and the maintenance/tunnel routes are still unauthenticated GETs. No per-account rate limit (still per IP, shared with the PIN limiter), no roles enforcement (the `role` field is stored but not checked), no audit log.
+No per-account rate limit (still per IP, shared with the PIN limiter), no roles enforcement (the `role` field is stored but not checked), no audit log. UPDATE 2026-10-12 (same day, uncommitted on `fix/house-tour-moodboard-errors`): the block-by-default hook now EXISTS — `require_api_auth` in `UI Control/api_server.py:146` 401s every `/api/*` except `/api/health`, `/api/auth/*` and OPTIONS. The other gaps in this paragraph (per-account limiter, roles, audit log) are still open.

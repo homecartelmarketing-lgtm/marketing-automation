@@ -1,6 +1,39 @@
 # Security Audit: HomeCartel Marketing Studio (marketing-automation)
 
-**Verdict:** right now the Studio can be **read by anyone with the link**, **locked for the whole team by a stranger**, and **frozen by about 8 slow requests**. The paid AI runs are behind the PIN, but the PIN itself can be guessed with no limit. The new login only fixes this if it blocks _every_ /api route by default. Bolting a login page onto the current setup won't.
+## Addendum 2026-10-12 — hardening pass on `fix/house-tour-moodboard-errors` (UNCOMMITTED)
+
+The findings below were reviewed at commit `5c91f78`. Since then the working
+tree adds a hardening pass (not yet committed at time of writing). Status per
+original item:
+
+| # | Original finding | Status | Evidence |
+|---|---|---|---|
+| 1 | `/api/rows` open, unbounded `table_id`, cache grows | **Partial** — global `require_api_auth` gate now 401s `/api/rows` without a session/PIN/token (`api_server.py:146`), but `rows.py` has **no direct** `is_authorized` call (relies on the gate; `tests/test_rows_route.py` bypasses it), `CACHE` dict is still unbounded (10s TTL only), `table_id` still unvalidated, and `status` still interpolates into `filterByFormula` (`rows.py:81`) | `UI Control/api_server.py:146`, `UI Control/routes/rows.py:27-28,81` |
+| 2 | `/api/auth/verify` brute-force, plain `==` | **Fixed** — `clamp_pin()` (256 chars) + `hmac.compare_digest` + per-IP 429 rate limit | `api_server.py:299-322`, `routes/common.py:163-170` |
+| 3 | Shared-proxy-IP lockout | **Fixed (root cause)** — `ProxyFix(app.wsgi_app, x_for=1, ...)` so `remote_addr` is the real client, not the proxy | `api_server.py:83` |
+| 4 | `/api/maintenance/cleanup` unauthenticated, `hours<=0` wipes | **Fixed** — POST-only + `is_authorized` + `hours = max(hours, 1.0)` (floor is 1h, not the 6h the roadmap suggested) | `api_server.py:342` |
+| 5 | `max_items` uncapped on direct `/run` | **Fixed** — every `/run` parse clamped to 1..10 with 400-on-garbage; queue `/enqueue` too; single ceiling `MAX_RUN_ITEMS = 10` (`routes/common.py:70`) | ~31 sites, e.g. `cta_story.py:376`, `queue_manager.py:432` |
+| 6 | Open `/status` logs + `/fixtures` | **Fixed for /api/** — the default-deny gate covers all `/status`, `/counts`, `/fixtures`, `/queue/status`; public allowlist is only `/api/health` + `/api/auth/*` + OPTIONS | `api_server.py:126-134,146` |
+| DoS | 8 slow requests stall 1 worker | **Partial** — `MAX_CONTENT_LENGTH` 64 MiB (`api_server.py:142`) + per-route clamps bound cost, but no per-route concurrency limit; queue length uncapped (`queue_manager.py:484`) | open |
+| DoS | `counts?refresh=1` Airtable loop | **Partial** — counts routes still honor `refresh` for any authed caller; requires login now but no admin/non-admin distinction | open |
+| DoS | Calendar zip-bomb `.xlsx` | **Open** — `load_workbook(data_only=True)` without `read_only=True`, no row cap (`content_automation/calendar_import.py:17`); only the 64 MiB global body cap applies | open |
+| SSRF | Queue `run/status/stop_endpoint` caller-controlled | **Fixed** — `_is_safe_local_endpoint()` allowlist (plain `/api/` paths only), 400 otherwise | `queue_manager.py:76,424` |
+| Misc | CORS `*` when unset | **Fixed** — no `Access-Control-Allow-Origin` emitted unless `ALLOWED_ORIGINS` set | `api_server.py:224` |
+| Misc | Clickjacking/MIME/referrer | **Fixed** — `X-Frame-Options: DENY`, `CSP frame-ancestors 'none'`, `nosniff`, `no-referrer`, `CORP: same-origin` | `api_server.py:182` |
+| Misc | `?pin=` in URLs (logs/history leak) | **Fixed** — query PIN no longer read; presence raises (`_forbid_pin_in_query`) | `routes/common.py:109,231` |
+| Misc | `studio_users.json` world-readable hashes | **Fixed** — `os.open(..., 0o600)` + chmod hardening | `routes/studio_auth.py` |
+| Misc | CSRF on cookie session | **Fixed** — `is_same_origin()` rejects present-but-foreign `Origin` before credentials | `routes/common.py:73,196` |
+
+Still open (not regressions — never addressed): queue has no length cap and no
+`pipeline_type` allowlist; calendar XLSX has no `read_only`/row cap; cleanup
+floor is 1h (roadmap said 6h); lockout is per-IP only (no per-account lockout);
+`rows.py` hardening gaps listed in row 1 above. Open mode (no PIN + no
+accounts) intentionally leaves `/api/*` open — same as the per-route behavior
+before the gate; `tests/test_studio_auth.py::test_open_mode_when_no_pin_and_no_accounts`
+pins this.
+
+> **Original verdict — 2026-10-09, pre-hardening (superseded by the addendum above):**
+> right now the Studio can be **read by anyone with the link**, **locked for the whole team by a stranger**, and **frozen by about 8 slow requests**. The paid AI runs are behind the PIN, but the PIN itself can be guessed with no limit. The new login only fixes this if it blocks _every_ /api route by default. Bolting a login page onto the current setup won't.
 
 Reviewed commit `5c91f78` of [marketing-automation](https://github.com/homecartelmarketing-lgtm/marketing-automation) on 2026-10-09. That covers all 35 route files, the API server, the core `content_automation` library, the Dockerfile and deploy config, the frontend, the GitHub workflows and about 100 recent commits. This is a code review, not a live attack test.
 

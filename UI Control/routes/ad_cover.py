@@ -534,7 +534,10 @@ def run_ad_cover_pipeline():
 
     payload = request.get_json(silent=True) or {}
     fixture_id = str(payload.get("fixture_id", "chandelier")).strip() or "chandelier"
-    max_items = int(payload.get("max_items", 1) or 1)
+    try:
+        max_items = min(max(int(payload.get("max_items", 1) or 1), 1), 10)  # clamp 1..10 to prevent oversized runs
+    except (TypeError, ValueError):
+        return jsonify({"error": "max_items must be an integer"}), 400
     custom_moodboard_id = str(payload.get("moodboard_id", "")).strip()
     custom_prompt = str(payload.get("prompt", "")).strip()
 
