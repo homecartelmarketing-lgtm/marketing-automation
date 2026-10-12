@@ -33,6 +33,7 @@ from .common import (
 auth_bp = Blueprint("studio_auth", __name__)
 
 MIN_PASSWORD_LENGTH = 8
+DEFAULT_MAX_ACCOUNTS = 1
 VALID_ROLES = ("admin", "user")
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _SESSION_KEY = "studio_user"
@@ -71,16 +72,19 @@ def _read_file_users() -> dict[str, dict[str, Any]]:
 
 
 def _seed_user() -> dict[str, Any] | None:
+    """Env-provided admin. STUDIO_ADMIN_PASSWORD_HASH (from `manage_studio_users.py env`) keeps
+    the plaintext password out of Railway; STUDIO_ADMIN_PASSWORD is the simpler alternative."""
     email = normalize_email(os.getenv("STUDIO_ADMIN_EMAIL"))
     password = os.getenv("STUDIO_ADMIN_PASSWORD", "")
-    if not email or not password:
+    password_hash = os.getenv("STUDIO_ADMIN_PASSWORD_HASH", "").strip()
+    if not email or not (password or password_hash):
         return None
-    key = f"{email}\0{password}"
+    key = f"{email}\0{password}\0{password_hash}"
     if _SEED_CACHE.get("key") != key:
         _SEED_CACHE["key"] = key
         _SEED_CACHE["record"] = {
             "email": email,
-            "password_hash": generate_password_hash(password),
+            "password_hash": password_hash or generate_password_hash(password),
             "role": "admin",
             "seeded": True,
         }
@@ -99,6 +103,18 @@ def load_users() -> dict[str, dict[str, Any]]:
 
 def accounts_enabled() -> bool:
     return bool(load_users())
+
+
+def max_accounts() -> int:
+    """How many accounts may exist (STUDIO_MAX_ACCOUNTS, default 1: one shared team login)."""
+    try:
+        return max(int(os.getenv("STUDIO_MAX_ACCOUNTS", str(DEFAULT_MAX_ACCOUNTS))), 1)
+    except ValueError:
+        return DEFAULT_MAX_ACCOUNTS
+
+
+def accounts_full() -> bool:
+    return len(load_users()) >= max_accounts()
 
 
 def auth_mode() -> str:
@@ -129,6 +145,14 @@ def add_user(email: str, password: str, role: str = "user") -> dict[str, Any]:
         users = _read_file_users()
         if email in users:
             raise ValueError(f"{email} already exists.")
+    if accounts_full():
+        limit = max_accounts()
+        raise ValueError(
+            f"This Studio is limited to {limit} account{'s' if limit != 1 else ''}. "
+            "Use set-password to change the login, or raise STUDIO_MAX_ACCOUNTS."
+        )
+    with _USERS_LOCK:
+        users = _read_file_users()
         users[email] = {
             "email": email,
             "password_hash": generate_password_hash(password),
@@ -166,9 +190,11 @@ def verify_credentials(email: str, password: str) -> dict[str, Any] | None:
     if record is None:
         check_password_hash(_DUMMY_HASH, password)
         return None
-    if check_password_hash(record["password_hash"], password):
-        return record
-    return None
+    try:
+        matches = check_password_hash(record["password_hash"], password)
+    except ValueError:  # malformed hash in the env var or file
+        return None
+    return record if matches else None
 
 
 def _public_user(record: dict[str, Any]) -> dict[str, str]:
@@ -230,6 +256,8 @@ def auth_state() -> dict[str, Any]:
     return {
         "mode": mode,
         "auth_required": mode != "open",
+        # False once the account limit is reached, so the login screen hides "Sign Up".
+        "can_request_access": not accounts_full(),
         "authenticated": user is not None,
         "user": user,
     }

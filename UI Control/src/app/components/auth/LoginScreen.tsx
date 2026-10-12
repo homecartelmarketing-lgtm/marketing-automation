@@ -19,6 +19,8 @@ export interface LoginResult {
 
 interface LoginScreenProps {
   mode: AuthMode;
+  /** Show the "Sign Up" (request access) link. Off once the account limit is reached. */
+  canRequestAccess?: boolean;
   onLoginSuccess: (result: LoginResult) => void;
   isLoadingConfig?: boolean;
 }
@@ -27,7 +29,12 @@ const ADMIN_EMAIL = 'homecartelmarketingclaude@gmail.com';
 const REQUEST_ACCESS_HREF = `mailto:${ADMIN_EMAIL}?subject=${encodeURIComponent('HomeCartel Studio access request')}`;
 const RESET_HREF = `mailto:${ADMIN_EMAIL}?subject=${encodeURIComponent('HomeCartel Studio password reset')}`;
 
-export function LoginScreen({ mode, onLoginSuccess, isLoadingConfig = false }: LoginScreenProps) {
+export function LoginScreen({
+  mode,
+  canRequestAccess = false,
+  onLoginSuccess,
+  isLoadingConfig = false,
+}: LoginScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -215,7 +222,7 @@ export function LoginScreen({ mode, onLoginSuccess, isLoadingConfig = false }: L
                 {isSubmitting ? 'Logging in…' : mode === 'open' ? 'Continue' : 'Log In'}
               </button>
 
-              {mode === 'accounts' && (
+              {mode === 'accounts' && canRequestAccess && (
                 <p className="hc-login__foot">
                   Don't have an account?{' '}
                   <a className="hc-login__link" href={REQUEST_ACCESS_HREF}>

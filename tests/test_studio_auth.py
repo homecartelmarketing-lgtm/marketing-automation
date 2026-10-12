@@ -29,6 +29,7 @@ class StudioAuthTests(unittest.TestCase):
             "STUDIO_SECRET_KEY": "test-secret",
             "STUDIO_ADMIN_EMAIL": "",
             "STUDIO_ADMIN_PASSWORD": "",
+            "STUDIO_MAX_ACCOUNTS": "10",  # most tests need several accounts; the cap has its own tests
         }
         self.env_patch = patch.dict(os.environ, env)
         self.env_patch.start()
@@ -132,6 +133,20 @@ class StudioAuthTests(unittest.TestCase):
             self.assertEqual(self._login(email="boss@homecartel.net").status_code, 200)
             self.assertFalse(Path(os.environ["STUDIO_USERS_PATH"]).exists())
 
+    def test_env_seeded_admin_from_password_hash(self):
+        self.auth.add_user("owner@homecartel.net", PASSWORD)
+        stored = self.auth.load_users()["owner@homecartel.net"]["password_hash"]
+        Path(os.environ["STUDIO_USERS_PATH"]).unlink()  # a fresh deploy has no accounts file
+        env = {"STUDIO_ADMIN_EMAIL": "owner@homecartel.net", "STUDIO_ADMIN_PASSWORD_HASH": stored}
+        with patch.dict(os.environ, env):
+            self.assertEqual(self._login(email="owner@homecartel.net").status_code, 200)
+            self.assertEqual(self._login(email="owner@homecartel.net", password="wrong password").status_code, 401)
+
+    def test_malformed_password_hash_does_not_crash_login(self):
+        env = {"STUDIO_ADMIN_EMAIL": "owner@homecartel.net", "STUDIO_ADMIN_PASSWORD_HASH": "not-a-hash"}
+        with patch.dict(os.environ, env):
+            self.assertEqual(self._login(email="owner@homecartel.net").status_code, 401)
+
     def test_internal_token_authorizes_loopback_calls(self):
         self.auth.add_user("editor@homecartel.net", PASSWORD)
         good = self.client.post("/protected", headers=self.common.internal_auth_headers())
@@ -153,6 +168,32 @@ class StudioAuthTests(unittest.TestCase):
         with patch.object(self.common, "DASHBOARD_PIN", "secret"):
             ok = self.client.post("/protected", headers={"Authorization": "Bearer secret"})
             self.assertEqual(ok.status_code, 200)
+
+    def test_default_limit_is_one_account(self):
+        with patch.dict(os.environ, {"STUDIO_MAX_ACCOUNTS": ""}):
+            self.assertEqual(self.auth.max_accounts(), 1)
+            self.assertTrue(self.client.get("/api/auth/me").get_json()["can_request_access"])
+            self.auth.add_user("owner@homecartel.net", PASSWORD)
+            with self.assertRaises(ValueError) as ctx:
+                self.auth.add_user("second@homecartel.net", PASSWORD)
+            self.assertIn("limited to 1 account", str(ctx.exception))
+            self.assertFalse(self.client.get("/api/auth/me").get_json()["can_request_access"])
+            # The one account still works and can change its password.
+            self.auth.set_password("owner@homecartel.net", "a brand new password")
+            self.assertEqual(self._login(email="owner@homecartel.net", password="a brand new password").status_code, 200)
+
+    def test_env_seeded_admin_counts_toward_the_limit(self):
+        env = {"STUDIO_MAX_ACCOUNTS": "1", "STUDIO_ADMIN_EMAIL": "boss@homecartel.net", "STUDIO_ADMIN_PASSWORD": PASSWORD}
+        with patch.dict(os.environ, env):
+            with self.assertRaises(ValueError):
+                self.auth.add_user("second@homecartel.net", PASSWORD)
+
+    def test_limit_can_be_raised(self):
+        with patch.dict(os.environ, {"STUDIO_MAX_ACCOUNTS": "2"}):
+            self.auth.add_user("a@homecartel.net", PASSWORD)
+            self.auth.add_user("b@homecartel.net", PASSWORD)
+            with self.assertRaises(ValueError):
+                self.auth.add_user("c@homecartel.net", PASSWORD)
 
     def test_login_refused_when_no_accounts_exist(self):
         self.assertEqual(self._login().status_code, 400)

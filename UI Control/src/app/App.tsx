@@ -30,6 +30,7 @@ export default function App() {
   const [isLoadingAuthConfig, setIsLoadingAuthConfig] = useState<boolean>(true);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [canRequestAccess, setCanRequestAccess] = useState<boolean>(false);
   const [studioPin, setStudioPin] = useState<string>(
     () => sessionStorage.getItem('hc_studio_pin') || ''
   );
@@ -47,6 +48,7 @@ export default function App() {
       const data = await res.json().catch(() => ({}));
       const mode: AuthMode = data.mode === 'accounts' || data.mode === 'pin' ? data.mode : 'open';
       setAuthMode(mode);
+      setCanRequestAccess(data.can_request_access === true);
 
       if (mode === 'open') {
         setAuthUser(null);
@@ -647,6 +649,7 @@ export default function App() {
         <Toaster position="top-right" richColors />
         <LoginScreen
           mode={authMode}
+          canRequestAccess={canRequestAccess}
           onLoginSuccess={handleLoginSuccess}
           isLoadingConfig={isLoadingAuthConfig}
         />

@@ -32,10 +32,11 @@ The header has a theme button (Light / Dark / System). The choice is stored in t
 ## 🔐 Security & Access Control
 
 The Studio opens on a split-layout login screen (`src/app/components/auth/LoginScreen.tsx`, styles in `src/styles/login.css`). Editable settings and run actions require a logged-in session:
-- **Accounts**: email + password, created by an admin: `python scripts/ops/manage_studio_users.py add you@homecartel.net` (also `list`, `set-password`, `remove`). Passwords are hashed (Werkzeug) in `STUDIO_USERS_PATH` (default `output/studio_users.json`). "Forgot Password" and "Sign Up" point people to the admin by email; there is no self-service flow.
+- **Accounts**: email + password, created by an admin: `python scripts/ops/manage_studio_users.py add you@homecartel.net` (also `list`, `set-password`, `remove`). Passwords are hashed (Werkzeug) in `STUDIO_USERS_PATH` (default `output/studio_users.json`). The Studio allows **one account** by default (`STUDIO_MAX_ACCOUNTS=1`): `add` refuses a second one, use `set-password` to change the login. "Forgot Password" points to the admin by email, and the "Sign Up" link only appears while the limit has not been reached; there is no self-service flow.
 - **Session**: HttpOnly, SameSite=Lax cookie signed with `STUDIO_SECRET_KEY` (auto-generated if empty), lasting `STUDIO_SESSION_HOURS` (default 12). Set `STUDIO_COOKIE_SECURE=1` behind HTTPS. The browser stores no secret; the app re-checks `/api/auth/me` on tab focus and every 5 minutes.
 - **Auth endpoints**: `GET /api/auth/me`, `POST /api/auth/login`, `POST /api/auth/logout` (`routes/studio_auth.py`); `GET /api/auth/config` reports `mode` = `accounts | pin | open`.
 - **Legacy PIN**: with no accounts but `DASHBOARD_PIN` set, the login screen shows a single PIN field (kept in browser session storage). With both, the PIN still authorizes scripts via `Authorization: Bearer` / `X-Dashboard-PIN`.
+- **Railway**: run `python scripts/ops/manage_studio_users.py env you@homecartel.net` locally and paste the two printed variables (`STUDIO_ADMIN_EMAIL`, `STUDIO_ADMIN_PASSWORD_HASH`) into Railway, so the live site uses the same account without the password or `output/studio_users.json` ever going to GitHub. Plus `STUDIO_COOKIE_SECURE=1`.
 - **Internal calls**: the queue and calendar import call `/run` on 127.0.0.1 with a per-process `X-Internal-Token`, so they work without a browser session.
 - **Last account**: with no PIN set, removing the last account turns login off. The CLI refuses unless you pass `--force`.
 

@@ -5,6 +5,7 @@
     python scripts/ops/manage_studio_users.py list
     python scripts/ops/manage_studio_users.py set-password you@homecartel.net
     python scripts/ops/manage_studio_users.py remove you@homecartel.net
+    python scripts/ops/manage_studio_users.py env you@homecartel.net   # values to paste into Railway
 
 Accounts are stored in STUDIO_USERS_PATH (default output/studio_users.json).
 Passwords are read with a hidden prompt, never from the command line.
@@ -46,6 +47,9 @@ def main(argv: list[str] | None = None) -> int:
     reset = sub.add_parser("set-password", help="Change an account's password")
     reset.add_argument("email")
 
+    env = sub.add_parser("env", help="Print the Railway variables that recreate an existing account")
+    env.add_argument("email")
+
     remove = sub.add_parser("remove", help="Delete an account (ends its sessions)")
     remove.add_argument("email")
     remove.add_argument(
@@ -70,6 +74,14 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "set-password":
             studio_auth.set_password(args.email, _prompt_password())
             print(f"Password updated for {studio_auth.normalize_email(args.email)}.")
+        elif args.command == "env":
+            email = studio_auth.normalize_email(args.email)
+            record = studio_auth.load_users().get(email)
+            if record is None:
+                raise ValueError(f"No such user: {email}")
+            print("Add these two variables in Railway (Variables tab). Never commit them or put them in a chat.")
+            print(f"STUDIO_ADMIN_EMAIL={record['email']}")
+            print(f"STUDIO_ADMIN_PASSWORD_HASH={record['password_hash']}")
         elif args.command == "remove":
             if len(studio_auth.load_users()) <= 1 and not args.force:
                 raise ValueError(

@@ -53,7 +53,9 @@ Not a Studio-editable setting: accounts and the session are configured through `
 | `python scripts/ops/manage_studio_users.py add\|list\|set-password\|remove` | Create and manage accounts (admin-managed; "Sign Up" and "Forgot Password" on the login screen email the admin) |
 | `STUDIO_USERS_PATH` | Accounts file, default `output/studio_users.json` |
 | `STUDIO_ADMIN_EMAIL` / `STUDIO_ADMIN_PASSWORD` | Optional env-seeded admin that survives a wiped disk |
+| `STUDIO_ADMIN_PASSWORD_HASH` | Hash of the admin password (print with `manage_studio_users.py env <email>`); use instead of the plaintext `STUDIO_ADMIN_PASSWORD` on Railway |
 | `STUDIO_SECRET_KEY` | Cookie signing key (auto-generated into `output/.studio_secret_key` when empty) |
+| `STUDIO_MAX_ACCOUNTS` | Account limit, default `1` (one shared team login). The env-seeded admin counts toward it |
 | `STUDIO_SESSION_HOURS`, `STUDIO_COOKIE_SECURE` | Session length (default 12) and the `Secure` cookie flag (set to `1` over HTTPS) |
 | `DASHBOARD_PIN` | Legacy shared PIN. Single-field login until the first account exists; afterwards only for scripts |
 
