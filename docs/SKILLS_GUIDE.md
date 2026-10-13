@@ -29,6 +29,7 @@ There are two kinds. **Repo workflow skills** hold procedures specific to this c
 | **`vercel-react-best-practices`** | [`.agents/skills/vercel-react-best-practices`](../.agents/skills/vercel-react-best-practices/SKILL.md) | React component optimization, hook composition (`usePipelineData`, `usePipelineRunner`, `useQueue`), and eliminating unnecessary re-renders in Web Studio. |
 | **`vite`** | [`.agents/skills/vite`](../.agents/skills/vite/SKILL.md) | Production Vite bundling (`UI Control/dist/`), asset hashing, and client-side SPA routing integration with Flask. |
 | **`git-guardrails-claude-code`** | [`.agents/skills/git-guardrails-claude-code`](../.agents/skills/git-guardrails-claude-code/SKILL.md) | Intercepts and blocks destructive git operations (`git push --force`, `git reset --hard`, accidental wipeouts). |
+| **`systematic-debugging`** | [`.agents/skills/systematic-debugging`](../.agents/skills/systematic-debugging/SKILL.md) | General root-cause discipline (no fixes without investigation). Always paired with repo `debug-pipeline-run` for pipeline failures. |
 
 ---
 
@@ -77,6 +78,11 @@ There are two kinds. **Repo workflow skills** hold procedures specific to this c
 ### `vite`
 - Used whenever rebuilding Web Studio assets (`npm run build` in `UI Control/`).
 - **Rule:** Always verify that `UI Control/dist/index.html` references the newly hashed JS bundle (`index-[hash].js`) before committing.
+
+### `systematic-debugging`
+- Used for ANY bug, test failure, or unexpected behavior, before proposing fixes.
+- **Rule:** No fixes without root-cause investigation first. Reproduce consistently, check recent changes, gather evidence, single-hypothesis fixes. Always paired with repo `debug-pipeline-run` (which adds: check `docs/memory/incidents/` first, reproduce via `--record-id`, never sweep old rows).
+- **Pre-fix MD read order:** pipeline doc → `docs/memory/incidents/` → this skill + `debug-pipeline-run` → code.
 
 ---
 
