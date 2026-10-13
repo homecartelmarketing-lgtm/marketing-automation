@@ -173,6 +173,7 @@ def build_jobs(slots: list[dict], state: dict) -> tuple[list[dict], list[dict]]:
             "fixture_id": fixture_id,
             "run_endpoint": job["run_endpoint"],
             "status_endpoint": job["status_endpoint"],
+            "stop_endpoint": job.get("stop_endpoint") or (job["run_endpoint"][:-4] + "/stop" if job.get("run_endpoint", "").endswith("/run") else ""),
             "max_items": 1,
         })
     return jobs, skipped
