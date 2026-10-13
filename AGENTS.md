@@ -429,6 +429,15 @@ Root scripts that migrate/backfill Airtable data, tag furniture in room photos, 
 - **Before debugging a pipeline failure** (especially a Shopify/Akeneo cross-check failure or anything resembling a past incident), check `docs/memory/incidents/` first — it may already be root-caused. The **`.agents/skills/debug-pipeline-run/SKILL.md`** skill maps the recurring symptoms to their known causes.
 - **After resolving anything non-trivial** — a failure that took real investigation, or a design decision made without an obvious paper trail — add a short note under `docs/memory/incidents/` or `docs/memory/decisions/`. A few sentences is enough. This applies to AI agents working in this repo, not just humans.
 
+### Mandatory MD pre-read protocol (agents, before any automation change)
+The agent (not the user) must read docs before touching code. Every fix/change request follows this order:
+1. `AGENTS.md` (this file — always loaded).
+2. The ONE pipeline doc for the area touched (`docs/stories/|feeds/|reels/|ads/|banners/*.md`) — read only that file, never the whole folder.
+3. `docs/memory/incidents/` — search for the symptom/error first; reuse the known diagnosis if present.
+4. The matching skill (`debug-pipeline-run` for failures + `systematic-debugging` for root-cause discipline, `fresh-row-scrape` for scrapes, `pillow-layout` for layouts, `add-new-pipeline` for new wiring).
+5. Only then: read the code, reproduce with `--record-id`, implement, test, commit.
+Skipping steps 2–4 and jumping straight to code repeats past incidents.
+
 ---
 
 ## 11. Git, Deployment & Push Protocol for AI Agents
@@ -448,7 +457,7 @@ The always-on rules are below. The step-by-step sequence is in **`.agents/skills
 
 ## 12. Integrated Workspace Agent Skills (`.agents/skills/`)
 
-The workspace includes 11 version-controlled agent skills in `.agents/skills/` (whitelisted in `.gitignore`). Load the matching skill when a task starts. Each one holds the detail this file only summarizes.
+The workspace includes 12 version-controlled agent skills in `.agents/skills/` (whitelisted in `.gitignore`). Load the matching skill when a task starts. Each one holds the detail this file only summarizes.
 
 **Repo workflow skills (specific to this codebase):**
 
@@ -466,5 +475,6 @@ The workspace includes 11 version-controlled agent skills in `.agents/skills/` (
 9. **`vercel-react-best-practices`** — React hook composition (`usePipelineData`, `usePipelineRunner`, `useQueue`), memoization, and Web Studio performance.
 10. **`vite`** — Production Vite bundling (`UI Control/dist/`), asset hashing, and SPA routing integration with Flask.
 11. **`git-guardrails-claude-code`** — Safety hooks blocking destructive git commands (`git push --force`, `git reset --hard`, accidental wipeouts).
+12. **`systematic-debugging`** — General root-cause discipline (no fixes without investigation: reproduce, check changes, gather evidence, single-hypothesis fixes). Always paired with repo `debug-pipeline-run` for pipeline failures.
 
 See [`docs/SKILLS_GUIDE.md`](docs/SKILLS_GUIDE.md) for when to use each one.
