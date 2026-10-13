@@ -104,6 +104,7 @@ def _post_queue_enqueue(job: dict[str, Any], pin: str) -> dict[str, Any]:
         "max_items": job.get("max_items", 1),
         "run_endpoint": job["run_endpoint"],
         "status_endpoint": job["status_endpoint"],
+        "stop_endpoint": job.get("stop_endpoint") or (job.get("run_endpoint", "")[:-4] + "/stop" if job.get("run_endpoint", "").endswith("/run") else ""),
         "pin": pin,
     }
     payload = json.dumps(body).encode("utf-8")

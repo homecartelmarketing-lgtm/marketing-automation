@@ -27,7 +27,8 @@ export function useQueue(
     wasActive: boolean,
     finished?: FinishedQueueJob
   ) => void,
-  onQueueLost?: () => void
+  onQueueLost?: () => void,
+  enabled: boolean = true
 ): UseQueueResult {
   const [activeQueueJob, setActiveQueueJob] = useState<QueueJob | null>(null);
   const [pendingQueue, setPendingQueue] = useState<QueueJob[]>([]);
@@ -41,6 +42,8 @@ export function useQueue(
   const idleStreakRef = useRef<number>(0);
 
   useEffect(() => {
+    if (!enabled) return;
+
     const pollQueue = async () => {
       try {
         const res = await fetch('/api/queue/status');
@@ -94,7 +97,7 @@ export function useQueue(
     pollQueue();
     const interval = setInterval(pollQueue, 1500);
     return () => clearInterval(interval);
-  }, []);
+  }, [enabled]);
 
   const getQueueInfo = useCallback(
     (fixtureId: string, activePipelineType?: PipelineType) => {

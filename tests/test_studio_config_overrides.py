@@ -192,12 +192,14 @@ class StudioConfigOverrideTests(unittest.TestCase):
         fake_breakdown = {"P": 1, "S": 0, "C": 1, "D": 0, "FM": 0}
         paths = sorted(rule.rule for rule in server.app.url_map.iter_rules() if rule.rule.endswith("/counts"))
         self.assertEqual(len(paths), 31)
+        common = importlib.import_module("routes.common")
+        headers = common.internal_auth_headers()
         with patch.object(source.requests, "get", return_value=fake_response), patch.object(
             source, "fetch_status_breakdown", return_value=fake_breakdown
         ):
             for path in paths:
                 with self.subTest(path=path):
-                    response = server.app.test_client().get(path + "?refresh=true")
+                    response = server.app.test_client().get(path + "?refresh=true", headers=headers)
                     self.assertEqual(response.status_code, 200)
                     for fixture in response.json["counts"].values():
                         self.assertEqual(fixture["completed"], fixture["status_counts"]["C"])

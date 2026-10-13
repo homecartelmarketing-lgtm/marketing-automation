@@ -158,8 +158,14 @@ def _fetch_job_status(job: dict[str, Any]) -> dict[str, Any]:
         return {"status": "error", "error": "No status_endpoint specified"}
 
     url = f"http://127.0.0.1:{port}{endpoint}"
+    headers = {"Accept": "application/json", **internal_auth_headers()}
+    pin = job.get("pin", "")
+    if pin:
+        headers["Authorization"] = f"Bearer {pin}"
+        headers["X-Dashboard-PIN"] = pin
+
     try:
-        req = urllib.request.Request(url, headers={"Accept": "application/json"}, method="GET")
+        req = urllib.request.Request(url, headers=headers, method="GET")
         with urllib.request.urlopen(req, timeout=10) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except Exception as exc:
@@ -171,7 +177,12 @@ def _dispatch_job_stop(job: dict[str, Any]) -> tuple[bool, str]:
     port = get_server_port()
     endpoint = job.get("stop_endpoint", "")
     if not endpoint:
-        return False, "No stop_endpoint specified"
+        # Auto-derive from run_endpoint (e.g. /api/day-night-feed/run -> /api/day-night-feed/stop)
+        run_ep = job.get("run_endpoint", "")
+        if run_ep and run_ep.endswith("/run"):
+            endpoint = run_ep[:-4] + "/stop"
+        else:
+            return False, "No stop_endpoint specified"
 
     url = f"http://127.0.0.1:{port}{endpoint}"
     headers = {"Content-Type": "application/json", **internal_auth_headers()}
@@ -575,6 +586,13 @@ def stop_current_job():
         if _ACTIVE_JOB and _ACTIVE_JOB["id"] == curr_job["id"]:
             _ACTIVE_JOB["status"] = "stopped"
             _ACTIVE_JOB["logs"].append(f"[{time.strftime('%X')}] Stopped via Queue Controller.")
+            hist_item = dict(_ACTIVE_JOB)
+            hist_item["finished_at"] = time.time()
+            hist_item["duration_seconds"] = int(time.time() - hist_item.get("started_at", time.time()))
+            _JOB_HISTORY.insert(0, hist_item)
+            if len(_JOB_HISTORY) > 30:
+                _JOB_HISTORY.pop()
+            _ACTIVE_JOB = None
 
     return jsonify({
         "status": "stopping",

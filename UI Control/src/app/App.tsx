@@ -154,10 +154,12 @@ export default function App() {
     fetchLiveCounts,
   } = usePipelineData();
 
-  // Initial fetch on mount
+  // Initial fetch once authenticated
   useEffect(() => {
-    fetchLiveCounts();
-  }, [fetchLiveCounts]);
+    if (isAuthenticated) {
+      fetchLiveCounts();
+    }
+  }, [isAuthenticated, fetchLiveCounts]);
 
   // 2. Runner hook: enqueue / stop controls (status comes from the queue poller below)
   // A 401 means the session expired (accounts) or the PIN is missing/wrong (pin mode).
@@ -279,7 +281,7 @@ export default function App() {
     handleCancelQueueItem,
     handleClearQueue,
     handleStopActiveJob,
-  } = useQueue(handleQueueJobTransition, handleQueueLost);
+  } = useQueue(handleQueueJobTransition, handleQueueLost, isAuthenticated);
 
   // Active configurations
   const activePipelineConfig = useMemo(

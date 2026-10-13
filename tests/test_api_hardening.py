@@ -204,6 +204,7 @@ class QueueEndpointSsrfTests(unittest.TestCase):
     def setUp(self):
         if str(UI_CONTROL) not in sys.path:
             sys.path.insert(0, str(UI_CONTROL))
+        self.common = _load_common()
         self.qm = importlib.import_module("routes.queue_manager")
 
     def test_accepts_normal_api_paths(self):
@@ -252,6 +253,29 @@ class QueueEndpointSsrfTests(unittest.TestCase):
             )
         self.assertEqual(resp.status_code, 400)
         self.assertIn("run_endpoint", resp.get_json()["error"])
+
+    def test_dispatch_job_stop_derives_endpoint_from_run_endpoint(self):
+        with patch.object(self.qm.urllib.request, "urlopen") as mock_urlopen:
+            mock_urlopen.return_value.__enter__.return_value.read.return_value = b'{"status": "stopped"}'
+            ok, msg = self.qm._dispatch_job_stop({
+                "run_endpoint": "/api/day-night-feed/run",
+            })
+            self.assertTrue(ok)
+            # Verify the request URL derived /stop
+            req = mock_urlopen.call_args[0][0]
+            self.assertTrue(req.full_url.endswith("/api/day-night-feed/stop"))
+            self.assertEqual(req.headers.get("X-internal-token"), self.common.INTERNAL_TOKEN)
+
+    def test_fetch_job_status_includes_internal_auth(self):
+        with patch.object(self.qm.urllib.request, "urlopen") as mock_urlopen:
+            mock_urlopen.return_value.__enter__.return_value.read.return_value = b'{"status": "running", "logs": []}'
+            res = self.qm._fetch_job_status({
+                "status_endpoint": "/api/day-night-feed/status",
+            })
+            self.assertEqual(res.get("status"), "running")
+            req = mock_urlopen.call_args[0][0]
+            self.assertTrue(req.full_url.endswith("/api/day-night-feed/status"))
+            self.assertEqual(req.headers.get("X-internal-token"), self.common.INTERNAL_TOKEN)
 
 
 class StudioUsersFilePermissionsTests(unittest.TestCase):
