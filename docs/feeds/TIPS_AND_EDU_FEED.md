@@ -21,12 +21,12 @@ The **Tips & Educational Feed Automation Pipeline** is an end-to-end multi-slide
 
 | Phase | Phase Name | Provider / Engine | Model / Settings | Input Fields / Triggers | Output Fields / Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Phase 0** | **Akeneo Ingestion** | Akeneo PIM REST API | Active Catalog Ingestion (`enabled=true`) with cross-table dedup | Akeneo Catalog (`chandeliers`, `pendant_lights`, etc.) | Populates 4 product slots (`Furniture Item[1-4]`, `SKU[1-4]`, `Item Name[1-4]`) -> Status: `Standby` |
-| **Phase 1** | **Krea Room & Thumbnail Gen** | Krea AI | `krea-2-medium` (4:5, 1K resolution)<br>Thumb Moodboard: `ec860c16-10e4-429e-bba6-ff068bcb80b1` | Category room prompts + Preset Moodboard ID | `Interior1`, `Interior2`, `Interior3`, `Thumbnail` -> Status: `Already attached a room Interior` |
-| **Phase 2** | **Claude Sonnet 5 Prompt Analysis** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `Interior[1-3]` + `Furniture Item[1-3]` + Exterior | `Prompt1`, `Prompt2`, `Prompt3`, `5-Word Tips Title` |
-| **Phase 3** | **Nano Banana Pro Product Blending** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `4:5`, Resolution: `1K` | `Interior[1-3]` + `Furniture Item[1-3]` + `Prompt[1-3]` | Uploads 3 blended images to `Tips and Edu Blended` |
-| **Phase 4** | **Nano Banana Pro Layout Blending** | Fal AI | `fal-ai/nano-banana-pro/edit` + `tipsedufeeds1..3.json` | `Tips and Edu Layout[1-3]` + `Tips and Edu Blended[1-3]` | Uploads 3 completed graphics to `Tips and Edu Feeds` |
-| **Phase 5** | **Local PIL Stamp & Finalization** | Local Python Pillow | Zero-API Local Compositor | `Thumbnail` + `Logo` | Stamps brand watermark & headline -> Status: `Completed` (`C`) |
+| **Phase 1** | **Akeneo Scraper** | Akeneo PIM REST API | Active Catalog Ingestion (`enabled=true`) + Shopify published catalog check | Akeneo Catalog (`chandeliers`, `pendant_lights`, etc.) | Populates 4 product slots (`Furniture Item[1-4]`, `SKU[1-4]`, `Item Name[1-4]`) -> Status: `Standby` |
+| **Phase 2** | **Krea Room & Thumbnail Gen** | Krea AI | `krea-2-medium` (4:5, 1K resolution)<br>Thumb Moodboard: `ec860c16-10e4-429e-bba6-ff068bcb80b1` | Category room prompts + Preset Moodboard ID | `Interior1`, `Interior2`, `Interior3`, `Thumbnail` -> Status: `Already attached a room Interior` |
+| **Phase 3** | **Claude Sonnet 5 Prompt Analysis** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `Interior[1-3]` + `Furniture Item[1-3]` | Populates `Prompt1`, `Prompt2`, `Prompt3` |
+| **Phase 4** | **Nano Banana Pro Blending & Tips Gen** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `4:5`, Resolution: `1K`<br>Claude Vision for Tips | `Interior[1-3]` + `Furniture Item[1-3]` + `Prompt[1-3]` | Uploads 3 blended images to `Tips and Edu Blended`, generates `Thumbnail with Text`, and saves educational tips to `Tips 1..3` (dual-written to `Tip1..3`) |
+| **Phase 5** | **YOLO Item Name Tagging** | YOLO-World (Local CPU) | Open-vocabulary tagging (Line 1: Item Name, Line 2: Product Type) | `Tips and Edu Blended` + `Item Name[1-3]` + `Product Type[1-3]` | Stamps two-line floating tag and uploads carousel to `Tips and Edu Blended Attach Item Name` |
+| **Phase 6** | **Programmatic PIL Layout Compositing** | Local Python Pillow | Zero-API Local Compositor (Canva coordinates) | `Tips and Edu Blended Attach Item Name` + `Tips 1..3` | Overlays Numeral (196px) + Tip Text (32px) and uploads 3 feed photos to `Tips and Edu Feeds` -> Status: `Complete` (`C`) |
 
 ---
 
@@ -81,7 +81,9 @@ When a row reaches Complete (C), the pipeline automatically writes the Philippin
 
 ## 6. Local Pillow Layout Specs
 
-The cover thumbnail uses **Zero-API Local Python Pillow** execution to render typography and brand assets without external cloud costs:
+Both the cover thumbnail and the 3 final feed slides use **Zero-API Local Python Pillow** execution (`content_automation/overlay.py`) to render typography and brand assets without external cloud costs:
+
+### A. Cover Thumbnail (`Thumbnail with Text`)
 - **Brand Logo Coordinates**:
   - Width: `190.3 px`, Height: `63.5 px`
   - Position: `X=108.0 px`, `Y=108.0 px` (top-left margin) or bottom watermark placement.
@@ -89,7 +91,20 @@ The cover thumbnail uses **Zero-API Local Python Pillow** execution to render ty
   - Font: `Poppins-Bold.ttf`
   - Headline Font Size: `52 px`, auto-wrapped within `900 px` bounding box.
   - Text Shadow: Subtle Gaussian blur drop shadow ($R=8\text{ px}$, opacity $0.45$) for legibility over bright architectural backgrounds.
-- **Deduplication Guard**: Cross-table checking against all existing Story and Feed tables prevents duplicate Akeneo SKUs from being scraped or processed.
+
+### B. 3 Final Feed Slides (`Tips and Edu Feeds`)
+- **Numeral Box (`TIPS_EDU_FEED_NUMERAL_BOX`)**:
+  - Font: `Poppins-Regular.ttf`, font size `196 px`
+  - Canva Position: `X=147.8 px`, `Y=942.2 px`, `Width=82 px`, `Height=312.7 px`
+- **Tip Text Box (`TIPS_EDU_FEED_TEXT_BOX`)**:
+  - Font: `Poppins-Bold.ttf`, font size `32 px`
+  - Canva Position: `X=229.8 px`, `Y=1007.3 px`, `Width=755.3 px`, `Height=176.5 px`
+  - Formatting: Top-anchor flow, Canva line spacing `1.0`, letter spacing `0`
+  - Collision Avoidance: Dynamic offset `t_box_x = max(text_box.x, num_glyph_right + min_gap)` prevents wide numerals ("2", "3") from overlapping the tip text.
+
+### C. Airtable Field Synchronization & Tagging Protocol
+- **Dual-Write for Educational Tips**: Tips text generated in Phase 4 is dual-written to both the primary pipeline fields (`Tips 1`, `Tips 2 `, `Tips 3`) and legacy/alternative schema fields (`Tip1`, `Tip2`, `Tip3`) if present in the table. This guarantees all Airtable views and UI components display tips without blank columns.
+- **Strict Item Name & Product Type Extraction (No Surrogate Fallbacks)**: YOLO product tagging in Phase 5 reads directly from `Item Name[1-3]` and `Product Type[1-3]` (handling whitespace variations like `Item Name 1` or `Item Name1`). The pipeline strictly passes `product_type_val` directly to `split_item_name(raw_name, fallback_product_type=product_type_val)` without creating synthetic fallback properties (such as `category_label` or `fallback_category_label`). This ensures Phase 5 completes smoothly and Phase 6 (Pillow layout stamping with Numerals and Tips) executes end-to-end.
 
 ---
 

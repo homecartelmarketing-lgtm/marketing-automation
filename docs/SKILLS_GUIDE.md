@@ -30,6 +30,8 @@ There are two kinds. **Repo workflow skills** hold procedures specific to this c
 | **`vite`** | [`.agents/skills/vite`](../.agents/skills/vite/SKILL.md) | Production Vite bundling (`UI Control/dist/`), asset hashing, and client-side SPA routing integration with Flask. |
 | **`git-guardrails-claude-code`** | [`.agents/skills/git-guardrails-claude-code`](../.agents/skills/git-guardrails-claude-code/SKILL.md) | Intercepts and blocks destructive git operations (`git push --force`, `git reset --hard`, accidental wipeouts). |
 | **`systematic-debugging`** | [`.agents/skills/systematic-debugging`](../.agents/skills/systematic-debugging/SKILL.md) | General root-cause discipline (no fixes without investigation). Always paired with repo `debug-pipeline-run` for pipeline failures. |
+| **`graphify`** | [`.agents/skills/graphify`](../.agents/skills/graphify/SKILL.md) | Builds a queryable knowledge graph of this repo (code, docs, papers, images) with god nodes, community detection, and query/path/explain tools. Answers cross-file relational questions that grep-walking gets wrong or gets slowly. Outputs land in `graphify-out/` (git-ignored). |
+| **`icm-architect`** | [`.agents/skills/icm-architect`](../.agents/skills/icm-architect/SKILL.md) | ICM workspace design and audit: numbered folders as sequencing, hierarchy as context scoping, markdown as state, one agent per walk. Reference library vendored at [`docs/icm/`](README.md). |
 
 ---
 
@@ -84,11 +86,20 @@ There are two kinds. **Repo workflow skills** hold procedures specific to this c
 - **Rule:** No fixes without root-cause investigation first. Reproduce consistently, check recent changes, gather evidence, single-hypothesis fixes. Always paired with repo `debug-pipeline-run` (which adds: check `docs/memory/incidents/` first, reproduce via `--record-id`, never sweep old rows).
 - **Pre-fix MD read order:** pipeline doc → `docs/memory/incidents/` → this skill + `debug-pipeline-run` → code.
 
+### `graphify`
+- Used when a question spans many files ("what calls this", "what does changing X hit", "how do these docs relate"), or when `graphify-out/` already exists — then treat the question as a graphify query first.
+- **Rule:** A graphify query beats reading the tree when the answer is relational rather than linear. Never commit the graph: `/graphify-out/` and `/.graphify*` are anchored in `.gitignore` so the skill's own `.agents/skills/graphify/.graphify_version` still ships.
+
+### `icm-architect`
+- Used when designing a new folder-driven agent workflow, or auditing a repo/folder/vault into a walkable map (objects, processes, change-impact).
+- **Rule:** ICM shapes **new** workspaces. It never restructures this repo's pipelines, routes, or generators — those follow `AGENTS.md` §8 and the `add-new-pipeline` skill. The vendored reference library lives at `docs/icm/`; it is reference material, not documentation of anything this repo runs.
+
 ---
 
 ## 3. Maintenance & Updates
 
 - **General skills:** to update one, run `npx skills add <owner/repo@skill> -y` from the repository root.
+- **Hand-vendored skills:** `graphify` and `icm-architect` were dropped in by hand (not via `npx skills`), so they are absent from `skills-lock.json` and carry no content hash. Install them through the lockfile instead if a hash-pinned copy is ever wanted; see [`memory/decisions/2026-10-15-graphify-icm-vendored-skills.md`](memory/decisions/2026-10-15-graphify-icm-vendored-skills.md).
 - **Repo workflow skills:** edit the `SKILL.md` directly. When the procedure it describes changes (e.g. a new deploy step), update the skill in the same commit and follow the AGENTS.md §8 "Docs to update" table.
 
 Git tracks changes to `.agents/skills/` while ignoring temporary IDE configs.
