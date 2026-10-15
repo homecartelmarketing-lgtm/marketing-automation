@@ -157,7 +157,7 @@ graph TD
 | `Dockerfile` | The image Railway builds and runs (single gunicorn worker on port `5200`). |
 | `app-config.json` | Zoho Catalyst AppSail app config (Docker build, `UI Control/api_server.py`, port `5200`, 2 GB, 1 instance). Not used by the Railway deploy; kept as an alternate deploy target. |
 | `catalyst.json` | Zoho Catalyst project file that registers the AppSail service above. Not used by Railway. |
-| `skills-lock.json` | Lockfile for the AI agent skills in `.agents/skills` (currently `git-guardrails-claude-code` from `mattpocock/skills`), pinned by content hash. |
+| `skills-lock.json` | Lockfile for the AI agent skills in `.agents/skills` that were installed with `npx skills` — currently `git-guardrails-claude-code` (mattpocock/skills) and `systematic-debugging` (obra/superpowers), pinned by content hash. `graphify` and `icm-architect` are vendored by hand and therefore not hash-pinned here. |
 
 ---
 

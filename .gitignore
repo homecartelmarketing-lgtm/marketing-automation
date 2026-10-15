@@ -64,3 +64,9 @@ Content Calendar.xlsx
 # House Tour reference video (local inspiration footage, not for git).
 assets/house_tour_reference.mp4
 
+# Graphify knowledge graph outputs and cache.
+# Anchored on purpose: an unanchored `.graphify*` also matches
+# .agents/skills/graphify/.graphify_version and silently drops it from every commit.
+/graphify-out/
+/.graphify*
+

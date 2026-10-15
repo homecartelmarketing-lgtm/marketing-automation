@@ -67,6 +67,8 @@ docs/
 │   ├── CHRISTMAS_BANNER.md
 │   └── SALE_BANNER.md
 │
+├── icm/                                 # Vendored ICM reference library (feeds the icm-architect skill; not a pipeline spec)
+│
 └── memory/                              # Incidents, decisions, architecture notes (Obsidian vault)
     ├── incidents/
     │   ├── 2026-09-17-floor-lamp-shopify-draft-inactive.md
@@ -185,14 +187,17 @@ Second sub-tab of the **Banner** tab. A red sale panel with `10%` and `15%` bloc
 | [`memory/incidents/2026-09-21-item-name-stamp-inconsistencies.md`](memory/incidents/2026-09-21-item-name-stamp-inconsistencies.md) | One symptom family — missing item-name stamps — across 1 Product 3 Styles Feed, Collection Category Feed, Moodboard Reel and Style This Story, with three distinct root causes. |
 | [`memory/incidents/2026-10-02-mb-reel-item-name-material-duplicates.md`](memory/incidents/2026-10-02-mb-reel-item-name-material-duplicates.md) | MB Reel regression: Phase 3's 0-based `Item Name{slot}` lookup stamped placeholders/shifted names, and un-normalized material words (`BRASS,` vs `Brass`) duplicated across slots. |
 | [`memory/incidents/2026-10-05-tag-line2-anchor-fallback.md`](memory/incidents/2026-10-05-tag-line2-anchor-fallback.md) | Tag Line-2 lost when Product Type field empty (anchor handoff) + Floor Lamp Moodboard Story registry `KeyError`; fixed by shared `resolve_tag_names`. |
+| [`memory/decisions/2026-10-15-graphify-icm-vendored-skills.md`](memory/decisions/2026-10-15-graphify-icm-vendored-skills.md) | Why `graphify` and `icm-architect` are vendored by hand (absent from `skills-lock.json`), what each is for, why `docs/icm/` is reference material rather than a pipeline spec, and why the graphify `.gitignore` patterns must stay anchored. |
+| [`memory/incidents/2026-10-15-tips-edu-feed-phase-5-6-labels-and-audit-sync.md`](memory/incidents/2026-10-15-tips-edu-feed-phase-5-6-labels-and-audit-sync.md) | Tips & Educational Feed Phase 5 & 6 stale comment banners, audit log labels, warning output, and partial-failure status analysis. |
 
 ## 🚧 7. Implementation plans (`docs/plans/`)
 
 | Doc | Status |
 | :--- | :--- |
 | [`plans/2026-10-05-calendar-import.md`](plans/2026-10-05-calendar-import.md) | Content Calendar XLSX → Studio queue import (implemented: `content_automation/calendar_import.py`, `UI Control/routes/calendar.py`, `scripts/ops/import_content_calendar.py`). |
+| [`plans/2026-10-15-skills-registration-md-sync.md`](plans/2026-10-15-skills-registration-md-sync.md) | Register `graphify` + `icm-architect` in `AGENTS.md` §12 and `docs/SKILLS_GUIDE.md`, add `docs/icm/` to the docs navigation, fix the stale `skills-lock.json` row, and anchor the graphify `.gitignore` patterns. Docs-only. |
 
-> The old `docs/superpowers/` draft specs were removed 2026-10-05 (broken links cleaned).
+> `docs/superpowers/` holds earlier draft specs kept for history. The live list is the table above (`docs/plans/`); broken links out of the old drafts were cleaned 2026-10-05.
 
 ## 📂 8. Legacy Per-Folder Notes
 

@@ -58,6 +58,8 @@ marketing-automation/
 │   ├── feeds/                               # 7 Feed pipeline specs (4:5 vertical)
 │   ├── reels/                               # 8 Reel pipeline specs (9:16 video)
 │   ├── ads/                                 # 1 Ad Cover pipeline spec (1:1 1080x1080 + 9:16 Story 1080x1920)
+│   ├── plans/                               # Implementation plans, one file each (live index in docs/README.md §7)
+│   ├── icm/                                 # Vendored ICM reference library for the icm-architect skill (NOT a pipeline doc)
 │   ├── AUTO_POST_SCHEDULER.md               # Instagram auto-publish worker (external, cross-repo dependency)
 │   ├── OPERATIONS_AND_UTILITIES.md          # Airtable maintenance / tagging / diagnostic scripts
 │   ├── GIT_PUSH_AND_DEPLOY.md               # Detailed AI commit/push/deploy walkthrough (expands §11)
@@ -245,6 +247,9 @@ Airtable single-select field **`Status`** maps to 5 badges across every UI card:
 ### D. Direct Airtable Deep Links
 The Row Inspector modal queries `/api/rows?table_id=<table_id>` and constructs direct deep links:
 `https://airtable.com/{base_id}/{table_id}/{record_id}`
+
+### E. Product Field Resolution & Item Tagging
+When splitting item names (`split_item_name`) or stamping two-line floating YOLO product tags (Line 1: Item Name, Line 2: Product Type), pipelines must extract `Item Name` and `Product Type` directly from the scraped Airtable record fields. Never construct or rely on synthetic fallback/proxy properties on runner classes (e.g. `category_label` or `fallback_category_label`). When writing educational tips or text fields where legacy column variations exist (such as `Tips 1..3` vs `Tip1..3`), pipelines must dual-write to both sets of fields if present in the table schema.
 
 ---
 
@@ -457,7 +462,7 @@ The always-on rules are below. The step-by-step sequence is in **`.agents/skills
 
 ## 12. Integrated Workspace Agent Skills (`.agents/skills/`)
 
-The workspace includes 12 version-controlled agent skills in `.agents/skills/` (whitelisted in `.gitignore`). Load the matching skill when a task starts. Each one holds the detail this file only summarizes.
+The workspace includes 14 version-controlled agent skills in `.agents/skills/` (whitelisted in `.gitignore`). Load the matching skill when a task starts. Each one holds the detail this file only summarizes.
 
 **Repo workflow skills (specific to this codebase):**
 
@@ -476,5 +481,7 @@ The workspace includes 12 version-controlled agent skills in `.agents/skills/` (
 10. **`vite`** — Production Vite bundling (`UI Control/dist/`), asset hashing, and SPA routing integration with Flask.
 11. **`git-guardrails-claude-code`** — Safety hooks blocking destructive git commands (`git push --force`, `git reset --hard`, accidental wipeouts).
 12. **`systematic-debugging`** — General root-cause discipline (no fixes without investigation: reproduce, check changes, gather evidence, single-hypothesis fixes). Always paired with repo `debug-pipeline-run` for pipeline failures.
+13. **`graphify`** — Turns this repo (code, docs, papers, images) into a persistent knowledge graph with god nodes, community detection, and query/path/explain tools. Load it for cross-file relational questions ("what calls this", "what would changing X hit") instead of grep-walking the tree; a built graph lands in `graphify-out/` (git-ignored).
+14. **`icm-architect`** — ICM (Interpretable Context Methodology) workspace design: numbered folders as sequencing, hierarchy as context scoping, plain markdown as state, one agent per walk. Load it to design a folder-shaped agent workflow or audit a repo into a walkable map. Reference library vendored at [`docs/icm/`](docs/icm/README.md). It shapes **new** workspaces; it never restructures this repo's existing pipelines.
 
 See [`docs/SKILLS_GUIDE.md`](docs/SKILLS_GUIDE.md) for when to use each one.
