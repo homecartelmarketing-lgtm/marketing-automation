@@ -127,6 +127,7 @@ STATUS_STANDBY = "Standby"
 STATUS_INTERIOR_ATTACHED = "Already attached a room Interior"
 STATUS_PROCESSING = "Processing"
 STATUS_COMPLETE = "Complete"
+STATUS_FOR_MANUAL = "For Manual"
 
 TERMINAL_AND_PROTECTED_STATUSES = {
     "complete", "completed", "done", "finished",
@@ -1928,6 +1929,12 @@ class TipsAndEduFeedRunner:
                 print(f"    [OK] Generated {target_tip_field} in {duration}s: \"{tip}\"")
                 new_updates[target_tip_field] = tip
                 current_tips[target_tip_field] = tip
+
+                # Also populate alternative Tip field (e.g. 'Tip1' vs 'Tips 1') if present in table schema
+                known_fields = self.airtable.known_field_names()
+                alt_tip_field = f"Tip{slot_idx}"
+                if alt_tip_field in known_fields and alt_tip_field != target_tip_field:
+                    new_updates[alt_tip_field] = tip
             except Exception as err:
                 print(f"    [ERROR] Failed to generate tip for Slot {slot_idx}: {err}")
                 append_error_log(record_id, "tips_generation", err, {"slot": slot_idx})
@@ -1948,7 +1955,7 @@ class TipsAndEduFeedRunner:
         return current_tips
 
     # ══════════════════════════════════════════════════════════════════════════
-    # PHASE 5: PROGRAMMATIC PIL LAYOUT COMPOSITING -> TIPS AND EDU FEEDS
+    # PHASE 5: YOLO ITEM NAME TAGGING & CAROUSEL ASSEMBLY
     # ══════════════════════════════════════════════════════════════════════════
 
     def phase_5(self, record_id: str, *, execute: bool = True) -> bool:
@@ -1987,7 +1994,8 @@ class TipsAndEduFeedRunner:
                 continue
 
             raw_name = str(fields.get(f"Item Name{slot_idx if slot_idx > 1 else ''}") or fields.get(f"SKU{slot_idx if slot_idx > 1 else ''}") or record_id).strip()
-            item_title, product_type = split_item_name(raw_name, fallback_product_type=self.category_label)
+            product_type_val = str(fields.get(f"Product Type{slot_idx if slot_idx > 1 else ''}") or "").strip()
+            item_title, product_type = split_item_name(raw_name, fallback_product_type=product_type_val)
 
             print(f"\n  [{slot_idx}/3] Stamping '{item_title}' onto Blend {slot_idx}...")
             
@@ -2034,6 +2042,8 @@ class TipsAndEduFeedRunner:
         print(f"\n[OK] Phase 5 completed for record {record_id}!\n")
         return True
 
+    # ══════════════════════════════════════════════════════════════════════════
+    # PHASE 6: PROGRAMMATIC PIL LAYOUT COMPOSITING -> TIPS AND EDU FEEDS
     # ══════════════════════════════════════════════════════════════════════════
 
     def phase_6(self, record_id: str, *, execute: bool = True) -> bool:
@@ -2154,7 +2164,7 @@ class TipsAndEduFeedRunner:
                 {
                     "timestamp": pht_timestamp(),
                     "record_id": record_id,
-                    "phase": "Phase 5: Programmatic PIL Layout Compositing",
+                    "phase": "Phase 6: Programmatic PIL Layout Compositing",
                     "aspect_ratio": "4:5",
                     "dimensions": "1080x1350",
                     "duration_seconds": total_duration,
@@ -2172,8 +2182,8 @@ class TipsAndEduFeedRunner:
             if not execute:
                 print(f"[DRY RUN] Completed simulation for record {record_id}.")
                 return True
-            self._update_status(record_id, STATUS_INTERIOR_ATTACHED)
-            print(f"[WARN] Phase 5 partially failed for record {record_id}.")
+            self._update_status(record_id, STATUS_FOR_MANUAL)
+            print(f"[WARN] Phase 6 partially failed for record {record_id}. Status updated to '{STATUS_FOR_MANUAL}' (FM badge).")
             return False
 
     # ══════════════════════════════════════════════════════════════════════════

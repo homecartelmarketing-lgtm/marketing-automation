@@ -150,7 +150,7 @@ _EXEC_STATE: dict[str, Any] = {
     "active_table_id": None,
     "current_phase": "",
     "current_phase_index": 0,
-    "total_phases": 5,
+    "total_phases": 6,
     "elapsed_seconds": 0,
     "logs": [],
     "error": None,
