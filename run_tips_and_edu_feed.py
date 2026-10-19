@@ -345,6 +345,7 @@ class SlotConfig:
     furniture_field: str
     sku_field: str
     item_name_field: str
+    product_type_field: str
     interior_field: str
     prompt_field: str
     tip_field: str
@@ -356,6 +357,7 @@ SLOTS: list[SlotConfig] = [
         furniture_field="Furniture Item",
         sku_field="SKU",
         item_name_field="Item Name",
+        product_type_field="Product Type",
         interior_field="Interior1",
         prompt_field="Prompt1",
         tip_field="Tips 1",
@@ -365,6 +367,7 @@ SLOTS: list[SlotConfig] = [
         furniture_field="Furniture Item2",
         sku_field="SKU2",
         item_name_field="Item Name2",
+        product_type_field="Product Type2",
         interior_field="Interior2",
         prompt_field="Prompt2",
         tip_field="Tips 2",
@@ -374,6 +377,7 @@ SLOTS: list[SlotConfig] = [
         furniture_field="Furniture Item3",
         sku_field="SKU3",
         item_name_field="Item Name3",
+        product_type_field="Product Type3",
         interior_field="Interior3",
         prompt_field="Prompt3",
         tip_field="Tips 3",
@@ -426,10 +430,53 @@ def get_slot_interior_val(fields: dict[str, Any], slot: SlotConfig) -> Any:
     return val
 
 
+def _slot_field_candidates(base: str, slot_index: int) -> list[str]:
+    """All Airtable spellings of a slot field (bare, suffixed, spaced).
+
+    Slot 1 uses the bare name ("Item Name"); slots 2+ append the index
+    ("Item Name2"). Older rows sometimes carry "Item Name1" or a spaced
+    "Item Name 1" variant, so resolve all spellings read-only.
+    """
+    suffix = "" if slot_index <= 1 else str(slot_index)
+    names = [f"{base}{suffix}", f"{base}{slot_index}", f"{base} {slot_index}"]
+    seen: list[str] = []
+    for name in names:
+        if name not in seen:
+            seen.append(name)
+    return seen
+
+
+def get_slot_item_name_val(fields: dict[str, Any], slot: SlotConfig) -> str:
+    """Strict Item Name read: real record field only, no generic fallback."""
+    for candidate in _slot_field_candidates("Item Name", slot.slot_index):
+        val = str(fields.get(candidate) or "").strip()
+        if val:
+            return val
+    return ""
+
+
+def get_slot_product_type_val(fields: dict[str, Any], slot: SlotConfig) -> str:
+    """Strict Product Type read: real record field only, no generic fallback."""
+    for candidate in _slot_field_candidates("Product Type", slot.slot_index):
+        val = str(fields.get(candidate) or "").strip()
+        if val:
+            return val
+    return ""
+
+
+def normalize_tips_edu_tag(raw_name, product_type_val, fixture_label):
+    return ("", "")
+
+
+def select_tagged_blends_for_layout(attachments):
+    return []
+
+
 OPTIONAL_SLOT_4 = {
     "furniture_field": "Furniture Item4",
     "sku_field": "SKU4",
     "item_name_field": "Item Name4",
+    "product_type_field": "Product Type4",
 }
 
 
@@ -1002,15 +1049,19 @@ class TipsAndEduFeedRunner:
             "Furniture Item": "multipleAttachments",
             "SKU": "multilineText",
             "Item Name": "singleLineText",
+            "Product Type": "singleLineText",
             "Furniture Item2": "multipleAttachments",
             "SKU2": "multilineText",
             "Item Name2": "singleLineText",
+            "Product Type2": "singleLineText",
             "Furniture Item3": "multipleAttachments",
             "SKU3": "multilineText",
             "Item Name3": "singleLineText",
+            "Product Type3": "singleLineText",
             "Furniture Item4": "multipleAttachments",
             "SKU4": "multilineText",
             "Item Name4": "singleLineText",
+            "Product Type4": "singleLineText",
             LOGO_FIELD: "multipleAttachments",
             self.thumbnail_field: "multipleAttachments",
             THUMBNAIL_WITH_TEXT_FIELD: "multipleAttachments",
@@ -1265,9 +1316,11 @@ class TipsAndEduFeedRunner:
                     cfg = SLOTS[idx]
                     record_payload[cfg.sku_field] = item.sku
                     record_payload[cfg.item_name_field] = item.item_name
+                    record_payload[cfg.product_type_field] = item.product_type or ""
                 elif slot_idx == 4:
                     record_payload[OPTIONAL_SLOT_4["sku_field"]] = item.sku
                     record_payload[OPTIONAL_SLOT_4["item_name_field"]] = item.item_name
+                    record_payload[OPTIONAL_SLOT_4["product_type_field"]] = item.product_type or ""
 
             record_id = self.airtable.create_record(record_payload)
             skus_str = ", ".join(it.sku for it in selected_items)
