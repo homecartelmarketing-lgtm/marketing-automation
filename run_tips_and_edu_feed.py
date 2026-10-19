@@ -2172,17 +2172,13 @@ class TipsAndEduFeedRunner:
             self._update_status(record_id, STATUS_COMPLETE)
             return True
 
-        blended_attachments = fields.get(TAGGED_BLENDED_FIELD) or []
-        if len(blended_attachments) < 3:
-            blended_attachments = fields.get(BLENDED_FIELD) or []
-            if len(blended_attachments) < 3:
-                print(f"[WARN] Record {record_id} lacks 3 images in '{TAGGED_BLENDED_FIELD}'. Cannot run Phase 6.")
-                return False
-
-        if len(blended_attachments) > 3:
-            blended_attachments = blended_attachments[-3:]
-
-        sorted_blends = sort_attachments_by_slot(blended_attachments)
+        tagged_for_layout = select_tagged_blends_for_layout(fields.get(TAGGED_BLENDED_FIELD) or [])
+        if len(tagged_for_layout) != 3:
+            print(f"[WARN] Record {record_id} lacks 3 tagged photos in '{TAGGED_BLENDED_FIELD}' (thumbnail excluded). Refusing silent untagged fallback.")
+            if execute:
+                self._update_status(record_id, STATUS_FOR_MANUAL)
+            return False
+        sorted_blends = tagged_for_layout  # already [1,2,3]
 
         # Ensure tips (Tips 1, Tips 2, Tips 3) are generated and stored
         self.generate_tips_texts(record_id, force=self.force_tips, execute=execute)
@@ -2210,7 +2206,7 @@ class TipsAndEduFeedRunner:
             if not tip_text:
                 print(f"  [WARN] Slot {slot_idx}: Tip text is empty for '{target_tip_field}'.")
 
-            local_blend_path = self._artifact_path(record_id, f"tips_and_edu_blended_{slot_idx}_{record_id}.jpg")
+            local_blend_path = self._artifact_path(record_id, f"tips_and_edu_tagged_{slot_idx}_{record_id}.jpg")
 
             filename = f"tips_and_edu_feed_{slot_idx}_{record_id}.jpg"
             destination = self._artifact_path(record_id, filename)
