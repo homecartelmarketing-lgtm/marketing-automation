@@ -2082,6 +2082,11 @@ class TipsAndEduFeedRunner:
             print(f"[DRY RUN] Would tag 3 blended images and upload to {TAGGED_BLENDED_FIELD}.")
             return True
 
+        try:
+            self.airtable.clear_attachment_field(record_id, TAGGED_BLENDED_FIELD)
+        except Exception:
+            pass  # client without clear support: uploads below still prepend in order
+
         sorted_blends = sort_attachments_by_slot(raw_blends)
         tagged_paths: list[Path] = []
         all_succeeded = True
@@ -2131,7 +2136,7 @@ class TipsAndEduFeedRunner:
                 all_succeeded = False
 
         print(f"\n  [+] Assembling {TAGGED_BLENDED_FIELD}...")
-        thumbnail_val = fields.get(THUMBNAIL_FIELD)
+        thumbnail_val = fields.get(THUMBNAIL_WITH_TEXT_FIELD) or fields.get(THUMBNAIL_FIELD)
         if thumbnail_val:
             thumb_url = extract_attachment_url(thumbnail_val)
             if thumb_url:

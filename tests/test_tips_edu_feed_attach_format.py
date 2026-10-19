@@ -35,3 +35,35 @@ class AttachFormatTests(unittest.TestCase):
         t2, s2 = normalize_tips_edu_tag("Zerrie Linear Brass Island Chandelier", "", "Chandelier")
         self.assertEqual(t2, "Zerrie")
         self.assertTrue(s2)
+
+    def test_phase5_clears_tagged_field_and_uses_thumbnail_with_text(self):
+        import tempfile
+        from pathlib import Path
+        from unittest import mock
+        runner = feed.TipsAndEduFeedRunner.__new__(feed.TipsAndEduFeedRunner)
+        runner.category_code = "chandeliers"
+        runner.fixture_label = "Chandelier"
+        runner.force_layouts = False
+        runner.airtable = mock.Mock()
+        runner.airtable.get_record.return_value = {"fields": {
+            feed.BLENDED_FIELD: [
+                {"url": "https://example.invalid/b1.jpg", "filename": "tips_and_edu_blended_1_recT.jpg"},
+                {"url": "https://example.invalid/b2.jpg", "filename": "tips_and_edu_blended_2_recT.jpg"},
+                {"url": "https://example.invalid/b3.jpg", "filename": "tips_and_edu_blended_3_recT.jpg"}],
+            "Item Name": "Zygadlo | Luxury Modern Chandelier",
+            "Item Name2": "Keyes | Modern Floor Lamp",
+            "Item Name3": "Dorvalira D | Contemporary Floor Lamp",
+            "Product Type": "Chandelier", "Product Type2": "Floor Lamp", "Product Type3": "Floor Lamp",
+            feed.THUMBNAIL_WITH_TEXT_FIELD: [{"url": "https://example.invalid/thumb.jpg", "filename": "thumb_text.jpg"}]}}
+        tmp = Path(tempfile.mkdtemp())
+        runner._artifact_path = lambda rec, name: tmp / name
+        runner._download = mock.Mock()
+        cleared = {}
+        runner.airtable.clear_attachment_field = lambda rec, field: cleared.setdefault(field, True)
+        runner._update_status = mock.Mock()
+        with mock.patch("content_automation.item_tagger.tag_blended_image", return_value=(mock.Mock(save=mock.Mock()), {"x": 1})), \
+             mock.patch.object(feed, "append_error_log"):
+            runner.phase_5("recT", execute=True)
+        self.assertTrue(cleared.get(feed.TAGGED_BLENDED_FIELD), "must clear tagged carousel before re-upload")
+        first_thumb_call = [c for c in runner._download.call_args_list]
+        self.assertTrue(first_thumb_call, "thumbnail must be downloaded for prepend")
