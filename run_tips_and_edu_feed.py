@@ -464,12 +464,51 @@ def get_slot_product_type_val(fields: dict[str, Any], slot: SlotConfig) -> str:
     return ""
 
 
+_VARIANT_SUFFIX = re.compile(r"\s+(?:[IVXLCDM]+|[A-Z]|\d+|[A-Z]\d+)$", re.IGNORECASE)
+
+
 def normalize_tips_edu_tag(raw_name, product_type_val, fixture_label):
-    return ("", "")
+    """Split raw Akeneo name into clean (title, subtitle) for the YOLO tag.
+    Pipe-split + whitespace collapse via shared split_item_name, strip the
+    trailing variant token (Keyes I -> Keyes), never return a pipe, never
+    return an empty subtitle (falls back to the fixture label).
+    """
+    from content_automation.akeneo_client import split_item_name
+    title, subtitle = split_item_name(str(raw_name or "").strip(), str(product_type_val or "").strip())
+    # No-pipe names come back whole as the title (e.g. "Zerrie Linear Brass
+    # Island Chandelier") — split to first-word series + descriptive rest so
+    # the YOLO tag keeps its two-line shape.
+    if "|" not in str(raw_name or "") and title and not subtitle:
+        words = str(title).split()
+        if len(words) > 1:
+            title, subtitle = words[0], " ".join(words[1:])
+    title = " ".join(str(title or "").split()).strip().strip("[]\"'`")
+    subtitle = " ".join(str(subtitle or "").split()).strip().strip("[]\"'`")
+    if "|" in title:
+        title = title.split("|", 1)[0].strip()
+    title = _VARIANT_SUFFIX.sub("", title).strip() or title
+    if not subtitle:
+        subtitle = " ".join(str(fixture_label or "").split()).strip().title() or "Chandelier"
+    return title, subtitle
 
 
 def select_tagged_blends_for_layout(attachments):
-    return []
+    """Pick exactly the 3 tagged slot photos, thumbnail excluded, in [1,2,3] order.
+
+    Filenames carry the record id (digits included), so the slot match
+    requires the blended|tagged|feed|layout|slide prefix — bare digits in
+    rec01ABC must never fake a slot. Returns [] unless all 3 slots found.
+    """
+    if not isinstance(attachments, list):
+        return []
+    by_slot: dict[int, dict] = {}
+    for att in attachments:
+        s = _slot_of(att) if isinstance(att, dict) else None
+        if s is not None and s not in by_slot:
+            by_slot[s] = att
+    if len(by_slot) != 3:
+        return []
+    return [by_slot[1], by_slot[2], by_slot[3]]
 
 
 OPTIONAL_SLOT_4 = {
@@ -582,24 +621,28 @@ def extract_attachment_url(attachments: Any) -> str:
     return ""
 
 
+_SLOT_RE = re.compile(r"(?:blended|tagged|feed|layout|slide)[-_]?_?0?([123])", re.IGNORECASE)
+_THUMB_RE = re.compile(r"thumb", re.IGNORECASE)
+
+
+def _slot_of(att: dict) -> int | None:
+    name = str((att or {}).get("filename") or "")
+    if _THUMB_RE.search(name):
+        return None
+    m = _SLOT_RE.search(name)
+    return int(m.group(1)) if m else None
+
+
 def sort_attachments_by_slot(attachments: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Sort attachments so slot 1, 2, 3 are in exact order."""
+    """Sort attachments so slot 1, 2, 3 are in exact order (thumbnail last)."""
     if not isinstance(attachments, list):
         return []
 
     def get_slot_index(att: dict[str, Any]) -> int:
-        if not isinstance(att, dict):
-            return 99
-        filename = str(att.get("filename") or "").lower()
-        for idx in (1, 2, 3):
-            if f"_{idx}_" in filename or f"0{idx}" in filename or f"_{idx}." in filename or f"blended_{idx}" in filename or f"feed_{idx}" in filename:
-                return idx
-        return 99
+        s = _slot_of(att) if isinstance(att, dict) else None
+        return s if s is not None else 99
 
-    sorted_atts = sorted(attachments, key=get_slot_index)
-    if all(get_slot_index(a) < 99 for a in sorted_atts) and len(sorted_atts) == len(attachments):
-        return sorted_atts
-    return attachments
+    return sorted(attachments, key=get_slot_index)
 
 
 
@@ -2043,17 +2086,22 @@ class TipsAndEduFeedRunner:
         tagged_paths: list[Path] = []
         all_succeeded = True
 
-        from content_automation.akeneo_client import split_item_name
         from content_automation.item_tagger import tag_blended_image
         
         for slot_idx, blend_attachment in enumerate(sorted_blends, start=1):
+            slot = SLOTS[slot_idx - 1] if slot_idx - 1 < len(SLOTS) else SLOTS[-1]
             blend_url = extract_attachment_url(blend_attachment)
             if not blend_url:
                 continue
 
-            raw_name = str(fields.get(f"Item Name{slot_idx if slot_idx > 1 else ''}") or fields.get(f"SKU{slot_idx if slot_idx > 1 else ''}") or record_id).strip()
-            product_type_val = str(fields.get(f"Product Type{slot_idx if slot_idx > 1 else ''}") or "").strip()
-            item_title, product_type = split_item_name(raw_name, fallback_product_type=product_type_val)
+            raw_name = get_slot_item_name_val(fields, slot)
+            product_type_val = get_slot_product_type_val(fields, slot)
+            if not raw_name:
+                print(f"  [WARN] Slot {slot_idx}: empty Item Name — flag FM, never stamp record_id/SKU.")
+                append_error_log(record_id, 5, ValueError(f"empty Item Name slot {slot_idx}"), {"slot": slot_idx})
+                all_succeeded = False
+                continue
+            item_title, product_type = normalize_tips_edu_tag(raw_name, product_type_val, self.fixture_label)
 
             print(f"\n  [{slot_idx}/3] Stamping '{item_title}' onto Blend {slot_idx}...")
             
