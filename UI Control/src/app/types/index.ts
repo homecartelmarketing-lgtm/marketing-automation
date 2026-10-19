@@ -86,6 +86,7 @@ export type PipelineType =
   | 'room-build-up-reel'
   | 'house-tour-reel'
   | 'this-mood-every-night-reel'
+  | 'virtual-staging-reel'
   | 'ad-cover'
   | 'christmas-banner'
   | null;

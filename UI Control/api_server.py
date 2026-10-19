@@ -56,6 +56,7 @@ from routes.room_build_up_reel import room_build_up_reel_bp
 from routes.house_tour_reel import house_tour_reel_bp
 from routes.this_mood_every_night_reel import this_mood_every_night_reel_bp
 from routes.sketch_to_draw_reel import sketch_to_draw_reel_bp
+from routes.virtual_staging_reel import virtual_staging_reel_bp
 from routes.ad_cover import ad_cover_bp
 from routes.christmas_banner import christmas_banner_bp
 from routes.sale_banner import sale_banner_bp
@@ -111,6 +112,7 @@ app.register_blueprint(room_build_up_reel_bp)
 app.register_blueprint(house_tour_reel_bp)
 app.register_blueprint(this_mood_every_night_reel_bp)
 app.register_blueprint(sketch_to_draw_reel_bp)
+app.register_blueprint(virtual_staging_reel_bp)
 app.register_blueprint(ad_cover_bp)
 app.register_blueprint(christmas_banner_bp)
 app.register_blueprint(sale_banner_bp)
@@ -278,6 +280,7 @@ def health():
             "house_tour_reel",
             "this_mood_every_night_reel",
             "sketch_to_draw_reel",
+            "virtual_staging_reel",
             "ad_cover",
             "christmas_banner",
             "sale_banner",

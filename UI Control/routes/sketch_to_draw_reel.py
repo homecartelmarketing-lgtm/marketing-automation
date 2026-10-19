@@ -161,12 +161,13 @@ def get_fixtures() -> dict[str, dict[str, Any]]:
 PHASE_LABELS: dict[int, str] = {
     1: "Phase 1: Akeneo Scrape & Catalog Verification",
     2: "Phase 2: Krea Room Interior Generation",
-    3: "Phase 3: Claude Vision Analysis & Headline",
-    4: "Phase 4: Fal Nano Banana Pro Room Blend & YOLO Tagging",
-    5: "Phase 5: Auto Draw Outline & Cover Generation",
-    6: "Phase 6: Auto Draw Reveal Video Rendering",
-    7: "Phase 7: Fal AI ElevenLabs Music Generation",
-    8: "Phase 8: FFmpeg Outro & Audio Muxing",
+    3: "Phase 3: Nano Banana Fixture Removal (Clean Interior)",
+    4: "Phase 4: Claude Vision Analysis & Headline",
+    5: "Phase 5: Fal Nano Banana Pro Room Blend & YOLO Tagging",
+    6: "Phase 6: Auto Draw Outline & Cover Generation",
+    7: "Phase 7: Auto Draw Reveal Video Rendering",
+    8: "Phase 8: Fal AI ElevenLabs Music Generation",
+    9: "Phase 9: FFmpeg Outro & Audio Muxing",
 }
 
 _EXEC_STATE: dict[str, Any] = {
@@ -175,7 +176,7 @@ _EXEC_STATE: dict[str, Any] = {
     "active_table_id": None,
     "current_phase": "",
     "current_phase_index": 0,
-    "total_phases": 8,
+    "total_phases": 9,
     "elapsed_seconds": 0,
     "logs": [],
     "error": None,
@@ -393,7 +394,7 @@ def run_pipeline_route():
                 if rc == 0:
                     _EXEC_STATE["status"] = "completed"
                     _EXEC_STATE["current_phase"] = "Completed"
-                    _EXEC_STATE["current_phase_index"] = 8
+                    _EXEC_STATE["current_phase_index"] = 9
                     _EXEC_STATE["logs"].append(f"[{time.strftime('%X')}] Sketch to Real Reel completed successfully.")
                 else:
                     _EXEC_STATE["status"] = "error"

@@ -45,6 +45,7 @@ export const CONTENT_CONFIG: Record<TabType, { name: string; ratio: string; item
       'Room Build-Up',
       'House Tour',
       'This Mood Every Night',
+      'Virtual Staging',
     ],
   },
   adcover: {
@@ -281,6 +282,19 @@ export const THIS_MOOD_EVERY_NIGHT_REEL_FIXTURES: Omit<FixtureData, 'completed'>
   { id: 'this-mood-every-night', name: 'This Mood Every Night', total: 100, tableId: 'tblDa5UOTUTlU1Xxy', rooms: THIS_MOOD_EVERY_NIGHT_ROOMS },
 ];
 
+// Reel Subtab 11: Virtual Staging Reel (9:16)
+export const VIRTUAL_STAGING_REEL_FIXTURES: Omit<FixtureData, 'completed'>[] = [
+  {
+    id: 'virtual-staging',
+    name: 'Virtual Staging',
+    total: 100,
+    tableId: 'tblPYG5Ed4XURecu6',
+    moodboardId: 'de5f4ff8-518c-4d6b-b606-ce1d5dac51f3',
+    prompt: 'Generate me a photo of a modern luxury living room with high ceilings, large windows, architectural styling, natural daylight, warm aesthetic, high end furniture',
+    runnable: true,
+  },
+];
+
 // Reel Subtab 7: Sketch to Real Reel (9:16)
 export const SKETCH_TO_DRAW_REEL_FIXTURES: Omit<FixtureData, 'completed'>[] = [
   { id: 'chandeliers', name: 'Chandeliers', total: 100, tableId: 'tblUFR6OvFQaHnG1V', moodboardId: 'b5ffdcbb-192e-4528-8d86-d1a4cf496887', prompt: 'Generate me a photo a modern luxury living room with high ceilings, clean architecture, warm natural daylight' },
@@ -362,6 +376,7 @@ export const getFixturesForSubtab = (tab: TabType, subtabIdx: number): Omit<Fixt
       case 8: return ROOM_BUILD_UP_REEL_FIXTURES;
       case 9: return HOUSE_TOUR_REEL_FIXTURES;
       case 10: return THIS_MOOD_EVERY_NIGHT_REEL_FIXTURES;
+      case 11: return VIRTUAL_STAGING_REEL_FIXTURES;
       default: return DEFAULT_FIXTURES;
     }
   }

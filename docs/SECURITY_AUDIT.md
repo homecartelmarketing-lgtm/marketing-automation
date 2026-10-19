@@ -1,9 +1,9 @@
 # Security Audit: HomeCartel Marketing Studio (marketing-automation)
 
-## Addendum 2026-10-12 — hardening pass on `fix/house-tour-moodboard-errors` (UNCOMMITTED)
+## Addendum 2026-10-12 — hardening pass on `fix/house-tour-moodboard-errors` (committed as `422a6b4`)
 
-The findings below were reviewed at commit `5c91f78`. Since then the working
-tree adds a hardening pass (not yet committed at time of writing). Status per
+The findings below were reviewed at commit `5c91f78`. The hardening pass was
+written uncommitted and has since landed in `422a6b4`. Status per
 original item:
 
 | # | Original finding | Status | Evidence |

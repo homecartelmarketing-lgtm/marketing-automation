@@ -27,6 +27,8 @@ Search `docs/memory/incidents/` by pipeline name and by error text. These patter
 | "None" saved as moodboard/prompt | Null override persisted | `routes/common.py::save_config_override` |
 | Runner dies at startup | Import error in a `run_*.py` | `tests/` import smoke test |
 | Layout redrawn, doubled logo, prompt text in the image | Layout was sent to an image model instead of Pillow | Use the `pillow-layout` skill |
+| Airtable row stuck on `Processing` after a failed run | A phase set `Processing`, then crashed before setting a final status | Tips & Edu Feed now sets `For Manual` on a crash; check the other `run_*` runners for the same gap. Retry with `--record-id` (see the `tips-edu-feed-crash-leaves-row-processing` incident) |
+| Studio run bar never finishes although the row is `Complete` | Child process or status route not reporting `completed` (not reproduced for Tips & Edu Feed) | Check `/api/queue/status` and the route's `/status` while stuck; the child exits cleanly, so look at the route and queue, not the pipeline |
 
 ## 3. Reproduce narrowly
 

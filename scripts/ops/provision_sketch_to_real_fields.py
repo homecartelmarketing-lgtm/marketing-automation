@@ -75,6 +75,8 @@ FIELDS_SCHEMA = [
     {"name": "Price", "type": "singleLineText"},
     {"name": "Room Interior", "type": "multipleAttachments"},
     {"name": "Interior Prompt", "type": "multilineText"},
+    {"name": "Clean Interior", "type": "multipleAttachments"},
+    {"name": "Removal Prompt", "type": "multilineText"},
     {"name": "Blending Prompt", "type": "multilineText"},
     {"name": "Blended Image", "type": "multipleAttachments"},
     {"name": "Blended Image with Name text", "type": "multipleAttachments"},

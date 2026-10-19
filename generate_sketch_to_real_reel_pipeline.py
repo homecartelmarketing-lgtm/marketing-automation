@@ -24,10 +24,16 @@ Phases
              -> Creates brand-new row in Airtable (Status: "In progress")
              -> Stamps Foreign Key ID (STR-REEL-<CODE>-<ROW_ID>), Furniture Item, SKU, Item Name, Category.
     Phase 2  Generate 9:16 luxury room interior via Krea AI (krea-2-medium, 1K)
-             -> Attached to "Room Interior" (BEFORE scene for Auto Draw).
-    Phase 3  Claude Sonnet 5 vision analysis over [interior + product cutout]
+             -> Attached to "Room Interior" (raw BEFORE scene).
+    Phase 2.5 Nano Banana Pro lighting-fixture removal (9:16, 1K, zero Claude cost)
+             -> Strips every built-in chandelier/pendant/sconce/lamp from the Krea
+                interior, restores ceiling/walls behind them, keeps all else identical.
+             -> Attached to "Clean Interior" + fixed "Removal Prompt" text.
+             -> On failure the pipeline falls back to the original Room Interior
+                (reel never dies on this phase). Status: "Fixture Removed".
+    Phase 3  Claude Sonnet 5 vision analysis over [clean interior + product cutout]
              -> Generates Blending Prompt and Reel Headline (saved to Airtable).
-    Phase 4  Fal Nano Banana Pro Photorealistic Room Blend (9:16, 1K)
+    Phase 4  Fal Nano Banana Pro Photorealistic Room Blend onto the Clean Interior (9:16, 1K)
              -> "Blended Image" (AFTER scene for Auto Draw) + YOLO-World tagged variant.
     Phase 5  Auto Draw Outline Extraction & Cover Generation
              -> Extracts fixture vector outline preview -> "Sketch Image"
@@ -197,6 +203,8 @@ FIELD_PRODUCT_TYPE = "Product Type"
 FIELD_CATEGORY = "Category"
 FIELD_INTERIOR = "Room Interior"
 FIELD_INTERIOR_PROMPT = "Interior Prompt"
+FIELD_CLEAN_INTERIOR = "Clean Interior"
+FIELD_REMOVAL_PROMPT = "Removal Prompt"
 FIELD_BLEND_PROMPT = "Blending Prompt"
 FIELD_BLENDED_IMAGE = "Blended Image"
 FIELD_BLENDED_TAGGED = "Blended Image with Name text"
@@ -207,6 +215,25 @@ FIELD_RAW_VIDEO = "Raw Video"
 FIELD_MUSIC = "Music Generated"
 FIELD_OUTRO = "Outro"
 FIELD_FINAL_VIDEO = "Final Video"
+
+# Nano Banana model for lighting-fixture removal (same engine Room Build-Up uses)
+FIXTURE_REMOVAL_MODEL = "fal-ai/nano-banana-pro/edit"
+FIXTURE_REMOVAL_ASPECT_RATIO = "9:16"
+FIXTURE_REMOVAL_RESOLUTION = "1K"
+FIXTURE_REMOVAL_STATUS = "Fixture Removed"
+
+# Fixed removal instruction: strip every built-in light so the blend starts
+# from a clean interior with zero competing fixtures. Camera, framing and all
+# non-lighting decor stay pixel-identical (mirrors Room Build-Up KEEP suffix).
+FIXTURE_REMOVAL_PROMPT = (
+    "Remove ALL existing lighting fixtures from this room interior: chandeliers, "
+    "pendant lights, ceiling lights, wall sconces, table lamps and floor lamps, "
+    "including their cords, chains, shades and visible glow. Restore the ceiling, "
+    "walls and surfaces behind every removed fixture with the matching material. "
+    "Keep the camera angle, framing, walls, windows, floor, ceiling and lighting "
+    "exactly identical to the input image. Do not move, redraw or restyle anything "
+    "that remains. No text, no people."
+)
 
 # Status values
 STATUS_IN_PROGRESS = "In progress"
@@ -269,10 +296,12 @@ class PipelineClients:
         self.krea = KreaClient(token=settings.krea_token, base_url=settings.krea_base_url)
         self.table_id = table_id
 
-        # Auto-provision Product Type and Music Generated fields if not present
+        # Auto-provision Product Type, Clean Interior, Removal Prompt and Music Generated fields if not present
         try:
             self.airtable.ensure_fields({
                 FIELD_PRODUCT_TYPE: "singleLineText",
+                FIELD_CLEAN_INTERIOR: "multipleAttachments",
+                FIELD_REMOVAL_PROMPT: "multilineText",
                 FIELD_MUSIC: "multipleAttachments",
             })
         except Exception:
@@ -499,6 +528,65 @@ def run_phase_2_interior(
 
 
 # --------------------------------------------------------------------------
+# PHASE 2.5: Nano Banana Pro Lighting-Fixture Removal -> Clean Interior
+# --------------------------------------------------------------------------
+
+def run_phase_2_5_remove_fixtures(
+    clients: PipelineClients,
+    record_id: str,
+) -> tuple[str | None, Path | None]:
+    """Strip every built-in light from the Krea interior via Nano Banana Pro.
+
+    Stores the result in the ``Clean Interior`` attachment field plus the fixed
+    ``Removal Prompt`` text. If a clean interior is already attached it is
+    reused. On any failure the caller falls back to the original Room Interior
+    so the reel never dies on this phase.
+    """
+    print(f"\n[PHASE 3] Nano Banana Pro lighting-fixture removal for record {record_id}...")
+    rec = clients.airtable.get_record(record_id)
+    fields = rec.get("fields", {})
+
+    existing = fields.get(FIELD_CLEAN_INTERIOR) or []
+    if existing and isinstance(existing, list) and existing[0].get("url"):
+        print("  [SKIP] Clean Interior already attached -> reusing")
+        return existing[0].get("url"), None
+
+    interior_atts = fields.get(FIELD_INTERIOR) or []
+    if not interior_atts:
+        print("  [WARN] No Room Interior to clean -- blend will use original interior.")
+        return None, None
+    interior_url = interior_atts[0].get("url")
+    if not interior_url:
+        print("  [WARN] Room Interior has no URL -- blend will use original interior.")
+        return None, None
+
+    cleaned_url = clients.fal.generate(
+        prompt=FIXTURE_REMOVAL_PROMPT,
+        image_urls=[interior_url],
+        aspect_ratio=FIXTURE_REMOVAL_ASPECT_RATIO,
+        resolution=FIXTURE_REMOVAL_RESOLUTION,
+        model=FIXTURE_REMOVAL_MODEL,
+    )
+    print(f"  [OK] Fixture removal produced: {cleaned_url[:70]}...")
+
+    downloaded_clean = download_url_to_temp_file(
+        requests.Session(),
+        cleaned_url,
+        prefix="clean_interior_",
+        suffix=".jpg",
+        context=f"Download fixture-removed interior from {cleaned_url}",
+    )
+    temp_clean = Path(downloaded_clean.path)
+    clients.airtable.upload_attachment(record_id, FIELD_CLEAN_INTERIOR, downloaded_clean, f"clean_interior_{record_id}.jpg")
+    clients.airtable.update_record(record_id, {
+        FIELD_REMOVAL_PROMPT: FIXTURE_REMOVAL_PROMPT,
+        FIELD_STATUS: FIXTURE_REMOVAL_STATUS,
+    })
+    print(f"  [OK] Clean Interior attached to '{FIELD_CLEAN_INTERIOR}'.")
+    return cleaned_url, temp_clean
+
+
+# --------------------------------------------------------------------------
 # PHASE 3: Claude Sonnet 5 Vision Analysis (Blending Prompt & Headline ONLY)
 # --------------------------------------------------------------------------
 
@@ -507,7 +595,7 @@ def run_phase_3_claude(
     record_id: str,
 ) -> dict[str, str]:
     """Claude Sonnet 5 writes Blending Prompt and 3-5 word Reel Headline. No caption, no sketch prompt."""
-    print(f"\n[PHASE 3] Claude Sonnet 5 vision analysis for record {record_id}...")
+    print(f"\n[PHASE 4] Claude Sonnet 5 vision analysis for record {record_id}...")
     rec = clients.airtable.get_record(record_id)
     fields = rec.get("fields", {})
 
@@ -515,7 +603,8 @@ def run_phase_3_claude(
     item_name = str(fields.get(FIELD_ITEM_NAME) or "Lighting Fixture")
     category = str(fields.get(FIELD_CATEGORY) or "Lighting")
 
-    interior_atts = fields.get(FIELD_INTERIOR) or []
+    clean_atts = fields.get(FIELD_CLEAN_INTERIOR) or []
+    interior_atts = clean_atts or fields.get(FIELD_INTERIOR) or []
     furniture_atts = fields.get(FIELD_FURNITURE) or []
 
     if not interior_atts or not furniture_atts:
@@ -583,11 +672,16 @@ def run_phase_4_blend(
     record_id: str,
 ) -> tuple[str, Path, Path | None]:
     """Blend product into room interior using Fal Nano Banana Pro (AFTER scene for Auto Draw)."""
-    print(f"\n[PHASE 4] Nano Banana Pro photorealistic blend for record {record_id}...")
+    print(f"\n[PHASE 5] Nano Banana Pro photorealistic blend for record {record_id}...")
     rec = clients.airtable.get_record(record_id)
     fields = rec.get("fields", {})
 
-    interior_atts = fields.get(FIELD_INTERIOR) or []
+    clean_atts = fields.get(FIELD_CLEAN_INTERIOR) or []
+    interior_atts = clean_atts or fields.get(FIELD_INTERIOR) or []
+    if clean_atts:
+        print("  [INFO] Blending onto Clean Interior (fixtures removed).")
+    else:
+        print("  [WARN] No Clean Interior found -- blending onto original Room Interior.")
     furniture_atts = fields.get(FIELD_FURNITURE) or []
     blend_prompt = str(fields.get(FIELD_BLEND_PROMPT) or "").strip()
     raw_item_name = str(fields.get(FIELD_ITEM_NAME) or "Lighting Fixture").strip()
@@ -679,7 +773,7 @@ def run_phase_5_sketch(
     after_path: Path,
 ) -> tuple[Path, Path]:
     """Extract outline preview via local Auto Draw Canny subtraction and generate Instagram cover."""
-    print(f"\n[PHASE 5] Auto Draw outline extraction & thumbnail cover generation for record {record_id}...")
+    print(f"\n[PHASE 6] Auto Draw outline extraction & thumbnail cover generation for record {record_id}...")
     rec = clients.airtable.get_record(record_id)
     fields = rec.get("fields", {})
     headline = str(fields.get(FIELD_HEADLINE) or "From Sketch to Real").strip()
@@ -784,7 +878,7 @@ def run_phase_6_video(
     tagged_path: Path | None = None,
 ) -> Path:
     """Render real-time line-drawing reveal video via Auto Draw vector path tracing."""
-    print(f"\n[PHASE 6] Auto Draw line-drawing reveal video rendering for record {record_id}...")
+    print(f"\n[PHASE 7] Auto Draw line-drawing reveal video rendering for record {record_id}...")
     raw_video_path = Path(tempfile.gettempdir()) / f"raw_video_{record_id}.mp4"
 
     render_auto_draw_video(
@@ -818,7 +912,7 @@ def run_phase_7_music(
     enabled: bool = True,
 ) -> Path | None:
     """Generate ambient luxury background music via Fal AI ElevenLabs Music."""
-    print(f"\n[PHASE 7] Fal AI ElevenLabs music generation for record {record_id}...")
+    print(f"\n[PHASE 8] Fal AI ElevenLabs music generation for record {record_id}...")
     if not enabled:
         print("  [INFO] Music generation disabled (--no-music) -> reel will use local audio fallback.")
         return None
@@ -878,7 +972,7 @@ def run_phase_8_outro(
     audio_path: Path | None = None,
 ) -> Path:
     """Concatenate with HomeCartel outro card and mux ElevenLabs background music."""
-    print(f"\n[PHASE 8] Final outro concatenation & audio muxing for record {record_id}...")
+    print(f"\n[PHASE 9] Final outro concatenation & audio muxing for record {record_id}...")
     outro_file = resolve_outro_file()
 
     # Prioritize generated ElevenLabs audio, fallback to local candidate
@@ -981,6 +1075,7 @@ def run_pipeline(
     interior_prompt: str = "",
     no_music: bool = False,
     music_prompt: str = "",
+    skip_fixture_removal: bool = False,
 ) -> None:
     """Execute end-to-end Sketch to Real Reel pipeline."""
     target_key = target.lower().strip()
@@ -1034,6 +1129,20 @@ def run_pipeline(
                 custom_prompt=interior_prompt,
             )
 
+            # Phase 2.5: Nano Banana Pro lighting-fixture removal -> Clean Interior
+            # (never fatal: on failure the blend falls back to the original interior)
+            clean_local: Path | None = None
+            if skip_fixture_removal:
+                print("\n[PHASE 3] Skipped via --skip-fixture-removal -- blend will use original interior.")
+            else:
+                try:
+                    _clean_url, clean_local = run_phase_2_5_remove_fixtures(clients, record_id=rec_id)
+                except Exception as removal_err:
+                    print(f"  [WARN] Fixture removal notice: {removal_err}; blend will use original interior.")
+            before_local = clean_local if (clean_local and clean_local.is_file()) else interior_local
+            if clean_local and clean_local.is_file():
+                print(f"  [OK] Auto Draw BEFORE scene uses Clean Interior: {clean_local.name}")
+
             # Phase 3: Claude vision analysis (Blending Prompt, Headline, Music Prompt)
             claude_data = run_phase_3_claude(clients, record_id=rec_id)
             chosen_music_prompt = music_prompt or claude_data.get("music_prompt") or DEFAULT_MUSIC_PROMPT
@@ -1045,7 +1154,7 @@ def run_pipeline(
             outline_path, cover_path = run_phase_5_sketch(
                 clients,
                 record_id=rec_id,
-                before_path=interior_local,
+                before_path=before_local,
                 after_path=blended_local,
             )
 
@@ -1053,7 +1162,7 @@ def run_pipeline(
             raw_video_path = run_phase_6_video(
                 clients,
                 record_id=rec_id,
-                before_path=interior_local,
+                before_path=before_local,
                 after_path=blended_local,
                 tagged_path=tagged_local,
             )
@@ -1101,6 +1210,7 @@ def main() -> int:
     parser.add_argument("--interior-prompt", default="", help="Custom Krea interior prompt override")
     parser.add_argument("--no-music", action="store_true", help="Disable Fal AI ElevenLabs music generation")
     parser.add_argument("--music-prompt", default="", help="Custom Fal AI ElevenLabs music prompt override")
+    parser.add_argument("--skip-fixture-removal", action="store_true", help="Skip Nano Banana fixture removal (blend onto original interior)")
 
     args = parser.parse_args()
 
@@ -1114,6 +1224,7 @@ def main() -> int:
         interior_prompt=args.interior_prompt,
         no_music=args.no_music,
         music_prompt=args.music_prompt,
+        skip_fixture_removal=args.skip_fixture_removal,
     )
     return 0
 

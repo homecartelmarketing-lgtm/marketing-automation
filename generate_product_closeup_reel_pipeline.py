@@ -121,7 +121,21 @@ BLEND_ASPECT_RATIO = "9:16"
 BLEND_RESOLUTION = "1K"
 
 # Reel render (Phase 5)
-RENDERER = Path(__file__).with_name("photo_video_maker.py")
+def _resolve_renderer() -> Path:
+    here = Path(__file__).parent
+    candidates = [
+        here / "photo_video_maker.py",
+        here / "scripts" / "ops" / "photo_video_maker.py",
+        Path("scripts/ops/photo_video_maker.py"),
+        Path("photo_video_maker.py"),
+    ]
+    for cand in candidates:
+        if cand.is_file():
+            return cand.resolve()
+    return (here / "scripts" / "ops" / "photo_video_maker.py").resolve()
+
+
+RENDERER = _resolve_renderer()
 REEL_WIDTH = 1080
 REEL_HEIGHT = 1920
 OUTRO_SECONDS = 2.9
@@ -639,6 +653,10 @@ def phase5_render(
     print("  [Phase 5] Rendering animated reel with photo_video_maker.py...")
     if not stills:
         raise AutomationError("No blended stills to render into a reel")
+    if not Path(RENDERER).is_file():
+        raise AutomationError(
+            f"Renderer not found at {RENDERER} -- expected scripts/ops/photo_video_maker.py"
+        )
 
     output = workdir / "product_closeup_reel.mp4"
     command = [
