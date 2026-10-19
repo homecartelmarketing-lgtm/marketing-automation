@@ -269,24 +269,40 @@ class FalClient:
     def generate_kling_video(
         self,
         prompt: str,
-        image_url: str,
+        image_url: str | None = None,
         *,
+        start_image_url: str | None = None,
+        end_image_url: str | None = None,
+        negative_prompt: str | None = None,
+        shot_type: str | None = None,
+        aspect_ratio: str | None = None,
         duration: int | str = 15,
         model: str = "fal-ai/kling-video/v3/turbo/pro/image-to-video",
         on_task_created: Callable[[str], None] | None = None,
     ) -> str:
-        """Generate a Kling V3 Turbo Pro image-to-video result on fal.ai."""
+        """Generate a Kling V3 (Turbo or Pro) image-to-video result on fal.ai."""
         if not self.api_key:
             raise ProviderError("FAL_KEY is required for Kling video generation")
         dur_int = int(duration)
         if dur_int < 3 or dur_int > 15:
-            raise ValueError("Kling V3 Turbo Pro duration must be between 3 and 15 seconds")
+            raise ValueError("Kling duration must be between 3 and 15 seconds")
         model_code = model if model.startswith("fal-ai/") else f"fal-ai/{model}"
-        payload = {
+        payload: dict[str, Any] = {
             "prompt": prompt,
-            "image_url": image_url,
             "duration": str(dur_int),
         }
+        if start_image_url:
+            payload["start_image_url"] = start_image_url
+        elif image_url:
+            payload["image_url"] = image_url
+        if end_image_url:
+            payload["end_image_url"] = end_image_url
+        if negative_prompt:
+            payload["negative_prompt"] = negative_prompt
+        if shot_type:
+            payload["shot_type"] = shot_type
+        if aspect_ratio:
+            payload["aspect_ratio"] = aspect_ratio
 
         # 0. Try official fal_client Python SDK if available
         try:

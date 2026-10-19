@@ -61,3 +61,7 @@ When YOLO-World Item Tagging was inserted as a standalone step, it became Phase 
 
 - `python -m py_compile run_tips_and_edu_feed.py` passed with exit code 0.
 - `python -m unittest discover tests` passed all 469 test cases cleanly in ~29s.
+
+## Follow-up
+
+Partial failures in Phase 6 already went to `FM`, but a phase that **crashed** still left the row on `Processing`. That gap is closed in [[2026-10-15-tips-edu-feed-crash-leaves-row-processing]].

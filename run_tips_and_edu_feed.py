@@ -36,20 +36,22 @@ Phases:
    Uploads all 3 generated blended photos into 'Tips and Edu Blended'.
    Sets Status -> 'Already attached a room Interior'.
 
-5. Fal AI Nano Banana Pro Layout Blending -> Final Feed:
-   Uses model 'fal-ai/nano-banana-pro/edit' to blend each blended photo
-   with Layout templates 1..3 using JSON prompts (tipsedufeeds1..3.json):
-   - Tips and Edu Layout1 + Blend 1 (tipsedufeeds1.json)
-   - Tips and Edu Layout2 + Blend 2 (tipsedufeeds2.json)
-   - Tips and Edu Layout3 + Blend 3 (tipsedufeeds3.json)
-   Uploads all 3 generated feed photos into 'Tips and Edu Feeds'.
-   Sets Status -> 'Complete'.
+5. YOLO Item Name Tagging (local):
+   Stamps the two-line item-name tag on each blended photo, prepends the thumbnail
+   and uploads the carousel into 'Tips and Edu Blended Attach Item Name'.
+   Sets Status -> 'Already attached a room Interior'.
+
+6. Programmatic Pillow Layout Compositing (local, zero API cost):
+   Draws numerals 1..3 and the Claude-written tips onto the tagged photos
+   (1080x1350) and uploads all 3 feed photos into 'Tips and Edu Feeds'.
+   Sets Status -> 'Complete' (or 'For Manual' on any failure).
 
 Usage:
     python run_tips_and_edu_feed.py
     python run_tips_and_edu_feed.py --phase all --execute
     python run_tips_and_edu_feed.py --phase 1 --max-rows 1 --execute
     python run_tips_and_edu_feed.py --phase 5 --execute
+    python run_tips_and_edu_feed.py --phase 6 --record-id recXXXX --execute
     python run_tips_and_edu_feed.py --target pendant_lights --phase all --execute
     python run_tips_and_edu_feed.py --record-id recXXXX --phase all --execute
 """
@@ -1024,6 +1026,7 @@ class TipsAndEduFeedRunner:
             "Tips 2": "multilineText",
             "Tips 3": "multilineText",
             BLENDED_FIELD: "multipleAttachments",
+            TAGGED_BLENDED_FIELD: "multipleAttachments",
             "Tips and Edu Layout1": "multipleAttachments",
             "Tips and Edu Layout2": "multipleAttachments",
             "Tips and Edu Layout3": "multipleAttachments",
@@ -1171,7 +1174,9 @@ class TipsAndEduFeedRunner:
         # Check final layout feed images in 'Tips and Edu Feeds'
         final_count = len(fields.get(FINAL_FEED_FIELD) or [])
         if final_count < 3:
-            return 5
+            # Phase 5 = YOLO tagging (fills TAGGED_BLENDED_FIELD), Phase 6 = Pillow layout (fills FINAL_FEED_FIELD).
+            tagged_count = len(fields.get(TAGGED_BLENDED_FIELD) or [])
+            return 5 if tagged_count < 3 else 6
 
         return None
 
@@ -2100,9 +2105,6 @@ class TipsAndEduFeedRunner:
                 print(f"  [WARN] Slot {slot_idx}: Tip text is empty for '{target_tip_field}'.")
 
             local_blend_path = self._artifact_path(record_id, f"tips_and_edu_blended_{slot_idx}_{record_id}.jpg")
-            if not local_blend_path.is_file() and blended_url:
-                print(f"  Downloading blended photo {slot_idx}...")
-                self._download(blended_url, local_blend_path)
 
             filename = f"tips_and_edu_feed_{slot_idx}_{record_id}.jpg"
             destination = self._artifact_path(record_id, filename)
@@ -2114,6 +2116,10 @@ class TipsAndEduFeedRunner:
 
             slot_start = time.monotonic()
             try:
+                if not local_blend_path.is_file() and blended_url:
+                    print(f"  Downloading blended photo {slot_idx}...")
+                    self._download(blended_url, local_blend_path)
+
                 create_tips_edu_feed_image(
                     base_image=local_blend_path,
                     numeral=str(slot_idx),
@@ -2140,7 +2146,7 @@ class TipsAndEduFeedRunner:
                 })
             except Exception as err:
                 print(f"    [ERROR] Failed layout compositing Slot {slot_idx}: {err}")
-                append_error_log(record_id, 5, err, {
+                append_error_log(record_id, 6, err, {
                     "slot": slot_idx,
                     "tip_field": target_tip_field,
                     "tip_text": tip_text,
@@ -2273,6 +2279,16 @@ class TipsAndEduFeedRunner:
             print(f"\n--- [{idx}/{len(targets)}] Processing Record {rec['id']} ---")
             self._run_single_phase(phase_num, rec["id"], execute=execute)
 
+    def _mark_for_manual_after_crash(self, record_id: str, phase_num: int, *, execute: bool = True) -> None:
+        """Move a row off 'Processing' after a phase crashed (FM badge). Never raises, so the original error survives."""
+        if not execute:
+            return
+        try:
+            self._update_status(record_id, STATUS_FOR_MANUAL)
+            print(f"[WARN] Phase {phase_num} crashed for record {record_id}. Status updated to '{STATUS_FOR_MANUAL}' (FM badge). Retry with --record-id.")
+        except Exception as status_error:
+            print(f"[WARN] Could not set '{STATUS_FOR_MANUAL}' on record {record_id} after a Phase {phase_num} crash: {status_error}")
+
     def _run_single_phase(self, phase: int | str, record_id: str, *, execute: bool = True) -> None:
         if str(phase).lower() in ("thumbnail_text", "thumb", "text"):
             label = "Thumbnail Text Generation & Overlay"
@@ -2315,6 +2331,7 @@ class TipsAndEduFeedRunner:
         except Exception as error:
             append_error_log(record_id, phase_num, error, {"phase_label": label})
             self.logger.event("phase_failed", record_id=record_id, phase=phase_num, error=str(error))
+            self._mark_for_manual_after_crash(record_id, phase_num, execute=execute)
             raise
 
 
@@ -2328,9 +2345,9 @@ def parse_args(argv=None):
     parser.add_argument(
         "--phase",
         "-p",
-        choices=("1", "2", "3", "4", "5", "thumbnail_text", "thumb", "all"),
+        choices=("1", "2", "3", "4", "5", "6", "thumbnail_text", "thumb", "all"),
         default="all",
-        help="Phase to run (1..5, thumbnail_text, or all, default: all).",
+        help="Phase to run (1..6, thumbnail_text, or all, default: all).",
     )
     parser.add_argument(
         "--target",

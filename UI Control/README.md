@@ -14,12 +14,13 @@ The system consists of two tightly integrated components:
    - Dispatches automation workflows asynchronously and streams live logs.
    - Provides REST endpoints for Airtable inventory scanning, status aggregation, and batch triggering.
    - Enforces email + password login (server session cookie) once an account exists, or the legacy shared PIN when only `DASHBOARD_PIN` is set.
+   - Gates every `/api/*` route deny-by-default (`require_api_auth`; only `/api/health` and `/api/auth/*` are public), rejects `?pin=` query strings, clamps run `max_items` to 1..10, restricts queue endpoints to local paths, caps request bodies (`MAX_CONTENT_LENGTH`) and is same-origin unless `ALLOWED_ORIGINS` is set. See `docs/memory/decisions/2026-10-12-api-hardening-pass.md`.
 
 2. **Frontend Single Page Application (`UI Control/`)**:
    - Built with React 18, TypeScript, Tailwind CSS, and Lucide React icons.
    - Bundled and served via Vite / Flask static files.
    - Source layout (`src/app/`): `App.tsx` is a thin shell; `constants/fixtures.ts` + `constants/pipelines.ts` hold every fixture and per-pipeline config; `hooks/` (`usePipelineData`, `usePipelineRunner`, `useQueue`) hold state and polling (`useQueue` is the **only** run-status poller; `usePipelineRunner` just starts/stops runs); `types/index.ts` defines `PipelineType`; `components/planning/` and `components/modals/` hold the UI. Adding a subtab means editing the constants, types and hooks, not `App.tsx` (see `AGENTS.md` §8).
-    - Organized into **Story** (10 subtabs), **Feed** (7 subtabs), **Reel** (9 subtabs), **Ad Covers** (standalone top-level tab), and **Banner** (standalone top-level tab with one sub-tab, "Banner Set" at `/api/christmas-banner/*`: one Run is the Banner Set, 15 phases, and makes the Christmas, Sale and third banners on ONE Airtable row via `generate_banner_set_pipeline.py`; `/api/sale-banner/*` remains for API/CLI use only).
+    - Organized into **Story** (10 subtabs), **Feed** (7 subtabs), **Reel** (12 subtabs), **Ad Covers** (standalone top-level tab), and **Banner** (standalone top-level tab with one sub-tab, "Banner Set" at `/api/christmas-banner/*`: one Run is the Banner Set, 15 phases, and makes the Christmas, Sale and third banners on ONE Airtable row via `generate_banner_set_pipeline.py`; `/api/sale-banner/*` remains for API/CLI use only).
 
 ---
 
@@ -75,6 +76,9 @@ The Studio opens on a split-layout login screen (`src/app/components/auth/LoginS
 - **One at a time Lights Reel**: ~11s silent bedroom reel; 3 fixtures (Table Lamp, Ceiling Mounted, Pendant) are lit one at a time via progressive Nano Banana Pro variations, then all together, joined by local FFmpeg crossfades and a branded outro.
 - **Sketch to Real Reel**: 2 runnable categories (Chandelier, Pendant); a hand-drawn outline of the Krea room animates line by line into the photorealistic lit interior (local Auto Draw + FFmpeg), with cover, Fal AI ElevenLabs luxury background music, and branded outro. Served by `/api/sketch-to-draw-reel/*`, which always runs `generate_sketch_to_real_reel_pipeline.py`.
 - **House Tour Reel**: 11-room organic-modern/Japandi home tour guided by reference-video clips (Claude JSON → Krea); Nano Banana Pro blends with YOLO-World Poppins tags, Fal Kling 3s pan clips, Fal AI ElevenLabs music, and branded outro assembled with local FFmpeg crossfades. Served by `/api/house-tour-reel/*`, which runs `generate_house_tour_reel_pipeline.py`.
+- **Room Build-Up Reel**: ~4.8s stop-motion reel (Reel subtab 8); two rooms (Pendant Light, Chandelier) each go from empty to furnished in 4 hard-cut steps. Built in reverse (Krea furnished room, fixture blend, then 3 chained Nano Banana Pro removals) and assembled with local FFmpeg plus ElevenLabs pop/whoosh sounds. Served by `/api/room-build-up-reel/*`, which runs `generate_room_build_up_reel_pipeline.py`.
+- **This Mood Every Night Reel**: ~12s luxury night reel (Reel subtab 10); 7 fixtures blended into 7 Krea night rooms, Kling motion clips, 7 snap cuts at 1.35s with a centered `this mood every night` title and animated product tags, lo-fi music, and branded outro. Served by `/api/this-mood-every-night-reel/*`, which runs `generate_this_mood_every_night_reel_pipeline.py`.
+- **Virtual Staging Reel**: ~12.5s empty-to-furnished assembly sequence (Reel subtab 11); an empty room animates and self-furnishes into a staged luxury interior with a mounted chandelier via Fal Kling 3.0 Pro start-to-end frame transition, Pillow branding pill tag, and branded outro. Served by `/api/virtual-staging-reel/*`, which runs `generate_virtual_staging_reel_pipeline.py`.
 
 ### 4. Ad Covers Workspace (1:1 1080 x 1080 px + 9:16 Story 1080 x 1920 px)
 - **Standalone 4th Top-Level Tab**: Dedicated paid-creative generator producing twin deliverables per run.

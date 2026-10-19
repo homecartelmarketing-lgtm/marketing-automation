@@ -31,10 +31,10 @@ cd "UI Control"
 python api_server.py
 ```
 Open **`http://localhost:5200`** to access:
-- **Interactive Format Tabs**: Switch between **Feed** (7 subtabs), **Story** (10 subtabs), **Reel** (9 subtabs), **Banner** ([`BANNER_SET.md`](docs/banners/BANNER_SET.md), a standalone 5th top-level Studio tab with one sub-tab, "Banner Set": one run makes the 21:9 Christmas banner, the 1800x600 Sale banner and the 1800x600 third banner on a single Airtable row), and **Ad Covers** — a standalone 4th top-level Studio tab (not a sub-tab family) of per-fixture run cards, one press producing both the 1:1 cover and its 9:16 Story twin — with summed completed counts on each format and subtab.
+- **Interactive Format Tabs**: Switch between **Feed** (7 subtabs), **Story** (10 subtabs), **Reel** (12 subtabs), **Banner** ([`BANNER_SET.md`](docs/banners/BANNER_SET.md), a standalone 5th top-level Studio tab with one sub-tab, "Banner Set": one run makes the 21:9 Christmas banner, the 1800x600 Sale banner and the 1800x600 third banner on a single Airtable row), and **Ad Covers** — a standalone 4th top-level Studio tab (not a sub-tab family) of per-fixture run cards, one press producing both the 1:1 cover and its 9:16 Story twin — with summed completed counts on each format and subtab.
 - **Live Airtable Synchronization**: Real-time `P, S, C, D, FM` status badges on every lighting fixture card.
 - **Row Inspector Modal**: Instant search, status filtering, one-click Foreign Key ID copying, and direct deep links into Airtable rows (`Open in Airtable ↗`).
-- **Inline Settings & Security**: Krea moodboard and interior-prompt edits persist in `output/config_overrides.json` and `.env`; `DASHBOARD_PIN` protects edits when configured. See the [UI configuration map](docs/UI_CONTROL_CONFIG.md).
+- **Inline Settings & Security**: Krea moodboard and interior-prompt edits persist in `output/config_overrides.json` and `.env`; the Studio is login-protected (email + password accounts via `scripts/ops/manage_studio_users.py`; the legacy `DASHBOARD_PIN` still works for scripts) and every `/api/*` route is deny-by-default. See the [UI configuration map](docs/UI_CONTROL_CONFIG.md).
 - **Interactive Execution Controls**: Trigger single-item or batch pipelines with live phase streaming logs and abort controls.
 
 ---
@@ -97,6 +97,9 @@ Open **`http://localhost:5200`** to access:
 | [**`ONE_AT_A_TIME_LIGHTS_REEL.md`**](docs/reels/ONE_AT_A_TIME_LIGHTS_REEL.md) | ~11s | Silent bedroom reel where 3 lights (table lamp, ceiling, pendant) turn on one at a time, then all together, plus branded outro. | Krea, Fal Nano Banana Pro, YOLO-World, local FFmpeg |
 | [**`SKETCH_TO_REAL_REEL.md`**](docs/reels/SKETCH_TO_REAL_REEL.md) | ~11s | Hand-drawn room outline animates line by line into the photorealistic lit interior, with cover, ElevenLabs music, and branded outro (Chandelier and Pendant). | Krea, Fal Nano Banana Pro, YOLO-World, Fal AI ElevenLabs, local Auto Draw + FFmpeg |
 | [**`HOUSE_TOUR_REEL.md`**](docs/reels/HOUSE_TOUR_REEL.md) | ~22s | 11-room organic-modern/Japandi home tour (2.0s per room): Krea interiors (unified moodboard `fda7090c-…`) + Claude Vision room analysis, Nano Banana Pro blends, Kling motion clips, ElevenLabs music, and zero-API FFmpeg assembly with dynamic room titles and animated Poppins product reveals. | Krea, Fal Claude Sonnet 5, Fal Nano Banana Pro, Fal Kling Video, YOLO-World, Fal AI ElevenLabs, local FFmpeg |
+| [**`ROOM_BUILD_UP_REEL.md`**](docs/reels/ROOM_BUILD_UP_REEL.md) | ~4.8s | Stop-motion hard-cut reel: two rooms go from empty to furnished in 4 steps each (built in reverse by chained Nano Banana Pro removals), with pop/whoosh sounds. | Krea, Fal Claude Sonnet 5, Fal Nano Banana Pro, Fal ElevenLabs SFX, local FFmpeg |
+| [**`THIS_MOOD_EVERY_NIGHT_REEL.md`**](docs/reels/THIS_MOOD_EVERY_NIGHT_REEL.md) | ~12s | 7 rapid night-interior cuts (~1.35s each) with a centered `this mood every night` title, animated product tags, lo-fi music and branded outro. | Krea, Fal Claude Sonnet 5, Fal Nano Banana Pro, Fal Kling Video, YOLO-World, Fal ElevenLabs, local FFmpeg |
+| [**`VIRTUAL_STAGING_REEL.md`**](docs/reels/VIRTUAL_STAGING_REEL.md) | ~12.5s | Empty-to-furnished self-furnishing assembly reel with Kling 3.0 Pro start-to-end frame transition, Pillow branding pill tag, and branded outro. | Krea, Fal Claude Sonnet 5, Fal Nano Banana Pro, Fal Kling Video, Pillow, local FFmpeg |
 
 ---
 

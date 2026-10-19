@@ -22,6 +22,12 @@ docs/
 ├── OPERATIONS_AND_UTILITIES.md          # Maintenance / tagging / diagnostic scripts
 ├── CLOUDFLARE_TUNNEL_GUIDE.md           # Quick Tunnel sharing guide
 ├── GIT_PUSH_AND_DEPLOY.md               # How the AI commits, pushes, and deploys to Railway (step by step)
+├── SKILLS_GUIDE.md                      # What each agent skill is for and when to load it
+├── SECURITY_AUDIT.md                    # Studio security audit + 2026-10-12 hardening addendum
+├── REDFLAG_REPORT.md                    # Consolidated audit of wrong-data / config-drift risks (verified 2026-10-05)
+├── WORKSPACE_AUDIT.md                   # 2026-10-03 workspace organization audit
+├── REMAINING_WORK.md                    # Post-audit follow-up checklist
+├── HOUSE_TOUR_REEL_RUN_FIX_REPORT.md    # 2026-10-09 House Tour Reel fix & verification report
 ├── plans/                               # Implemented implementation plans (e.g. 2026-10-05-calendar-import.md)
 │
 ├── stories/                             # 10 Story Pipelines (9:16 vertical, 1080 x 1920 px)
@@ -45,7 +51,7 @@ docs/
 │   ├── DAY_NIGHT_FEED.md
 │   └── PRODUCT_SHOWCASE_FEED.md
 │
-├── reels/                               # 10 Reel Pipelines (9:16 video, 1080 x 1920 px)
+├── reels/                               # 12 Reel Pipelines (9:16 video, 1080 x 1920 px)
 │   ├── DAY_NIGHT_REEL.md
 │   ├── PRODUCT_CLOSEUP_REEL.md
 │   ├── BEFORE_AND_AFTER_REEL.md
@@ -54,8 +60,10 @@ docs/
 │   ├── ONE_PRODUCT_THREE_STYLES_REEL.md
 │   ├── ONE_AT_A_TIME_LIGHTS_REEL.md
 │   ├── SKETCH_TO_REAL_REEL.md
+│   ├── ROOM_BUILD_UP_REEL.md
 │   ├── HOUSE_TOUR_REEL.md
-│   └── THIS_MOOD_EVERY_NIGHT_REEL.md
+│   ├── THIS_MOOD_EVERY_NIGHT_REEL.md
+│   └── VIRTUAL_STAGING_REEL.md
 │
 ├── ads/                                 # Ad Cover Pipeline (1:1 1080 x 1080 + 9:16 Story 1080 x 1920)
 │   └── AD_COVER.md
@@ -129,6 +137,9 @@ docs/
 | [`ONE_AT_A_TIME_LIGHTS_REEL.md`](reels/ONE_AT_A_TIME_LIGHTS_REEL.md) | `tblJpEtBudQZda319` (One at a time Lights) | ~11.0s | Bedroom where 3 lights (table lamp, ceiling mounted, pendant) turn on one at a time via progressive Nano Banana Pro lighting blends, local FFmpeg crossfades, silent audio + brand outro. |
 | [`SKETCH_TO_REAL_REEL.md`](reels/SKETCH_TO_REAL_REEL.md) | `tblUFR6OvFQaHnG1V` (Chandelier), `tblSALsUd5MXXnkp6` (Pendant) | ~11.0s | Hand-drawn outline of the room animating line by line into the photorealistic lit interior + Instagram cover + Fal AI ElevenLabs luxury background music + outro. Studio subtab 7 "Sketch to Real" (Chandelier and Pendant runnable). |
 | [`HOUSE_TOUR_REEL.md`](reels/HOUSE_TOUR_REEL.md) | `tblqXkdDw4O7hxJS4` (House Tour Set) | 22.0s | 11-room organic-modern/Japandi home tour (2.0s per room): Krea interiors + Claude Vision room analysis + Kling 3s clips + animated Poppins typography + ElevenLabs music + optional outro. Studio subtab 9 "House Tour". |
+| [`ROOM_BUILD_UP_REEL.md`](reels/ROOM_BUILD_UP_REEL.md) | `tblhq1rz9CVCD7yiR` (Room Build-Up Set) | ~4.8s | Stop-motion hard-cut reel: 2 rooms (Pendant Light, Chandelier) each go empty → furnished in 4 steps. Built in reverse with chained Nano Banana Pro removals, then local FFmpeg + ElevenLabs pop/whoosh sounds. Studio subtab 8 "Room Build-Up". |
+| [`THIS_MOOD_EVERY_NIGHT_REEL.md`](reels/THIS_MOOD_EVERY_NIGHT_REEL.md) | `tblDa5UOTUTlU1Xxy` (This Mood Every Night Set) | ~12.0s | 7 night-interior snap cuts (~1.35s) + centered `this mood every night` title + animated product tags + lo-fi music + 2.5s outro. Studio subtab 10 "This Mood Every Night". |
+| [`VIRTUAL_STAGING_REEL.md`](reels/VIRTUAL_STAGING_REEL.md) | `tblPYG5Ed4XURecu6` (Chandelier) | ~12.5s | Empty-to-furnished assembly sequence via Fal Kling 3.0 Pro start-to-end frame transition, Pillow branding pill tag, and branded outro. Studio subtab 11 "Virtual Staging". |
 
 ---
 
@@ -189,6 +200,25 @@ Second sub-tab of the **Banner** tab. A red sale panel with `10%` and `15%` bloc
 | [`memory/incidents/2026-10-05-tag-line2-anchor-fallback.md`](memory/incidents/2026-10-05-tag-line2-anchor-fallback.md) | Tag Line-2 lost when Product Type field empty (anchor handoff) + Floor Lamp Moodboard Story registry `KeyError`; fixed by shared `resolve_tag_names`. |
 | [`memory/decisions/2026-10-15-graphify-icm-vendored-skills.md`](memory/decisions/2026-10-15-graphify-icm-vendored-skills.md) | Why `graphify` and `icm-architect` are vendored by hand (absent from `skills-lock.json`), what each is for, why `docs/icm/` is reference material rather than a pipeline spec, and why the graphify `.gitignore` patterns must stay anchored. |
 | [`memory/incidents/2026-10-15-tips-edu-feed-phase-5-6-labels-and-audit-sync.md`](memory/incidents/2026-10-15-tips-edu-feed-phase-5-6-labels-and-audit-sync.md) | Tips & Educational Feed Phase 5 & 6 stale comment banners, audit log labels, warning output, and partial-failure status analysis. |
+| [`memory/incidents/2026-10-15-tips-edu-feed-phase-5-attributeerror-and-tips-stamping.md`](memory/incidents/2026-10-15-tips-edu-feed-phase-5-attributeerror-and-tips-stamping.md) | Tips & Educational Feed stopped after Phase 4: Phase 5 read a non-existent `category_label` attribute, so Phase 6 never ran and the final slides and tips stamping were missing. |
+| [`memory/incidents/2026-10-15-tips-edu-feed-crash-leaves-row-processing.md`](memory/incidents/2026-10-15-tips-edu-feed-crash-leaves-row-processing.md) | A crashed Tips & Educational Feed phase left the row on `Processing` forever (`PE-16`); crashes now set `For Manual` (FM), and Phase 6 downloads fail per slot. Includes how to retry an FM row with `--record-id`. |
+| [`memory/incidents/2026-10-13-studio-queue-stuck-step-0-and-stop-endpoint.md`](memory/incidents/2026-10-13-studio-queue-stuck-step-0-and-stop-endpoint.md) | Studio run stuck at "Starting Generation... Step 0/5" (queue polling hit a loopback 401) and a stop-endpoint failure; fixed with a stop fallback. |
+| [`memory/incidents/2026-10-12-this-mood-every-night-client-init-typeerror.md`](memory/incidents/2026-10-12-this-mood-every-night-client-init-typeerror.md) | This Mood Every Night Reel failed because `AkeneoClient()` was created without `Settings` (missing `host`, `client_id`, ... arguments). |
+| [`memory/incidents/2026-10-09-house-tour-krea-402-balance-error.md`](memory/incidents/2026-10-09-house-tour-krea-402-balance-error.md) | House Tour run died in Phase 1 with a generic "non-zero code 1": the Krea API balance was depleted (HTTP 402). |
+| [`memory/incidents/2026-10-06-house-tour-kling-empty-blend-url.md`](memory/incidents/2026-10-06-house-tour-kling-empty-blend-url.md) | House Tour Phase 5 failed with "slot 2 has no blended image" even though the Phase 4 blends and YOLO tags had succeeded. |
+| [`memory/incidents/2026-10-02-before-after-reel-runner-import-error.md`](memory/incidents/2026-10-02-before-after-reel-runner-import-error.md) | Every Before & After Reel Studio run died at startup: `run_before_after_reel.py` imported a constant its generator no longer defined (plus follow-up bugs behind it). |
+| [`memory/incidents/2026-10-01-tips-edu-story-nano-banana-layout-redrew-room.md`](memory/incidents/2026-10-01-tips-edu-story-nano-banana-layout-redrew-room.md) | Tips & Edu Story's Nano Banana layout step repainted the room, doubled the logo and printed prompt text; fixed by moving the layout to local Pillow. |
+| [`memory/incidents/2026-10-01-collection-feed-name-tag-attribute-error.md`](memory/incidents/2026-10-01-collection-feed-name-tag-attribute-error.md) | Collection Category Feed rows had no YOLO item-name tags: a swallowed `AttributeError` on a non-existent slot attribute. |
+| [`memory/incidents/2026-10-01-studio-run-saved-none-as-moodboard-and-prompt.md`](memory/incidents/2026-10-01-studio-run-saved-none-as-moodboard-and-prompt.md) | A Studio run sent the literal prompt `"None"` to Krea: the queue posted JSON `null` overrides that routes turned into the string `"None"`. |
+| [`memory/incidents/2026-10-01-railway-two-gunicorn-workers-split-queue.md`](memory/incidents/2026-10-01-railway-two-gunicorn-workers-split-queue.md) | On Railway a run showed "Initializing" while the queue was idle: two gunicorn workers each held their own in-memory queue. Rule: keep `--workers 1`. |
+| [`memory/incidents/2026-10-01-railway-missing-isolated-env-file.md`](memory/incidents/2026-10-01-railway-missing-isolated-env-file.md) | "Missing isolated configuration" on Railway: the isolated loader only read dotenv files that are absent from the image; it now falls back to environment variables. |
+| [`memory/incidents/2026-09-30-studio-run-flicker-two-pollers.md`](memory/incidents/2026-09-30-studio-run-flicker-two-pollers.md) | Studio log/status flicker during runs: two pollers wrote the same state. The queue is now the only status driver. |
+| [`memory/incidents/2026-09-30-sketch-to-real-studio-ran-stale-script-copy.md`](memory/incidents/2026-09-30-sketch-to-real-studio-ran-stale-script-copy.md) | Sketch to Real worked from the CLI but failed in the Studio: the route preferred an untracked stale script copy over the root generator. |
+| [`memory/incidents/2026-09-28-shopify-cloudflare-429-bot-challenge.md`](memory/incidents/2026-09-28-shopify-cloudflare-429-bot-challenge.md) | Phase 1 scrapes stalled around page 32 of the Shopify catalog on HTTP 429 and a Cloudflare bot challenge; mitigation notes. |
+| [`memory/decisions/2026-10-12-api-hardening-pass.md`](memory/decisions/2026-10-12-api-hardening-pass.md) | Deny-by-default `/api/*` gate, `?pin=` rejection, single `MAX_RUN_ITEMS = 10` ceiling, SSRF guard on queue endpoints, and what is still open. See also [`SECURITY_AUDIT.md`](SECURITY_AUDIT.md). |
+| [`memory/decisions/2026-10-12-studio-email-password-login.md`](memory/decisions/2026-10-12-studio-email-password-login.md) | Why the Studio moved from the shared `DASHBOARD_PIN` to email + password login with a cookie session. |
+| [`memory/decisions/2026-10-06-house-tour-reel-dynamic-vision-and-animation.md`](memory/decisions/2026-10-06-house-tour-reel-dynamic-vision-and-animation.md) | House Tour Reel: reference pacing, dynamic Claude Vision room analysis, animated Poppins reveal, and the zero-fallback title policy. |
+| [`memory/decisions/2026-10-05-cta-fixture-catalog.md`](memory/decisions/2026-10-05-cta-fixture-catalog.md) | Why per-pipeline fixture wiring lives in `content_automation/fixture_catalog.py` (CTA Story pilot) and Studio saves go through it. |
 
 ## 🚧 7. Implementation plans (`docs/plans/`)
 
@@ -197,7 +227,7 @@ Second sub-tab of the **Banner** tab. A red sale panel with `10%` and `15%` bloc
 | [`plans/2026-10-05-calendar-import.md`](plans/2026-10-05-calendar-import.md) | Content Calendar XLSX → Studio queue import (implemented: `content_automation/calendar_import.py`, `UI Control/routes/calendar.py`, `scripts/ops/import_content_calendar.py`). |
 | [`plans/2026-10-15-skills-registration-md-sync.md`](plans/2026-10-15-skills-registration-md-sync.md) | Register `graphify` + `icm-architect` in `AGENTS.md` §12 and `docs/SKILLS_GUIDE.md`, add `docs/icm/` to the docs navigation, fix the stale `skills-lock.json` row, and anchor the graphify `.gitignore` patterns. Docs-only. |
 
-> `docs/superpowers/` holds earlier draft specs kept for history. The live list is the table above (`docs/plans/`); broken links out of the old drafts were cleaned 2026-10-05.
+> `docs/superpowers/plans/` holds one tracked plan, `2026-10-13-skill-upgrades-md-protocol.md` (the skills upgrade and MD pre-read protocol work). New plans go in `docs/plans/`, which is the live list above.
 
 ## 📂 8. Legacy Per-Folder Notes
 

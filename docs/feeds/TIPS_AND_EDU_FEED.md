@@ -71,6 +71,9 @@ The Airtable single-select Status field tracks records across 5 lifecycle stages
 | **D** | Rose | **Discarded** | Discard, Discarded | Archived or rejected candidate. |
 | **FM** | Amber | **For Manual / Revision** | For Manual, Minor revision, FM | Flagged for manual review or adjustment. |
 
+### Failure Handling
+Each phase sets `Processing` when it starts. If a phase crashes, or Phase 6 fails any slot, the row is moved to `For Manual` (amber `FM` badge) instead of staying on `Processing`. Retry it with `python run_tips_and_edu_feed.py --target <target> --phase all --record-id <rec_id> --execute`. Finished work (interiors, blends, feed slides) is skipped, and un-targeted runs never pick the row up again. See [`2026-10-15-tips-edu-feed-crash-leaves-row-processing`](../memory/incidents/2026-10-15-tips-edu-feed-crash-leaves-row-processing.md).
+
 ### Execution Timestamp
 When a row reaches Complete (C), the pipeline automatically writes the Philippine Standard Time timestamp (UTC+8, ISO 8601) into the **Date and Time Generated** field:
 `
@@ -122,6 +125,13 @@ python run_tips_and_edu_feed.py --phase 1 --max-rows 1 --execute
 # Target Pendant Lights table
 python run_tips_and_edu_feed.py --target pendant_lights --phase all --execute
 
+# Re-run only the layout phase (6) for one existing row (explicit developer exception, never loop old rows)
+python run_tips_and_edu_feed.py --target chandeliers --phase 6 --record-id recXXXXXXXXXXXXXX --execute
+```
+
+`--phase` accepts `1`..`6`, `thumbnail_text` and `all` (default). Phase 5 = YOLO tagging, Phase 6 = Pillow layout. Preflight creates every field above, including `Tips and Edu Blended Attach Item Name`, on the first run against a table.
+
+```powershell
 # Scrape new active products from Akeneo (moved to scripts/scrapers/ — run from repo root)
 PYTHONPATH=. python scripts/scrapers/scrape_tips_and_edu_feed.py --category chandeliers --max-rows 4 --execute
 ```

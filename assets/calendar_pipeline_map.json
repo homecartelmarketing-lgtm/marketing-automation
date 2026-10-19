@@ -132,8 +132,10 @@
     "reason": "no matching Studio pipeline"
   },
   "Reels :: Virtual Staging": {
-    "skip": true,
-    "reason": "no matching Studio pipeline"
+    "pipeline_type": "virtual-staging-reel",
+    "run_endpoint": "/api/virtual-staging-reel/run",
+    "status_endpoint": "/api/virtual-staging-reel/status",
+    "stop_endpoint": "/api/virtual-staging-reel/stop"
   },
   "Stories :: Collection Category": {
     "pipeline_type": "collec-story",
