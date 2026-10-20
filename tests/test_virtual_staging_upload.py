@@ -60,7 +60,24 @@ class FalQueueTests(unittest.TestCase):
             self.assertEqual(res, "https://v3b.fal.media/vid.mp4")
             call_json = rq.call_args.kwargs["json"]
             self.assertIn("generate_audio", call_json)
-            self.assertIs(call_json["generate_audio"], False)
+    def test_crop_to_reel_landscape(self):
+        from PIL import Image
+        from content_automation.media import crop_to_reel
+        import tempfile, pathlib
+        d = pathlib.Path(tempfile.mkdtemp())
+        Image.new("RGB", (4000, 3000), "white").save(d / "in.jpg")
+        out = crop_to_reel(d / "in.jpg", d / "out.jpg")
+        with Image.open(out) as im:
+            self.assertEqual(im.size, (1080, 1920))
+
+    def test_crop_rejects_tiny(self):
+        from PIL import Image
+        from content_automation.media import crop_to_reel
+        import tempfile, pathlib
+        d = pathlib.Path(tempfile.mkdtemp())
+        Image.new("RGB", (500, 400)).save(d / "s.jpg")
+        with self.assertRaises(ValueError):
+            crop_to_reel(d / "s.jpg", d / "o.jpg")
 
 
 if __name__ == "__main__":

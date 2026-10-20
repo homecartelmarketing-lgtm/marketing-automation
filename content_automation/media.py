@@ -125,3 +125,26 @@ def download_url_to_temp_file(
         suffix=suffix,
         context=context,
     )
+
+
+def crop_to_reel(
+    src: str | Path,
+    dest: str | Path,
+    *,
+    size: tuple[int, int] = (1080, 1920),
+    min_short_side: int = 720,
+) -> Path:
+    """Center-crops and resizes an image to 9:16 vertical video dimensions."""
+    from PIL import Image, ImageOps
+
+    with Image.open(src) as im:
+        im = ImageOps.exif_transpose(im).convert("RGB")
+        if min(im.size) < min_short_side:
+            raise ValueError(
+                f"Image too small ({im.size[0]}x{im.size[1]}); need short side >= {min_short_side}px"
+            )
+        out = ImageOps.fit(im, size, method=Image.LANCZOS, centering=(0.5, 0.5))
+        dest_path = Path(dest)
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        out.save(dest_path, "JPEG", quality=95, optimize=True)
+    return dest_path
