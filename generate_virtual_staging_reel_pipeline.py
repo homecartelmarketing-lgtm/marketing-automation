@@ -796,38 +796,75 @@ def phase6_kling_video(clients: Clients, record_id: str, fields: dict[str, Any])
     if not empty_url or not staged_url:
         raise AutomationError("Phase 6 requires both Empty Room Interior and Fully Staged Room attachments")
 
-    kling_prompt = json.dumps(KLING_PROMPT_PAYLOAD, indent=2)
-    kling_negative_prompt = json.dumps(KLING_NEGATIVE_PROMPT_PAYLOAD, indent=2)
+    start_fal_url = clients.fal.ensure_fal_url(empty_url, filename=f"empty_{record_id}.jpg")
+    end_fal_url = clients.fal.ensure_fal_url(staged_url, filename=f"staged_{record_id}.jpg")
 
-    clients.airtable.update_record(record_id, {FIELD_VIDEO_PROMPT: kling_prompt})
-    fields[FIELD_VIDEO_PROMPT] = kling_prompt
+    is_upload = str(fields.get(FIELD_SOURCE_MODE) or "").lower() == "upload"
+    if is_upload:
+        prompt_text = resolve_upload_kling_prompt()
+        neg_prompt_text = resolve_upload_kling_negative()
+    else:
+        prompt_text = AUTO_KLING_PROMPT
+        neg_prompt_text = AUTO_KLING_NEGATIVE
 
-    print(f"  [INFO] Calling Kling 3.0 Pro ({KLING_MODEL})...")
-    print(f"         Start Image (Empty):  {empty_url[:50]}...")
-    print(f"         End Image (Staged):   {staged_url[:50]}...")
-    print(f"         Duration: 10s | Aspect: 9:16 | Shot: customize")
+    # Resume check: if Kling Queue Request exists and has status_url and response_url
+    queue_data = None
+    queue_raw = fields.get(FIELD_KLING_QUEUE)
+    if queue_raw:
+        try:
+            queue_data = json.loads(queue_raw) if isinstance(queue_raw, str) else queue_raw
+        except Exception:
+            queue_data = None
 
-    raw_video_url = clients.fal.generate_kling_video(
-        prompt=kling_prompt,
-        start_image_url=empty_url,
-        end_image_url=staged_url,
-        negative_prompt=kling_negative_prompt,
-        duration=10,
-        shot_type="customize",
-        aspect_ratio=ASPECT_RATIO,
-        model=KLING_MODEL,
+    if queue_data and queue_data.get("status_url") and queue_data.get("response_url"):
+        print("  [RESUME] Found existing Kling queue request. Resuming polling without re-submitting...")
+        status_url = queue_data["status_url"]
+        response_url = queue_data["response_url"]
+    else:
+        payload = build_kling_payload(start_fal_url, end_fal_url, prompt_text, neg_prompt_text)
+        print(f"  [INFO] Submitting to Kling 3.0 Pro Queue ({KLING_MODEL})...")
+        print(f"         Start Image (Empty):  {start_fal_url[:60]}...")
+        print(f"         End Image (Staged):   {end_fal_url[:60]}...")
+        print(f"         Duration: 10s | Audio: False")
+        queue_res = clients.fal.submit_queue(KLING_MODEL, payload)
+        queue_res["submitted_at"] = time.time()
+        status_url = queue_res["status_url"]
+        response_url = queue_res["response_url"]
+        clients.airtable.update_record(
+            record_id,
+            {
+                FIELD_KLING_QUEUE: json.dumps(queue_res),
+                FIELD_VIDEO_PROMPT: prompt_text,
+            },
+        )
+        fields[FIELD_KLING_QUEUE] = json.dumps(queue_res)
+        fields[FIELD_VIDEO_PROMPT] = prompt_text
+
+    t0 = time.time()
+
+    def on_log(state: str, st_data: dict[str, Any]) -> None:
+        elapsed = int(time.time() - t0)
+        print(f"  [FAL AI] Kling status: {state} (elapsed {elapsed}s)")
+
+    result = clients.fal.poll_queue_urls(
+        status_url,
+        response_url,
+        interval=5.0,
+        max_wait=1200.0,
+        on_log=on_log,
     )
-    if not raw_video_url:
-        raise AutomationError("Kling 3.0 Pro video generation failed to return a video URL")
+    video_url = (result.get("video") or {}).get("url") or ""
+    if not video_url:
+        raise AutomationError(f"Kling 3.0 Pro video generation failed to return a video URL: {result}")
 
     temp_video = Path(tempfile.gettempdir()) / f"raw_video_{record_id}.mp4"
-    download_attachment(raw_video_url, temp_video, timeout=180)
+    download_attachment(video_url, temp_video, timeout=180)
 
     clients.airtable.upload_attachment(record_id, FIELD_RAW_VIDEO, temp_video, f"raw_video_{record_id}.mp4")
     clients.airtable.update_record(record_id, {FIELD_STATUS: STATUS_VIDEO_GENERATED})
     print(f"  [OK] Raw video uploaded ({temp_video.stat().st_size:,} bytes). Status -> '{STATUS_VIDEO_GENERATED}'.")
-    fields[FIELD_RAW_VIDEO] = [{"url": raw_video_url}]
-    return raw_video_url
+    fields[FIELD_RAW_VIDEO] = [{"url": video_url}]
+    return video_url
 
 
 # --------------------------------------------------------------------------

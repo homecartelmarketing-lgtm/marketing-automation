@@ -106,6 +106,44 @@ class FalQueueTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             g.main(["--source", "upload", "--dry-run"])
 
+    def test_build_kling_payload_exact(self):
+        import generate_virtual_staging_reel_pipeline as g
+        p = g.build_kling_payload(
+            "https://v3b.fal.media/a.jpg",
+            "https://v3b.fal.media/b.jpg",
+            g.UPLOAD_KLING_PROMPT,
+            g.UPLOAD_KLING_NEGATIVE,
+        )
+        self.assertEqual(
+            set(p),
+            {"start_image_url", "end_image_url", "prompt", "duration", "generate_audio", "negative_prompt"},
+        )
+        self.assertEqual(p["duration"], "10")
+        self.assertIs(p["generate_audio"], False)
+        self.assertTrue(p["prompt"].startswith("Photorealistic interior, vertical video"))
+        self.assertNotIn("{", p["prompt"])
+        self.assertEqual(
+            p["negative_prompt"],
+            "blur, distort, low quality, shaky camera, cartoon, anime, text, watermark, deformed face, extra limbs",
+        )
+
+    def test_phase6_resumes_without_resubmit(self):
+        import generate_virtual_staging_reel_pipeline as g
+        import json
+        c = mock.MagicMock()
+        c.fal.ensure_fal_url.side_effect = lambda u, filename: u
+        c.fal.poll_queue_urls.return_value = {"video": {"url": "https://v3b.fal.media/out.mp4"}}
+        fields = {
+            "Empty Room Interior": [{"url": "https://v3b.fal.media/a.jpg"}],
+            "Fully Staged Room": [{"url": "https://v3b.fal.media/b.jpg"}],
+            "Source Mode": "Upload",
+            "Kling Queue Request": json.dumps({"request_id": "r", "status_url": "s", "response_url": "u"}),
+        }
+        with mock.patch.object(g, "download_attachment"), mock.patch("pathlib.Path.stat") as mock_stat:
+            mock_stat.return_value.st_size = 1234
+            g.phase6_kling_video(c, "rec1", fields)
+        c.fal.submit_queue.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
