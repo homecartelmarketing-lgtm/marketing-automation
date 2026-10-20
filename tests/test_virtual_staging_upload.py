@@ -145,5 +145,40 @@ class FalQueueTests(unittest.TestCase):
         c.fal.submit_queue.assert_not_called()
 
 
+    def test_run_rejects_non_fal_url(self):
+        import sys
+        from pathlib import Path
+        from flask import Flask
+        ui_dir = str(Path(__file__).resolve().parent.parent / "UI Control")
+        if ui_dir not in sys.path:
+            sys.path.insert(0, ui_dir)
+        import routes.virtual_staging_reel as vsr
+        app = Flask(__name__)
+        app.register_blueprint(vsr.virtual_staging_reel_bp)
+        with mock.patch.object(vsr, "is_authorized", return_value=True):
+            client = app.test_client()
+            r = client.post(
+                "/api/virtual-staging-reel/run",
+                json={"source": "upload", "empty_room_url": "https://evil.example/x.jpg"},
+            )
+            self.assertEqual(r.status_code, 400)
+            self.assertIn("must be a fal.media URL", r.get_json()["error"])
+
+    def test_upload_requires_auth(self):
+        import sys
+        from pathlib import Path
+        from flask import Flask
+        ui_dir = str(Path(__file__).resolve().parent.parent / "UI Control")
+        if ui_dir not in sys.path:
+            sys.path.insert(0, ui_dir)
+        import routes.virtual_staging_reel as vsr
+        app = Flask(__name__)
+        app.register_blueprint(vsr.virtual_staging_reel_bp)
+        with mock.patch.object(vsr, "is_authorized", return_value=False):
+            client = app.test_client()
+            r = client.post("/api/virtual-staging-reel/upload-empty-room", data={})
+            self.assertEqual(r.status_code, 401)
+
+
 if __name__ == "__main__":
     unittest.main()
