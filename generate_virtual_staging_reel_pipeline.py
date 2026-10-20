@@ -67,6 +67,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from content_automation.airtable_client import current_pht_timestamp
 from content_automation.akeneo_client import AkeneoClient, split_item_name
+from content_automation.caption import CAPTION_FIELD, generate_caption
 from content_automation.config import load_settings
 from content_automation.errors import AutomationError
 from content_automation.fal_client import FalClient
@@ -165,7 +166,7 @@ FIELD_VIDEO_PROMPT = "Video Prompt"
 FIELD_RAW_VIDEO = "Raw Video"
 FIELD_OUTRO = "Outro"
 FIELD_FINAL_VIDEO = "Final Video"
-FIELD_CAPTION = "Caption Generated"
+FIELD_CAPTION = CAPTION_FIELD
 
 REQUIRED_STANDARD_FIELDS: dict[str, str] = {
     FIELD_FK: "singleLineText",
@@ -871,28 +872,20 @@ def phase7_assemble_final_reel(clients: Clients, record_id: str, fields: dict[st
 
     print(f"  [OK] Final video assembled: {final_mp4_path.stat().st_size:,} bytes.")
 
-    # 5. Generate luxury Instagram caption via Claude Sonnet 5
+    # 5. Generate universal Instagram caption via shared helper (never blocks Done)
     caption_text = str(fields.get(FIELD_CAPTION) or "").strip()
     if not caption_text:
+        print("  [INFO] Generating Instagram caption with shared helper...")
+        staged_url = get_first_attachment_url(fields, FIELD_FULLY_STAGED) or raw_video_url
+        caption_text, used_fallback = generate_caption(
+            clients.fal, item_name, "Chandelier", [staged_url] if staged_url else [], "chandeliers",
+        )
         try:
-            print("  [INFO] Generating Instagram caption with Claude Sonnet 5...")
-            cap_prompt = (
-                f"Write a luxury, elegant Instagram Reel caption for a high-end chandelier product: '{item_name}'.\n"
-                f"The video shows an empty room seamlessly assembling and self-furnishing with the chandelier illuminated.\n"
-                f"Keep it under 3 sentences, refined and inspiring, followed by 6 relevant hashtags.\n"
-                f"Hashtags must include #HomeCartel #LuxuryInteriors #VirtualStaging #Chandelier #InteriorDesign.\n"
-                f"Output ONLY the caption."
-            )
-            caption_text = clients.fal.generate_vision_prompt(
-                image_urls=[get_first_attachment_url(fields, FIELD_FULLY_STAGED) or raw_video_url],
-                prompt=cap_prompt,
-                model=CLAUDE_MODEL,
-            ).strip().strip('"')
             clients.airtable.update_record(record_id, {FIELD_CAPTION: caption_text})
-            print("  [OK] Caption generated.")
         except Exception as err:
-            print(f"  [WARN] Caption generation failed: {err}")
-            caption_text = f"Experience pure architectural harmony with {item_name}. #HomeCartel #LuxuryInteriors #Chandelier #VirtualStaging"
+            print(f"  [WARN] Caption update failed: {err}")
+        suffix = " (fallback)" if used_fallback else ""
+        print(f"  [OK] Caption generated.{suffix}")
 
     # 6. Upload final video & complete row
     clients.airtable.upload_attachment(record_id, FIELD_FINAL_VIDEO, final_mp4_path, f"final_reel_{record_id}.mp4")

@@ -43,6 +43,8 @@ from typing import Any
 import requests
 
 from content_automation.airtable_client import current_pht_timestamp
+from content_automation.akeneo_client import split_item_name
+from content_automation.caption import CAPTION_FIELD, CAPTION_FIELD_TYPE, generate_caption
 from content_automation.config import TABLES, load_settings
 from content_automation.fal_client import FalClient
 from content_automation.fields import price_field
@@ -199,6 +201,7 @@ BLENDED_FIELD = "Ad Cover Blended Image"
 CONVERTED_FIELD = "Ad Cover Converted Image"
 BLENDED_STORY_FIELD = "Ad Cover Blended Image Story"
 CONVERTED_STORY_FIELD = "Ad Cover Converted Image Story"
+CAPTION_GENERATED_FIELD = CAPTION_FIELD
 
 STATUS_STANDBY = "Standby"
 STATUS_INTERIOR_GENERATED = "Ad Cover Interior Generated"
@@ -220,6 +223,7 @@ AD_COVER_FIELDS: dict[str, str] = {
     CONVERTED_FIELD: "multipleAttachments",
     BLENDED_STORY_FIELD: "multipleAttachments",
     CONVERTED_STORY_FIELD: "multipleAttachments",
+    CAPTION_GENERATED_FIELD: CAPTION_FIELD_TYPE,
 }
 
 # Strict Shopify check + base-wide cross-table dedup are on by default. Price
@@ -920,6 +924,7 @@ def phase_story_conversion(
     *,
     fixture: str,
     record_id: str,
+    fal: FalClient | None = None,
 ) -> bool:
     cfg = resolve_fixture_config(fixture)
     if not cfg.get("story_asset"):
@@ -969,6 +974,11 @@ def phase_story_conversion(
             f"ad_cover_converted_story_{record_id}.jpg",
         )
         safe_update_status(airtable, record_id, STATUS_CONVERTED_STORY_GENERATED)
+        # Caption (shared helper) — before terminal status; never blocks.
+        try:
+            generate_caption_phase(fal, airtable, record_id=record_id)
+        except Exception as error:
+            print(f"[WARN] Caption phase failed for {record_id}: {error}")
         safe_update_status(airtable, record_id, STATUS_COMPLETE)
         print(
             f"[OK] Attached final 9:16 ad cover story to '{CONVERTED_STORY_FIELD}' "
@@ -981,6 +991,56 @@ def phase_story_conversion(
     finally:
         if story_file:
             story_file.cleanup()
+
+
+# ---------------------------------------------------------------------------
+# Caption -- universal Instagram caption (shared helper, never blocks Complete)
+# ---------------------------------------------------------------------------
+
+
+def generate_caption_phase(
+    fal: FalClient | None,
+    airtable: ScrapeAirtableClient,
+    *,
+    record_id: str,
+) -> bool:
+    """Generate universal Instagram caption into CAPTION_FIELD (never raises)."""
+    print(f"[INFO] [Caption] Generating universal Instagram caption for {record_id}...")
+    try:
+        airtable.ensure_fields({CAPTION_GENERATED_FIELD: CAPTION_FIELD_TYPE})
+    except Exception as error:
+        print(f"[WARN] Caption ensure_fields failed for {record_id}: {error}")
+    try:
+        record = airtable.get_record(record_id)
+        fields = record.get("fields", {}) if record else {}
+        if fields.get(CAPTION_GENERATED_FIELD):
+            print(f"[OK] Caption already present for {record_id}; skipping.")
+            return True
+        raw_item_name = str(
+            get_first_field_value(fields, [ITEM_NAME_FIELD, SKU_FIELD]) or "HomeCartel Lighting"
+        ).strip()
+        item_name, product_type = split_item_name(
+            raw_item_name, fallback_product_type=str(fields.get("Product Type") or "")
+        )
+        final_url = extract_attachment_url(fields.get(CONVERTED_STORY_FIELD)) or extract_attachment_url(
+            fields.get(CONVERTED_FIELD)
+        )
+        image_urls = [final_url] if final_url else []
+        category = str(fields.get("Category") or "").strip()
+        caption_text, used_fallback = generate_caption(
+            fal,
+            item_name,
+            product_type,
+            image_urls,
+            category,
+        )
+        airtable.update_records([(record_id, {CAPTION_GENERATED_FIELD: caption_text})])
+        tag = "fallback" if used_fallback else "Claude"
+        print(f"[OK] Caption saved ({tag}) for record {record_id}.")
+        return True
+    except Exception as error:
+        print(f"[WARN] Caption generation failed for record {record_id}: {error}")
+        return True
 
 
 # ---------------------------------------------------------------------------
@@ -1106,7 +1166,7 @@ def run_pipeline(
 
     if mode == "story-conversion":
         return 0 if all(
-            phase_story_conversion(airtable, fixture=fixture, record_id=rid)
+            phase_story_conversion(airtable, fixture=fixture, record_id=rid, fal=fal)
             for rid in target_ids
         ) else 1
 
@@ -1160,6 +1220,11 @@ def run_pipeline(
 
         if not has_story_file:
             # Fixtures with only 1:1 collection overlays complete cleanly here
+            # Caption (shared helper) — before terminal status; never blocks.
+            try:
+                generate_caption_phase(fal, airtable, record_id=target_record_id)
+            except Exception as error:
+                print(f"[WARN] Caption phase failed for Record {target_record_id}: {error}")
             safe_update_status(airtable, target_record_id, STATUS_COMPLETE)
             print(
                 f"[ROW {row_idx} COMPLETE] Record {target_record_id} is 100% COMPLETE "
@@ -1169,7 +1234,7 @@ def run_pipeline(
             story_ok = phase_story_blend(fal, airtable, fixture=fixture, record_id=target_record_id)
             if story_ok:
                 story_ok = phase_story_conversion(
-                    airtable, fixture=fixture, record_id=target_record_id
+                    airtable, fixture=fixture, record_id=target_record_id, fal=fal
                 )
 
             if story_ok:
@@ -1179,6 +1244,11 @@ def run_pipeline(
                 )
             else:
                 story_failures += 1
+                # Caption (shared helper) — before terminal status; never blocks.
+                try:
+                    generate_caption_phase(fal, airtable, record_id=target_record_id)
+                except Exception as error:
+                    print(f"[WARN] Caption phase failed for Record {target_record_id}: {error}")
                 safe_update_status(airtable, target_record_id, STATUS_COMPLETE)
                 print(
                     f"[WARN] The {STORY_ASPECT_RATIO} story branch failed for "

@@ -255,6 +255,12 @@ The Row Inspector modal queries `/api/rows?table_id=<table_id>` and constructs d
 ### E. Product Field Resolution & Item Tagging
 When splitting item names (`split_item_name`) or stamping two-line floating YOLO product tags (Line 1: Item Name, Line 2: Product Type), pipelines must extract `Item Name` and `Product Type` directly from the scraped Airtable record fields. Never construct or rely on synthetic fallback/proxy properties on runner classes (e.g. `category_label` or `fallback_category_label`). When writing educational tips or text fields where legacy column variations exist (such as `Tips 1..3` vs `Tip1..3`), pipelines must dual-write to both sets of fields if present in the table schema.
 
+### F. Universal Instagram Caption (`Caption Generated`)
+Every pipeline populates the **`Caption Generated`** field (`multilineText` type) via `content_automation.caption.generate_caption()` (Claude Sonnet 5 via Fal AI). Captions follow the canonical HomeCartel brand format: hook with emoji $\to$ `Item Name | Product Type` $\to$ 1-2 value sentences $\to$ CTA question $\to$ standard contact block $\to$ canonical hashtag line.
+- **Non-blocking / fail-safe**: Claude or network failures automatically fallback to a deterministic branded caption template. Caption errors must **NEVER** block a row from reaching `Complete` or `Done`.
+- **Anchor product rule**: Single-product pipelines use that fixture; multi-product pipelines (e.g. 3–4 items) use the slot-0 anchor product for the single row caption.
+- **Bulk provisioning**: `scripts/ops/provision_caption_fields.py` adds this field idempotently across all 100+ tables.
+
 ---
 
 ## 5. Scraping & Deduplication Rules

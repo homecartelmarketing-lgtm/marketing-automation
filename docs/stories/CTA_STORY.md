@@ -25,7 +25,8 @@ The **CTA Story Automation Pipeline** generates branded **9:16 vertical Instagra
 | **Phase 3** | **Claude Vision Prompting** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `CTA Interior` + `Furniture Item` | `Blending Prompt` -> Status: `Blending Prompt Generated` (`P`) |
 | **Phase 4** | **Nano Banana Pro Blending** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | `CTA Interior` + `Furniture Item` + `Blending Prompt` | `CTA Blended Image` -> Status: `CTA Blended Image Generated` (`P`) |
 | **Phase 5** | **Claude Headline Analysis** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `CTA Blended Image` | `Word Generated` -> Status: `Processing` (`P`) |
-| **Phase 6** | **Local Logo & CTA Stamping** | **Local Python Pillow** | **Zero-API Local Python Script**<br>Canva Layout Box: $820.8 \times 304.6\text{ px}$ | `CTA Blended Image` + `Word Generated` + `Logo` | `CTA Converted Image` -> Status: `Complete` (`C`) |
+| **Phase 6** | **Local Logo & CTA Stamping** | **Local Python Pillow** | **Zero-API Local Python Script**<br>Canva Layout Box: $820.8 \times 304.6\text{ px}$ | `CTA Blended Image` + `Word Generated` + `Logo` | `CTA Converted Image` |
+| **Phase 7** | **Instagram Caption Gen** | Fal AI (`anthropic/claude-sonnet-5`) | Shared luxury caption prompt (`generate_caption`) + contact block + hashtags | `Item Name` + `Product Type` + `CTA Blended Image` | `Caption Generated` -> Status: `Complete` (`C`) |
 
 ---
 

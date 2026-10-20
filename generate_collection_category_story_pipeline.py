@@ -32,7 +32,8 @@ from typing import Any
 import random
 import requests
 
-from content_automation.akeneo_client import AkeneoClient
+from content_automation.akeneo_client import AkeneoClient, split_item_name
+from content_automation.caption import CAPTION_FIELD, CAPTION_FIELD_TYPE, generate_caption
 from content_automation.config import load_settings
 from content_automation.errors import AutomationError, ProviderError
 from content_automation.fal_client import FalClient
@@ -192,6 +193,8 @@ FINAL_CONVERTED_FIELDS = [
     "STORY - Collection Category (1)",
     "Collection Category Final",
 ]
+
+CAPTION_GENERATED_FIELD = CAPTION_FIELD
 
 # ── Models & Aspect Ratios ──────────────────────────────────────────────
 
@@ -1125,6 +1128,63 @@ def build_final_story_prompt(metadata: list[dict[str, str]]) -> str:
 
 
 # ══════════════════════════════════════════════════════════════════════════
+# Caption — universal Instagram caption (shared helper, never blocks Complete)
+# ══════════════════════════════════════════════════════════════════════════
+
+
+def generate_caption_phase(
+    fal_client: Any = None,
+    airtable: ScrapeAirtableClient = None,
+    *,
+    record_id: str,
+) -> bool:
+    """Generate universal Instagram caption into CAPTION_FIELD (never raises)."""
+    print(f"[INFO] [Caption] Generating universal Instagram caption for {record_id}...")
+    try:
+        airtable.ensure_fields({CAPTION_GENERATED_FIELD: CAPTION_FIELD_TYPE})
+    except Exception as error:
+        print(f"[WARN] Caption ensure_fields failed for {record_id}: {error}")
+    try:
+        record = airtable.get_record(record_id)
+        fields = record.get("fields", {}) if record else {}
+        if fields.get(CAPTION_GENERATED_FIELD):
+            print(f"[OK] Caption already present for {record_id}; skipping.")
+            return True
+        # Anchor slot 0 (Item Name1 / Item Name).
+        raw_item_name = str(
+            fields.get("Item Name1")
+            or fields.get(ITEM_NAME_FIELD)
+            or fields.get(SKU_FIELD)
+            or "HomeCartel Lighting"
+        ).strip()
+        item_name, product_type = split_item_name(
+            raw_item_name,
+            fallback_product_type=str(
+                fields.get("Product Type1") or fields.get("Product Type") or ""
+            ),
+        )
+        final_url = extract_attachment_url(
+            get_field_value(fields, FINAL_CONVERTED_FIELDS)
+        )
+        image_urls = [final_url] if final_url else []
+        category = str(fields.get("Category") or "").strip()
+        caption_text, used_fallback = generate_caption(
+            fal_client,
+            item_name,
+            product_type,
+            image_urls,
+            category,
+        )
+        airtable.update_records([(record_id, {CAPTION_GENERATED_FIELD: caption_text})])
+        tag = "fallback" if used_fallback else "Claude"
+        print(f"[OK] Caption saved ({tag}) for record {record_id}.")
+        return True
+    except Exception as error:
+        print(f"[WARN] Caption generation failed for record {record_id}: {error}")
+        return True
+
+
+# ══════════════════════════════════════════════════════════════════════════
 # PHASE 4 — 9:16 Auto-Grid & Logo Overlay -> 'Collection Category Converted'
 # (Local Python PIL script, No Fal API calls)
 # ══════════════════════════════════════════════════════════════════════════
@@ -1297,6 +1357,11 @@ def generate_collection_category_story_final_assembly(
             filename = f"collection_category_story_{record_id}.jpg"
             airtable.upload_attachment(record_id, target_final_field, final_temp_path, filename)
             fields[target_final_field] = [{"filename": filename, "url": f"file://{final_temp_path}"}]
+            # Caption (shared helper) — anchor slot 0, final image URL; never blocks Complete.
+            try:
+                generate_caption_phase(fal_client, airtable, record_id=record_id)
+            except Exception as error:
+                print(f"[WARN] Caption phase failed for record {record_id}: {error}")
             update_status_if_valid(airtable, record_id, STATUS_COMPLETE)
             print(
                 f"[OK] Attached converted 9:16 Story to '{target_final_field}' and updated "
