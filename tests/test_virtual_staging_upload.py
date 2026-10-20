@@ -79,6 +79,33 @@ class FalQueueTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             crop_to_reel(d / "s.jpg", d / "o.jpg")
 
+    def test_upload_mode_skips_krea_and_strip(self):
+        import generate_virtual_staging_reel_pipeline as g
+        c = mock.MagicMock()
+        c.airtable.get_record.return_value = {
+            "fields": {
+                "Status": "Standby",
+                "Furniture Item": [{"url": "https://v3b.fal.media/cut.png"}],
+                "Item Name": "Mina 7",
+            }
+        }
+        c.fal.ensure_fal_url.side_effect = lambda u, filename: u
+        with mock.patch.object(g, "phase2_interior") as krea, \
+             mock.patch.object(g, "phase5_empty_room_conversion") as strip, \
+             mock.patch.object(g, "phase3_blending_prompt"), \
+             mock.patch.object(g, "phase4_room_blend"), \
+             mock.patch.object(g, "phase6_kling_video"), \
+             mock.patch.object(g, "phase7_assemble_final_reel"), \
+             mock.patch.object(g, "download_attachment"):
+            g.process_record(c, "rec1", source="upload", empty_room_url="https://v3b.fal.media/room.jpg")
+        krea.assert_not_called()
+        strip.assert_not_called()
+
+    def test_upload_requires_url(self):
+        import generate_virtual_staging_reel_pipeline as g
+        with self.assertRaises(SystemExit):
+            g.main(["--source", "upload", "--dry-run"])
+
 
 if __name__ == "__main__":
     unittest.main()
