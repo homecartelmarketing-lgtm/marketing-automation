@@ -601,13 +601,18 @@ class ScrapeAirtableClient:
 
         size = path.stat().st_size
         if size > AIRTABLE_UPLOAD_MAX_BYTES:
-            # Too big for uploadAttachment: host it on fal's CDN and attach by URL.
+            # Too big for uploadAttachment: host it on fal's CDN and append by URL,
+            # keeping whatever is already in the field (uploadAttachment appends too).
             print(
                 f"  [INFO] {filename} is {size / (1024 * 1024):.1f} MB (over Airtable's 5 MB "
                 f"upload limit); hosting on fal CDN and attaching by URL..."
             )
             public_url = self._host_large_file(path)
-            self.upload_attachment_url(record_id, field_name, public_url, filename)
+            current = self.get_record(record_id).get("fields", {}).get(field_name, []) or []
+            keep = [{"id": item["id"]} for item in current if isinstance(item, dict) and item.get("id")]
+            self.update_records(
+                [(record_id, {field_name: keep + [{"url": public_url, "filename": filename}]})]
+            )
             print(f"  [OK] Attached {filename} to {field_name} via URL")
         else:
             fields_map = self.table_fields()
