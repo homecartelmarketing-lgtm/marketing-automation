@@ -88,6 +88,9 @@ export function RunCenterRunning({
 }: RunCenterRunningProps) {
   const isError = pipelineState.status === 'error';
   const isRunning = !!job || pipelineState.status === 'running';
+  // A "Last run" view (nothing active, no failure, not manually stopped) is a finished run.
+  // Without this, current_phase_index stays on the final phase and its spinner never stops.
+  const isComplete = !isRunning && !isError && pipelineState.status !== 'stopped';
 
   if (!isRunning && !isError && pipelineState.logs.length === 0) {
     return (
@@ -100,9 +103,12 @@ export function RunCenterRunning({
   }
 
   const total = job?.total_phases || pipelineState.total_phases || 5;
-  const index = job?.current_phase_index ?? pipelineState.current_phase_index ?? 0;
+  const rawIndex = job?.current_phase_index ?? pipelineState.current_phase_index ?? 0;
+  const index = isComplete ? total : rawIndex;
   const labels = phaseLabels(phaseSummary, total);
-  const percent = Math.min(100, Math.round((Math.max(index, 0) / Math.max(total, 1)) * 100));
+  const percent = isComplete
+    ? 100
+    : Math.min(100, Math.round((Math.max(index, 0) / Math.max(total, 1)) * 100));
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 px-4 pb-4">
@@ -133,13 +139,18 @@ export function RunCenterRunning({
       <div>
         <div className="mb-1.5 flex items-center justify-between text-[11px] text-slate-500">
           <span className="truncate pr-2 font-medium text-slate-700">
-            {job?.current_phase || pipelineState.current_phase || 'Starting...'}
+            {isComplete ? 'Completed' : job?.current_phase || pipelineState.current_phase || 'Starting...'}
           </span>
           <span className="shrink-0 tabular-nums">
             Step {Math.max(index, 0)}/{total}
           </span>
         </div>
-        <Progress value={percent} className={`h-1.5 bg-slate-100 ${isError ? '[&>div]:bg-rose-500' : '[&>div]:bg-sky-500'}`} />
+        <Progress
+          value={percent}
+          className={`h-1.5 bg-slate-100 ${
+            isError ? '[&>div]:bg-rose-500' : isComplete ? '[&>div]:bg-emerald-500' : '[&>div]:bg-sky-500'
+          }`}
+        />
       </div>
 
       {isError && (
@@ -160,7 +171,7 @@ export function RunCenterRunning({
         </div>
       )}
 
-      <PhaseStepper labels={labels} currentIndex={index} failed={isError} />
+      <PhaseStepper labels={labels} currentIndex={isComplete ? total + 1 : index} failed={isError} />
 
       {onJump && (
         <button
@@ -173,7 +184,7 @@ export function RunCenterRunning({
       )}
 
       <div className="flex min-h-0 flex-1 flex-col">
-        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Live log</p>
+        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{isComplete ? 'Log' : 'Live log'}</p>
         <LogStream logs={pipelineState.logs} className="min-h-40 flex-1" />
       </div>
     </div>
