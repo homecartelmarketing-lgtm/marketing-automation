@@ -31,6 +31,7 @@ from PIL import Image
 
 from content_automation.airtable_client import fetch_multiple_tables_status_breakdown
 from content_automation.akeneo_client import split_item_name
+from content_automation.caption import CAPTION_FIELD, CAPTION_FIELD_TYPE, generate_caption
 from content_automation.config import TABLES, load_settings
 from content_automation.fixture_catalog import (
     active_fixtures as _catalog_active_fixtures,
@@ -268,6 +269,8 @@ WORD_GENERATED_FALLBACKS = [
     "CTA Headline",
     "Headline",
 ]
+
+CAPTION_GENERATED_FIELD = CAPTION_FIELD
 
 FAL_VISION_MODEL = os.getenv("CLAUDE_VISION_MODEL", "").strip() or "anthropic/claude-sonnet-5"
 FAL_BLENDING_MODEL = os.getenv("FAL_BLENDING_MODEL", "").strip() or "fal-ai/nano-banana-pro/edit"
@@ -1137,6 +1140,74 @@ def generate_watermark_added_images(
     return failed == 0
 
 
+def generate_caption_phase(
+    fal: Any,
+    airtable: ScrapeAirtableClient,
+    *,
+    limit_records: int | None = None,
+    target_record_id: str | None = None,
+) -> bool:
+    """Generate universal Instagram caption into CAPTION_FIELD (pilot, never raises)."""
+    print("[PHASE 7/7] Caption — universal Instagram caption via shared helper...")
+    airtable.ensure_fields({CAPTION_GENERATED_FIELD: CAPTION_FIELD_TYPE})
+    records = airtable.list_records(
+        CONVERTED_FIELD_FALLBACKS
+        + BLENDED_FIELD_FALLBACKS
+        + [FIELD_NAME, ITEM_NAME_FIELD, SKU_FIELD, "Product Type", "Category", CAPTION_GENERATED_FIELD, STATUS_FIELD, "ID", "Auto Number", "No"]
+    )
+    if not records:
+        print("[OK] No records found in Airtable to generate captions.")
+        return True
+
+    records = sort_records_by_id(records)
+    if target_record_id:
+        records = [r for r in records if r["id"] == target_record_id]
+
+    eligible = []
+    for record in records:
+        fields = record.get("fields", {})
+        if not get_first_field_value(fields, CONVERTED_FIELD_FALLBACKS):
+            continue
+        if fields.get(CAPTION_GENERATED_FIELD):
+            continue
+        eligible.append(record)
+
+    if not eligible:
+        print("[OK] No records requiring caption generation (converted missing or caption already filled).")
+        return True
+
+    if limit_records is not None:
+        eligible = eligible[:limit_records]
+
+    print(f"[INFO] Generating '{CAPTION_GENERATED_FIELD}' for {len(eligible)} record(s) using shared helper...")
+
+    succeeded = 0
+    for position, record in enumerate(eligible, start=1):
+        record_id = record["id"]
+        fields = record.get("fields", {})
+        try:
+            raw_item_name = str(fields.get(ITEM_NAME_FIELD) or fields.get(SKU_FIELD) or "HomeCartel Lighting").strip()
+            item_title, product_type = split_item_name(
+                raw_item_name, fallback_product_type=str(fields.get("Product Type") or "")
+            )
+            blended_url = extract_attachment_url(get_first_field_value(fields, BLENDED_FIELD_FALLBACKS))
+            category = str(fields.get("Category") or "").strip()
+            caption_text, used_fallback = generate_caption(
+                fal, item_title, product_type, [blended_url] if blended_url else [], category,
+            )
+            airtable.update_records([(record_id, {CAPTION_GENERATED_FIELD: caption_text})])
+            print(
+                f"[OK] [{position}/{len(eligible)}] Caption saved for record {record_id}"
+                f"{' (fallback)' if used_fallback else ''}."
+            )
+            succeeded += 1
+        except Exception as error:
+            print(f"[WARN] Caption generation failed for record {record_id}: {error}")
+
+    print(f"[INFO] Caption generation complete: {succeeded}/{len(eligible)} succeeded.")
+    return True
+
+
 def get_first_incomplete_record(airtable: ScrapeAirtableClient) -> dict[str, Any] | None:
     records = airtable.list_records(
         INTERIOR_FIELD_FALLBACKS
@@ -1655,6 +1726,16 @@ def run_pipeline(
                 print(f"[ERROR] Phase 6 Local CTA conversion failed on Record {target_record_id}.")
                 failures += 1
                 continue
+
+        # Phase 7 (pilot): universal Instagram caption — after conversion, before Complete; never blocks.
+        try:
+            generate_caption_phase(
+                fal_client,
+                airtable,
+                target_record_id=target_record_id,
+            )
+        except Exception as error:
+            print(f"[WARN] Caption phase failed for Record {target_record_id}: {error}")
 
         print(f"[ROW {row_idx} COMPLETE] Record {target_record_id} is 100% COMPLETE! Status: Complete.")
 

@@ -61,8 +61,9 @@ assets/oct-calendar.xlsx
 Content Calendar.xlsx
 *.xlsm
 
-# House Tour reference video (local inspiration footage, not for git).
+# Reference videos (local inspiration footage, not for git).
 assets/house_tour_reference.mp4
+6-Virtual-Staging.mp4
 
 # Graphify knowledge graph outputs and cache.
 # Anchored on purpose: an unanchored `.graphify*` also matches

@@ -67,6 +67,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from content_automation.airtable_client import current_pht_timestamp
 from content_automation.akeneo_client import AkeneoClient, split_item_name
+from content_automation.caption import CAPTION_FIELD, generate_caption
 from content_automation.config import load_settings
 from content_automation.errors import AutomationError
 from content_automation.fal_client import FalClient
@@ -122,6 +123,7 @@ FONT_CANDIDATES = [
 # Airtable status constants
 STATUS_STANDBY = "Standby"
 STATUS_IN_PROGRESS = "In progress"
+STATUS_EMPTY_ROOM_UPLOADED = "Empty Room Uploaded"
 STATUS_INTERIOR_GENERATED = "Interior Generated"
 STATUS_PROMPT_GENERATED = "Prompt Generated"
 STATUS_BLENDED_GENERATED = "Blended Image Generated"
@@ -132,6 +134,7 @@ STATUS_DONE = "Done"
 STATUS_CHOICES = [
     STATUS_STANDBY,
     STATUS_IN_PROGRESS,
+    STATUS_EMPTY_ROOM_UPLOADED,
     STATUS_INTERIOR_GENERATED,
     STATUS_PROMPT_GENERATED,
     STATUS_BLENDED_GENERATED,
@@ -165,7 +168,9 @@ FIELD_VIDEO_PROMPT = "Video Prompt"
 FIELD_RAW_VIDEO = "Raw Video"
 FIELD_OUTRO = "Outro"
 FIELD_FINAL_VIDEO = "Final Video"
-FIELD_CAPTION = "Caption Generated"
+FIELD_CAPTION = CAPTION_FIELD
+FIELD_SOURCE_MODE = "Source Mode"
+FIELD_KLING_QUEUE = "Kling Queue Request"
 
 REQUIRED_STANDARD_FIELDS: dict[str, str] = {
     FIELD_FK: "singleLineText",
@@ -185,21 +190,95 @@ REQUIRED_STANDARD_FIELDS: dict[str, str] = {
     FIELD_OUTRO: "multipleAttachments",
     FIELD_FINAL_VIDEO: "multipleAttachments",
     FIELD_CAPTION: "multilineText",
+    FIELD_SOURCE_MODE: "singleLineText",
+    FIELD_KLING_QUEUE: "multilineText",
 }
 
-# User's structured Kling 3.0 Pro prompts
-KLING_PROMPT_PAYLOAD = {
-    "task": "Turn the uploaded interior photo into a photorealistic empty-to-furnished room assembly animation.",
-    "prompt": "Use the uploaded photo as the finished-room target. Begin with the same room empty of movable furniture and decorations, then animate ONLY the objects visible in the photo into their original positions. Adapt automatically to any room type, layout and furniture style. Preserve the architecture, flooring, walls, windows, doors, permanent built-ins, lighting and color palette. Reconstruct plausible surfaces temporarily exposed behind removed objects. Never redesign the room or invent furniture.",
-    "animation": "Create one continuous, satisfying self-furnishing sequence without people. Bring large furniture into place with short, smooth downward drops and subtle weighted settling. Keep furniture complete, including legs, upholstery, seat cushions and mattresses. Unfurl any rug before furniture resting on it lands. Add smaller decor, accent pieces, wall art, tabletop items and lighting after major furniture settles. Maintain physically plausible stacking, support and gravity. Ensure every object comes to rest in its exact location, orientation, scale and material appearance from the target photo.",
-    "consistency": "Keep camera angle, focal length, perspective and room geometry perfectly locked to the target photo. Maintain the identical lighting scheme, direction, intensity and shadow colors throughout. Keep shadows and reflections soft, grounded and consistent with the landing objects. Never introduce people, limbs, tools, motion blur streaks or unrelated props.",
-    "camera": "Fixed tripod shot matching the target photo. Static framing, zero pan, zero tilt, zero zoom, zero camera drift.",
-    "output": "A seamless, photorealistic room assembly animation where an empty room transforms precisely into the uploaded finished-room photo.",
-}
+UPLOAD_STAGING_INSTRUCTION = (
+    "You are an expert luxury interior stylist and visual prompt engineer.\n"
+    "Image 1 is an EMPTY room. Image 2 is a HomeCartel lighting fixture cutout: '{item_name}'.\n"
+    "Write one image-edit prompt for Nano Banana Pro that furnishes THIS exact room and mounts THIS exact fixture.\n"
+    "Furnish with: a main sofa, an area rug with a coffee table on it, a shelving cabinet against the right wall, "
+    "wall art, a floor plant, pillows and a throw on the sofa, and small decor on the shelves and table. "
+    "Match the room's architecture and style. Mount the fixture centered on the ceiling with a correct canopy and drop, lit warm (2700K).\n"
+    "STRICT: keep the camera angle, framing, perspective, walls, windows, doors, floor material and daylight identical. "
+    "Do not crop, zoom or re-frame. Realistic contact shadows and scale.\n"
+    "Output ONLY the prompt text."
+)
 
-KLING_NEGATIVE_PROMPT_PAYLOAD = {
-    "negative_prompt": "people, hands, workers, tools, scaffolding, construction, camera movement, panning, tilting, zooming, camera shake, warping, shifting walls, changing windows, morphing architecture, flickering lighting, fluctuating exposure, disappearing objects, duplicate furniture, floating items, clipping meshes, deformed legs, low resolution, cartoonish effects, CGI look, jerky motion, abrupt cuts, unfinished frames"
-}
+UPLOAD_KLING_PROMPT = (
+    "Photorealistic interior, vertical video, one continuous shot. Slow, steady camera push-in throughout. "
+    "The empty room holds still for a moment. First, the main sofa flies in from the left and lands softly with a slight bounce. "
+    "Then the rug unrolls across the floor and the coffee table drops onto it. Next, the shelving cabinet slides in against the right "
+    "wall and the chandelier lowers from the ceiling. Then wall art pops onto the wall, the plant rises into place, and pillows and a "
+    "throw drop onto the sofa. Finally, small decor appears on the shelves and table, and everything settles. Each object moves quickly "
+    "with motion blur and lands exactly in its final position. Walls, windows, floor and lighting never change. No people"
+)
+
+UPLOAD_KLING_NEGATIVE = (
+    "blur, distort, low quality, shaky camera, cartoon, anime, text, watermark, deformed face, extra limbs"
+)
+
+AUTO_KLING_PROMPT = (
+    "Turn the uploaded interior photo into a photorealistic empty-to-furnished room assembly animation. "
+    "Use the uploaded photo as the finished-room target. Begin with the same room empty of movable furniture and decorations, "
+    "then animate ONLY the objects visible in the photo into their original positions. Adapt automatically to any room type, layout "
+    "and furniture style. Preserve the architecture, flooring, walls, windows, doors, permanent built-ins, lighting and color palette. "
+    "Reconstruct plausible surfaces temporarily exposed behind removed objects. Never redesign the room or invent furniture. "
+    "Create one continuous, satisfying self-furnishing sequence without people. Bring large furniture into place with short, smooth "
+    "downward drops and subtle weighted settling. Keep furniture complete, including legs, upholstery, seat cushions and mattresses. "
+    "Unfurl any rug before furniture resting on it lands. Add smaller decor, accent pieces, wall art, tabletop items and lighting "
+    "after major furniture settles. Maintain physically plausible stacking, support and gravity. Ensure every object comes to rest "
+    "in its exact location, orientation, scale and material appearance from the target photo. Keep camera angle, focal length, "
+    "perspective and room geometry perfectly locked to the target photo. Maintain the identical lighting scheme, direction, intensity "
+    "and shadow colors throughout. Keep shadows and reflections soft, grounded and consistent with the landing objects. Never introduce "
+    "people, limbs, tools, motion blur streaks or unrelated props. Fixed tripod shot matching the target photo. Static framing, zero pan, "
+    "zero tilt, zero zoom, zero camera drift. A seamless, photorealistic room assembly animation where an empty room transforms precisely "
+    "into the uploaded finished-room photo."
+)
+
+AUTO_KLING_NEGATIVE = (
+    "people, hands, workers, tools, scaffolding, construction, camera movement, panning, tilting, zooming, camera shake, "
+    "warping, shifting walls, changing windows, morphing architecture, flickering lighting, fluctuating exposure, disappearing "
+    "objects, duplicate furniture, floating items, clipping meshes, deformed legs, low resolution, cartoonish effects, CGI look, "
+    "jerky motion, abrupt cuts, unfinished frames"
+)
+
+
+def clean_override(val: str | None) -> str | None:
+    if not val:
+        return None
+    s = val.strip()
+    if s.lower() in ("", "none", "null", "undefined"):
+        return None
+    return s
+
+
+def resolve_upload_kling_prompt() -> str:
+    override = clean_override(os.getenv("KLING_PROMPT_VIRTUAL_STAGING_REEL"))
+    return override or UPLOAD_KLING_PROMPT
+
+
+def resolve_upload_kling_negative() -> str:
+    override = clean_override(os.getenv("KLING_NEGATIVE_PROMPT_VIRTUAL_STAGING_REEL"))
+    return override or UPLOAD_KLING_NEGATIVE
+
+
+def build_kling_payload(
+    start_image_url: str,
+    end_image_url: str,
+    prompt: str,
+    negative_prompt: str,
+) -> dict[str, Any]:
+    return {
+        "start_image_url": start_image_url,
+        "end_image_url": end_image_url,
+        "prompt": prompt,
+        "duration": "10",
+        "generate_audio": False,
+        "negative_prompt": negative_prompt,
+    }
+
 
 # --------------------------------------------------------------------------
 # Clients Helper
@@ -496,6 +575,30 @@ def phase2_interior(
     return url
 
 
+def phase2_upload(clients: Clients, record_id: str, fields: dict[str, Any], empty_room_url: str) -> str:
+    print(f"\n[PHASE 2/7] Ingesting Uploaded Empty Room Interior for record {record_id}...")
+    fal_url = clients.fal.ensure_fal_url(empty_room_url, filename=f"empty_room_{record_id}.jpg")
+
+    temp_empty = Path(tempfile.gettempdir()) / f"empty_room_{record_id}.jpg"
+    download_attachment(fal_url, temp_empty)
+
+    clients.airtable.upload_attachment(record_id, FIELD_EMPTY_ROOM, temp_empty, f"empty_room_{record_id}.jpg")
+    clients.airtable.upload_attachment(record_id, FIELD_ROOM_INTERIOR, temp_empty, f"empty_room_{record_id}.jpg")
+    clients.airtable.update_record(
+        record_id,
+        {
+            FIELD_STATUS: STATUS_EMPTY_ROOM_UPLOADED,
+            FIELD_SOURCE_MODE: "Upload",
+        },
+    )
+    print(f"  [OK] Empty room attached to both {FIELD_EMPTY_ROOM} and {FIELD_ROOM_INTERIOR}.")
+    print(f"       Status -> '{STATUS_EMPTY_ROOM_UPLOADED}', {FIELD_SOURCE_MODE} -> 'Upload'.")
+    fields[FIELD_EMPTY_ROOM] = [{"url": fal_url}]
+    fields[FIELD_ROOM_INTERIOR] = [{"url": fal_url}]
+    fields[FIELD_SOURCE_MODE] = "Upload"
+    return fal_url
+
+
 # --------------------------------------------------------------------------
 # Phase 3: Claude Sonnet 5 Blending Prompt Generation
 # --------------------------------------------------------------------------
@@ -515,19 +618,23 @@ def phase3_blending_prompt(clients: Clients, record_id: str, fields: dict[str, A
     if not interior_url or not cutout_url:
         raise AutomationError("Missing interior or product cutout attachment for blending prompt generation")
 
-    prompt_instruction = (
-        f"You are an expert luxury interior designer and visual prompt engineer.\n"
-        f"Analyze this luxury room interior and the product cutout of the HomeCartel lighting fixture: '{item_name}'.\n"
-        f"Write a precise, photorealistic image-to-image blending prompt for Fal Nano Banana Pro to install and mount "
-        f"this exact chandelier on the ceiling in the visual center of the living room.\n\n"
-        f"Guidelines:\n"
-        f"1. Mount the chandelier securely to the ceiling with a realistic canopy and drop rod/chain appropriate to the ceiling height.\n"
-        f"2. Illuminate the chandelier with warm ambient glow (2700K), casting soft realistic light downwards onto the room and furniture.\n"
-        f"3. Ensure seamless integration: realistic shadows on the ceiling and walls, reflections in windows or polished surfaces, "
-        f"and physically accurate scale.\n"
-        f"4. Do NOT change or distort the existing room furniture, walls, or architecture.\n"
-        f"Output ONLY the prompt text."
-    )
+    is_upload = str(fields.get(FIELD_SOURCE_MODE) or "").lower() == "upload"
+    if is_upload:
+        prompt_instruction = UPLOAD_STAGING_INSTRUCTION.format(item_name=item_name)
+    else:
+        prompt_instruction = (
+            f"You are an expert luxury interior designer and visual prompt engineer.\n"
+            f"Analyze this luxury room interior and the product cutout of the HomeCartel lighting fixture: '{item_name}'.\n"
+            f"Write a precise, photorealistic image-to-image blending prompt for Fal Nano Banana Pro to install and mount "
+            f"this exact chandelier on the ceiling in the visual center of the living room.\n\n"
+            f"Guidelines:\n"
+            f"1. Mount the chandelier securely to the ceiling with a realistic canopy and drop rod/chain appropriate to the ceiling height.\n"
+            f"2. Illuminate the chandelier with warm ambient glow (2700K), casting soft realistic light downwards onto the room and furniture.\n"
+            f"3. Ensure seamless integration: realistic shadows on the ceiling and walls, reflections in windows or polished surfaces, "
+            f"and physically accurate scale.\n"
+            f"4. Do NOT change or distort the existing room furniture, walls, or architecture.\n"
+            f"Output ONLY the prompt text."
+        )
 
     print("  [INFO] Requesting Claude Sonnet 5 vision blending prompt via Fal AI...")
     blending_prompt_text = clients.fal.generate_vision_prompt(
@@ -568,10 +675,13 @@ def phase4_room_blend(clients: Clients, record_id: str, fields: dict[str, Any]) 
     if not interior_url or not cutout_url or not blending_prompt:
         raise AutomationError("Missing interior, cutout, or blending prompt for Phase 4 room blend")
 
+    interior_fal_url = clients.fal.ensure_fal_url(interior_url, filename=f"interior_{record_id}.jpg")
+    cutout_fal_url = clients.fal.ensure_fal_url(cutout_url, filename=f"cutout_{record_id}.png")
+
     print(f"  [INFO] Blending chandelier into room with Nano Banana Pro ({NANO_BANANA_MODEL})...")
     url = clients.fal.generate(
         prompt=blending_prompt,
-        image_urls=[interior_url, cutout_url],
+        image_urls=[interior_fal_url, cutout_fal_url],
         aspect_ratio=ASPECT_RATIO,
         resolution=RESOLUTION,
         model=NANO_BANANA_MODEL,
@@ -582,7 +692,16 @@ def phase4_room_blend(clients: Clients, record_id: str, fields: dict[str, Any]) 
     temp_staged = Path(tempfile.gettempdir()) / f"staged_{record_id}.jpg"
     download_attachment(url, temp_staged)
 
-    clients.airtable.upload_attachment(record_id, FIELD_FULLY_STAGED, temp_staged, f"fully_staged_{record_id}.jpg")
+    from content_automation.media import crop_to_reel
+    cropped_staged = Path(tempfile.gettempdir()) / f"staged_916_{record_id}.jpg"
+    try:
+        crop_to_reel(temp_staged, cropped_staged)
+        upload_path = cropped_staged
+    except Exception as crop_err:
+        print(f"  [WARN] crop_to_reel skipped on blended image ({crop_err}); using original")
+        upload_path = temp_staged
+
+    clients.airtable.upload_attachment(record_id, FIELD_FULLY_STAGED, upload_path, f"fully_staged_{record_id}.jpg")
     clients.airtable.update_record(record_id, {FIELD_STATUS: STATUS_BLENDED_GENERATED})
     print(f"  [OK] Fully staged room uploaded. Status -> '{STATUS_BLENDED_GENERATED}'.")
     fields[FIELD_FULLY_STAGED] = [{"url": url}]
@@ -595,6 +714,13 @@ def phase4_room_blend(clients: Clients, record_id: str, fields: dict[str, Any]) 
 
 
 def phase5_empty_room_conversion(clients: Clients, record_id: str, fields: dict[str, Any]) -> str:
+    if str(fields.get(FIELD_SOURCE_MODE) or "").lower() == "upload":
+        print(f"\n[PHASE 5/7] Empty-room stripping SKIPPED (source=upload)")
+        existing_url = get_first_attachment_url(fields, FIELD_EMPTY_ROOM)
+        if existing_url:
+            return existing_url
+        raise AutomationError("Missing Empty Room Interior attachment for Phase 5 skip")
+
     print(f"\n[PHASE 5/7] Claude Empty-Room Conversion & Nano Banana Pro Stripping for record {record_id}...")
     existing_url = get_first_attachment_url(fields, FIELD_EMPTY_ROOM)
     if existing_url:
@@ -670,38 +796,80 @@ def phase6_kling_video(clients: Clients, record_id: str, fields: dict[str, Any])
     if not empty_url or not staged_url:
         raise AutomationError("Phase 6 requires both Empty Room Interior and Fully Staged Room attachments")
 
-    kling_prompt = json.dumps(KLING_PROMPT_PAYLOAD, indent=2)
-    kling_negative_prompt = json.dumps(KLING_NEGATIVE_PROMPT_PAYLOAD, indent=2)
+    start_fal_url = clients.fal.ensure_fal_url(empty_url, filename=f"empty_{record_id}.jpg")
+    end_fal_url = clients.fal.ensure_fal_url(staged_url, filename=f"staged_{record_id}.jpg")
 
-    clients.airtable.update_record(record_id, {FIELD_VIDEO_PROMPT: kling_prompt})
-    fields[FIELD_VIDEO_PROMPT] = kling_prompt
+    is_upload = str(fields.get(FIELD_SOURCE_MODE) or "").lower() == "upload"
+    if is_upload:
+        prompt_text = resolve_upload_kling_prompt()
+        neg_prompt_text = resolve_upload_kling_negative()
+    else:
+        prompt_text = AUTO_KLING_PROMPT
+        neg_prompt_text = AUTO_KLING_NEGATIVE
 
-    print(f"  [INFO] Calling Kling 3.0 Pro ({KLING_MODEL})...")
-    print(f"         Start Image (Empty):  {empty_url[:50]}...")
-    print(f"         End Image (Staged):   {staged_url[:50]}...")
-    print(f"         Duration: 10s | Aspect: 9:16 | Shot: customize")
+    # Resume check: if Kling Queue Request exists and has status_url and response_url
+    queue_data = None
+    queue_raw = fields.get(FIELD_KLING_QUEUE)
+    if queue_raw:
+        try:
+            queue_data = json.loads(queue_raw) if isinstance(queue_raw, str) else queue_raw
+        except Exception:
+            queue_data = None
 
-    raw_video_url = clients.fal.generate_kling_video(
-        prompt=kling_prompt,
-        start_image_url=empty_url,
-        end_image_url=staged_url,
-        negative_prompt=kling_negative_prompt,
-        duration=10,
-        shot_type="customize",
-        aspect_ratio=ASPECT_RATIO,
-        model=KLING_MODEL,
+    if queue_data and queue_data.get("status_url") and queue_data.get("response_url"):
+        print("  [RESUME] Found existing Kling queue request. Resuming polling without re-submitting...")
+        status_url = queue_data["status_url"]
+        response_url = queue_data["response_url"]
+    else:
+        payload = build_kling_payload(start_fal_url, end_fal_url, prompt_text, neg_prompt_text)
+        print(f"  [INFO] Submitting to Kling 3.0 Pro Queue ({KLING_MODEL})...")
+        print(f"         Start Image (Empty):  {start_fal_url[:60]}...")
+        print(f"         End Image (Staged):   {end_fal_url[:60]}...")
+        print(f"         Duration: 10s | Audio: False")
+        queue_res = clients.fal.submit_queue(KLING_MODEL, payload)
+        queue_res["submitted_at"] = time.time()
+        status_url = queue_res["status_url"]
+        response_url = queue_res["response_url"]
+        clients.airtable.update_record(
+            record_id,
+            {
+                FIELD_KLING_QUEUE: json.dumps(queue_res),
+                FIELD_VIDEO_PROMPT: prompt_text,
+            },
+        )
+        fields[FIELD_KLING_QUEUE] = json.dumps(queue_res)
+        fields[FIELD_VIDEO_PROMPT] = prompt_text
+
+    t0 = time.time()
+
+    def on_log(state: str, st_data: dict[str, Any]) -> None:
+        elapsed = int(time.time() - t0)
+        print(f"  [FAL AI] Kling status: {state} (elapsed {elapsed}s)")
+
+    result = clients.fal.poll_queue_urls(
+        status_url,
+        response_url,
+        interval=5.0,
+        max_wait=1200.0,
+        on_log=on_log,
     )
-    if not raw_video_url:
-        raise AutomationError("Kling 3.0 Pro video generation failed to return a video URL")
+    video_url = (result.get("video") or {}).get("url") or ""
+    if not video_url:
+        raise AutomationError(f"Kling 3.0 Pro video generation failed to return a video URL: {result}")
 
     temp_video = Path(tempfile.gettempdir()) / f"raw_video_{record_id}.mp4"
-    download_attachment(raw_video_url, temp_video, timeout=180)
+    download_attachment(video_url, temp_video, timeout=180)
 
-    clients.airtable.upload_attachment(record_id, FIELD_RAW_VIDEO, temp_video, f"raw_video_{record_id}.mp4")
+    try:
+        clients.airtable.upload_attachment(record_id, FIELD_RAW_VIDEO, temp_video, f"raw_video_{record_id}.mp4", timeout=300.0)
+    except Exception as upload_err:
+        print(f"  [WARN] Base64 upload_attachment failed ({upload_err}); attaching video directly via URL...")
+        clients.airtable.upload_attachment_url(record_id, FIELD_RAW_VIDEO, video_url, filename=f"raw_video_{record_id}.mp4")
+
     clients.airtable.update_record(record_id, {FIELD_STATUS: STATUS_VIDEO_GENERATED})
-    print(f"  [OK] Raw video uploaded ({temp_video.stat().st_size:,} bytes). Status -> '{STATUS_VIDEO_GENERATED}'.")
-    fields[FIELD_RAW_VIDEO] = [{"url": raw_video_url}]
-    return raw_video_url
+    print(f"  [OK] Raw video attached ({temp_video.stat().st_size:,} bytes). Status -> '{STATUS_VIDEO_GENERATED}'.")
+    fields[FIELD_RAW_VIDEO] = [{"url": video_url}]
+    return video_url
 
 
 # --------------------------------------------------------------------------
@@ -871,28 +1039,20 @@ def phase7_assemble_final_reel(clients: Clients, record_id: str, fields: dict[st
 
     print(f"  [OK] Final video assembled: {final_mp4_path.stat().st_size:,} bytes.")
 
-    # 5. Generate luxury Instagram caption via Claude Sonnet 5
+    # 5. Generate universal Instagram caption via shared helper (never blocks Done)
     caption_text = str(fields.get(FIELD_CAPTION) or "").strip()
     if not caption_text:
+        print("  [INFO] Generating Instagram caption with shared helper...")
+        staged_url = get_first_attachment_url(fields, FIELD_FULLY_STAGED) or raw_video_url
+        caption_text, used_fallback = generate_caption(
+            clients.fal, item_name, "Chandelier", [staged_url] if staged_url else [], "chandeliers",
+        )
         try:
-            print("  [INFO] Generating Instagram caption with Claude Sonnet 5...")
-            cap_prompt = (
-                f"Write a luxury, elegant Instagram Reel caption for a high-end chandelier product: '{item_name}'.\n"
-                f"The video shows an empty room seamlessly assembling and self-furnishing with the chandelier illuminated.\n"
-                f"Keep it under 3 sentences, refined and inspiring, followed by 6 relevant hashtags.\n"
-                f"Hashtags must include #HomeCartel #LuxuryInteriors #VirtualStaging #Chandelier #InteriorDesign.\n"
-                f"Output ONLY the caption."
-            )
-            caption_text = clients.fal.generate_vision_prompt(
-                image_urls=[get_first_attachment_url(fields, FIELD_FULLY_STAGED) or raw_video_url],
-                prompt=cap_prompt,
-                model=CLAUDE_MODEL,
-            ).strip().strip('"')
             clients.airtable.update_record(record_id, {FIELD_CAPTION: caption_text})
-            print("  [OK] Caption generated.")
         except Exception as err:
-            print(f"  [WARN] Caption generation failed: {err}")
-            caption_text = f"Experience pure architectural harmony with {item_name}. #HomeCartel #LuxuryInteriors #Chandelier #VirtualStaging"
+            print(f"  [WARN] Caption update failed: {err}")
+        suffix = " (fallback)" if used_fallback else ""
+        print(f"  [OK] Caption generated.{suffix}")
 
     # 6. Upload final video & complete row
     clients.airtable.upload_attachment(record_id, FIELD_FINAL_VIDEO, final_mp4_path, f"final_reel_{record_id}.mp4")
@@ -916,12 +1076,13 @@ def phase7_assemble_final_reel(clients: Clients, record_id: str, fields: dict[st
 def process_record(
     clients: Clients,
     record_id: str,
-    *,
-    mode: str = "all",
     moodboard_id: str = "",
     prompt: str = "",
+    mode: str = "all",
+    source: str = "auto",
+    empty_room_url: str = "",
 ) -> None:
-    print(f"\n{'='*72}\n Processing Virtual Staging Reel: {record_id} (mode={mode})\n{'='*72}")
+    print(f"\n{'='*72}\n Processing Virtual Staging Reel: {record_id} (mode={mode}, source={source})\n{'='*72}")
     rec = clients.airtable.get_record(record_id)
     fields = rec.get("fields", {})
 
@@ -930,9 +1091,19 @@ def process_record(
         print(f"  [SKIP] Record {record_id} has protected status '{status}'.")
         return
 
+    # Check if record already has Source Mode recorded
+    if source == "upload" or str(fields.get(FIELD_SOURCE_MODE) or "").lower() == "upload":
+        fields[FIELD_SOURCE_MODE] = "Upload"
+
     # Phase 2
     if mode in ("all", "interior"):
-        phase2_interior(clients, record_id, fields, moodboard_id, prompt)
+        if source == "upload":
+            target_url = empty_room_url or get_first_attachment_url(fields, FIELD_EMPTY_ROOM)
+            if not target_url:
+                raise AutomationError("Upload mode requires an empty room URL")
+            phase2_upload(clients, record_id, fields, target_url)
+        else:
+            phase2_interior(clients, record_id, fields, moodboard_id, prompt)
 
     # Phase 3
     if mode in ("all", "prompt"):
@@ -944,7 +1115,10 @@ def process_record(
 
     # Phase 5
     if mode in ("all", "empty"):
-        phase5_empty_room_conversion(clients, record_id, fields)
+        if source == "upload" or str(fields.get(FIELD_SOURCE_MODE) or "").lower() == "upload":
+            print(f"\n[PHASE 5/7] Empty-room stripping SKIPPED (source=upload)")
+        else:
+            phase5_empty_room_conversion(clients, record_id, fields)
 
     # Phase 6
     if mode in ("all", "video"):
@@ -973,19 +1147,39 @@ def main(argv: list[str] | None = None) -> int:
         choices=["all", "scrape", "interior", "prompt", "blend", "empty", "video", "assemble"],
         help="Pipeline phase mode",
     )
+    parser.add_argument(
+        "--source",
+        choices=["auto", "upload"],
+        default="auto",
+        help="Source mode: 'auto' (Krea room generation) or 'upload' (user-provided empty room)",
+    )
+    parser.add_argument(
+        "--empty-room-url",
+        default="",
+        help="Public/Fal URL of uploaded empty room photo (required when --source upload)",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Inspect and validate without mutating Airtable")
     parser.add_argument("--moodboard-id", default="", help="Override Krea moodboard ID")
     parser.add_argument("--prompt", default="", help="Override Krea room interior prompt")
 
     args = parser.parse_args(argv)
 
+    if args.source == "upload":
+        if not args.empty_room_url:
+            parser.error("--empty-room-url is required when --source upload")
+        if args.max_items > 1:
+            print(f"[WARN] --max-items was set to {args.max_items}, but upload mode only supports 1 item per run. Forcing max_items=1.")
+            args.max_items = 1
+
     print("=" * 72)
     print(" HomeCartel AI Content Automation -- Virtual Staging Reel")
-    print(f" Table ID:      {args.table_id}")
-    print(f" Mode:          {args.mode}")
-    print(f" Max Items:     {args.max_items}")
-    print(f" Record ID:     {args.record_id or '(scrape fresh)'}")
-    print(f" Dry Run:       {args.dry_run}")
+    print(f" Table ID:       {args.table_id}")
+    print(f" Mode:           {args.mode}")
+    print(f" Source:         {args.source}")
+    print(f" Empty Room URL: {args.empty_room_url or '(none)'}")
+    print(f" Max Items:      {args.max_items}")
+    print(f" Record ID:      {args.record_id or '(scrape fresh)'}")
+    print(f" Dry Run:        {args.dry_run}")
     print("=" * 72)
 
     clients = Clients(table_id=args.table_id)
@@ -998,9 +1192,11 @@ def main(argv: list[str] | None = None) -> int:
         process_record(
             clients,
             args.record_id,
-            mode=args.mode,
             moodboard_id=args.moodboard_id,
             prompt=args.prompt,
+            mode=args.mode,
+            source=args.source,
+            empty_room_url=args.empty_room_url,
         )
         return 0
 
@@ -1018,9 +1214,11 @@ def main(argv: list[str] | None = None) -> int:
         process_record(
             clients,
             rid,
-            mode=args.mode,
             moodboard_id=args.moodboard_id,
             prompt=args.prompt,
+            mode=args.mode,
+            source=args.source,
+            empty_room_url=args.empty_room_url,
         )
 
     return 0

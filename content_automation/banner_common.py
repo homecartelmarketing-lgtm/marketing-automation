@@ -69,6 +69,20 @@ def attachment_code(att: dict[str, Any]) -> str:
     return match.group(1) if match else ""
 
 
+def attachment_url(value: Any) -> str:
+    """First attachment URL from an Airtable attachment field value ('' when none). Never raises."""
+    try:
+        if isinstance(value, list) and value:
+            first = value[0]
+            if isinstance(first, dict):
+                return str(first.get("url") or "").strip()
+        if isinstance(value, dict):
+            return str(value.get("url") or "").strip()
+    except Exception:
+        pass
+    return ""
+
+
 def coded_map(value: Any) -> dict[str, str]:
     """'CH: Aegnor\\nPE: Nova' -> {'CH': 'Aegnor', 'PE': 'Nova'}."""
     out: dict[str, str] = {}

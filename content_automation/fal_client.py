@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import base64
 import json
+import mimetypes
 import os
+import tempfile
 import time
 from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import urlparse
 import requests
 
 from .errors import ProviderError, ProviderTimeout
@@ -12,6 +16,8 @@ from .http import request_with_retry, response_error
 from .models import LocalImage
 
 DEFAULT_FAL_MODEL = "fal-ai/nano-banana-pro/edit"
+FAL_HOST_SUFFIX = "fal.media"
+DATA_URI_MAX_BYTES = 8 * 1024 * 1024
 
 
 class FalClient:
@@ -266,6 +272,95 @@ class FalClient:
             raise response_error(put_resp, f"Fal storage upload PUT {source.name}")
         return str(file_url).strip()
 
+    def submit_queue(self, model_code: str, payload: dict[str, Any]) -> dict[str, str]:
+        resp = request_with_retry(
+            self.session,
+            "POST",
+            f"{self.queue_base}/{model_code}",
+            headers=self._headers(),
+            json=payload,
+            retry_server_errors=True,
+            timeout=60,
+        )
+        if not resp.ok:
+            raise response_error(resp, f"fal.ai queue submit ({model_code})")
+        data = resp.json()
+        out = {k: str(data.get(k) or "") for k in ("request_id", "status_url", "response_url")}
+        if not all(out.values()):
+            raise ProviderError(f"fal.ai submit missing request_id/status_url/response_url: {data}")
+        return out
+
+    def poll_queue_urls(
+        self,
+        status_url: str,
+        response_url: str,
+        *,
+        interval: float = 5.0,
+        max_wait: float = 1200.0,
+        on_log: Callable[[str, dict[str, Any]], None] | None = None,
+    ) -> dict[str, Any]:
+        deadline = time.monotonic() + max_wait
+        while time.monotonic() < deadline:
+            r = request_with_retry(
+                self.session,
+                "GET",
+                f"{status_url}?logs=1",
+                headers=self._headers(),
+                retry_server_errors=True,
+            )
+            if r.ok:
+                st = r.json()
+                state = str(st.get("status") or "").upper()
+                if on_log:
+                    on_log(state, st)
+                if state == "COMPLETED":
+                    res = request_with_retry(
+                        self.session,
+                        "GET",
+                        response_url,
+                        headers=self._headers(),
+                        retry_server_errors=True,
+                    )
+                    if not res.ok:
+                        raise response_error(res, "fal.ai queue result")
+                    return res.json()
+                if state in ("FAILED", "CANCELLED", "ERROR"):
+                    raise ProviderError(f"fal.ai request failed: {st}")
+            time.sleep(interval)
+        raise ProviderTimeout(f"fal.ai request timed out after {max_wait}s")
+
+    def _download_to_temp(self, url: str, filename: str) -> str:
+        r = request_with_retry(self.session, "GET", url, timeout=120)
+        if not r.ok:
+            raise response_error(r, f"download {url[:60]}")
+        import uuid
+        unique_name = f"{uuid.uuid4().hex}_{filename}"
+        path = Path(tempfile.gettempdir()) / unique_name
+        path.write_bytes(r.content)
+        return str(path)
+
+    def ensure_fal_url(self, url: str, *, filename: str) -> str:
+        host = (urlparse(url).hostname or "").lower()
+        if host == FAL_HOST_SUFFIX or host.endswith("." + FAL_HOST_SUFFIX):
+            return url
+        local = self._download_to_temp(url, filename)
+        local_path = Path(local)
+        try:
+            try:
+                return self.upload_file(local_path)
+            except Exception as err:
+                size = local_path.stat().st_size
+                if size > DATA_URI_MAX_BYTES:
+                    raise ProviderError(f"fal upload failed and file too large for data URI: {err}") from err
+                mime = mimetypes.guess_type(filename)[0] or "image/jpeg"
+                return f"data:{mime};base64," + base64.b64encode(local_path.read_bytes()).decode()
+        finally:
+            if local_path.exists():
+                try:
+                    local_path.unlink()
+                except OSError:
+                    pass
+
     def generate_kling_video(
         self,
         prompt: str,
@@ -278,6 +373,7 @@ class FalClient:
         aspect_ratio: str | None = None,
         duration: int | str = 15,
         model: str = "fal-ai/kling-video/v3/turbo/pro/image-to-video",
+        generate_audio: bool | None = None,
         on_task_created: Callable[[str], None] | None = None,
     ) -> str:
         """Generate a Kling V3 (Turbo or Pro) image-to-video result on fal.ai."""
@@ -303,6 +399,8 @@ class FalClient:
             payload["shot_type"] = shot_type
         if aspect_ratio:
             payload["aspect_ratio"] = aspect_ratio
+        if generate_audio is not None:
+            payload["generate_audio"] = bool(generate_audio)
 
         # 0. Try official fal_client Python SDK if available
         try:

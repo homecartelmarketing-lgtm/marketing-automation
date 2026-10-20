@@ -148,6 +148,7 @@ export default function App() {
     getRoomSettings,
     getStatusCounts,
     getTableId,
+    getKlingPrompt,
     updateMoodboard,
     updatePrompt,
     updateRoomSettings,
@@ -319,6 +320,7 @@ export default function App() {
       const key = `${activeTab}-${activeSubTab}-${base.id}`;
       const dynMoodboard = getMoodboard(activePipelineType, base.id) || base.moodboardId;
       const dynPrompt = getPrompt(activePipelineType, base.id) ?? base.prompt;
+      const dynKlingPrompt = getKlingPrompt(activePipelineType, base.id) ?? base.klingPrompt;
       const dynTableId = getTableId(activePipelineType, base.id) || base.tableId;
 
       return {
@@ -326,6 +328,7 @@ export default function App() {
         tableId: dynTableId,
         moodboardId: dynMoodboard,
         prompt: dynPrompt,
+        klingPrompt: dynKlingPrompt,
         rooms: getRoomSettings(activePipelineType, base.id) ?? base.rooms,
         completed: progressState[key] ?? null,
         statusCounts: getStatusCounts(activePipelineType, base.id),
@@ -338,6 +341,7 @@ export default function App() {
     activePipelineType,
     getMoodboard,
     getPrompt,
+    getKlingPrompt,
     getRoomSettings,
     getTableId,
     getStatusCounts,
@@ -432,19 +436,22 @@ export default function App() {
   const handleOpenRunModal = (fixture: FixtureData) => {
     const dynMoodboard = getMoodboard(activePipelineType, fixture.id) || fixture.moodboardId;
     const dynPrompt = getPrompt(activePipelineType, fixture.id) ?? fixture.prompt;
+    const dynKlingPrompt = getKlingPrompt(activePipelineType, fixture.id) ?? fixture.klingPrompt;
     runnerOpenRunModal(fixture, dynMoodboard, dynPrompt);
+    setConfirmModalFixture(prev => prev ? ({ ...prev, klingPrompt: dynKlingPrompt }) : null);
   };
 
   const handleConfirmRun = async (
     customMoodboardId?: string,
     customPrompt?: string,
-    maxItems = 1
+    maxItems = 1,
+    extra?: { source?: 'auto' | 'upload'; emptyRoomUrl?: string }
   ) => {
     if (confirmModalFixture && activePipelineType) {
       if (customMoodboardId) updateMoodboard(activePipelineType, confirmModalFixture.id, customMoodboardId);
       if (customPrompt) updatePrompt(activePipelineType, confirmModalFixture.id, customPrompt);
     }
-    await runnerConfirmRun(activeTab, activeSubTab, customMoodboardId, customPrompt, maxItems);
+    await runnerConfirmRun(activeTab, activeSubTab, customMoodboardId, customPrompt, maxItems, extra);
   };
 
   const handleOpenEditMoodboard = (fixture: FixtureData) => {
@@ -875,6 +882,12 @@ export default function App() {
         pipelineTitle={activePipelineConfig ? `Run ${activePipelineConfig.name} Pipeline` : 'Run Pipeline'}
         totalPhases={activePipelineConfig?.totalPhases ?? 5}
         phaseSummary={activePipelineConfig?.phaseSummary}
+        phaseSummaryUpload={activePipelineConfig?.phaseSummaryUpload}
+        supportsEmptyRoomUpload={activePipelineConfig?.supportsEmptyRoomUpload}
+        uploadEndpoint={activePipelineConfig?.type === 'virtual-staging-reel' ? '/api/virtual-staging-reel/upload-empty-room' : undefined}
+        klingPromptEndpoint={activePipelineConfig?.klingPromptEndpoint}
+        defaultKlingPrompt={confirmModalFixture?.klingPrompt}
+        studioPin={studioPin}
         onConfirm={handleConfirmRun}
         onClose={() => setConfirmModalFixture(null)}
         isLoading={isStartingRun}

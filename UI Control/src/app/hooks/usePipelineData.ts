@@ -26,8 +26,10 @@ export interface UsePipelineDataResult {
   getRoomSettings: (pipelineType: PipelineType, fixtureId: string) => FixtureRoomSetting[] | undefined;
   getStatusCounts: (pipelineType: PipelineType, fixtureId: string) => StatusCounts | undefined;
   getTableId: (pipelineType: PipelineType, fixtureId: string) => string | undefined;
+  getKlingPrompt: (pipelineType: PipelineType, fixtureId: string) => string | undefined;
   updateMoodboard: (pipelineType: PipelineType, fixtureId: string, moodboardId: string) => void;
   updatePrompt: (pipelineType: PipelineType, fixtureId: string, prompt: string) => void;
+  updateKlingPrompt: (pipelineType: PipelineType, fixtureId: string, prompt: string) => void;
   updateRoomSettings: (
     pipelineType: PipelineType,
     fixtureId: string,
@@ -75,6 +77,7 @@ export function usePipelineData(): UsePipelineDataResult {
 
   const [statusCounts, setStatusCounts] = useState<Record<string, StatusCountMap>>({});
   const [tableIdOverrides, setTableIdOverrides] = useState<Record<string, Record<string, string>>>({});
+  const [klingPromptOverrides, setKlingPromptOverrides] = useState<Record<string, Record<string, string>>>({});
 
   const getMoodboard = useCallback(
     (pipelineType: PipelineType, fixtureId: string): string => {
@@ -137,6 +140,18 @@ export function usePipelineData(): UsePipelineDataResult {
     [tableIdOverrides]
   );
 
+  const getKlingPrompt = useCallback(
+    (pipelineType: PipelineType, fixtureId: string): string | undefined => {
+      if (!pipelineType) return undefined;
+      const override = klingPromptOverrides[pipelineType]?.[fixtureId];
+      if (override !== undefined) return override;
+      const pipeCfg = getPipelineByType(pipelineType);
+      const fixture = pipeCfg?.fixtures.find(f => f.id === fixtureId);
+      return fixture?.klingPrompt;
+    },
+    [klingPromptOverrides]
+  );
+
   const updateMoodboard = useCallback(
     (pipelineType: PipelineType, fixtureId: string, moodboardId: string) => {
       if (!pipelineType) return;
@@ -155,6 +170,20 @@ export function usePipelineData(): UsePipelineDataResult {
     (pipelineType: PipelineType, fixtureId: string, prompt: string) => {
       if (!pipelineType) return;
       setPromptOverrides(prev => ({
+        ...prev,
+        [pipelineType]: {
+          ...(prev[pipelineType] || {}),
+          [fixtureId]: prompt,
+        },
+      }));
+    },
+    []
+  );
+
+  const updateKlingPrompt = useCallback(
+    (pipelineType: PipelineType, fixtureId: string, prompt: string) => {
+      if (!pipelineType) return;
+      setKlingPromptOverrides(prev => ({
         ...prev,
         [pipelineType]: {
           ...(prev[pipelineType] || {}),
@@ -228,6 +257,7 @@ export function usePipelineData(): UsePipelineDataResult {
         const newProgress: Record<string, number> = {};
         const newMbOverrides: Record<string, Record<string, string>> = {};
         const newPrOverrides: Record<string, Record<string, string>> = {};
+        const newKlingOverrides: Record<string, Record<string, string>> = {};
         const newRoomOverrides: Record<string, Record<string, Record<string, RoomOverrideValues>>> = {};
         const newStatusCounts: Record<string, StatusCountMap> = {};
         const newTableOverrides: Record<string, Record<string, string>> = {};
@@ -239,6 +269,7 @@ export function usePipelineData(): UsePipelineDataResult {
 
           const mbUpdates: Record<string, string> = {};
           const prUpdates: Record<string, string> = {};
+          const klingUpdates: Record<string, string> = {};
           const roomUpdates: Record<string, Record<string, RoomOverrideValues>> = {};
           const statusUpdates: StatusCountMap = {};
           const tblUpdates: Record<string, string> = {};
@@ -249,6 +280,7 @@ export function usePipelineData(): UsePipelineDataResult {
             }
             if (fix.moodboard_id) mbUpdates[fixtureId] = fix.moodboard_id;
             if (fix.prompt) prUpdates[fixtureId] = fix.prompt;
+            if (fix.kling_prompt) klingUpdates[fixtureId] = fix.kling_prompt;
             if (Array.isArray(fix.rooms)) {
               roomUpdates[fixtureId] = Object.fromEntries(
                 fix.rooms
@@ -262,6 +294,7 @@ export function usePipelineData(): UsePipelineDataResult {
 
           if (Object.keys(mbUpdates).length > 0) newMbOverrides[pipeType] = mbUpdates;
           if (Object.keys(prUpdates).length > 0) newPrOverrides[pipeType] = prUpdates;
+          if (Object.keys(klingUpdates).length > 0) newKlingOverrides[pipeType] = klingUpdates;
           if (Object.keys(roomUpdates).length > 0) newRoomOverrides[pipeType] = roomUpdates;
           if (Object.keys(statusUpdates).length > 0) newStatusCounts[pipeType] = statusUpdates;
           if (Object.keys(tblUpdates).length > 0) newTableOverrides[pipeType] = tblUpdates;
@@ -284,6 +317,15 @@ export function usePipelineData(): UsePipelineDataResult {
             const next = { ...prev };
             Object.entries(newPrOverrides).forEach(([pType, prs]) => {
               next[pType] = { ...(next[pType] || {}), ...prs };
+            });
+            return next;
+          });
+        }
+        if (Object.keys(newKlingOverrides).length > 0) {
+          setKlingPromptOverrides(prev => {
+            const next = { ...prev };
+            Object.entries(newKlingOverrides).forEach(([pType, kps]) => {
+              next[pType] = { ...(next[pType] || {}), ...kps };
             });
             return next;
           });
@@ -350,8 +392,10 @@ export function usePipelineData(): UsePipelineDataResult {
     getRoomSettings,
     getStatusCounts,
     getTableId,
+    getKlingPrompt,
     updateMoodboard,
     updatePrompt,
+    updateKlingPrompt,
     updateRoomSettings,
     fetchLiveCounts,
   };

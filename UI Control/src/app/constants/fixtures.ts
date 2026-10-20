@@ -291,6 +291,7 @@ export const VIRTUAL_STAGING_REEL_FIXTURES: Omit<FixtureData, 'completed'>[] = [
     tableId: 'tblPYG5Ed4XURecu6',
     moodboardId: 'de5f4ff8-518c-4d6b-b606-ce1d5dac51f3',
     prompt: 'Generate me a photo of a modern luxury living room with high ceilings, large windows, architectural styling, natural daylight, warm aesthetic, high end furniture',
+    klingPrompt: 'Photorealistic interior, vertical video, one continuous shot. Slow, steady camera push-in throughout. The empty room holds still for a moment. First, the main sofa flies in from the left and lands softly with a slight bounce. Then the rug unrolls across the floor and the coffee table drops onto it. Next, the shelving cabinet slides in against the right wall and the chandelier lowers from the ceiling. Then wall art pops onto the wall, the plant rises into place, and pillows and a throw drop onto the sofa. Finally, small decor appears on the shelves and table, and everything settles. Each object moves quickly with motion blur and lands exactly in its final position. Walls, windows, floor and lighting never change. No people',
     runnable: true,
   },
 ];
