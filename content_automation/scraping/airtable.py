@@ -565,6 +565,7 @@ class ScrapeAirtableClient:
         field_name: str,
         downloaded: Any,
         filename: str,
+        timeout: float = 300.0,
     ) -> None:
         if hasattr(downloaded, "path"):
             path = Path(downloaded.path)
@@ -587,7 +588,7 @@ class ScrapeAirtableClient:
             "file": base64.b64encode(path.read_bytes()).decode("ascii"),
             "filename": filename,
         }
-        response = self._request("POST", url, json=payload)
+        response = self._request("POST", url, json=payload, timeout=timeout, retry_server_errors=True)
         if not response.ok:
             raise response_error(response, f"Upload {filename} to {field_name}")
 

@@ -860,9 +860,14 @@ def phase6_kling_video(clients: Clients, record_id: str, fields: dict[str, Any])
     temp_video = Path(tempfile.gettempdir()) / f"raw_video_{record_id}.mp4"
     download_attachment(video_url, temp_video, timeout=180)
 
-    clients.airtable.upload_attachment(record_id, FIELD_RAW_VIDEO, temp_video, f"raw_video_{record_id}.mp4")
+    try:
+        clients.airtable.upload_attachment(record_id, FIELD_RAW_VIDEO, temp_video, f"raw_video_{record_id}.mp4", timeout=300.0)
+    except Exception as upload_err:
+        print(f"  [WARN] Base64 upload_attachment failed ({upload_err}); attaching video directly via URL...")
+        clients.airtable.upload_attachment_url(record_id, FIELD_RAW_VIDEO, video_url, filename=f"raw_video_{record_id}.mp4")
+
     clients.airtable.update_record(record_id, {FIELD_STATUS: STATUS_VIDEO_GENERATED})
-    print(f"  [OK] Raw video uploaded ({temp_video.stat().st_size:,} bytes). Status -> '{STATUS_VIDEO_GENERATED}'.")
+    print(f"  [OK] Raw video attached ({temp_video.stat().st_size:,} bytes). Status -> '{STATUS_VIDEO_GENERATED}'.")
     fields[FIELD_RAW_VIDEO] = [{"url": video_url}]
     return video_url
 
