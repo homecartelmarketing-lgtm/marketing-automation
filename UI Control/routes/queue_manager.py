@@ -116,6 +116,8 @@ def _dispatch_job_run(job: dict[str, Any]) -> tuple[bool, str]:
         "moodboard_id": job.get("moodboard_id"),
         "prompt": job.get("prompt"),
         "pin": job.get("pin", ""),
+        "source": job.get("source"),
+        "empty_room_url": job.get("empty_room_url"),
     }
     # Omit unset overrides: a JSON null becomes the string "None" in routes doing
     # str(payload.get(...)) and would be saved into .env as a real override.
@@ -464,6 +466,8 @@ def enqueue_job():
         "status_endpoint": status_endpoint,
         "stop_endpoint": stop_endpoint,
         "pin": pin,
+        "source": str(data.get("source")).strip() if data.get("source") is not None else None,
+        "empty_room_url": str(data.get("empty_room_url")).strip() if data.get("empty_room_url") is not None else None,
         "enqueued_at": time.time(),
         "status": "pending",
         "_dispatched": False,
@@ -473,11 +477,13 @@ def enqueue_job():
         # Check if already in queue to prevent duplicate spamming
         for existing in _PENDING_QUEUE:
             if existing.get("pipeline_type") == pipeline_type and existing.get("fixture_id") == fixture_id:
-                return jsonify({
-                    "status": "already_queued",
-                    "message": f"Fixture '{new_job['fixture_name']}' is already in the generation queue.",
-                    "job_id": existing.get("id"),
-                }), 200
+                req_url = new_job.get("empty_room_url")
+                if not req_url or existing.get("empty_room_url") == req_url:
+                    return jsonify({
+                        "status": "already_queued",
+                        "message": f"Fixture '{new_job['fixture_name']}' is already in the generation queue.",
+                        "job_id": existing.get("id"),
+                    }), 200
 
         # If currently idle, set directly as active job
         if _ACTIVE_JOB is None:
