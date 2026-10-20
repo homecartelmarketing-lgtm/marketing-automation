@@ -46,6 +46,11 @@ CONTENT_BASE = "https://content.airtable.com/v0"
 
 PAGE_SIZE = 100
 
+# Airtable's uploadAttachment endpoint only accepts files up to 5 MB. Anything
+# bigger (Kling videos, final reels) stalls until the socket times out, so it
+# is hosted on fal's CDN and attached by URL instead.
+AIRTABLE_UPLOAD_MAX_BYTES = 5 * 1024 * 1024
+
 
 class ScrapeAirtableClient:
     """Reads and writes one slot-based product table."""
@@ -559,6 +564,22 @@ class ScrapeAirtableClient:
                 fields[m_field] = product.measurement
         self.update_records([(record_id, fields)])
 
+    def _host_large_file(self, path: Path) -> str:
+        """Upload a file to fal's CDN and return a public URL Airtable can ingest."""
+        from ..config import load_settings
+        from ..fal_client import FalClient
+
+        if not hasattr(self, "_fal_client"):
+            settings = load_settings()
+            fal_key = str(getattr(settings, "fal_key", "") or "").strip()
+            if not fal_key:
+                raise AutomationError(
+                    f"{path.name} is over Airtable's 5 MB upload limit and FAL_KEY is not set, "
+                    "so it cannot be hosted for a URL attachment"
+                )
+            self._fal_client = FalClient(api_key=fal_key)
+        return self._fal_client.upload_file(path)
+
     def upload_attachment(
         self,
         record_id: str,
@@ -577,20 +598,32 @@ class ScrapeAirtableClient:
 
         if not path.is_file():
             raise FileNotFoundError(f"Downloaded file does not exist: {path}")
-        fields_map = self.table_fields()
-        field_target = fields_map.get(field_name, {}).get("id") or field_name
-        url = (
-            f"{CONTENT_BASE}/{self.base_id}/{record_id}/"
-            f"{quote(field_target, safe='')}/uploadAttachment"
-        )
-        payload = {
-            "contentType": content_type,
-            "file": base64.b64encode(path.read_bytes()).decode("ascii"),
-            "filename": filename,
-        }
-        response = self._request("POST", url, json=payload, timeout=timeout, retry_server_errors=True)
-        if not response.ok:
-            raise response_error(response, f"Upload {filename} to {field_name}")
+
+        size = path.stat().st_size
+        if size > AIRTABLE_UPLOAD_MAX_BYTES:
+            # Too big for uploadAttachment: host it on fal's CDN and attach by URL.
+            print(
+                f"  [INFO] {filename} is {size / (1024 * 1024):.1f} MB (over Airtable's 5 MB "
+                f"upload limit); hosting on fal CDN and attaching by URL..."
+            )
+            public_url = self._host_large_file(path)
+            self.upload_attachment_url(record_id, field_name, public_url, filename)
+            print(f"  [OK] Attached {filename} to {field_name} via URL")
+        else:
+            fields_map = self.table_fields()
+            field_target = fields_map.get(field_name, {}).get("id") or field_name
+            url = (
+                f"{CONTENT_BASE}/{self.base_id}/{record_id}/"
+                f"{quote(field_target, safe='')}/uploadAttachment"
+            )
+            payload = {
+                "contentType": content_type,
+                "file": base64.b64encode(path.read_bytes()).decode("ascii"),
+                "filename": filename,
+            }
+            response = self._request("POST", url, json=payload, timeout=timeout, retry_server_errors=True)
+            if not response.ok:
+                raise response_error(response, f"Upload {filename} to {field_name}")
 
         # --- GLOBAL ZOHO INTERCEPTOR ---
         name_lower = field_name.lower().strip()
