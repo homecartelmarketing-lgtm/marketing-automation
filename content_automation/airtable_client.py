@@ -19,6 +19,11 @@ from .models import Attachment, LocalImage, ProductRecord, TableConfig
 
 PHT_TIMEZONE = timezone(timedelta(hours=8))
 
+# Airtable's uploadAttachment endpoint only accepts files up to 5 MB. Bigger
+# files stall until the socket times out, so they are hosted on fal's CDN and
+# attached by URL instead.
+AIRTABLE_UPLOAD_MAX_BYTES = 5 * 1024 * 1024
+
 
 def current_pht_timestamp() -> str:
     """Return current Philippine Time (PHT, UTC+8) in ISO 8601 format."""
@@ -343,6 +348,22 @@ class AirtableClient:
 
         return ret
 
+    def _host_large_file(self, path: Path) -> str:
+        """Upload a file to fal's CDN and return a public URL Airtable can ingest."""
+        from .config import load_settings
+        from .fal_client import FalClient
+
+        if not hasattr(self, "_fal_client"):
+            settings = load_settings()
+            fal_key = str(getattr(settings, "fal_key", "") or "").strip()
+            if not fal_key:
+                raise AutomationError(
+                    f"{path.name} is over Airtable's 5 MB upload limit and FAL_KEY is not set, "
+                    "so it cannot be hosted for a URL attachment"
+                )
+            self._fal_client = FalClient(api_key=fal_key)
+        return self._fal_client.upload_file(path)
+
     def upload_attachment(
         self,
         record_id: str,
@@ -365,6 +386,25 @@ class AirtableClient:
 
         if not local_img.path.is_file():
             raise FileNotFoundError(local_img.path)
+
+        size = local_img.path.stat().st_size
+        if size > AIRTABLE_UPLOAD_MAX_BYTES:
+            # Too big for uploadAttachment: host on fal's CDN and append by URL,
+            # keeping whatever is already in the field (uploadAttachment appends too).
+            print(
+                f"  [INFO] {local_img.filename} is {size / (1024 * 1024):.1f} MB (over Airtable's "
+                f"5 MB upload limit); hosting on fal CDN and attaching by URL..."
+            )
+            public_url = self._host_large_file(local_img.path)
+            current = self.get_record(record_id).get("fields", {}).get(field_name, []) or []
+            keep = [{"id": item["id"]} for item in current if isinstance(item, dict) and item.get("id")]
+            self.update_record(
+                record_id,
+                {field_name: keep + [{"url": public_url, "filename": local_img.filename}]},
+            )
+            print(f"  [OK] Attached {local_img.filename} to {field_name} via URL")
+            return
+
         content_type = local_img.content_type or mimetypes.guess_type(local_img.filename)[0] or "image/jpeg"
         encoded_field = quote(field_name, safe="")
         url = (
