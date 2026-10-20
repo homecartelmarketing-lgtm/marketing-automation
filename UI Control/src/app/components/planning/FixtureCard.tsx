@@ -16,6 +16,7 @@ export interface FixtureData {
   tableId?: string;
   moodboardId?: string;
   prompt?: string;
+  klingPrompt?: string;
   runnable?: boolean;
   rooms?: FixtureRoomSetting[];
   statusCounts?: {

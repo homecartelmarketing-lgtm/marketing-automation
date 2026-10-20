@@ -65,7 +65,8 @@ export function usePipelineRunner({
       activeSubTab: number,
       customMoodboardId?: string,
       customPrompt?: string,
-      maxItems = 1
+      maxItems = 1,
+      extra?: { source?: 'auto' | 'upload'; emptyRoomUrl?: string }
     ) => {
       if (!confirmModalFixture) return;
       const config = getPipelineConfig(activeTab, activeSubTab);
@@ -74,28 +75,36 @@ export function usePipelineRunner({
       setIsStartingRun(true);
       const pin = studioPin || localStorage.getItem('hc_studio_pin') || '';
       try {
+        const payload: Record<string, any> = {
+          pipeline_type: config.type,
+          pipeline_name: config.name,
+          fixture_id: confirmModalFixture.id,
+          fixture_name: confirmModalFixture.name,
+          format_tab: activeTab,
+          subtab_index: activeSubTab,
+          table_id: confirmModalFixture.tableId ?? '',
+          moodboard_id: customMoodboardId,
+          prompt: customPrompt,
+          max_items: maxItems,
+          run_endpoint: config.runEndpoint,
+          status_endpoint: config.statusEndpoint,
+          stop_endpoint: config.stopEndpoint,
+          pin: pin,
+        };
+        if (extra?.source) {
+          payload.source = extra.source;
+        }
+        if (extra?.emptyRoomUrl) {
+          payload.empty_room_url = extra.emptyRoomUrl;
+        }
+
         const res = await fetch('/api/queue/enqueue', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             ...(pin ? { Authorization: `Bearer ${pin}`, 'X-Dashboard-PIN': pin } : {}),
           },
-          body: JSON.stringify({
-            pipeline_type: config.type,
-            pipeline_name: config.name,
-            fixture_id: confirmModalFixture.id,
-            fixture_name: confirmModalFixture.name,
-            format_tab: activeTab,
-            subtab_index: activeSubTab,
-            table_id: confirmModalFixture.tableId ?? '',
-            moodboard_id: customMoodboardId,
-            prompt: customPrompt,
-            max_items: maxItems,
-            run_endpoint: config.runEndpoint,
-            status_endpoint: config.statusEndpoint,
-            stop_endpoint: config.stopEndpoint,
-            pin: pin,
-          }),
+          body: JSON.stringify(payload),
         });
 
         let data: any = {};

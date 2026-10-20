@@ -45,8 +45,11 @@ export interface PipelineConfig {
   countsEndpoint: string;
   moodboardEndpoint?: string;
   promptEndpoint?: string;
+  klingPromptEndpoint?: string;
+  supportsEmptyRoomUpload?: boolean;
   totalPhases: number;
   phaseSummary: string;
+  phaseSummaryUpload?: string;
   fixtures: Omit<FixtureData, 'completed'>[];
   hasMoodboard: boolean;
   hasPrompt: boolean;
@@ -565,8 +568,11 @@ export const PIPELINES: PipelineConfig[] = [
     countsEndpoint: '/api/virtual-staging-reel/counts',
     moodboardEndpoint: '/api/virtual-staging-reel/moodboard',
     promptEndpoint: '/api/virtual-staging-reel/prompt',
+    klingPromptEndpoint: '/api/virtual-staging-reel/kling-prompt',
+    supportsEmptyRoomUpload: true,
     totalPhases: 7,
     phaseSummary: 'Akeneo Scrape (Chandelier) ➔ Krea Furnished Interior ➔ Claude Blending Prompt ➔ Nano Banana Pro Blend ➔ Claude Vision Stripping + Nano Banana Empty Room ➔ Kling 3.0 Pro Video ➔ Branded Pill + Outro + Audio Mux',
+    phaseSummaryUpload: 'Akeneo Scrape (Chandelier) ➔ Empty Room Upload ➔ Claude Staging Prompt ➔ Nano Banana Pro Blend (End Frame) ➔ (skip) ➔ Kling 3.0 Pro 10s (queue) ➔ Branded Pill + Outro + Audio Mux',
     fixtures: VIRTUAL_STAGING_REEL_FIXTURES,
     hasMoodboard: true,
     hasPrompt: true,
