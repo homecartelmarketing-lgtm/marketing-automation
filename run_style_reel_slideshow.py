@@ -1190,7 +1190,7 @@ def run_phase_3_for_record(
         instruction = blend_instruction_from_fields(
             fields,
             slot.slot_index - 1,
-            interior_label=f"Room Interior ('{slot.interior_field}')",
+            interior_label=f"Room Interior ('{slot.interior_field_candidates[0]}')",
             item_name=item_name,
             aspect_ratio="9:16",
         )
@@ -1420,7 +1420,7 @@ def run_phase_4_for_record(
                     blended_source=downloaded.path,
                     item_name=item_title,
                     product_type=product_type,
-                    category=slot.category,
+                    category=slot.akeneo_category,
                     target_field=tagged_target_field,
                     output_filename_prefix=f"style_reel_tagged_slot{slot.slot_index}",
                     fallback_if_undetected=True,
