@@ -17,7 +17,7 @@ The reel is built **in reverse**. Krea draws a fully furnished room, a fresh Hom
   - **Room 1** (Pendant Light): `Empty` -> `Layer 1` -> `Layer 2` -> `Full`
   - **Room 2** (Chandelier): `Empty` -> `Layer 1` -> `Layer 2` -> `Full`
   - **Scene cut** (Room 1 to Room 2) is at frame `75` (2.50 s)
-- **Audio**: ElevenLabs sound effects. A `whoosh` plays at the start (0.08 s) and at the Room 1 to Room 2 cut. A `pop` plays on every other cut. The two sounds are generated once through `fal_client.generate_elevenlabs_sound_effect` and saved under `assets/room_buildup_sfx/` (created on first run, not committed).
+- **Audio**: ElevenLabs sound effects. A `whoosh` plays at the start (0.08 s) and at the Room 1 to Room 2 cut. A `pop` plays on every other cut. The two sounds are generated once through `fal_client.generate_elevenlabs_sound_effect` and saved under `assets/room_buildup_sfx/` (created on first run, not committed). If ElevenLabs does not answer within 60 s the pipeline uses a locally synthesized stand-in rather than stall the run.
 - **No outro card, no captions, no on-screen text.**
 
 ---
@@ -35,6 +35,8 @@ The log prints `[PHASE n/7]` markers that the Studio reads.
 | **Phase 5** | **Claude Removal Plans** | Fal AI | `anthropic/claude-sonnet-5` (vision) | `Room n Full` | `Removal Plan 1..2` (JSON: `inventory` + 3 cumulative `prompts`) |
 | **Phase 6** | **Nano Banana Pro Chained Removals** | Fal AI | `fal-ai/nano-banana-pro/edit`. Chain: Full -> Layer 2 -> Layer 1 -> Empty | `Room n Full` + `Removal Plan n` | `Room n Layer 2`, `Room n Layer 1`, `Room n Empty` |
 | **Phase 7** | **Hard-Cut Assembly + Sound** | Local FFmpeg + Fal ElevenLabs SFX | `imageio-ffmpeg`, frame-exact hard cuts | 8 stills + pop/whoosh sounds | `Raw Video`, `Final Video` -> Status: `Done` |
+
+> **Measured scale guard:** every product-to-room blend goes through `content_automation/scale_guard.py`. A Claude Vision measurement sets the fixture to its real Akeneo size (or a conservative estimate when the row has none), and a second check retries once when the finished blend is more than ±15% off. Audit fields: `Scale Check`, `Scale Retry`, `Scale Audit`. `SCALE_GUARD_ENABLED=0` keeps the measurements in the prompt but skips both paid vision calls. Details: [`docs/SCALE_GUARD.md`](../SCALE_GUARD.md).
 
 ---
 

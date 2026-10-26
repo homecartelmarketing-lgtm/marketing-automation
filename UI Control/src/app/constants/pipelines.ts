@@ -26,6 +26,7 @@ import {
   ONE_AT_A_TIME_LIGHTS_REEL_FIXTURES,
   SKETCH_TO_DRAW_REEL_FIXTURES,
   ROOM_BUILD_UP_REEL_FIXTURES,
+  ROOM_REVEAL_REEL_FIXTURES,
   HOUSE_TOUR_REEL_FIXTURES,
   THIS_MOOD_EVERY_NIGHT_REEL_FIXTURES,
   VIRTUAL_STAGING_REEL_FIXTURES,
@@ -518,6 +519,25 @@ export const PIPELINES: PipelineConfig[] = [
     fixtures: ROOM_BUILD_UP_REEL_FIXTURES,
     hasMoodboard: true,
     hasPrompt: false,
+  },
+
+  {
+    type: 'room-reveal-reel',
+    name: 'Room Reveal Reel',
+    format: 'reel',
+    subtabIndex: 12,
+    subTabLabel: 'Room Reveal',
+    runEndpoint: '/api/room-reveal-reel/run',
+    statusEndpoint: '/api/room-reveal-reel/status',
+    stopEndpoint: '/api/room-reveal-reel/stop',
+    countsEndpoint: '/api/room-reveal-reel/counts',
+    moodboardEndpoint: '/api/room-reveal-reel/moodboard',
+    promptEndpoint: '/api/room-reveal-reel/prompt',
+    totalPhases: 7,
+    phaseSummary: 'Akeneo Scrape (1 Fixture) ➔ Krea Furnished Interior ➔ Claude Blending Prompt ➔ Nano Banana Fixture Blend ➔ Claude Removal Plan ➔ Nano Banana Removals ➔ Build-Up Assembly + Outro + Sound',
+    fixtures: ROOM_REVEAL_REEL_FIXTURES,
+    hasMoodboard: true,
+    hasPrompt: true,
   },
 
   {

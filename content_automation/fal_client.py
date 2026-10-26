@@ -174,11 +174,14 @@ class FalClient:
 
         raise response_error(sync_resp, f"fal.ai generate ({model_code})")
 
-    def poll_queue_raw(self, model_code: str, request_id: str) -> dict[str, Any]:
+    def poll_queue_raw(
+        self, model_code: str, request_id: str, *, max_wait: float | None = None
+    ) -> dict[str, Any]:
         """Poll queue and return the raw JSON result dict (not extracted URL)."""
         status_url = f"{self.queue_base}/{model_code}/requests/{request_id}/status"
         result_url = f"{self.queue_base}/{model_code}/requests/{request_id}"
-        deadline = time.monotonic() + self.max_wait
+        budget = self.max_wait if max_wait is None else max_wait
+        deadline = time.monotonic() + budget
         start_time = time.monotonic()
         last_log = 0.0
 
@@ -215,7 +218,7 @@ class FalClient:
                     )
             time.sleep(self.poll_interval)
 
-        raise ProviderTimeout(f"fal.ai request {request_id} timed out after {self.max_wait}s")
+        raise ProviderTimeout(f"fal.ai request {request_id} timed out after {budget}s")
 
     def poll_queue(self, model_code: str, request_id: str) -> str:
         """Poll queue and return the first extracted image/result URL."""
@@ -891,11 +894,14 @@ class FalClient:
         *,
         duration: float = 1.0,
         model: str = "fal-ai/elevenlabs/sound-effects/v2",
+        max_wait: float | None = None,
         on_task_created: Callable[[str], None] | None = None,
     ) -> str:
         """Generate a short sound effect (pop, whoosh...) with Fal AI ElevenLabs Sound Effects.
 
         Returns the audio URL. ``duration`` is clamped to the 0.5-22 s range the API accepts.
+        A queue timeout is raised straight away: the synchronous endpoint can block for
+        minutes longer, and callers already have a local stand-in for a 1 s sound.
         """
         if not self.api_key:
             raise ProviderError("FAL_KEY (or FAL_API_KEY) is not set in environment or .env file")
@@ -924,7 +930,11 @@ class FalClient:
                 if request_id:
                     if on_task_created:
                         on_task_created(request_id)
-                    return self._extract_audio_url(self.poll_queue_raw(model_code, request_id))
+                    return self._extract_audio_url(
+                        self.poll_queue_raw(model_code, request_id, max_wait=max_wait)
+                    )
+        except ProviderTimeout:
+            raise
         except Exception as q_err:
             print(f"[WARN] Fal AI ElevenLabs sound effect queue error: {q_err}")
 

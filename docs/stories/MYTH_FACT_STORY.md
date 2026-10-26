@@ -27,6 +27,8 @@ The **Myth & Fact Story Automation Pipeline** produces an educational, high-enga
 | **Phase 3** | **Fact Generation** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16` | Fact lighting prompt + product | `fact_blended.jpg` -> Status: `In Progress` (`P`) |
 | **Phase 4** | **Branded Outro & Assembly** | Local Storage / Pillow | Zero-API Local Compositor | `assets/Outro-Myth-Fact.png` | Uploads all 4 slides to `STORY - Myth & Fact (4)` -> Status: `Completed` (`C`) |
 
+> **Measured scale guard:** every product-to-room blend goes through `content_automation/scale_guard.py`. A Claude Vision measurement sets the fixture to its real Akeneo size (or a conservative estimate when the row has none), and a second check retries once when the finished blend is more than ±15% off. Audit fields: `Scale Check`, `Scale Retry`, `Scale Audit`. `SCALE_GUARD_ENABLED=0` keeps the measurements in the prompt but skips both paid vision calls. Details: [`docs/SCALE_GUARD.md`](../SCALE_GUARD.md).
+
 ---
 
 ## 3. Foreign Key ID Convention & Examples

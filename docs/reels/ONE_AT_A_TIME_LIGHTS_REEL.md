@@ -34,6 +34,8 @@ The pipeline replaces video generative models with **precise, high-control progr
 | **Phase 5** | **Progressive Lighting Variations** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: 9:16, Resolution: 1K | `Blended Image` + variation prompts | `Converted Image1` (Table Lamp ON)<br>`Converted Image2` (Ceiling ON)<br>`Converted Image3` (Pendant ON) |
 | **Phase 6** | **FFmpeg In-Place Crossfade Mux** | Local FFmpeg | `imageio-ffmpeg` in-place `xfade` (0 API cost) | 3 Converted Images + `Blended Image` + `Outro` | `Final Video` -> Status: `Done` (C) + PHT timestamp |
 
+> **Prompt-only scale guidance:** this pipeline does not run the paid scale guard. Its blend prompt still carries the fixtures' real Akeneo measurements through `content_automation/prompts/scale.py::scale_clause()`, but there is no Claude Vision measurement, check, or retry, and no `Scale Check` / `Scale Retry` / `Scale Audit` write. See [`docs/SCALE_GUARD.md`](../SCALE_GUARD.md) §5.
+
 ---
 
 ## 3. Phase 3 & 5 Details — Multi-Fixture Placement & Lighting Variations

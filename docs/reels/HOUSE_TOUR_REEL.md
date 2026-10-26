@@ -36,6 +36,8 @@ Room interiors are generated fresh by Krea using 11 ultra-detailed reusable prom
 | **Phase 6/7** | **ElevenLabs Music** | Fal AI | `fal-ai/elevenlabs/music` (~24s organic modern instrumental) | — | `Music Generated` -> Status: `Music Generated` (`P`) |
 | **Phase 8** | **FFmpeg Video Reel Assembly** | Local FFmpeg | Zero-API video engine: 22.0s (2.0s per room), upper-third dynamic room titles, lower-third animated product reveals | 11 Kling clips + item names + analysis + outro + audio | `Final Video` -> Status: `Done` (`C`) |
 
+> **Measured scale guard:** every product-to-room blend goes through `content_automation/scale_guard.py`. A Claude Vision measurement sets the fixture to its real Akeneo size (or a conservative estimate when the row has none), and a second check retries once when the finished blend is more than ±15% off. Audit fields: `Scale Check`, `Scale Retry`, `Scale Audit`. `SCALE_GUARD_ENABLED=0` keeps the measurements in the prompt but skips both paid vision calls. Details: [`docs/SCALE_GUARD.md`](../SCALE_GUARD.md).
+
 ---
 
 ## 3. Foreign Key ID Convention & Examples

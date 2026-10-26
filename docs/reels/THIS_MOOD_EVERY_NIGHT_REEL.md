@@ -42,6 +42,8 @@ Derived directly from the reference video [`assets/this_mood_every_night_referen
 | **Slot 6** | **Kitchen & Dining Open Vista** | Kitchen Pendant Light (`pendant_lights`) | Wide shot from counter across open-plan room | Counter flowers, dramatic night windows, layered warm light points |
 | **Slot 7** | **Interior Staircase** | Recessed Step Lights (`wall_sconces` / footlights) | Low angle tilt looking up staircase | Minimalist dark steps with square warm footlights cascading light down each tread |
 
+> **Measured scale guard:** every product-to-room blend goes through `content_automation/scale_guard.py`. A Claude Vision measurement sets the fixture to its real Akeneo size (or a conservative estimate when the row has none), and a second check retries once when the finished blend is more than ±15% off. Audit fields: `Scale Check`, `Scale Retry`, `Scale Audit`. `SCALE_GUARD_ENABLED=0` keeps the measurements in the prompt but skips both paid vision calls. Details: [`docs/SCALE_GUARD.md`](../SCALE_GUARD.md).
+
 ---
 
 ## 3. Model Stack Phase Table

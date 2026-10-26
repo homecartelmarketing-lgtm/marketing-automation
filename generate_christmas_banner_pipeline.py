@@ -58,13 +58,10 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from content_automation.airtable_client import current_pht_timestamp
-from content_automation.akeneo_client import split_item_name
-from content_automation.caption import CAPTION_FIELD, CAPTION_FIELD_TYPE, generate_caption
 from content_automation.banner_common import (
     NOTES_MAX_CHARS,
     PipelineClients,
     attachment_code,
-    attachment_url,
     clean_blend_prompt,
     clean_item_notes,
     coded_map,
@@ -133,7 +130,6 @@ FIELD_BANNER = "Blended Banner"
 FIELD_TITLE = "Banner Title"
 FIELD_SUBTITLE = "Banner Subtitle"
 FIELD_BANNER_TEXT = "Banner with Text"
-CAPTION_GENERATED_FIELD = CAPTION_FIELD
 
 REQUIRED_FIELDS = {
     FIELD_SKU: "multilineText",
@@ -153,7 +149,6 @@ REQUIRED_FIELDS = {
     FIELD_TITLE: "multilineText",
     FIELD_SUBTITLE: "multilineText",
     FIELD_BANNER_TEXT: "multipleAttachments",
-    CAPTION_GENERATED_FIELD: CAPTION_FIELD_TYPE,
 }
 
 STATUS_IN_PROGRESS = "In progress"
@@ -515,60 +510,6 @@ def run_phase_5_copy(clients: PipelineClients, record_id: str) -> tuple[str, str
 # PHASE 6: Local Pillow overlay (white Poppins, soft shadow)
 # --------------------------------------------------------------------------
 
-def _anchor_product_name(fields: dict[str, Any]) -> tuple[str, str]:
-    """Slot-0 anchor product (CH) as (item_name, product_type). Never raises."""
-    try:
-        names = coded_map(fields.get(FIELD_ITEM_NAME))
-        raw = names.get("CH", "")
-        if not raw:
-            lines = [ln.strip() for ln in str(fields.get(FIELD_ITEM_NAME) or "").splitlines() if ln.strip()]
-            raw = re.sub(r"^[A-Z]{2}:\s*", "", lines[0]).strip() if lines else ""
-        item_name, product_type = split_item_name(
-            raw or "HomeCartel Lighting",
-            fallback_product_type=str(fields.get(FIELD_PRODUCT_TYPE) or ""),
-        )
-        return item_name.strip() or "HomeCartel Lighting", product_type.strip()
-    except Exception:
-        return "HomeCartel Lighting", str(fields.get(FIELD_PRODUCT_TYPE) or "").strip()
-
-
-def run_phase_7_caption(clients: PipelineClients, rec_id: str) -> bool:
-    """Phase 7: universal Instagram caption via shared helper (never raises)."""
-    print("[PHASE 7] Generating universal Instagram caption (shared helper)...")
-    try:
-        clients.airtable.ensure_fields({CAPTION_GENERATED_FIELD: CAPTION_FIELD_TYPE})
-    except Exception as error:
-        print(f"[WARN] Caption ensure_fields failed for {rec_id}: {error}")
-    try:
-        record = clients.airtable.get_record(rec_id)
-        fields = record.get("fields", {}) if record else {}
-        if fields.get(CAPTION_GENERATED_FIELD):
-            print(f"[OK] Caption already present for {rec_id}; skipping.")
-            return True
-        item_name, product_type = _anchor_product_name(fields)
-        banner_url = attachment_url(fields.get(FIELD_BANNER_TEXT))
-        image_urls = [banner_url] if banner_url else []
-        category = str(fields.get(FIELD_CATEGORY) or "").strip()
-        try:
-            caption_text, used_fallback = generate_caption(
-                clients.fal,
-                item_name,
-                product_type,
-                image_urls,
-                category,
-            )
-        except Exception as error:
-            print(f"[WARN] Caption generation failed for record {rec_id}: {error}")
-            return True
-        clients.airtable.update_record(rec_id, {CAPTION_GENERATED_FIELD: caption_text})
-        tag = "fallback" if used_fallback else "Claude"
-        print(f"[OK] Caption saved ({tag}) for record {rec_id}.")
-        return True
-    except Exception as error:
-        print(f"[WARN] Caption generation failed for record {rec_id}: {error}")
-        return True
-
-
 def run_phase_6_overlay(clients: PipelineClients, record_id: str, final: bool = True) -> Path:
     print(f"\n[PHASE 6] Stamping title + subtitle on the banner for record {record_id}...")
     fields = clients.airtable.get_record(record_id).get("fields", {})
@@ -601,11 +542,6 @@ def run_phase_6_overlay(clients: PipelineClients, record_id: str, final: bool = 
     clients.airtable.clear_attachment_field(record_id, FIELD_BANNER_TEXT)
     clients.airtable.upload_attachment(record_id, FIELD_BANNER_TEXT, local_path, local_path.name)
     if final:
-        # Caption (shared helper) — before terminal status; never blocks.
-        try:
-            run_phase_7_caption(clients, record_id)
-        except Exception as error:
-            print(f"[WARN] Caption phase failed for {record_id}: {error}")
         clients.airtable.update_record(record_id, {
             FIELD_STATUS: STATUS_DONE,
             FIELD_DATE_GENERATED: current_pht_timestamp(),

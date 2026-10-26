@@ -36,6 +36,8 @@ Unlike Story/Feed/Reel, Ad Covers is a **standalone 4th top-level Studio tab** r
 > [!IMPORTANT]
 > **`Complete` is written by Phase 7 only.** `Status` is a `singleSelect`, so any later write overwrites the earlier one. If Phase 5 stamped `Complete`, Phase 6 would immediately replace it with `Ad Cover Blended Image Story Generated` and the row would drop out of the `C` badge mid-run — permanently, if the story branch then failed. A Phase 6/7 failure therefore re-asserts `Complete` (the 1:1 deliverable is already done) while the run still exits non-zero; retry with `--mode story-blend --record-id ...`.
 
+> **Measured scale guard:** every product-to-room blend goes through `content_automation/scale_guard.py`. A Claude Vision measurement sets the fixture to its real Akeneo size (or a conservative estimate when the row has none), and a second check retries once when the finished blend is more than ±15% off. Audit fields: `Scale Check`, `Scale Retry`, `Scale Audit`. `SCALE_GUARD_ENABLED=0` keeps the measurements in the prompt but skips both paid vision calls. Details: [`docs/SCALE_GUARD.md`](../SCALE_GUARD.md).
+
 ---
 
 ## 3. Foreign Key ID Convention & Examples

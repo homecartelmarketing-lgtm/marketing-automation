@@ -28,8 +28,7 @@ from typing import Any
 from PIL import Image
 import requests
 
-from content_automation.akeneo_client import AkeneoClient, split_item_name
-from content_automation.caption import CAPTION_FIELD, CAPTION_FIELD_TYPE, generate_caption
+from content_automation.akeneo_client import AkeneoClient
 from content_automation.config import TABLES, load_settings
 from content_automation.errors import AssetValidationError, AutomationError
 from content_automation.fal_client import FalClient
@@ -137,8 +136,6 @@ FIELD_ITEM_NAME_2 = "Item Name2"
 FIELD_PRODUCT_TYPE_1 = "Product Type"
 FIELD_PRODUCT_TYPE_2 = "Product Type2"
 FIELD_STATUS = "Status"
-
-CAPTION_GENERATED_FIELD = CAPTION_FIELD
 
 STATUS_STANDBY = "Standby"
 STATUS_PROCESSING = "Processing"
@@ -271,65 +268,6 @@ def resolve_final_field(schema: dict[str, Any]) -> str:
         if "this or that" in k.lower() and ("story" in k.lower() or "converted" in k.lower()):
             return k
     return "Story This or That (1)"
-
-
-# Caption -- universal Instagram caption (shared helper, never blocks Complete)
-
-
-def generate_caption_phase(
-    fal_client: Any = None,
-    airtable: ScrapeAirtableClient = None,
-    *,
-    record_id: str,
-) -> bool:
-    """Generate universal Instagram caption into CAPTION_FIELD (never raises)."""
-    print(f"[INFO] [Caption] Generating universal Instagram caption for {record_id}...")
-    try:
-        airtable.ensure_fields({CAPTION_GENERATED_FIELD: CAPTION_FIELD_TYPE})
-    except Exception as error:
-        print(f"[WARN] Caption ensure_fields failed for {record_id}: {error}")
-    try:
-        record = airtable.get_record(record_id)
-        fields = record.get("fields", {}) if record else {}
-        if fields.get(CAPTION_GENERATED_FIELD):
-            print(f"[OK] Caption already present for {record_id}; skipping.")
-            return True
-        # Anchor slot 0 (Item Name1 / Item Name).
-        raw_item_name = str(
-            fields.get("Item Name1")
-            or fields.get(FIELD_ITEM_NAME_1)
-            or fields.get(FIELD_ITEM_NAME_2)
-            or fields.get("SKU")
-            or "HomeCartel Lighting"
-        ).strip()
-        item_name, product_type = split_item_name(
-            raw_item_name,
-            fallback_product_type=str(
-                fields.get("Product Type1")
-                or fields.get(FIELD_PRODUCT_TYPE_1)
-                or fields.get("Product Type")
-                or ""
-            ),
-        )
-        schema = airtable.table_fields()
-        final_field = resolve_final_field(schema)
-        final_url = extract_attachment_url(fields.get(final_field))
-        image_urls = [final_url] if final_url else []
-        category = str(fields.get("Category") or "").strip()
-        caption_text, used_fallback = generate_caption(
-            fal_client,
-            item_name,
-            product_type,
-            image_urls,
-            category,
-        )
-        airtable.update_records([(record_id, {CAPTION_GENERATED_FIELD: caption_text})])
-        tag = "fallback" if used_fallback else "Claude"
-        print(f"[OK] Caption saved ({tag}) for record {record_id}.")
-        return True
-    except Exception as error:
-        print(f"[WARN] Caption generation failed for record {record_id}: {error}")
-        return True
 
 
 def backfill_missing_this_or_that_layout(airtable: ScrapeAirtableClient, label: str = "") -> int:
@@ -547,12 +485,6 @@ def run_single_record_generation(
         except Exception as tag_err:
             print(f"[WARN] Tagging for 'Blended Image with Name text' skipped: {tag_err}")
 
-        # Caption (shared helper) -- anchor slot 0, final image URL; never blocks Complete.
-        try:
-            generate_caption_phase(fal, airtable, record_id=rec_id)
-        except Exception as error:
-            print(f"[WARN] Caption phase failed for record {rec_id}: {error}")
-
         # Update status to Complete
         airtable.update_records([(rec_id, {FIELD_STATUS: STATUS_COMPLETE})])
         print(f"[STATUS] Record {rec_id} marked as '{STATUS_COMPLETE}'")
@@ -624,7 +556,6 @@ def run_row_by_row_pipeline(
         FIELD_STATUS: "singleSelect",
         FIELD_ITEM_NAME_1: "singleLineText",
         FIELD_ITEM_NAME_2: "singleLineText",
-        CAPTION_GENERATED_FIELD: CAPTION_FIELD_TYPE,
     })
 
     print("=" * 80)

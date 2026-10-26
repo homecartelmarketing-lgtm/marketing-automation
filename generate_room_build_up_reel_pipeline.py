@@ -123,6 +123,9 @@ SFX_PROMPTS: dict[str, str] = {
     "whoosh": "A quick soft whoosh sound effect for a scene change, airy and smooth, no music, about half a second",
 }
 OPENING_HIT_SECONDS = 0.08
+# A one-second sound effect either lands quickly or the ElevenLabs queue is wedged; the local
+# stand-in is good enough, so never let a dead queue stall an otherwise finished run.
+SFX_MAX_WAIT_SECONDS = 60.0
 
 STATUS_FIELD = "Status"
 STATUS_IN_PROGRESS = "In progress"
@@ -408,7 +411,9 @@ def ensure_sfx_assets(fal: Any | None, sfx_dir: Path | None = None) -> dict[str,
         generated = False
         if fal is not None:
             try:
-                url = fal.generate_elevenlabs_sound_effect(prompt, duration=1.0)
+                url = fal.generate_elevenlabs_sound_effect(
+                    prompt, duration=1.0, max_wait=SFX_MAX_WAIT_SECONDS
+                )
                 _download_url(url, target, timeout=120)
                 generated = target.is_file() and target.stat().st_size > 0
                 if generated:

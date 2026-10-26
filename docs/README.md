@@ -21,6 +21,7 @@ docs/
 ├── AUTO_POST_SCHEDULER.md               # Instagram auto-publish worker
 ├── OPERATIONS_AND_UTILITIES.md          # Maintenance / tagging / diagnostic scripts
 ├── CLOUDFLARE_TUNNEL_GUIDE.md           # Quick Tunnel sharing guide
+├── SCALE_GUARD.md                       # Measured product-to-room scale guard (audit fields, cost, env keys, guarded pipelines)
 ├── GIT_PUSH_AND_DEPLOY.md               # How the AI commits, pushes, and deploys to Railway (step by step)
 ├── SKILLS_GUIDE.md                      # What each agent skill is for and when to load it
 ├── SECURITY_AUDIT.md                    # Studio security audit + 2026-10-12 hardening addendum
@@ -51,7 +52,7 @@ docs/
 │   ├── DAY_NIGHT_FEED.md
 │   └── PRODUCT_SHOWCASE_FEED.md
 │
-├── reels/                               # 12 Reel Pipelines (9:16 video, 1080 x 1920 px)
+├── reels/                               # 13 Reel Pipelines (9:16 video, 1080 x 1920 px)
 │   ├── DAY_NIGHT_REEL.md
 │   ├── PRODUCT_CLOSEUP_REEL.md
 │   ├── BEFORE_AND_AFTER_REEL.md
@@ -63,7 +64,8 @@ docs/
 │   ├── ROOM_BUILD_UP_REEL.md
 │   ├── HOUSE_TOUR_REEL.md
 │   ├── THIS_MOOD_EVERY_NIGHT_REEL.md
-│   └── VIRTUAL_STAGING_REEL.md
+│   ├── VIRTUAL_STAGING_REEL.md
+│   └── ROOM_REVEAL_REEL.md
 │
 ├── ads/                                 # Ad Cover Pipeline (1:1 1080 x 1080 + 9:16 Story 1080 x 1920)
 │   └── AD_COVER.md
@@ -140,6 +142,7 @@ docs/
 | [`ROOM_BUILD_UP_REEL.md`](reels/ROOM_BUILD_UP_REEL.md) | `tblhq1rz9CVCD7yiR` (Room Build-Up Set) | ~4.8s | Stop-motion hard-cut reel: 2 rooms (Pendant Light, Chandelier) each go empty → furnished in 4 steps. Built in reverse with chained Nano Banana Pro removals, then local FFmpeg + ElevenLabs pop/whoosh sounds. Studio subtab 8 "Room Build-Up". |
 | [`THIS_MOOD_EVERY_NIGHT_REEL.md`](reels/THIS_MOOD_EVERY_NIGHT_REEL.md) | `tblDa5UOTUTlU1Xxy` (This Mood Every Night Set) | ~12.0s | 7 night-interior snap cuts (~1.35s) + centered `this mood every night` title + animated product tags + lo-fi music + 2.5s outro. Studio subtab 10 "This Mood Every Night". |
 | [`VIRTUAL_STAGING_REEL.md`](reels/VIRTUAL_STAGING_REEL.md) | `tblPYG5Ed4XURecu6` (Chandelier) | ~12.5s | Empty-to-furnished assembly sequence via Fal Kling 3.0 Pro start-to-end frame transition, Pillow branding pill tag, and branded outro. Studio subtab 11 "Virtual Staging". |
+| [`ROOM_REVEAL_REEL.md`](reels/ROOM_REVEAL_REEL.md) | `tbldk5nac1UeYHd77` (Room Reveal) | 3.33s raw / 5.83s final | One locked camera angle: Krea furnished room → fixture blended in → chained Nano Banana Pro removals until the room is empty → the stills play in reverse so the room fills up to the finished photo, then the 2.5s HomeCartel outro (Final Video only). Studio subtab 12 "Room Reveal". |
 
 ---
 
@@ -176,6 +179,7 @@ Second sub-tab of the **Banner** tab. A red sale panel with `10%` and `15%` bloc
 | [`CLOUDFLARE_TUNNEL_GUIDE.md`](CLOUDFLARE_TUNNEL_GUIDE.md) | 100% free, zero-config Cloudflare Quick Tunnel guide to share the live studio with coworkers. |
 | [`AUTO_POST_SCHEDULER.md`](AUTO_POST_SCHEDULER.md) | The Instagram auto-publish worker — what it does, its `CRON_SECRET` auth, and its dependency on a separate scheduling app outside this repo. |
 | [`OPERATIONS_AND_UTILITIES.md`](OPERATIONS_AND_UTILITIES.md) | Catalog of the Airtable data-maintenance, item-tagging, and diagnostic scripts that aren't Story/Feed/Reel/Ad Cover pipelines — including the `scratch/` Ad Cover schema and geometry verifiers. |
+| [`SCALE_GUARD.md`](SCALE_GUARD.md) | How every product-to-room blend is measured: exact Akeneo size in the prompt, a Claude Vision check, one retry at ±15%, the `Scale Check` / `Scale Retry` / `Scale Audit` columns, the extra API cost, `SCALE_GUARD_ENABLED`, and which pipelines are guarded, prompt-only or unblended. |
 | [`GIT_PUSH_AND_DEPLOY.md`](GIT_PUSH_AND_DEPLOY.md) | Detailed, step-by-step guide to how an AI agent commits, pushes `marketing-automation`, fast-forwards `main`, and triggers the Railway deploy — what it checks, what it will never do, and what to do when a step fails. |
 
 ## 🧠 6. Project Memory
@@ -199,6 +203,8 @@ Second sub-tab of the **Banner** tab. A red sale panel with `10%` and `15%` bloc
 | [`memory/incidents/2026-10-02-mb-reel-item-name-material-duplicates.md`](memory/incidents/2026-10-02-mb-reel-item-name-material-duplicates.md) | MB Reel regression: Phase 3's 0-based `Item Name{slot}` lookup stamped placeholders/shifted names, and un-normalized material words (`BRASS,` vs `Brass`) duplicated across slots. |
 | [`memory/incidents/2026-10-05-tag-line2-anchor-fallback.md`](memory/incidents/2026-10-05-tag-line2-anchor-fallback.md) | Tag Line-2 lost when Product Type field empty (anchor handoff) + Floor Lamp Moodboard Story registry `KeyError`; fixed by shared `resolve_tag_names`. |
 | [`memory/incidents/2026-10-19-tips-edu-feed-attach-format.md`](memory/incidents/2026-10-19-tips-edu-feed-attach-format.md) | Tips & Edu Feed carousel attachment order (thumbnail prepended at index 0) and fail-closed slot name resolution. |
+| [`memory/incidents/2026-10-26-room-reveal-stalled-on-elevenlabs-sfx-poll.md`](memory/incidents/2026-10-26-room-reveal-stalled-on-elevenlabs-sfx-poll.md) | Room Reveal appeared finished but stayed on `In progress`: Phase 7 was polling Fal's ElevenLabs sound-effect queue for up to 20 min (plus a slow synchronous retry) across two 1-second sounds. Now capped at 60 s with the local fallback. Includes how to resume such a row for free via `--record-id`. |
+| [`memory/incidents/2026-10-26-two-studio-servers-405-on-new-route.md`](memory/incidents/2026-10-26-two-studio-servers-405-on-new-route.md) | Two Werkzeug dev servers can share port 5200 on Windows, so a request for a new API route lands on the stale process and returns 405 (not 404) from the GET-only SPA catch-all. |
 | [`memory/decisions/2026-10-15-graphify-icm-vendored-skills.md`](memory/decisions/2026-10-15-graphify-icm-vendored-skills.md) | Why `graphify` and `icm-architect` are vendored by hand (absent from `skills-lock.json`), what each is for, why `docs/icm/` is reference material rather than a pipeline spec, and why the graphify `.gitignore` patterns must stay anchored. |
 | [`memory/incidents/2026-10-15-tips-edu-feed-phase-5-6-labels-and-audit-sync.md`](memory/incidents/2026-10-15-tips-edu-feed-phase-5-6-labels-and-audit-sync.md) | Tips & Educational Feed Phase 5 & 6 stale comment banners, audit log labels, warning output, and partial-failure status analysis. |
 | [`memory/incidents/2026-10-15-tips-edu-feed-phase-5-attributeerror-and-tips-stamping.md`](memory/incidents/2026-10-15-tips-edu-feed-phase-5-attributeerror-and-tips-stamping.md) | Tips & Educational Feed stopped after Phase 4: Phase 5 read a non-existent `category_label` attribute, so Phase 6 never ran and the final slides and tips stamping were missing. |
@@ -216,6 +222,9 @@ Second sub-tab of the **Banner** tab. A red sale panel with `10%` and `15%` bloc
 | [`memory/incidents/2026-09-30-studio-run-flicker-two-pollers.md`](memory/incidents/2026-09-30-studio-run-flicker-two-pollers.md) | Studio log/status flicker during runs: two pollers wrote the same state. The queue is now the only status driver. |
 | [`memory/incidents/2026-09-30-sketch-to-real-studio-ran-stale-script-copy.md`](memory/incidents/2026-09-30-sketch-to-real-studio-ran-stale-script-copy.md) | Sketch to Real worked from the CLI but failed in the Studio: the route preferred an untracked stale script copy over the root generator. |
 | [`memory/incidents/2026-09-28-shopify-cloudflare-429-bot-challenge.md`](memory/incidents/2026-09-28-shopify-cloudflare-429-bot-challenge.md) | Phase 1 scrapes stalled around page 32 of the Shopify catalog on HTTP 429 and a Cloudflare bot challenge; mitigation notes. |
+| [`memory/decisions/2026-10-26-room-reveal-reel-build-up-and-outro.md`](memory/decisions/2026-10-26-room-reveal-reel-build-up-and-outro.md) | Room Reveal Reel: one locked camera angle, removals generated from the blend but played in reverse (empty-to-full build-up), 2.5s HomeCartel outro in the Final Video only, reuse of Room Build-Up helpers. |
+| [`memory/decisions/2026-10-26-captions-feeds-and-reels-only.md`](memory/decisions/2026-10-26-captions-feeds-and-reels-only.md) | Instagram captions are generated only by Feed and Reel pipelines; removed from the six Story pipelines, Ad Cover and both banners (Sale Banner's calendar captions stay). |
+| [`memory/decisions/2026-10-26-real-world-scale-in-blend-prompts.md`](memory/decisions/2026-10-26-real-world-scale-in-blend-prompts.md) | Why every blend prompt now carries the supplier's real measurements plus a measured-vs-estimate guard instead of trusting Nano Banana's sense of scale — and the cost/failure trade-offs behind the single retry. |
 | [`memory/decisions/2026-10-12-api-hardening-pass.md`](memory/decisions/2026-10-12-api-hardening-pass.md) | Deny-by-default `/api/*` gate, `?pin=` rejection, single `MAX_RUN_ITEMS = 10` ceiling, SSRF guard on queue endpoints, and what is still open. See also [`SECURITY_AUDIT.md`](SECURITY_AUDIT.md). |
 | [`memory/decisions/2026-10-12-studio-email-password-login.md`](memory/decisions/2026-10-12-studio-email-password-login.md) | Why the Studio moved from the shared `DASHBOARD_PIN` to email + password login with a cookie session. |
 | [`memory/decisions/2026-10-06-house-tour-reel-dynamic-vision-and-animation.md`](memory/decisions/2026-10-06-house-tour-reel-dynamic-vision-and-animation.md) | House Tour Reel: reference pacing, dynamic Claude Vision room analysis, animated Poppins reveal, and the zero-fallback title policy. |
@@ -226,7 +235,7 @@ Second sub-tab of the **Banner** tab. A red sale panel with `10%` and `15%` bloc
 | Doc | Status |
 | :--- | :--- |
 | [`plans/2026-10-26-studio-calendar-link.md`](plans/2026-10-26-studio-calendar-link.md) | Studio header shortcut that opens the marketing calendar (`homecartel-marketing-calendar-v2.vercel.app`) in a new tab. Implemented locally in `App.tsx`; no backend change. |
-| [`plans/2026-10-20-universal-caption-generation.md`](plans/2026-10-20-universal-caption-generation.md) | Universal Instagram auto-caption generation across all Story/Feed/Reel/Banner tables (`Caption Generated` field via Claude Sonnet 5). |
+| [`plans/2026-10-20-universal-caption-generation.md`](plans/2026-10-20-universal-caption-generation.md) | Universal Instagram auto-caption generation (`Caption Generated` via Claude Sonnet 5). **Superseded in part 2026-10-26:** captions now apply to feeds and reels only. |
 | [`plans/2026-10-19-tips-edu-feed-fix-tips-attach-item-name.md`](plans/2026-10-19-tips-edu-feed-fix-tips-attach-item-name.md) | Tips & Edu Feed: Carousel attachment ordering (thumbnail prepended at index 0) and item-name normalization. |
 | [`plans/2026-10-05-calendar-import.md`](plans/2026-10-05-calendar-import.md) | Content Calendar XLSX → Studio queue import (implemented: `content_automation/calendar_import.py`, `UI Control/routes/calendar.py`, `scripts/ops/import_content_calendar.py`). |
 | [`plans/2026-10-15-skills-registration-md-sync.md`](plans/2026-10-15-skills-registration-md-sync.md) | Register `graphify` + `icm-architect` in `AGENTS.md` §12 and `docs/SKILLS_GUIDE.md`, add `docs/icm/` to the docs navigation, fix the stale `skills-lock.json` row, and anchor the graphify `.gitignore` patterns. Docs-only. |

@@ -57,7 +57,6 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from content_automation.airtable_client import current_pht_timestamp
-from content_automation.caption import CAPTION_FIELD, CAPTION_FIELD_TYPE, generate_caption
 from content_automation.banner_common import (
     PipelineClients,
     fixtures_from_record,
@@ -137,7 +136,6 @@ FIELD_CAPTION_RIGHT = "Sale Caption Right"
 FIELD_PANEL_COLOR = "Sale Panel Color"
 FIELD_SALE_BANNER = "Sale Banner"
 FIELD_PRODUCT_TYPE = "Product Type"
-CAPTION_GENERATED_FIELD = CAPTION_FIELD
 DEFAULT_PANEL_HEX = format_hex_color(SALE_PANEL_COLOR)  # the sample's red, used when Claude gives no usable colour
 
 REQUIRED_FIELDS = {
@@ -164,7 +162,6 @@ REQUIRED_FIELDS = {
     FIELD_CAPTION_RIGHT: "multilineText",
     FIELD_PANEL_COLOR: "singleLineText",
     FIELD_SALE_BANNER: "multipleAttachments",
-    CAPTION_GENERATED_FIELD: CAPTION_FIELD_TYPE,
 }
 
 ROOMS: list[dict[str, Any]] = [
@@ -488,70 +485,6 @@ def run_phase_5_captions(
 
 
 # --------------------------------------------------------------------------
-# PHASE 7: universal Instagram caption (shared helper, never blocks Done)
-# --------------------------------------------------------------------------
-
-def _anchor_product_name(fields: dict[str, Any]) -> tuple[str, str]:
-    """Slot-0 anchor product (DP dining pendant) as (item_name, product_type). Never raises."""
-    try:
-        from content_automation.akeneo_client import split_item_name
-
-        raw = ""
-        for line in str(fields.get(FIELD_ITEM_NAME) or "").splitlines():
-            line = line.strip()
-            if line.upper().startswith("DP:"):
-                raw = line[3:].strip()
-                break
-        if not raw:
-            lines = [ln.strip() for ln in str(fields.get(FIELD_ITEM_NAME) or "").splitlines() if ln.strip()]
-            first = lines[0] if lines else ""
-            raw = first[3:].strip() if len(first) > 3 and first[2] == ":" else first
-        item_name, product_type = split_item_name(
-            raw or "HomeCartel Lighting",
-            fallback_product_type=str(fields.get(FIELD_PRODUCT_TYPE) or ""),
-        )
-        return item_name.strip() or "HomeCartel Lighting", product_type.strip()
-    except Exception:
-        return "HomeCartel Lighting", str(fields.get(FIELD_PRODUCT_TYPE) or "").strip()
-
-
-def run_phase_7_caption(clients: PipelineClients, record_id: str) -> bool:
-    """Generate universal Instagram caption into CAPTION_GENERATED_FIELD (never raises)."""
-    print(f"\n[PHASE 7] Generating universal Instagram caption for record {record_id}...")
-    try:
-        clients.airtable.ensure_fields({CAPTION_GENERATED_FIELD: CAPTION_FIELD_TYPE})
-    except Exception as error:
-        print(f"[WARN] Caption ensure_fields failed for {record_id}: {error}")
-    try:
-        record = clients.airtable.get_record(record_id)
-        fields = record.get("fields", {}) if record else {}
-        if fields.get(CAPTION_GENERATED_FIELD):
-            print(f"[OK] Caption already present for {record_id}; skipping.")
-            return True
-        item_name, product_type = _anchor_product_name(fields)
-        banner_url = _first_url(fields, FIELD_SALE_BANNER)
-        image_urls = [banner_url] if banner_url else []
-        try:
-            caption_text, used_fallback = generate_caption(
-                clients.fal,
-                item_name,
-                product_type,
-                image_urls,
-                "sale banner",
-            )
-        except Exception as error:
-            print(f"[WARN] Caption generation failed for record {record_id}: {error}")
-            return True
-        clients.airtable.update_record(record_id, {CAPTION_GENERATED_FIELD: caption_text})
-        tag = "fallback" if used_fallback else "Claude"
-        print(f"[OK] Caption saved ({tag}) for record {record_id}.")
-        return True
-    except Exception as error:
-        print(f"[WARN] Caption generation failed for record {record_id}: {error}")
-        return True
-
-
-# --------------------------------------------------------------------------
 # PHASE 6: local composite (interiors + red panel + Poppins text)
 # --------------------------------------------------------------------------
 
@@ -595,11 +528,6 @@ def run_phase_6_composite(clients: PipelineClients, record_id: str, final: bool 
     clients.airtable.clear_attachment_field(record_id, FIELD_SALE_BANNER)
     clients.airtable.upload_attachment(record_id, FIELD_SALE_BANNER, local_path, local_path.name)
     if final:
-        # Caption (shared helper) — before terminal status; never blocks.
-        try:
-            run_phase_7_caption(clients, record_id)
-        except Exception as error:
-            print(f"[WARN] Caption phase failed for {record_id}: {error}")
         clients.airtable.update_record(record_id, {
             FIELD_STATUS: STATUS_DONE,
             FIELD_DATE_GENERATED: current_pht_timestamp(),

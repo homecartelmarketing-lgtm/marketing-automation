@@ -28,6 +28,8 @@ The **Tips & Educational Feed Automation Pipeline** is an end-to-end multi-slide
 | **Phase 5** | **YOLO Item Name Tagging & Carousel Assembly** | YOLO-World (Local CPU) | Open-vocabulary tagging (Line 1: Item Name, Line 2: Product Type) with subtitle normalization | `Tips and Edu Blended` + `Item Name[1-3]` + `Product Type[1-3]` | Stamps floating tag onto each blend, clears `Tips and Edu Blended Attach Item Name`, and uploads carousel: `[Thumbnail with Text (index 0), tagged_1, tagged_2, tagged_3]` -> Status: `Already attached a room Interior` (`C`) |
 | **Phase 6** | **Programmatic PIL Layout Compositing** | Local Python Pillow | Zero-API Local Compositor (Canva coordinates) | `Tips and Edu Blended Attach Item Name` + `Tips 1..3` | Selects 3 tagged blends (excluding index-0 thumbnail), overlays Numeral (196px) + Tip Text (32px), uploads 3 feed photos to `Tips and Edu Feeds` -> Status: `Complete` (`C`); fails closed to `For Manual` (`FM`) if < 3 tagged blends |
 
+> **Measured scale guard:** every product-to-room blend goes through `content_automation/scale_guard.py`. A Claude Vision measurement sets the fixture to its real Akeneo size (or a conservative estimate when the row has none), and a second check retries once when the finished blend is more than ±15% off. Audit fields: `Scale Check`, `Scale Retry`, `Scale Audit`. `SCALE_GUARD_ENABLED=0` keeps the measurements in the prompt but skips both paid vision calls. Details: [`docs/SCALE_GUARD.md`](../SCALE_GUARD.md).
+
 ---
 
 ## 3. Foreign Key ID Convention & Examples

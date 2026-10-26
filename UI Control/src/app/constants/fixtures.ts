@@ -46,6 +46,7 @@ export const CONTENT_CONFIG: Record<TabType, { name: string; ratio: string; item
       'House Tour',
       'This Mood Every Night',
       'Virtual Staging',
+      'Room Reveal',
     ],
   },
   adcover: {
@@ -239,6 +240,11 @@ export const ROOM_BUILD_UP_REEL_FIXTURES: Omit<FixtureData, 'completed'>[] = [
   { id: 'room-build-up', name: 'Room Build-Up', total: 100, tableId: 'tblhq1rz9CVCD7yiR', moodboardId: 'de5f4ff8-518c-4d6b-b606-ce1d5dac51f3' },
 ];
 
+// Reel Subtab 12: Room Reveal Reel (9:16). One locked angle: empty room builds up to the blend, then the outro.
+export const ROOM_REVEAL_REEL_FIXTURES: Omit<FixtureData, 'completed'>[] = [
+  { id: 'room-reveal', name: 'Room Reveal', total: 100, tableId: 'tbldk5nac1UeYHd77', moodboardId: 'de5f4ff8-518c-4d6b-b606-ce1d5dac51f3', prompt: 'Generate me a modern living room' },
+];
+
 // Reel Subtab 9: House Tour Reel (9:16). SINGLE card ("House Tour") on one table;
 // its moodboard + prompt pencils each carry 4 room values (resolve order per room:
 // per-room Studio setting -> generic fallback -> built-in default below).
@@ -378,6 +384,7 @@ export const getFixturesForSubtab = (tab: TabType, subtabIdx: number): Omit<Fixt
       case 9: return HOUSE_TOUR_REEL_FIXTURES;
       case 10: return THIS_MOOD_EVERY_NIGHT_REEL_FIXTURES;
       case 11: return VIRTUAL_STAGING_REEL_FIXTURES;
+      case 12: return ROOM_REVEAL_REEL_FIXTURES;
       default: return DEFAULT_FIXTURES;
     }
   }

@@ -65,6 +65,9 @@ Content Calendar.xlsx
 assets/house_tour_reference.mp4
 6-Virtual-Staging.mp4
 
+# Generated sound effects (ElevenLabs cache + local stand-ins, created on first run).
+assets/room_buildup_sfx/
+
 # Graphify knowledge graph outputs and cache.
 # Anchored on purpose: an unanchored `.graphify*` also matches
 # .agents/skills/graphify/.graphify_version and silently drops it from every commit.

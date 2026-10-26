@@ -28,6 +28,8 @@ The **Day & Night Feed Automation Pipeline** generates high-engagement 4:5 Insta
 
 > 🏷️ **Logo & Item-Name Watermark**: Slide 1 (`Day Mode`) receives the floating open-vocabulary YOLO-World item-name tag (`Item Name` + `Product Type`), followed by the HomeCartel brand logo stamped at the standard Canva 4:5 bottom-left position (`HOMECARTEL_LOGO_BOX`: `X=108.0, Y=1178.5, W=190.3, H=63.5`). This stamped and tagged Day photo is uploaded over `Day Image` and paired with the clean `Night Image` into the deliverable multi-attachment field `STORY - Day & Night (2)`. Both are also mirrored to `Blended Image with Name text`.
 
+> **Measured scale guard:** every product-to-room blend goes through `content_automation/scale_guard.py`. A Claude Vision measurement sets the fixture to its real Akeneo size (or a conservative estimate when the row has none), and a second check retries once when the finished blend is more than ±15% off. Audit fields: `Scale Check`, `Scale Retry`, `Scale Audit`. `SCALE_GUARD_ENABLED=0` keeps the measurements in the prompt but skips both paid vision calls. Details: [`docs/SCALE_GUARD.md`](../SCALE_GUARD.md).
+
 ---
 
 ## 3. Foreign Key ID Convention & Examples

@@ -66,6 +66,12 @@ Do this only in a quiet week with no new pipelines shipping. Own branch, many sm
 
 ---
 
+## 4. Pending decisions
+
+- [ ] **Moodboard Reel per-photo typography.** The AI moodboard conversion is text-free by prompt (`JSON Prompts/Moodboard Reel/converted_moodboard.json`), and the old Phase 4.2 stamp that wrote `Moodboard Converted with Text` was removed on 2026-09-21. The three material words per panel are already generated (Phase 2.5 `Texture1..12`) and local Pillow can stamp them again (`overlay.py::overlay_moodboard_textures`). Restore design is ready but **not approved or implemented**; see [`reels/MOODBOARD_REEL.md`](reels/MOODBOARD_REEL.md).
+
+---
+
 ## Done (for reference)
 
 - [x] Audit steps 1-12 (see `WORKSPACE_AUDIT.md` §5)
@@ -73,3 +79,7 @@ Do this only in a quiet week with no new pipelines shipping. Own branch, many sm
 - [x] README: Reel = 8 subtabs, Banner tab = one "Banner Set" sub-tab (PR #4)
 - [x] README: root config files table (PR #4)
 - [x] `requirements.txt`: `ultralytics>=8.3.0,<9` (PR #4)
+- [x] Measured scale guard across every product-to-room blend: exact Akeneo size in the prompt, Claude Vision check, one retry at ±15%, `Scale Check` / `Scale Retry` / `Scale Audit` audit columns (commit `6f17b2f`, see [`SCALE_GUARD.md`](SCALE_GUARD.md))
+- [x] Instagram captions limited to Feed and Reel pipelines (removed from the six Story pipelines, Ad Cover and both banners — decision note [`memory/decisions/2026-10-26-captions-feeds-and-reels-only.md`](memory/decisions/2026-10-26-captions-feeds-and-reels-only.md))
+- [x] Room Reveal Reel shipped (one locked angle, removal chain, empty-to-full build-up, Final Video outro) plus its 60-second ElevenLabs SFX cap and the two-Studio-servers 405 incident
+- [x] Studio header Marketing Calendar shortcut (external link, no backend route)

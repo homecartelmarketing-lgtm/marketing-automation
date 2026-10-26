@@ -29,6 +29,8 @@ The **Sketch to Real Reel Automation Pipeline** generates high-engagement **~11-
 | **Phase 8** | **Fal AI ElevenLabs Music Generation** | Fal AI / ElevenLabs | `fal-ai/elevenlabs/music` (14s luxury ambient track) | Claude Music Prompt or default luxury lounge | `Music Generated` -> Status: `Music Generated` |
 | **Phase 9** | **FFmpeg Outro & Audio Muxing** | Local FFmpeg (`imageio-ffmpeg`) | Video & Audio Compositor with 1.5s outro audio fade | `Raw Video` + `assets/outro_layout.jpg` + ElevenLabs audio | `Final Video` + `Outro` -> Status: `Done` (C) + auto PHT timestamp |
 
+> **Measured scale guard:** every product-to-room blend goes through `content_automation/scale_guard.py`. A Claude Vision measurement sets the fixture to its real Akeneo size (or a conservative estimate when the row has none), and a second check retries once when the finished blend is more than ±15% off. Audit fields: `Scale Check`, `Scale Retry`, `Scale Audit`. `SCALE_GUARD_ENABLED=0` keeps the measurements in the prompt but skips both paid vision calls. Details: [`docs/SCALE_GUARD.md`](../SCALE_GUARD.md).
+
 ---
 
 ## 3. Foreign Key ID Convention & Examples

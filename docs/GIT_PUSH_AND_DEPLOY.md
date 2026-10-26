@@ -84,6 +84,7 @@ git rev-list --left-right --count marketing-automation...origin/marketing-automa
 
 - **Bad:** wrong remote, wrong folder, or you're on a different branch → the AI **stops** and asks.
 - **Bad:** `origin/marketing-automation` is *ahead* of local (someone else pushed) → the AI does not push; it tells you and asks how to reconcile.
+- **Not bad, but needs a fix:** local `main` is *behind* `origin/main` (normal on a machine that only pushes from `marketing-automation`). The `--ff-only` merge in Step 8 then refuses even though nothing conflicts. The safe catch-up is in Step 8 — never `reset --hard`.
 - A note like `There are too many unreachable loose objects; run 'git prune'` from `git fetch` is harmless housekeeping. It is not a failure.
 
 ### Step 1. Secret and stray-file check
@@ -170,12 +171,14 @@ The AI first says something like: *"Ready to fast-forward `main` and push. This 
 ```bash
 git fetch origin
 git checkout main
+git merge --ff-only origin/main        # only if local main is stale (behind origin/main)
 git merge --ff-only marketing-automation
 git push origin main
 git checkout marketing-automation                 # always return to the dev branch
 ```
 
-- `--ff-only` means git refuses if `main` has commits the dev branch doesn't. If it refuses, the AI **stops** (someone changed `main`). It never fixes this with a force-push or a merge commit on `main` without asking.
+- **Stale local `main`:** if `git rev-list --count main..origin/main` is greater than 0, local `main` is behind. `git merge --ff-only marketing-automation` will refuse for the wrong reason, so fast-forward `main` to `origin/main` first (the line above). This only moves `main` forward — it never rewrites or discards anything. If `origin/main` itself has commits that `marketing-automation` lacks, **stop and ask**; do not merge `main` into the dev branch or force-push.
+- `--ff-only` means git refuses if `main` has commits the dev branch doesn't. If it refuses after the catch-up, the AI **stops** (someone changed `main`). It never fixes this with a force-push or a merge commit on `main` without asking.
 - The AI always switches back to `marketing-automation`, even after a failure, so the next task starts on the right branch.
 
 ### Step 9. After the push: what to expect
@@ -198,7 +201,7 @@ git checkout marketing-automation                 # always return to the dev bra
 | `py_compile` or a unit test fails | Fixes if in scope; otherwise stops and shows the error |
 | `npm run build` fails | Stops; does not commit `dist/` |
 | `git push` rejected (non-fast-forward) | Fetches, inspects, asks; never force-pushes |
-| `git merge --ff-only` refuses on `main` | Stops; reports that `main` moved; never forces |
+| `git merge --ff-only` refuses on `main` | Checks whether local `main` is stale (behind `origin/main`) and fast-forwards it to `origin/main` first; retries. If `origin/main` genuinely moved, stops and reports it; never forces |
 | Railway build fails after `main` push | Asks for the Railway build log, diagnoses, fixes on the dev branch, repeats Steps 2-9 |
 | A bad change reached `main` and is live | Recommends the safe options: **`git revert <commit>`** then push (this adds a new commit, keeping history), or use Railway's own "redeploy previous deployment". It does **not** use `reset --hard` + force-push. |
 

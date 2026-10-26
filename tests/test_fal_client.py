@@ -7,6 +7,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from content_automation.errors import ProviderTimeout
 from content_automation.fal_client import FalClient
 
 
@@ -66,6 +67,35 @@ class SeedanceVideoTests(unittest.TestCase):
     def test_requires_api_key(self):
         with self.assertRaises(Exception):
             FalClient(api_key="").generate_seedance_video("lights on", "http://img")
+
+
+class ElevenLabsSoundEffectTests(unittest.TestCase):
+    def test_queue_timeout_skips_the_long_synchronous_call(self):
+        client = _client()
+        queued = SimpleNamespace(ok=True, json=lambda: {"request_id": "req-9"})
+        with patch(
+            "content_automation.fal_client.request_with_retry", return_value=queued
+        ) as request_mock, patch.object(
+            client, "poll_queue_raw", side_effect=ProviderTimeout("stuck in queue")
+        ) as poll_mock:
+            with self.assertRaises(ProviderTimeout):
+                client.generate_elevenlabs_sound_effect("soft pop", max_wait=45.0)
+
+        poll_mock.assert_called_once_with(
+            "fal-ai/elevenlabs/sound-effects/v2", "req-9", max_wait=45.0
+        )
+        self.assertEqual(request_mock.call_count, 1)  # queue POST only, no sync fallback
+
+    def test_poll_queue_raw_uses_the_call_budget(self):
+        client = _client()
+        client.poll_interval = 0.01
+        status = SimpleNamespace(
+            ok=True, json=lambda: {"status": "IN_QUEUE"}
+        )
+        with patch("content_automation.fal_client.request_with_retry", return_value=status):
+            with self.assertRaises(ProviderTimeout) as error:
+                client.poll_queue_raw("fal-ai/elevenlabs/sound-effects/v2", "req-1", max_wait=0.2)
+        self.assertIn("0.2s", str(error.exception))
 
 
 if __name__ == "__main__":

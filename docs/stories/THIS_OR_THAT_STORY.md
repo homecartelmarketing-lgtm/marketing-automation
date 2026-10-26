@@ -21,6 +21,8 @@ The **This or That Story Automation Pipeline** generates high-engagement interac
 | **Phase 1** | **Akeneo 2-Product Scrape** | Akeneo PIM API | Active Ingestion (`enabled=true`) + pair layout auto-fill & cross-table dedup | Akeneo Catalog (`chandeliers`, `pendants`, etc.) | `Furniture Item`, `Furniture Item2`, `Item Name`, `Item Name2`, `SKU`, `SKU2`, `This or That Layout` -> Status: `Pending` (`P`) |
 | **Phase 2** | **Nano Banana Pro Blending** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | `Furniture Item[1-2]` + `This or That Layout` | `Story This or That (1)` / `This or That Converted` -> Status: `Completed` (`C`) |
 
+> **Prompt-only scale guidance:** this pipeline does not run the paid scale guard. Its blend prompt still carries the fixtures' real Akeneo measurements through `content_automation/prompts/scale.py::scale_clause()`, but there is no Claude Vision measurement, check, or retry, and no `Scale Check` / `Scale Retry` / `Scale Audit` write. See [`docs/SCALE_GUARD.md`](../SCALE_GUARD.md) §5.
+
 ---
 
 ## 3. Foreign Key ID Convention & Examples

@@ -26,6 +26,8 @@ The **Day & Night Story Automation Pipeline** generates high-converting **9:16 v
 | **Phase 4** | **Nano Banana Pro Night Transform**| Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | `day_photo_raw.jpg` + Night Transformation Prompt | `night_photo.jpg` -> Status: `In Progress` (`P`) |
 | **Phase 5** | **Local PIL Logo Stamping** | **Local Python Pillow** | **Zero-API Local Python Script**<br>Top-right margin: $108\text{ px}$ | `day_photo_raw.jpg` + `Logo` | Uploads both cards to `STORY - Day & Night (2)` -> Status: `Completed` (`C`) |
 
+> **Measured scale guard:** every product-to-room blend goes through `content_automation/scale_guard.py`. A Claude Vision measurement sets the fixture to its real Akeneo size (or a conservative estimate when the row has none), and a second check retries once when the finished blend is more than ±15% off. Audit fields: `Scale Check`, `Scale Retry`, `Scale Audit`. `SCALE_GUARD_ENABLED=0` keeps the measurements in the prompt but skips both paid vision calls. Details: [`docs/SCALE_GUARD.md`](../SCALE_GUARD.md).
+
 ---
 
 ## 3. Foreign Key ID Convention & Examples

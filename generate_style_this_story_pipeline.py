@@ -44,7 +44,6 @@ from PIL import Image
 import requests
 
 from content_automation.akeneo_client import AkeneoClient, split_item_name
-from content_automation.caption import CAPTION_FIELD, CAPTION_FIELD_TYPE, generate_caption
 from content_automation.config import load_settings
 from content_automation.errors import AutomationError, ProviderError
 from content_automation.fal_client import FalClient
@@ -252,8 +251,6 @@ FINAL_FILENAMES = [
     "double_tap_blended03.jpg",
 ]
 
-CAPTION_GENERATED_FIELD = CAPTION_FIELD
-
 HOW_WOULD_YOU_PROMPT_PATH = Path("JSON Prompts/Style This/how_would_you_layout.json")
 DOUBLE_TAP_PROMPT_PATH = Path("JSON Prompts/Style This/double_tap.json")
 
@@ -328,64 +325,6 @@ def extract_attachment_urls(attachments: Any) -> list[str]:
     elif isinstance(attachments, dict) and attachments.get("url"):
         urls.append(str(attachments["url"]).strip())
     return urls
-
-
-# Caption -- universal Instagram caption (shared helper, never blocks Complete)
-
-
-def generate_caption_phase(
-    fal_client: Any = None,
-    airtable: ScrapeAirtableClient = None,
-    *,
-    record_id: str,
-) -> bool:
-    """Generate universal Instagram caption into CAPTION_FIELD (never raises)."""
-    print(f"[INFO] [Caption] Generating universal Instagram caption for {record_id}...")
-    try:
-        airtable.ensure_fields({CAPTION_GENERATED_FIELD: CAPTION_FIELD_TYPE})
-    except Exception as error:
-        print(f"[WARN] Caption ensure_fields failed for {record_id}: {error}")
-    try:
-        record = airtable.get_record(record_id)
-        fields = record.get("fields", {}) if record else {}
-        if fields.get(CAPTION_GENERATED_FIELD):
-            print(f"[OK] Caption already present for {record_id}; skipping.")
-            return True
-        # Anchor slot 0 (Item Name1 / Item Name).
-        raw_item_name = str(
-            fields.get("Item Name1")
-            or fields.get(ITEM_NAME_FIELD)
-            or fields.get(SKU_FIELD)
-            or "HomeCartel Lighting"
-        ).strip()
-        item_name, product_type = split_item_name(
-            raw_item_name,
-            fallback_product_type=str(
-                fields.get("Product Type1") or fields.get("Product Type") or ""
-            ),
-        )
-        target_story_field = resolve_table_field(
-            airtable, STORY_FINAL_CANDIDATES, STORY_FINAL_CANDIDATES[0]
-        )
-        final_url = extract_attachment_url(
-            fields.get(target_story_field) or fields.get(DOUBLE_TAP_CONVERTED_FIELD)
-        )
-        image_urls = [final_url] if final_url else []
-        category = str(fields.get("Category") or "").strip()
-        caption_text, used_fallback = generate_caption(
-            fal_client,
-            item_name,
-            product_type,
-            image_urls,
-            category,
-        )
-        airtable.update_records([(record_id, {CAPTION_GENERATED_FIELD: caption_text})])
-        tag = "fallback" if used_fallback else "Claude"
-        print(f"[OK] Caption saved ({tag}) for record {record_id}.")
-        return True
-    except Exception as error:
-        print(f"[WARN] Caption generation failed for record {record_id}: {error}")
-        return True
 
 
 # ==============================================================================
@@ -783,11 +722,6 @@ def generate_story_cards_for_style_this(
         airtable.upload_attachment(record_id, target_story_field, card_path, fname)
 
     target_status = resolve_status_choice(airtable, [STATUS_COMPLETE, "Complete"])
-    # Caption (shared helper) -- anchor slot 0, final image URL; never blocks Complete.
-    try:
-        generate_caption_phase(fal, airtable, record_id=record_id)
-    except Exception as error:
-        print(f"[WARN] Caption phase failed for record {record_id}: {error}")
     airtable.update_records([(record_id, {STATUS_FIELD: target_status})])
     print(f"  [OK] Successfully uploaded 4 final Story Cards to '{target_story_field}' and set Status='{target_status}' on {record_id}!")
     return True

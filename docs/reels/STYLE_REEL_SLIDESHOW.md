@@ -27,6 +27,8 @@ The **Style Reel Slideshow Automation Pipeline** generates an architectural **11
 | **Phase 4** | **Nano Banana Pro Blending** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | `Interior[2-5]` + `Furniture[2-5]` + `Prompt[2-5]` | `Blended Image[2-5]` -> Status: `In Progress` (`P`) |
 | **Phase 5** | **FFmpeg Slideshow Video** | Local FFmpeg | Zero-API Local Video Engine | 5 photos in sequence | `Style Reel Slideshow` -> Status: `Completed` (`C`) |
 
+> **Measured scale guard:** every product-to-room blend goes through `content_automation/scale_guard.py`. A Claude Vision measurement sets the fixture to its real Akeneo size (or a conservative estimate when the row has none), and a second check retries once when the finished blend is more than ±15% off. Audit fields: `Scale Check`, `Scale Retry`, `Scale Audit`. `SCALE_GUARD_ENABLED=0` keeps the measurements in the prompt but skips both paid vision calls. Details: [`docs/SCALE_GUARD.md`](../SCALE_GUARD.md).
+
 ---
 
 ## 3. Foreign Key ID Convention & Examples

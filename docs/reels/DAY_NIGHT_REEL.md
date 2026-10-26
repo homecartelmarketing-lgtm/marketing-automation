@@ -28,6 +28,8 @@ The **Day & Night Reel Automation Pipeline** generates high-engagement **18-seco
 | **Phase 7** | **Fal AI Stable Audio 3 / ElevenLabs Jazz**| Fal AI / ElevenLabs | al-ai/elevenlabs/music (18s luxury jazz) | Claude music prompt | Music Generated -> Status: Phase 7 - Ready (P) |
 | **Phase 8** | **FFmpeg Concat & Outro Merge** | Local FFmpeg | Zero-API Local Video Compositor | 15s Kling video + 3s outro + 18s audio | Day and Night Reel with Music and Outro -> Status: Complete (C) |
 
+> **Measured scale guard:** every product-to-room blend goes through `content_automation/scale_guard.py`. A Claude Vision measurement sets the fixture to its real Akeneo size (or a conservative estimate when the row has none), and a second check retries once when the finished blend is more than ±15% off. Audit fields: `Scale Check`, `Scale Retry`, `Scale Audit`. `SCALE_GUARD_ENABLED=0` keeps the measurements in the prompt but skips both paid vision calls. Details: [`docs/SCALE_GUARD.md`](../SCALE_GUARD.md).
+
 ---
 
 ## 3. Foreign Key ID Convention & Examples

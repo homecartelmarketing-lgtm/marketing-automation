@@ -56,7 +56,7 @@ marketing-automation/
 │   ├── README.md                            # Documentation index & navigation map
 │   ├── stories/                             # 10 Story pipeline specs (9:16 vertical)
 │   ├── feeds/                               # 7 Feed pipeline specs (4:5 vertical)
-│   ├── reels/                               # 12 Reel pipeline specs (9:16 video)
+│   ├── reels/                               # 13 Reel pipeline specs (9:16 video)
 │   ├── ads/                                 # 1 Ad Cover pipeline spec (1:1 1080x1080 + 9:16 Story 1080x1920)
 │   ├── plans/                               # Implementation plans, one file each (live index in docs/README.md §7)
 │   ├── icm/                                 # Vendored ICM reference library for the icm-architect skill (NOT a pipeline doc)
@@ -85,6 +85,7 @@ marketing-automation/
 │   ├── story_tip.py                         # Tips & Edu Story: Claude "Style Tip of the Day" prompt, sanitizer, fallback tips
 │   ├── banner_common.py / promo_calendar.py # Christmas/Sale Banner shared helpers; promotions calendar (assets/calendar_config.json)
 │   ├── item_tagger.py                       # YOLO-World furniture tagging on blended images (resolve_tag_names: anchor.product_type-first fallback)
+│   ├── scale_guard.py                       # Measured product-to-room blend guard (blend_with_scale_guard, Scale Check/Retry/Audit)
 │   ├── calendar_import.py                   # Content Calendar XLSX parser (parse_month_slots, resolve_job, pick_fixture, build_jobs)
 │   ├── media.py / video.py / audio.py       # Temp downloads; imageio-ffmpeg video & audio muxing
 │   ├── assets.py                            # AssetCatalog: workspace, assets/, JSON Prompts/ lookups
@@ -106,7 +107,7 @@ marketing-automation/
 ├── UI Control/                              # Full-stack Web Dashboard ("Studio")
 │   ├── api_server.py                        # THE Flask backend server (port 5200). NOTE: there is NO
 │   │                                        #   root-level api_server.py.
-│   ├── routes/                              # 32 pipeline blueprints + infrastructure:
+│   ├── routes/                              # 33 pipeline blueprints + infrastructure:
 │   │   ├── cta_story.py                     # Story: /api/cta/*          tips_edu_story.py  /api/tips-edu/*
 │   │   ├── collection_story.py              # /api/collection-story/*    day_night_story.py  /api/day-night-story/*
 │   │   ├── moodboard_story.py               # /api/moodboard-story/*     product_specs_story.py /api/product-specs/*
@@ -125,6 +126,7 @@ marketing-automation/
 │   │   ├── house_tour_reel.py               # /api/house-tour-reel/* (Studio "House Tour" subtab 9; runs generate_house_tour_reel_pipeline.py)
 │   │   ├── this_mood_every_night_reel.py    # /api/this-mood-every-night-reel/* (Studio "This Mood Every Night" subtab 10; runs generate_this_mood_every_night_reel_pipeline.py)
 │   │   ├── virtual_staging_reel.py          # /api/virtual-staging-reel/* (Studio "Virtual Staging" subtab 11; Auto or Upload mode; runs generate_virtual_staging_reel_pipeline.py)
+│   │   ├── room_reveal_reel.py              # /api/room-reveal-reel/* (Studio "Room Reveal" subtab 12; one locked angle, empty-to-full build-up + outro; runs run_room_reveal_reel.py)
 │   │   ├── ad_cover.py                      # Ad Cover: /api/ad-cover/* (1:1 + 9:16 Story, per-fixture run)
 │   │   ├── christmas_banner.py              # Banner (Christmas + Sale + third, one run/row): /api/christmas-banner/*   sale_banner.py /api/sale-banner/* (API/CLI only)
 │   │   ├── queue_manager.py                 # In-memory FIFO job queue (/api/queue/*) — see §3
@@ -209,7 +211,7 @@ Feed/Reel monoliths follow the same scrape → Krea → Claude → blend → loc
 
 ### Server & frontend
 
-- There is **no root `api_server.py`**. The only Flask app is `UI Control/api_server.py` (registers 31 pipeline blueprints + auth/rows/queue/calendar infra), serving the SPA from `UI Control/dist`.
+- There is **no root `api_server.py`**. The only Flask app is `UI Control/api_server.py` (registers 33 pipeline blueprints + auth/rows/queue/calendar infra), serving the SPA from `UI Control/dist`.
 - Dev: `python "UI Control/api_server.py"` — port resolution `X_ZOHO_CATALYST_LISTEN_PORT` → `PORT` → `5200`. Production (Dockerfile): `gunicorn --bind 0.0.0.0:${PORT:-5200} --workers 1 --threads 8 --timeout 600 api_server:app` from `UI Control/`. **Keep `--workers 1`**: the queue and every pipeline route keep their state in memory, so extra worker processes each hold a different copy and runs look stuck or flicker.
 - **API security gate** (`UI Control/api_server.py::require_api_auth`, decision note `docs/memory/decisions/2026-10-12-api-hardening-pass.md`): every `/api/*` route is **deny-by-default**. Only `PUBLIC_API_PATHS` (`/api/health`, `/api/auth/*`) and CORS preflight skip the gate, and everything else must pass `is_authorized`. A new blueprint is therefore protected automatically, so do not add routes to the public list. Other guards: a `?pin=` query string is rejected (use the `Authorization: Bearer` / `X-Dashboard-PIN` headers); run `max_items` is clamped to `1..MAX_RUN_ITEMS` (10, `routes/common.py`); queue `run`/`status`/`stop` endpoints must be local paths (`queue_manager._is_safe_local_endpoint`, SSRF guard); request bodies are capped by `MAX_CONTENT_LENGTH` (64 MiB default); CORS is same-origin unless `ALLOWED_ORIGINS` is set; `/api/health?token=` uses `HEALTHCHECK_TOKEN`. Open mode (no PIN and no accounts) still lets everything through. Login accounts and the `STUDIO_*` env keys are in `.env.example` and `UI Control/README.md`; the full finding list is in `docs/SECURITY_AUDIT.md`.
 - Rebuild the frontend with `npm run build` (or `pnpm run build`) inside `UI Control/`.
@@ -225,7 +227,7 @@ Every record in every Story and Feed table must have a unique, human-readable Fo
 
 $$\text{Foreign Key ID} = \langle\text{Idea Abbr}\rangle\text{-}\langle\text{Format}\rangle\text{-}\langle\text{Fixture Code}\rangle\text{-}\langle\text{Row ID}\rangle$$
 
-- **Idea Abbr**: `CTA`, `TNE`, `CC`, `DN`, `MB`, `MB1`, `MB2`, `PCS`, `PCD`, `ST`, `MNF`, `TOT`, `OP3S`, `PS`, `PCR`, `BA`, `SRS`, `ADC`, `OATL`, `STR` (Sketch to Real; `STD` table aliases map to `STR`), `RBU` (Room Build-Up Reel), `HTR` (House Tour Reel), `TMEN` (This Mood Every Night Reel), `XMS` (Christmas/Sale Banner)
+- **Idea Abbr**: `CTA`, `TNE`, `CC`, `DN`, `MB`, `MB1`, `MB2`, `PCS`, `PCD`, `ST`, `MNF`, `TOT`, `OP3S`, `PS`, `PCR`, `BA`, `SRS`, `ADC`, `OATL`, `STR` (Sketch to Real; `STD` table aliases map to `STR`), `RBU` (Room Build-Up Reel), `RRV` (Room Reveal Reel), `HTR` (House Tour Reel), `TMEN` (This Mood Every Night Reel), `XMS` (Christmas/Sale Banner)
 - **Format**: `STORY` (9:16), `FEEDS` (4:5), `REEL` (9:16 video), `ADS` (Ad Cover row: carries the 1:1 cover and its 9:16 Story twin; the FK token stays `ADS`), or `BANNER` (Christmas/Sale Banner rows, `XMS-BANNER-ALL`)
 - **Fixture Code**: `CH` (Chandelier), `PE` (Pendant), `FL` (Floor Lamp), `TL` (Table Lamp), `CL` (Cluster Chandelier), `WL` (Wall Light), `CM` (Ceiling Mounted), `SET` (Multi-room / Carousel), `LR` (Living Room / Bedroom, One at a time Lights Reel), `NEW` / `SALE` / `STOCK` (New Collection / On Sale Designs / On Stock Designs, Ad Cover only), plus `LC` (Linear Chandelier) and `WS` (Wall Sconce) which appear only in `MB-REEL` table entries
 - **Examples**: `CTA-STORY-CH-24`, `TNE-FEEDS-FL-1`, `CC-FEEDS-SET-22`, `OP3S-FEEDS-PE-4`, `PCR-REEL-TL-1`
@@ -255,11 +257,19 @@ The Row Inspector modal queries `/api/rows?table_id=<table_id>` and constructs d
 ### E. Product Field Resolution & Item Tagging
 When splitting item names (`split_item_name`) or stamping two-line floating YOLO product tags (Line 1: Item Name, Line 2: Product Type), pipelines must extract `Item Name` and `Product Type` directly from the scraped Airtable record fields. Never construct or rely on synthetic fallback/proxy properties on runner classes (e.g. `category_label` or `fallback_category_label`). When writing educational tips or text fields where legacy column variations exist (such as `Tips 1..3` vs `Tip1..3`), pipelines must dual-write to both sets of fields if present in the table schema.
 
-### F. Universal Instagram Caption (`Caption Generated`)
-Every pipeline populates the **`Caption Generated`** field (`multilineText` type) via `content_automation.caption.generate_caption()` (Claude Sonnet 5 via Fal AI). Captions follow the canonical HomeCartel brand format: hook with emoji $\to$ `Item Name | Product Type` $\to$ 1-2 value sentences $\to$ CTA question $\to$ standard contact block $\to$ canonical hashtag line.
+### F. Feed & Reel Instagram Caption (`Caption Generated`)
+Only **Feed and Reel** pipelines populate the **`Caption Generated`** field (`multilineText`) via `content_automation.caption.generate_caption()` (Claude Sonnet 5 via Fal AI). **Story, Ad Cover and Banner pipelines generate no Instagram caption** (decision note: `docs/memory/decisions/2026-10-26-captions-feeds-and-reels-only.md`). The Sale Banner's `Sale Caption Left` / `Sale Caption Right` are calendar text baked into the image, not this field. Captions follow the canonical HomeCartel brand format: hook with emoji $\to$ `Item Name | Product Type` $\to$ 1-2 value sentences $\to$ CTA question $\to$ standard contact block $\to$ canonical hashtag line.
+- **Wired today**: Virtual Staging Reel. Existing caption values in other tables are left untouched; the column itself is not dropped.
 - **Non-blocking / fail-safe**: Claude or network failures automatically fallback to a deterministic branded caption template. Caption errors must **NEVER** block a row from reaching `Complete` or `Done`.
 - **Anchor product rule**: Single-product pipelines use that fixture; multi-product pipelines (e.g. 3–4 items) use the slot-0 anchor product for the single row caption.
 - **Bulk provisioning**: `scripts/ops/provision_caption_fields.py` adds this field idempotently across all 100+ tables.
+
+### G. Measured Scale Guard & Audit Fields
+Every product-to-room blend in the guarded pipelines runs through `content_automation/scale_guard.py::blend_with_scale_guard()` instead of calling Fal directly. It measures a reference already visible in the room, sets the fixture to its real Akeneo `Measurement` size (or a conservative estimate when the row has none), checks the finished blend with Claude Vision, and retries once when the result is more than ±15% off. The full walkthrough, cost, and pipeline list live in [`docs/SCALE_GUARD.md`](docs/SCALE_GUARD.md).
+- **Audit fields:** `Scale Check` (`Pass`, `Pass After Retry`, `Too Big`, `Too Small`, `No Reference`, `Skipped`, `Error`), `Scale Retry` (`Not Needed`, `Retried`, `Retry Failed`), and `Scale Audit` (per-slot detail). `write_scale_fields()` must never fail a run.
+- **Off switch:** `SCALE_GUARD_ENABLED=0` does one plain blend with no measure, check or retry (the row records `Scale Check = Skipped`); `SCALE_GUARD_TOLERANCE` changes the ±15% default (clamped `0.05`–`0.50`). The guard adds no new vendor.
+- **Provisioning:** `python scripts/ops/provision_scale_fields.py [--table-id ...] [--dry-run]` creates the columns idempotently.
+- **Prompt-only exception:** One at a Time Lights Reel and This or That Story use `content_automation/prompts/scale.py::scale_clause()` with no audit fields. Product Showcase Feed, Product Closeup Specs/Description Story and the banners do not blend a product into a room at all.
 
 ---
 
@@ -307,7 +317,7 @@ Font sizes, logo boxes, watermark templates, shadows, auto-scaling and how to pr
 6. **Day & Night Feed** ([`docs/feeds/DAY_NIGHT_FEED.md`](docs/feeds/DAY_NIGHT_FEED.md), prefix: `DN-FEEDS`) — 4 tables (Chandelier, Pendant, Floor Lamp, Table Lamp). Day + Night 4:5 carousel slides.
 7. **Product Showcase Feed** ([`docs/feeds/PRODUCT_SHOWCASE_FEED.md`](docs/feeds/PRODUCT_SHOWCASE_FEED.md), prefix: `PS-FEEDS`) — 1 table. 3-podium group slide + 3 solo showcase slides (4 slides).
 
-### Reel Pipelines (12 Pipelines, 9:16 Video)
+### Reel Pipelines (13 Pipelines, 9:16 Video)
 1. **Day & Night Reel** ([`docs/reels/DAY_NIGHT_REEL.md`](docs/reels/DAY_NIGHT_REEL.md)) — 18-second day-to-night timelapse video with AI jazz audio.
 2. **Product Closeup Reel** ([`docs/reels/PRODUCT_CLOSEUP_REEL.md`](docs/reels/PRODUCT_CLOSEUP_REEL.md)) — 15-second product inspection reel.
 3. **Before & After Reel** ([`docs/reels/BEFORE_AND_AFTER_REEL.md`](docs/reels/BEFORE_AND_AFTER_REEL.md)) — 15-second transformation reel.
@@ -320,6 +330,7 @@ Font sizes, logo boxes, watermark templates, shadows, auto-scaling and how to pr
 10. **Room Build-Up Reel** ([`docs/reels/ROOM_BUILD_UP_REEL.md`](docs/reels/ROOM_BUILD_UP_REEL.md), prefix: `RBU-REEL`) — ~4.8-second stop-motion reel (hard cuts, camera locked): two rooms (Pendant Light, Chandelier) each go from empty to furnished in 4 steps. Built in reverse: Krea furnished room → Claude blend prompt → Nano Banana Pro fixture blend → Claude Vision removal plan → 3 chained Nano Banana Pro removals (Full → Layer 2 → Layer 1 → Empty, with local similarity/detail checks) → local FFmpeg frame-exact assembly + ElevenLabs pop/whoosh sounds. Studio Reel subtab 8 "Room Build-Up" (route `/api/room-build-up-reel/*`): single card on table `tblhq1rz9CVCD7yiR`.
 11. **This Mood Every Night Reel** ([`docs/reels/THIS_MOOD_EVERY_NIGHT_REEL.md`](docs/reels/THIS_MOOD_EVERY_NIGHT_REEL.md), prefix: `TMEN-REEL`) — ~12-second luxury night-interior reel: 7 fixtures (Chandelier, Pendant ×2, Table Lamp, Chandelier, Floor Lamp, Wall Sconce) in 7 Krea night rooms → Claude Sonnet 5 Vision analysis + blend prompts → Nano Banana Pro blends with YOLO-World tags → Kling (or local Ken Burns) motion clips → ElevenLabs lo-fi music → local FFmpeg 7 snap cuts @ 1.35s + the centered lowercase `this mood every night` title + animated product tags + 2.5s outro. 8 phases. Studio Reel subtab 10 "This Mood Every Night" (route `/api/this-mood-every-night-reel/*`): single card on table `tblDa5UOTUTlU1Xxy`.
 12. **Virtual Staging Reel** ([`docs/reels/VIRTUAL_STAGING_REEL.md`](docs/reels/VIRTUAL_STAGING_REEL.md), prefix: `VST-REEL-SET`) — ~12.5-second empty-to-furnished assembly reel: 1 fresh chandelier from Akeneo (strict Shopify check) → In Auto mode: Krea luxury furnished interior → Claude Sonnet 5 vision blending prompt → Nano Banana Pro room blend → Claude Vision stripping prompt + Nano Banana Pro empty room generation. In Upload mode: empty room uploaded via Studio → Claude Sonnet 5 staging prompt → Nano Banana Pro staged room blend as end frame (stripping skipped). Both modes → Fal AI Kling 3.0 Pro queue (10s empty-to-furnished assembly animation interpolating between empty start frame and staged end frame, audio off) → Local Pillow product tag pill + HomeCartel 2.5s Outro card + reference soundtrack (`assets/virtual_staging_track.mp3`) muxing + Claude Instagram caption. 7 phases. Studio Reel subtab 11 "Virtual Staging" (route `/api/virtual-staging-reel/*`): single card on table via `AIRTABLE_TABLE_ID_VIRTUAL_STAGING_REEL`.
+13. **Room Reveal Reel** ([`docs/reels/ROOM_REVEAL_REEL.md`](docs/reels/ROOM_REVEAL_REEL.md), prefix: `RRV-REEL-SET`) — 5.83-second reel from ONE locked camera angle: 1 fresh fixture → Krea furnished room → Claude blend prompt (measurement-aware) → scale-guarded Nano Banana Pro blend into `Full` → Claude Vision removal plan → 3 chained Nano Banana Pro removals (`Full` → `Layer 2` → `Layer 1` → `Empty`, local similarity/detail checks reject any re-angle) → local FFmpeg hard cuts that play the same stills in reverse (`Empty`→`Layer 1`→`Layer 2`→`Full`, 24/20/20/36 frames = 3.33s) + ElevenLabs pop/whoosh; the `Raw Video` is that silent build-up, the `Final Video` adds the 2.5s HomeCartel outro card (5.83s total). 7 phases. Studio Reel subtab 12 "Room Reveal" (route `/api/room-reveal-reel/*`): single card on table `tbldk5nac1UeYHd77` (`AIRTABLE_TABLE_ID_ROOM_REVEAL_REEL`).
 
 ### Ad Cover Pipeline (1 Pipeline, 1:1 Square + 9:16 Story)
 1. **Ad Cover** ([`docs/ads/AD_COVER.md`](docs/ads/AD_COVER.md), prefix: `ADC-ADS`) — Standalone 4th top-level Studio tab (not a sub-tab family): one run button per fixture. All 9 fixtures are fully runnable with dedicated Airtable tables (Chandelier: `tblwIsDGZBPuYJV2Z`, Floor Lamp: `tbl27FKuDUD4FdJUR`, Table Lamp: `tblk3RfFqawHZ5Wrk`, Cluster Chandelier: `tbltouegkjgQwdr1u`, Pendant Light: `tbl99Cwda2Xn93giT`, Wall Light: `tblUO5nybG9fIkhTT`, New Collection: `tbluMexgzcWE1pDZJ`, On Sale Designs: `tbleQIVBooVazAyk3`, On Stock Designs: `tblX7tpTJhfH0UXmm`). 7 phases: highest-priced newest Akeneo fixture → Krea 1:1 interior → Claude blending prompt → Nano Banana Pro blend → **local Pillow** composite of the transparent ad-cover overlay → Nano Banana Pro **9:16 extension** of that blend → **local Pillow** composite of the 9:16 story overlay (tagline + logo baked into PNG overlays, zero API cost for typography). One run produces **both** the 1:1 `Ad Cover Converted Image` and the 9:16 `Ad Cover Converted Image Story`; `Complete` is written by Phase 7 only.
@@ -411,8 +422,16 @@ python run_one_at_a_time_lights_reel.py --phase all --max-rows 1
 # Run the House Tour Reel (thin alias; --phase all|scrape, --max-rows N, --record-id, --force, --no-music; --phase generate requires --record-id)
 python run_house_tour_reel.py --phase all --max-rows 1
 
+# Run the Room Reveal Reel (thin alias; --phase all|scrape|generate, --max-rows N, --record-id, --force,
+# --category, --moodboard-id, --prompt; table tbldk5nac1UeYHd77)
+python run_room_reveal_reel.py --max-rows 1
+
 # Provision the House Tour Reel Airtable schema (idempotent)
 python scratch/ensure_house_tour_fields.py --table-id tblqXkdDw4O7hxJS4
+
+# Provision the measured scale-guard audit columns (idempotent; --table-id for one table)
+python scripts/ops/provision_scale_fields.py --dry-run
+python scripts/ops/provision_scale_fields.py
 
 # Run the Ad Cover pipeline — modes: scrape|interior|prompt|blend|conversion|story-blend|story-conversion|all
 # One --mode all run produces BOTH the 1:1 cover and the 9:16 Story twin; see docs/ads/AD_COVER.md §7

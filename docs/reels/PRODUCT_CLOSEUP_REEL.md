@@ -27,6 +27,8 @@ The **Product Closeup Reel Automation Pipeline** generates premium **9:16 vertic
 | **Phase 4.5** | **Outro Attachment** | Local Storage | Zero-API Local Outro Sync | `assets/outro_layout.jpg` | `Outro` |
 | **Phase 5** | **FFmpeg Video Reel Assembly** | Local FFmpeg | Zero-API Video Engine + Poppins Typography | 4 stills + Item Names + Outro | `Final Video` -> Status: `Completed` (`C`) |
 
+> **Measured scale guard:** every product-to-room blend goes through `content_automation/scale_guard.py`. A Claude Vision measurement sets the fixture to its real Akeneo size (or a conservative estimate when the row has none), and a second check retries once when the finished blend is more than ±15% off. Audit fields: `Scale Check`, `Scale Retry`, `Scale Audit`. `SCALE_GUARD_ENABLED=0` keeps the measurements in the prompt but skips both paid vision calls. Details: [`docs/SCALE_GUARD.md`](../SCALE_GUARD.md).
+
 ---
 
 ## 3. Foreign Key ID Convention & Examples

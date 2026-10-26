@@ -26,6 +26,8 @@ The **Style This Story Automation Pipeline** generates high-engagement interacti
 | **Phase 4** | **Claude Vibe & Color Vision**            | Fal AI / OpenRouter     | `anthropic/claude-sonnet-5`                                                                                                                                                                                                                | `style_this02.jpg`, `03.jpg`, `04.jpg`        | Populates `Style This Text Generated[1-3]` & `Style This Auto Generated Color[1-3]`                               |
 | **Phase 5** | **Local PIL Typography Engine**           | **Local Python Pillow** | **Zero-API Local Python Script**<br>Dynamic Pill & Typography                                                                                                                                                                              | `Style This Blended` + Vibe Fields + `Logo`   | Uploads 3 cards to `Double Tap Converted` & all 4 cards to `STORY - Style This? (4)` -> Status: `Completed` (`C`) |
 
+> **Measured scale guard:** every product-to-room blend goes through `content_automation/scale_guard.py`. A Claude Vision measurement sets the fixture to its real Akeneo size (or a conservative estimate when the row has none), and a second check retries once when the finished blend is more than ±15% off. Audit fields: `Scale Check`, `Scale Retry`, `Scale Audit`. `SCALE_GUARD_ENABLED=0` keeps the measurements in the prompt but skips both paid vision calls. Details: [`docs/SCALE_GUARD.md`](../SCALE_GUARD.md).
+
 ---
 
 ## 3. Foreign Key ID Convention & Examples

@@ -6,7 +6,6 @@ from pathlib import Path
 import sys
 import unittest
 from unittest.mock import MagicMock
-import unittest.mock
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -154,7 +153,7 @@ class GenerateCaptionTest(unittest.TestCase):
 
 
 class PipelineWiringTest(unittest.TestCase):
-    """Task 3: VST swap + CTA pilot wiring use the shared helper. Never touches .env."""
+    """VST wiring uses the shared helper. Captions are reels/feeds-only (2026-10-26)."""
 
     def test_vst_field_alias_and_shared_helper(self):
         import inspect
@@ -166,72 +165,6 @@ class PipelineWiringTest(unittest.TestCase):
         src = inspect.getsource(vst.phase7_assemble_final_reel)
         self.assertIn("generate_caption", src)
         self.assertNotIn("cap_prompt", src)
-
-    def test_cta_caption_constants(self):
-        import generate_cta_story_pipeline as cta
-
-        self.assertEqual(cta.CAPTION_GENERATED_FIELD, C.CAPTION_FIELD)
-        self.assertEqual(cta.CAPTION_FIELD_TYPE, "multilineText")
-        self.assertTrue(callable(cta.generate_caption_phase))
-
-    def _cta_record(self):
-        return {
-            "id": "recCAP1",
-            "fields": {
-                "Item Name": "Aurelia Chandelier",
-                "Product Type": "Chandelier",
-                "Category": "chandeliers",
-                "CTA Blended Image": [{"url": "https://example.com/blend.jpg"}],
-                "CTA Converted Image": [{"url": "https://example.com/conv.jpg"}],
-            },
-        }
-
-    def test_cta_caption_phase_success_writes_exact_format(self):
-        import generate_cta_story_pipeline as cta
-
-        fal = MagicMock()
-        airtable = MagicMock()
-        airtable.list_records.return_value = [self._cta_record()]
-        with unittest.mock.patch.object(
-            cta, "generate_caption", return_value=(_valid_raw(), False)
-        ) as mock_gen:
-            ok = cta.generate_caption_phase(fal, airtable)
-        self.assertTrue(ok)
-        airtable.ensure_fields.assert_called_once_with({C.CAPTION_FIELD: "multilineText"})
-        mock_gen.assert_called_once()
-        args, _ = mock_gen.call_args
-        self.assertEqual(args[1], "Aurelia Chandelier")
-        written = airtable.update_records.call_args.args[0]
-        self.assertEqual(written[0][0], "recCAP1")
-        self.assertIn("Aurelia Chandelier | Chandelier", written[0][1][C.CAPTION_FIELD])
-        self.assertTrue(written[0][1][C.CAPTION_FIELD].rstrip().endswith(C.HASHTAG_LINE))
-
-    def test_cta_caption_phase_fallback_never_raises(self):
-        import generate_cta_story_pipeline as cta
-
-        fal = MagicMock()
-        fal.generate_vision_prompt.side_effect = RuntimeError("boom")
-        airtable = MagicMock()
-        airtable.list_records.return_value = [self._cta_record()]
-        ok = cta.generate_caption_phase(fal, airtable)  # real helper -> fallback
-        self.assertTrue(ok)
-        written = airtable.update_records.call_args.args[0]
-        caption = written[0][1][C.CAPTION_FIELD]
-        self.assertIn("Aurelia Chandelier | Chandelier", caption)
-        self.assertIn("Inquire now!", caption)
-
-    def test_cta_caption_phase_update_failure_never_raises(self):
-        import generate_cta_story_pipeline as cta
-
-        fal = MagicMock()
-        airtable = MagicMock()
-        airtable.list_records.return_value = [self._cta_record()]
-        airtable.update_records.side_effect = RuntimeError("airtable down")
-        with unittest.mock.patch.object(
-            cta, "generate_caption", return_value=(_valid_raw(), False)
-        ):
-            ok = cta.generate_caption_phase(fal, airtable)
-        self.assertTrue(ok)
 
 
 if __name__ == "__main__":

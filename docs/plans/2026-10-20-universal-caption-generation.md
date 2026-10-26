@@ -1,5 +1,7 @@
 # Universal Auto-Caption Generation Implementation Plan
 
+> **Superseded in part (2026-10-26):** captions are now feeds-and-reels only. The caption phase was removed from the six Story pipelines, Ad Cover and both banners. See [`docs/memory/decisions/2026-10-26-captions-feeds-and-reels-only.md`](../memory/decisions/2026-10-26-captions-feeds-and-reels-only.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Every pipeline run auto-generates and stores a HomeCartel Instagram caption in the exact user format into a new `Caption Generated` Airtable field on every table.

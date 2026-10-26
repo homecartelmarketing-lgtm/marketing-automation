@@ -27,6 +27,8 @@ The **Collection Category Story Automation Pipeline** generates branded **9:16 v
 | **Phase 3** | **Nano Banana Pro Blending** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `16:9`, Resolution: `1K` | `Interior[1-3]` + `Furniture[1-3]` + `Prompt[1-3]` | `Collection Category Blended Image[1-3]` -> Status: `Processing` (`P`) |
 | **Phase 4** | **9:16 Auto-Grid & Overlays** | **Local Python Pillow** | **Zero-API Local Python Script**<br>3-Row Stacking + Typography | `Blended Image 1/2/3` + `Logo` + `Item Names` | `Collection Category Converted` -> Status: `Complete` (`C`) |
 
+> **Measured scale guard:** every product-to-room blend goes through `content_automation/scale_guard.py`. A Claude Vision measurement sets the fixture to its real Akeneo size (or a conservative estimate when the row has none), and a second check retries once when the finished blend is more than ±15% off. Audit fields: `Scale Check`, `Scale Retry`, `Scale Audit`. `SCALE_GUARD_ENABLED=0` keeps the measurements in the prompt but skips both paid vision calls. Details: [`docs/SCALE_GUARD.md`](../SCALE_GUARD.md).
+
 ---
 
 ## 3. Foreign Key ID Convention & Examples

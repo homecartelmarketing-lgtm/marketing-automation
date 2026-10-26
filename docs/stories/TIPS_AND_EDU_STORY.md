@@ -24,6 +24,8 @@ The **Tips & Educational Story Automation Pipeline** generates branded **9:16 ve
 | **Phase 4** | **Nano Banana Pro Blending** | Fal AI + Local YOLO | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | Interior + Product + Prompt | `Blended Image` & `Multiple Angle Blended Image` -> Status: `In Progress` (`P`) |
 | **Phase 5** | **Story Layout (local Pillow)** | Fal AI (Claude tip only) + local Pillow | `anthropic/claude-sonnet-5` writes the tip; layout built by `overlay.py::create_tips_edu_story_image` (zero image-API cost) | `Blended Image` (the room photo is the background) | `Tips and Edu Story Converted` -> Status: `Completed` (`C`) |
 
+> **Measured scale guard:** every product-to-room blend goes through `content_automation/scale_guard.py`. A Claude Vision measurement sets the fixture to its real Akeneo size (or a conservative estimate when the row has none), and a second check retries once when the finished blend is more than ±15% off. Audit fields: `Scale Check`, `Scale Retry`, `Scale Audit`. `SCALE_GUARD_ENABLED=0` keeps the measurements in the prompt but skips both paid vision calls. Details: [`docs/SCALE_GUARD.md`](../SCALE_GUARD.md).
+
 ---
 
 ## 3. Foreign Key ID Convention & Examples

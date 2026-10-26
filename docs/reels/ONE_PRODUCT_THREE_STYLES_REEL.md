@@ -27,6 +27,8 @@ The **1 Product, 3 Styles Reel Automation Pipeline** generates high-engagement *
 | **Phase 4** | **Nano Banana Pro Multi-Blend** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `9:16`, Resolution: `1K` | `Interior[1-3]` + `Furniture` + `Prompt[1-3]` | `1 Product 3 Style Blended` (3 images) -> Status: `Phase 4 - Ready` (`P`) |
 | **Phase 5** | **YOLO Tagging & Silent Reel Video** | Local Pillow + YOLO-World + FFmpeg | Zero-API Local Compositor | 3 Blended Stills + Outro Layout | `Blended Image with Name text`, `Converted Reel` -> Status: `Complete` (`C`) |
 
+> **Measured scale guard:** every product-to-room blend goes through `content_automation/scale_guard.py`. A Claude Vision measurement sets the fixture to its real Akeneo size (or a conservative estimate when the row has none), and a second check retries once when the finished blend is more than ±15% off. Audit fields: `Scale Check`, `Scale Retry`, `Scale Audit`. `SCALE_GUARD_ENABLED=0` keeps the measurements in the prompt but skips both paid vision calls. Details: [`docs/SCALE_GUARD.md`](../SCALE_GUARD.md).
+
 ---
 
 ## 3. Foreign Key ID Convention & Examples

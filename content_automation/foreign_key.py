@@ -220,6 +220,9 @@ TABLE_PREFIX_MAP: dict[str, str] = {
     # 25. Virtual Staging Reel
     "tblVirtualStagingReel": "VST-REEL-SET",
     "tblPYG5Ed4XURecu6": "VST-REEL-SET",
+    # 26. Room Reveal Reel (one locked angle, empty-to-full build-up + outro)
+    "tblRoomRevealReel": "RRV-REEL-SET",
+    "tbldk5nac1UeYHd77": "RRV-REEL-SET",
 }
 
 # Dynamically register any Sketch to Real / Draw Reel env overrides
@@ -239,6 +242,7 @@ for _env_key, _prefix in (
     ("AIRTABLE_TABLE_ID_CHRISTMAS_BANNER", "XMS-BANNER-ALL"),
     ("AIRTABLE_TABLE_ID_SALE_BANNER", "XMS-BANNER-ALL"),
     ("AIRTABLE_TABLE_ID_ROOM_BUILD_UP_REEL", "RBU-REEL-SET"),
+    ("AIRTABLE_TABLE_ID_ROOM_REVEAL_REEL", "RRV-REEL-SET"),
     ("AIRTABLE_TABLE_ID_HOUSE_TOUR_REEL", "HTR-REEL-SET"),
     ("AIRTABLE_TABLE_ID_THIS_MOOD_EVERY_NIGHT_REEL", "TMEN-REEL-SET"),
     ("AIRTABLE_TABLE_ID_VIRTUAL_STAGING_REEL", "VST-REEL-SET"),
@@ -297,19 +301,21 @@ def resolve_table_prefix(table_id: str, table_name: str = "") -> str:
         idea = "SRS"
     elif "ad cover" in t_lower:
         idea = "ADC"
+    elif "room reveal" in t_lower:
+        idea = "RRV"
     elif "virtual staging" in t_lower or "vst" in t_lower:
         idea = "VST"
 
     if "ad cover" in t_lower or idea == "ADC":
         content_type = "ADS"
-    elif "reel" in t_lower or idea in ("STR", "STD", "OATL", "PCR", "SRS", "BA", "RBU", "HTR", "TMEN", "VST"):
+    elif "reel" in t_lower or idea in ("STR", "STD", "OATL", "PCR", "SRS", "BA", "RBU", "RRV", "HTR", "TMEN", "VST"):
         content_type = "REEL"
     elif "feed" in t_lower:
         content_type = "FEEDS"
     else:
         content_type = "STORY"
 
-    fixture = resolve_fixture_abbr(table_name)
+    fixture = "SET" if idea == "RRV" else resolve_fixture_abbr(table_name)
     return f"{idea}-{content_type}-{fixture}"
 
 

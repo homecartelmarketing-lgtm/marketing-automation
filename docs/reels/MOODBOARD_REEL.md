@@ -14,6 +14,8 @@ The **Moodboard Reel Automation Pipeline** generates high-end **9:16 vertical vi
   - **Branded Outro**: Final call-to-action slide.
 - **Audio Profile**: 20.0 seconds Stereo AAC @ 192 kbps background music.
 
+> **Per-photo typography (current state):** the AI moodboard conversion is deliberately **text-free** (`JSON Prompts/Moodboard Reel/converted_moodboard.json` instructs no text), so the `Converted Moodboard` images carry no lettering. The blend slides keep their YOLO item-name tags (`Blended Image with Name text`). A local Pillow stamp of the three `Texture` words per panel (written to `Moodboard Converted with Text`) existed as Phase 4.2 until it was removed on 2026-09-21 and is no longer written. Restoring it is a pending decision — see [`../REMAINING_WORK.md`](../REMAINING_WORK.md) §4.
+
 ---
 
 ## 2. Model Stack Phase Table
@@ -27,6 +29,8 @@ The **Moodboard Reel Automation Pipeline** generates high-end **9:16 vertical vi
 | **Phase 4** | **3-Panel Moodboard Conversion**| Fal AI | `fal-ai/nano-banana-pro/edit`<br>Blended + Reference Template | 4 Blends + Reference Photo + Prompt | `Converted Moodboard` (4 raw 3-panel images) |
 | **Phase 4.5** | **Music Generation** (Optional)| Fal AI ElevenLabs | `fal-ai/elevenlabs/music`<br>120 BPM luxury lounge house music | Music Prompt | `Music Generated` (20s audio) |
 | **Phase 5** | **Reel Video Assembly** | Local FFmpeg | 2x2 collage + 8 slides + Outro + Audio mix | Converted Moodboards + Name-tagged Blends + Audio | `REEL - Moodboard Reel` -> Status: `Complete` |
+
+> **Measured scale guard:** every product-to-room blend goes through `content_automation/scale_guard.py`. A Claude Vision measurement sets the fixture to its real Akeneo size (or a conservative estimate when the row has none), and a second check retries once when the finished blend is more than ±15% off. Audit fields: `Scale Check`, `Scale Retry`, `Scale Audit`. `SCALE_GUARD_ENABLED=0` keeps the measurements in the prompt but skips both paid vision calls. Details: [`docs/SCALE_GUARD.md`](../SCALE_GUARD.md).
 
 ---
 
