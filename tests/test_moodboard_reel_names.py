@@ -114,7 +114,9 @@ class Phase3TaggingTests(unittest.TestCase):
             workdir = Path(tmp)
             fake_img = workdir / "blend.jpg"
             fake_img.write_bytes(b"x")
-            with mock.patch.object(mb, "blend_slot", return_value=mb.LocalImage(fake_img, "blend.jpg")), \
+            with mock.patch.object(mb, "blend_slot", return_value=(mb.LocalImage(fake_img, "blend.jpg"), mock.Mock())), \
+                mock.patch.object(mb, "ensure_scale_fields", return_value=None), \
+                mock.patch.object(mb, "write_scale_fields", return_value=None), \
                 mock.patch.object(mb, "_clear_attachment_field", return_value=None), \
                 mock.patch.object(mb, "_ensure_field", return_value=None), \
                 mock.patch.object(mb, "_upload_attachment", return_value=None), \

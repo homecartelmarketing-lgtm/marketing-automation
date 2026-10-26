@@ -40,7 +40,16 @@ from content_automation.akeneo_client import AkeneoClient, split_item_name
 from content_automation.config import load_settings
 from content_automation.errors import AssetValidationError, AutomationError, ProviderError
 from content_automation.fal_client import FalClient
-from content_automation.prompts import build_vision_blending_instruction
+from content_automation.prompts.scale import (
+    blend_instruction_from_fields,
+    measurement_for_slot,
+    product_type_for_slot,
+)
+from content_automation.scale_guard import (
+    blend_with_scale_guard,
+    ensure_scale_fields,
+    write_scale_fields,
+)
 from content_automation.krea_client import KreaClient
 from content_automation.item_tagger import (
     TARGET_BLENDED_FIELD,
@@ -409,6 +418,7 @@ class OneProductThreeStylesRunner:
     def preflight(self) -> None:
         self.airtable.ensure_fields(self._schema_fields())
         self.airtable.ensure_single_select_options("Status", self._status_values())
+        ensure_scale_fields(self.airtable)
         self.logger.event(
             "preflight_completed", table_id=self.table_id, preset=self.preset.key
         )
@@ -981,7 +991,9 @@ class OneProductThreeStylesRunner:
             interior_url = interior_urls[idx]
             prompt_field = spec.target_prompt_field
 
-            system_instruction = build_vision_blending_instruction(
+            system_instruction = blend_instruction_from_fields(
+                fields,
+                0,
                 interior_label=f"Modern Room Interior ({spec.name})",
                 item_name=raw_item_name,
                 aspect_ratio="4:5",
@@ -1054,6 +1066,10 @@ class OneProductThreeStylesRunner:
 
         blended_paths: list[Path] = []
         fal_banana_logs: list[dict[str, Any]] = []
+        scale_results: list[tuple[int, Any]] = []
+        product_type = product_type_for_slot(fields, 0)
+        measurement = measurement_for_slot(fields, 0)
+        item_name = str(fields.get(ITEM_NAME_FIELD) or "").strip()
 
         for idx, spec in enumerate(self.preset.room_styles):
             prompt_field = spec.target_prompt_field
@@ -1073,13 +1089,21 @@ class OneProductThreeStylesRunner:
                 f"  [{idx + 1}/3] Blending Style {idx + 1} ({spec.name}) with Fal AI Nano Banana Pro (4:5, 1K)...",
                 flush=True,
             )
-            result_url = self.fal.generate(
+            scale_result = blend_with_scale_guard(
+                self.fal,
                 prompt=prompt,
-                image_urls=[interior_url, furniture_url],
+                room_url=interior_url,
+                product_url=furniture_url,
+                product_type=product_type,
+                measurement=measurement,
+                item_name=item_name,
+                label="the lighting fixture",
                 aspect_ratio=FAL_NANO_ASPECT_RATIO,
                 resolution=FAL_NANO_RESOLUTION,
                 model=FAL_NANO_MODEL,
             )
+            result_url = scale_result.image_url
+            scale_results.append((idx, scale_result))
             self._download(result_url, destination)
             self._validate_image_file(destination, f"Blended Style {idx + 1}")
             blended_paths.append(destination)
@@ -1100,6 +1124,9 @@ class OneProductThreeStylesRunner:
                     "resolution": FAL_NANO_RESOLUTION,
                 }
             )
+
+        if scale_results:
+            write_scale_fields(self.airtable, record_id, scale_results)
 
         # Auto-tag furniture item name onto all 3 blended slides IN PLACE (zero-cost local YOLO-World)
         category_defaults = {

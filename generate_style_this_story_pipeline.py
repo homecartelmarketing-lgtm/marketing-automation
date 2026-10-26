@@ -59,7 +59,12 @@ from content_automation.overlay import (
     create_style_this_double_tap_slide,
     create_style_this_slide_1,
 )
-from content_automation.prompts import build_vision_blending_instruction
+from content_automation.prompts.scale import (
+    blend_instruction_from_fields,
+    measurement_for_slot,
+    product_type_for_slot,
+)
+from content_automation.scale_guard import blend_with_scale_guard, write_scale_fields
 from content_automation.scraping import (
     FurnitureItemScrapeRunner,
     ScrapeAirtableClient,
@@ -473,7 +478,9 @@ def generate_blending_prompts_for_style_this(
             prompts.append(existing_prompt)
             continue
 
-        instruction = build_vision_blending_instruction(
+        instruction = blend_instruction_from_fields(
+            fields,
+            idx - 1,
             interior_label=f"Room Interior ('{int_field}')",
             item_name=raw_item_name,
             aspect_ratio="9:16",
@@ -525,15 +532,23 @@ def generate_blends_for_style_this(
 
     blended_urls: list[str] = []
     downloaded_files = []
+    scale_results = []
 
     for idx, (int_url, prompt_text, filename) in enumerate(zip(interior_urls, prompts, BLENDED_FILENAMES), start=1):
         print(f"  [INFO] Blending slot {idx}/4 ({filename})...")
-        image_url = fal.generate(
+        scale_result = blend_with_scale_guard(
+            fal,
             prompt=prompt_text,
-            image_urls=[int_url, furniture_url],
+            room_url=int_url,
+            product_url=furniture_url,
+            product_type=product_type_for_slot(fields, 0),
+            measurement=measurement_for_slot(fields, 0),
+            item_name=str(item_label),
             aspect_ratio=ASPECT_RATIO_9_16,
             model=NANO_BANANA_PRO,
         )
+        image_url = scale_result.image_url
+        scale_results.append((idx - 1, scale_result))
         blended_urls.append(image_url)
 
         resp = requests.get(image_url, stream=True)
@@ -549,6 +564,9 @@ def generate_blends_for_style_this(
     target_blended_field = resolve_table_field(airtable, [BLENDED_FIELD, "Style This Blended Image", "Blended Image"], BLENDED_FIELD)
     for temp_img, filename in downloaded_files:
         airtable.upload_attachment(record_id, target_blended_field, temp_img, filename)
+
+    if scale_results:
+        write_scale_fields(airtable, record_id, scale_results)
 
     # Auto-tag furniture item name onto 9:16 blended room photos using zero-cost local YOLO-World
     try:

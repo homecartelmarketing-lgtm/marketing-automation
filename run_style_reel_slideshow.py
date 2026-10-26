@@ -78,7 +78,12 @@ from content_automation.akeneo_client import AkeneoClient, first_attribute
 from content_automation.config import load_settings
 from content_automation.errors import AssetValidationError, AutomationError, ProviderError
 from content_automation.fal_client import FalClient
-from content_automation.prompts import build_vision_blending_instruction
+from content_automation.prompts.scale import blend_instruction_from_fields, measurement_for_slot
+from content_automation.scale_guard import (
+    blend_with_scale_guard,
+    ensure_scale_fields,
+    write_scale_fields,
+)
 from content_automation.krea_client import KreaClient
 from content_automation.media import attachment_filename, download_to_temp_file
 from content_automation.models import LocalImage
@@ -1182,7 +1187,9 @@ def run_phase_3_for_record(
             print(f"    [DRY RUN] Would generate prompt for {slot.blending_prompt_field}")
             continue
 
-        instruction = build_vision_blending_instruction(
+        instruction = blend_instruction_from_fields(
+            fields,
+            slot.slot_index - 1,
             interior_label=f"Room Interior ('{slot.interior_field}')",
             item_name=item_name,
             aspect_ratio="9:16",
@@ -1311,6 +1318,7 @@ def run_phase_4_for_record(
             "Blended Image5": "multipleAttachments",
         }
         airtable.ensure_fields(required_fields)
+        ensure_scale_fields(airtable)
         update_record_status(airtable, record_id, STATUS_PROCESSING)
 
     record = airtable.get_record(record_id)
@@ -1319,6 +1327,7 @@ def run_phase_4_for_record(
 
     phase_start = time.monotonic()
     blended_log_entries: list[dict[str, Any]] = []
+    scale_results: list[tuple[int, Any]] = []
     all_slots_succeeded = True
 
     for slot in SLOTS:
@@ -1364,15 +1373,25 @@ def run_phase_4_for_record(
         slot_start = time.monotonic()
         try:
             print(f"    Sending image blending request to Fal AI Nano Banana Pro...")
-            blended_url = retry_api_call(
-                fal.generate,
-                blending_prompt,
-                [interior_url, furniture_url],
-                aspect_ratio=BLENDING_ASPECT_RATIO,
-                resolution=BLENDING_RESOLUTION,
-                model=FAL_BLENDING_MODEL,
-                description=f"Fal AI blending for Slot {slot.slot_index} ({slot.label})",
+            slot_index = slot.slot_index
+            scale_result = retry_api_call(
+                lambda: blend_with_scale_guard(
+                    fal,
+                    prompt=blending_prompt,
+                    room_url=interior_url,
+                    product_url=furniture_url,
+                    product_type=str(fields.get(f"Product Type{slot_index}") or ""),
+                    measurement=measurement_for_slot(fields, slot_index - 1),
+                    item_name=item_name,
+                    label=f"the {slot.label.lower()}",
+                    aspect_ratio=BLENDING_ASPECT_RATIO,
+                    resolution=BLENDING_RESOLUTION,
+                    model=FAL_BLENDING_MODEL,
+                ),
+                description=f"Fal AI blending for Slot {slot_index} ({slot.label})",
             )
+            blended_url = scale_result.image_url
+            scale_results.append((slot_index - 1, scale_result))
             print(f"    [OK] Blended image generated: {blended_url}")
 
             # Download & convert to standard JPEG
@@ -1425,6 +1444,9 @@ def run_phase_4_for_record(
         except Exception as err:
             print(f"    [ERROR] Failed blending Slot {slot.slot_index}: {err}")
             all_slots_succeeded = False
+
+    if scale_results:
+        write_scale_fields(airtable, record_id, scale_results)
 
     if execute and blended_log_entries:
         total_duration = round(time.monotonic() - phase_start, 2)

@@ -6,7 +6,6 @@ from .base import BaseWorkflow
 
 import os
 
-NANO_BANANA_PRO = "nano-banana-pro"
 SEEDANCE_2_FAST = "bytedance/seedance-2-fast"
 DAY_NIGHT_REEL_DURATION = 15
 DAY_NIGHT_REEL_GENERATE_AUDIO = os.getenv("DAY_NIGHT_GENERATE_MUSIC", "false").strip().lower() in ("true", "1", "yes")
@@ -26,7 +25,7 @@ class DayNightReelWorkflow(BaseWorkflow):
     """
 
     requirements = ()
-    estimate = CallEstimate(krea=0, qwen=0, kie=2)
+    estimate = CallEstimate(krea=0, qwen=0, fal=1, kie=1)
     aspect_ratio = "9:16"
     final_filenames = ("day_and_night_reel.mp4",)
     final_aspect_ratios = ("9:16",)
@@ -36,12 +35,13 @@ class DayNightReelWorkflow(BaseWorkflow):
     def execute(self):
         interior = self.interior_image()
         product = self.product_image()
-        blended = self.nano_image(
+        blended = self.fal_blend(
             "day_and_night_blended.jpg",
             self.record_prompt(),
-            [interior, product],
+            interior,
+            product,
             aspect_ratio="9:16",
-            model=NANO_BANANA_PRO,
+            slot=0,
         )
         self.attach_exact("Day and Night Blended", [blended])
 

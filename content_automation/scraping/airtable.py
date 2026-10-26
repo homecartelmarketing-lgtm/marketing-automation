@@ -288,16 +288,44 @@ class ScrapeAirtableClient:
             if not any(f in existing for f in (n_field, f"Item Name{slot+1}", f"Item Name {slot+1}", "Item Name")):
                 required[n_field] = "singleLineText"
 
+            m_field = measurement_field(slot)
+            if not any(f in existing for f in (m_field, f"Measurement{slot+1}", f"Measurement {slot+1}", "Measurement")):
+                required[m_field] = "singleLineText"
+
         if required:
             self.ensure_fields(required)
 
     # -- records ----------------------------------------------------------
+
+    def _scale_context_fields(self) -> list[str]:
+        """Size and type columns the blend prompts need, whatever the caller asked for.
+
+        Pipelines request a narrow field list for their own use. Blend prompts also
+        need the supplier measurement, and silently getting an empty value is
+        invisible until a fixture renders at the wrong size, so every record read
+        brings these along when the table has them.
+        """
+        bases = ("Measurement", "Product Type")
+        names: list[str] = []
+        for name in self.known_field_names():
+            stripped = name.strip()
+            base = next((b for b in bases if stripped.startswith(b)), "")
+            if not base:
+                continue
+            suffix = stripped[len(base):].strip()
+            if not suffix or suffix.isdigit():
+                names.append(name)
+        return names
 
     def list_records(self, fields: Sequence[str] | None = None) -> list[dict[str, Any]]:
         """Every record in the table, requesting only existing fields."""
         records: list[dict[str, Any]] = []
         offset = ""
         valid_fields = self._present(fields) if fields else []
+        if fields:
+            for name in self._scale_context_fields():
+                if name not in valid_fields:
+                    valid_fields.append(name)
         while True:
             params: list[tuple[str, str]] = [("pageSize", str(PAGE_SIZE))]
             if valid_fields:

@@ -96,11 +96,13 @@ class MoodboardStoryWorkflow(BaseWorkflow):
         print(f"   * Model:         fal-ai/nano-banana-pro/edit")
         print(f"   * Task:          Mounting and naturally illuminating product in the room...")
         print(f"   ... Blending product into daytime interior ...")
-        blend = self.fal_image(
+        blend = self.fal_blend(
             f"blended_{anchor.record_id}.jpg",
             blend_prompt,
-            [source, product],
+            source,
+            product,
             aspect_ratio="9:16",
+            slot=0,
         )
 
         # Local PIL Brand Logo Stamping onto Blended Image (Story Top-Right: X=781.7, Y=108.0)

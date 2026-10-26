@@ -56,7 +56,12 @@ from content_automation.overlay import (
     AD_COVER_STORY_CANVAS_SIZE,
     overlay_ad_cover_layout,
 )
-from content_automation.prompts import build_vision_blending_instruction
+from content_automation.prompts.scale import (
+    blend_instruction_from_fields,
+    measurement_for_slot,
+    product_type_for_slot,
+)
+from content_automation.scale_guard import blend_with_scale_guard, write_scale_fields
 from content_automation.scraping import (
     FurnitureItemScrapeRunner,
     ProductItem,
@@ -714,7 +719,9 @@ def phase_prompt(
     try:
         generated = fal.generate_vision_prompt(
             image_urls=image_urls,
-            prompt=build_vision_blending_instruction(
+            prompt=blend_instruction_from_fields(
+                fields,
+                0,
                 interior_label=f"Room Interior ('{INTERIOR_FIELD}')",
                 item_name=item_name,
                 aspect_ratio=ASPECT_RATIO,
@@ -759,13 +766,19 @@ def phase_blend(
     print(f"[INFO] [Phase 4/{TOTAL_PHASES}] Blending with Fal AI Nano Banana Pro ({FAL_BLENDING_MODEL})...")
     downloaded = None
     try:
-        image_url = fal.generate(
+        scale_result = blend_with_scale_guard(
+            fal,
             prompt=prompt_str,
-            image_urls=image_urls,
+            room_url=interior_url,
+            product_url=furniture_url,
+            product_type=product_type_for_slot(fields, 0),
+            measurement=measurement_for_slot(fields, 0),
+            item_name=str(fields.get("Item Name") or ""),
             aspect_ratio=ASPECT_RATIO,
             resolution="1K",
             model=FAL_BLENDING_MODEL,
         )
+        image_url = scale_result.image_url
         downloaded = download_url_to_temp_file(
             requests.Session(),
             image_url,
@@ -779,6 +792,7 @@ def phase_blend(
             downloaded,
             f"ad_cover_blended_{record_id}.jpg",
         )
+        write_scale_fields(airtable, record_id, [scale_result])
         safe_update_status(airtable, record_id, STATUS_BLENDED_GENERATED)
         print(f"[OK] Attached blended image to '{BLENDED_FIELD}' on {record_id}.")
         return True

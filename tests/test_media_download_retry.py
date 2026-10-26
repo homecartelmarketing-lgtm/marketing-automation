@@ -203,7 +203,9 @@ class MediaDownloadRetryTests(unittest.TestCase):
         self.assertEqual(fal.session.attempts, 3)
         self.assertEqual(len(airtable.uploads), 1)
         self.assertEqual(airtable.uploads[0]["content"], b"fake-image-bytes")
-        self.assertEqual(len(airtable.updates), 1)
+        status_updates = [u for u in airtable.updates if "Status" in u[1]]
+        self.assertEqual(len(status_updates), 1)
+        self.assertEqual(status_updates[0][1]["Status"], "Processing Day Image")
 
     def test_multiple_angle_download_exhaustion_does_not_advance_record(self):
         pipeline = importlib.import_module("generate_before_after_reel_pipeline")

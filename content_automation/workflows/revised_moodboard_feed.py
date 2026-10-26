@@ -10,7 +10,7 @@ class RevisedMoodboardFeedWorkflow(BaseWorkflow):
         AssetRequirement("referencephoto_moodboard.png"),
         AssetRequirement("second_moodboard.json", "json"),
     )
-    estimate = CallEstimate(krea=1, qwen=0, kie=3, fal=1)
+    estimate = CallEstimate(krea=1, qwen=0, kie=2, fal=2)
     aspect_ratio = "4:5"
     attachment_fields = ("Moodboard V1", "Moodboard V2")
     final_filenames = (
@@ -33,10 +33,12 @@ class RevisedMoodboardFeedWorkflow(BaseWorkflow):
             moodboard_id=moodboard_id,
         )
         self.attach_sources([source])
-        blend = self.nano_image(
+        blend = self.fal_blend(
             "blended_image_revised_moodboard.jpg",
             self.qwen_blend_prompt(source, product),
-            [source, product],
+            source,
+            product,
+            slot=0,
         )
         v1 = self.nano_image(
             "moodboard_converted_v1.jpg",

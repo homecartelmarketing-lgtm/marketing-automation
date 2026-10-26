@@ -18,6 +18,18 @@ from ..fal_client import FalClient
 from ..kie_client import KieClient
 from ..krea_client import KreaClient
 from ..prompts import build_vision_blending_instruction
+from ..prompts.scale import (
+    SCALE_RULES_VERSION,
+    measurement_for_slot,
+    product_type_for_slot,
+    scale_cache_digest,
+)
+from ..scale_guard import (
+    ScaleGuardResult,
+    blend_with_scale_guard,
+    ensure_scale_fields,
+    write_scale_fields,
+)
 from ..zoho_client import ZohoClient
 from ..models import (
     AssetRequirement,
@@ -110,6 +122,9 @@ class BaseWorkflow:
         self._remote_cache_lock = threading.Lock()
         self._job_manifest_lock = threading.Lock()
         self._qwen_cache_lock = threading.Lock()
+        self._scale_results: list[tuple[int, ScaleGuardResult]] = []
+        self._scale_results_lock = threading.Lock()
+        self._scale_fields_ready = False
 
     def preflight(self) -> None:
         self.ctx.assets.require(self.requirements)
@@ -242,6 +257,68 @@ class BaseWorkflow:
             model=model,
         )
         downloaded = self.ctx.kie.download_jpeg(result_url, destination)
+        return downloaded
+
+    def fal_blend(
+        self,
+        filename: str,
+        prompt: str,
+        room: LocalImage | str,
+        product: LocalImage | str,
+        *,
+        aspect_ratio: str | None = None,
+        model: str = "fal-ai/nano-banana-pro/edit",
+        product_type: str = "",
+        measurement: str = "",
+        item_name: str = "",
+        label: str = "",
+        record_id: str = "",
+        slot: int | None = None,
+    ) -> LocalImage:
+        """Blend one product into one room, enforcing its supplier size when possible.
+
+        Unlike :meth:`fal_image`, this takes exactly a room and a product so the
+        measured scale guard can compare the fixture with a known-size object.
+        Results accumulate on the workflow and the merged audit is written after
+        every blend, so multi-slot pipelines keep one audit block per slot.
+        """
+        destination = self.ctx.workdir / filename
+        if destination.is_file():
+            return LocalImage(destination, filename)
+        anchor = getattr(self.ctx, "anchor", None)
+        anchor_fields = getattr(anchor, "fields", None) or {}
+        if slot is not None:
+            product_type = product_type or product_type_for_slot(anchor_fields, slot)
+            measurement = measurement or measurement_for_slot(anchor_fields, slot)
+        fal_client = self.ctx.fal
+        if not fal_client:
+            fal_client = FalClient(api_key=getattr(self.ctx.settings, "fal_key", ""))
+        result = blend_with_scale_guard(
+            fal_client,
+            prompt=prompt,
+            room_url=room if isinstance(room, str) else self.public_url(room),
+            product_url=product if isinstance(product, str) else self.public_url(product),
+            product_type=product_type or str(getattr(anchor, "product_type", "") or ""),
+            measurement=measurement or str(getattr(anchor, "measurement", "") or ""),
+            item_name=item_name or str(getattr(anchor, "item_name", "") or ""),
+            label=label,
+            aspect_ratio=aspect_ratio or self.aspect_ratio,
+            resolution=None,
+            model=model,
+        )
+        downloaded = self.ctx.kie.download_jpeg(result.image_url, destination)
+        with self._scale_results_lock:
+            if not self._scale_fields_ready:
+                ensure_scale_fields(self.ctx.airtable)
+                self._scale_fields_ready = True
+            self._scale_results.append((len(self._scale_results), result))
+            # Parallel blends share one record, so each write must carry the
+            # full list; otherwise a late writer drops another slot's audit.
+            write_scale_fields(
+                self.ctx.airtable,
+                record_id or str(getattr(anchor, "record_id", "") or ""),
+                list(self._scale_results),
+            )
         return downloaded
 
     def image_to_video(
@@ -765,13 +842,20 @@ class BaseWorkflow:
         retained only for backwards compatibility with existing callers; no
         DashScope/Qwen request is made.
         """
-        key = f"blend:{room.filename}:{product.filename}"
         anchor = getattr(self.ctx, "anchor", None)
         item_name = getattr(anchor, "item_name", None) or "featured product"
+        product_type = getattr(anchor, "product_type", None) or ""
+        measurement = getattr(anchor, "measurement", None) or ""
+        key = (
+            f"blend:{room.filename}:{product.filename}"
+            f":{SCALE_RULES_VERSION}:{scale_cache_digest(product_type, measurement)}"
+        )
         instruction = build_vision_blending_instruction(
             interior_label="Room Interior",
             item_name=item_name,
             aspect_ratio="9:16",
+            product_type=product_type,
+            measurement=measurement,
         )
         return self._cached_prompt(
             key,
@@ -827,13 +911,20 @@ class BaseWorkflow:
         model: str = "anthropic/claude-sonnet-5",
         placement_rule: str = "",
     ) -> str:
-        key = f"claude_blend:{room.filename}:{product.filename}:{model}:{placement_rule}"
         item_name = self.ctx.anchor.item_name or "featured lighting fixture"
+        product_type = getattr(self.ctx.anchor, "product_type", "") or ""
+        measurement = getattr(self.ctx.anchor, "measurement", "") or ""
+        key = (
+            f"claude_blend:{room.filename}:{product.filename}:{model}:{placement_rule}"
+            f":{SCALE_RULES_VERSION}:{scale_cache_digest(product_type, measurement)}"
+        )
         instruction = build_vision_blending_instruction(
             interior_label="Room Interior ('Interior Generated')",
             item_name=item_name,
             aspect_ratio="9:16",
             extra_instructions=f"SPECIFIC PLACEMENT: {placement_rule}" if placement_rule else "",
+            product_type=product_type,
+            measurement=measurement,
         )
         fal_client = self._fal_prompt_client()
         return self._cached_prompt(

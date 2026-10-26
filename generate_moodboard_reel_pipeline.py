@@ -46,7 +46,13 @@ from content_automation.config import (
 )
 from content_automation.errors import AutomationError
 from content_automation.fal_client import FalClient
-from content_automation.prompts import build_vision_blending_instruction
+from content_automation.prompts.scale import measurement_for_slot, product_type_for_slot
+from content_automation.scale_guard import (
+    ScaleGuardResult,
+    blend_with_scale_guard,
+    ensure_scale_fields,
+    write_scale_fields,
+)
 from content_automation.fields import (
     furniture_field,
     interior_field,
@@ -459,6 +465,9 @@ def claude_vision_instruction(
     category_code: str,
     item_name: str = "",
     materials: dict[str, str] | None = None,
+    *,
+    product_type: str = "",
+    measurement: str = "",
 ) -> str:
     item_desc = item_name.strip() or "lighting fixture"
     material_line = ""
@@ -477,11 +486,15 @@ def claude_vision_instruction(
                 f"Never render words, labels or typography anywhere in the image."
             )
 
+    from content_automation.prompts import build_vision_blending_instruction
+
     return build_vision_blending_instruction(
         interior_label="Room Interior",
         item_name=item_desc,
         aspect_ratio="9:16",
         extra_instructions=material_line,
+        product_type=product_type,
+        measurement=measurement,
     )
 
 
@@ -825,7 +838,13 @@ def run_phase_2_5_vision(
 
     for slot in ordered_slots:
         fur_url, int_url, item_name = slot_targets[slot]
-        instruction = claude_vision_instruction(category_code, item_name, material_words.get(slot))
+        instruction = claude_vision_instruction(
+            category_code,
+            item_name,
+            material_words.get(slot),
+            product_type=product_type_for_slot(fields, slot),
+            measurement=measurement_for_slot(fields, slot),
+        )
         target_prompt_field = f"Prompt{slot + 1}"
 
         print(f"  [PHASE 2.5] Record {record_id} Slot {slot + 1}: Crafting vision prompt via {vision_model}...")
@@ -898,15 +917,29 @@ def extract_slot_pairs(fields: dict[str, Any]) -> list[SlotPair]:
     return pairs
 
 
-def blend_slot(pair: SlotPair, fal: FalClient, workdir: Path) -> LocalImage:
-    result_url = fal.generate(
-        pair.prompt,
-        [pair.interior_url, pair.furniture_url],
+def blend_slot(
+    pair: "SlotPair",
+    fal: FalClient,
+    workdir: Path,
+    *,
+    product_type: str = "",
+    measurement: str = "",
+    item_name: str = "",
+) -> tuple[LocalImage, ScaleGuardResult]:
+    scale_result = blend_with_scale_guard(
+        fal,
+        prompt=pair.prompt,
+        room_url=pair.interior_url,
+        product_url=pair.furniture_url,
+        product_type=product_type,
+        measurement=measurement,
+        item_name=item_name,
+        label="the lighting fixture",
         aspect_ratio="9:16",
         model=BLENDING_MODEL,
     )
     destination = workdir / pair.output_filename
-    return fal.download_jpeg(result_url, destination)
+    return fal.download_jpeg(scale_result.image_url, destination), scale_result
 
 
 def run_phase_3_blend(
@@ -921,6 +954,7 @@ def run_phase_3_blend(
     workdir: Path,
     execute: bool = True,
     skip_existing: bool = True,
+    airtable: ScrapeAirtableClient | None = None,
 ) -> dict[int, LocalImage] | None:
     """Blend Interior + Furniture pairs via Fal AI Nano Banana Pro."""
     record_id = record["id"]
@@ -955,19 +989,38 @@ def run_phase_3_blend(
         return BlendedSlotMap({p.slot: LocalImage(workdir / p.output_filename, p.output_filename, "image/jpeg") for p in pairs})
 
     results = BlendedSlotMap()
+    scale_results: list[tuple[int, ScaleGuardResult]] = []
+    if airtable is None:
+        airtable = ScrapeAirtableClient(token, base_id, table_id, session)
+    ensure_scale_fields(airtable)
     with ThreadPoolExecutor(max_workers=SLOT_COUNT) as pool:
-        futures = {pool.submit(blend_slot, p, fal, workdir): p for p in pairs}
+        futures = {
+            pool.submit(
+                blend_slot,
+                p,
+                fal,
+                workdir,
+                product_type=product_type_for_slot(fields, p.slot),
+                measurement=measurement_for_slot(fields, p.slot),
+                item_name=get_item_name_for_slot(fields, p.slot),
+            ): p
+            for p in pairs
+        }
         for future in as_completed(futures):
             p = futures[future]
             try:
-                img = future.result()
+                img, scale_result = future.result()
                 results[p.slot] = img
+                scale_results.append((p.slot, scale_result))
                 print(f"    [OK] Blended slot {p.slot + 1} -> {p.output_filename}")
             except Exception as err:
                 print(f"    [ERROR] Blending slot {p.slot + 1} failed: {err}")
 
     if not results:
         return None
+
+    if scale_results:
+        write_scale_fields(airtable, record_id, scale_results)
 
     try:
         _clear_attachment_field(session, token, base_id, table_id, record_id, BLENDED_FIELD)

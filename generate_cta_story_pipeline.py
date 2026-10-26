@@ -52,7 +52,16 @@ from content_automation.cta_conversion import run_cta_conversion
 from content_automation.errors import AutomationError
 from content_automation.fal_client import FalClient
 from content_automation.item_tagger import TARGET_BLENDED_FIELD, tag_blended_image
-from content_automation.prompts import build_vision_blending_instruction
+from content_automation.prompts.scale import (
+    blend_instruction_from_fields,
+    measurement_for_slot,
+    product_type_for_slot,
+)
+from content_automation.scale_guard import (
+    blend_with_scale_guard,
+    ensure_scale_fields,
+    write_scale_fields,
+)
 from content_automation.kie_client import KieClient
 from content_automation.krea_client import KreaClient
 from content_automation.media import download_to_temp_file
@@ -658,7 +667,9 @@ def generate_claude_blending_prompts(
         )
 
         image_urls = [url for url in [interior_url, furniture_url] if url]
-        instruction = build_vision_blending_instruction(
+        instruction = blend_instruction_from_fields(
+            fields,
+            0,
             interior_label="Room Interior ('CTA Interior')",
             item_name=item_name,
             aspect_ratio="9:16",
@@ -697,6 +708,7 @@ def generate_cta_blended_images(
 ) -> bool:
     """Generate 9:16 CTA Blended Image using Fal AI Nano Banana Pro into 'CTA Blended Image'."""
     airtable.ensure_fields({BLENDED_FIELD: "multipleAttachments", STATUS_FIELD: "singleSelect"})
+    ensure_scale_fields(airtable)
     records = airtable.list_records(
         INTERIOR_FIELD_FALLBACKS + PROMPT_FIELD_FALLBACKS + BLENDED_FIELD_FALLBACKS + [FIELD_NAME, SKU_FIELD, ITEM_NAME_FIELD, STATUS_FIELD, "ID", "Auto Number", "No"]
     )
@@ -754,13 +766,29 @@ def generate_cta_blended_images(
 
         downloaded = None
         try:
-            image_url = fal_or_blend_client.generate(
-                prompt=prompt_str,
-                image_urls=image_urls,
-                aspect_ratio=BLENDED_ASPECT_RATIO,
-                resolution="1K",
-                model=blend_model,
-            )
+            scale_result = None
+            if interior_url and furniture_url:
+                scale_result = blend_with_scale_guard(
+                    fal_or_blend_client,
+                    prompt=prompt_str,
+                    room_url=interior_url,
+                    product_url=furniture_url,
+                    product_type=product_type_for_slot(fields, 0),
+                    measurement=measurement_for_slot(fields, 0),
+                    item_name=str(item_label),
+                    aspect_ratio=BLENDED_ASPECT_RATIO,
+                    resolution="1K",
+                    model=blend_model,
+                )
+                image_url = scale_result.image_url
+            else:
+                image_url = fal_or_blend_client.generate(
+                    prompt=prompt_str,
+                    image_urls=image_urls,
+                    aspect_ratio=BLENDED_ASPECT_RATIO,
+                    resolution="1K",
+                    model=blend_model,
+                )
             import requests
             resp = requests.get(image_url, stream=True)
             downloaded = download_to_temp_file(
@@ -773,6 +801,8 @@ def generate_cta_blended_images(
             filename = f"cta_blended_{record_id}.jpg"
             target_field = get_first_field_name(fields, BLENDED_FIELD_FALLBACKS)
             airtable.upload_attachment(record_id, target_field, downloaded, filename)
+            if scale_result is not None:
+                write_scale_fields(airtable, record_id, [scale_result])
             safe_update_status(airtable, record_id, STATUS_BLENDED_IMAGE)
             print(
                 f"[OK] Attached CTA blended image to '{target_field}' and updated "

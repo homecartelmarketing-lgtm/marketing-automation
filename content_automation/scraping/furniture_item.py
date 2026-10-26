@@ -442,6 +442,7 @@ class FurnitureItemScrapeRunner:
         field_name: str,
         item_name_field: str,
         sku_field: str | None = None,
+        measurement_field: str | None = "Measurement",
         status_field: str | None = None,
         default_status: str = "Standby",
         include_product_type_in_name: bool = True,
@@ -462,6 +463,7 @@ class FurnitureItemScrapeRunner:
         self.field_name = field_name
         self.item_name_field = item_name_field
         self.sku_field = sku_field
+        self.measurement_field = measurement_field
         self.status_field = status_field
         self.default_status = default_status
         self.include_product_type_in_name = include_product_type_in_name
@@ -551,6 +553,8 @@ class FurnitureItemScrapeRunner:
             record_fields = {self.item_name_field: display_name}
             if self.sku_field:
                 record_fields[self.sku_field] = item.sku
+            if self.measurement_field and item.measurement:
+                record_fields[self.measurement_field] = item.measurement
             if self.status_field:
                 record_fields[self.status_field] = self.default_status
 
@@ -705,6 +709,10 @@ class FurnitureItemScrapeRunner:
                 exact_sku = self.airtable.find_field_name(self.sku_field)
                 if exact_sku:
                     self.sku_field = exact_sku
+            if self.measurement_field:
+                exact_measurement = self.airtable.find_field_name(self.measurement_field)
+                if exact_measurement:
+                    self.measurement_field = exact_measurement
             if self.status_field:
                 exact_status = self.airtable.find_field_name(self.status_field)
                 if exact_status:
@@ -716,6 +724,8 @@ class FurnitureItemScrapeRunner:
         }
         if self.sku_field:
             required_fields[self.sku_field] = "singleLineText"
+        if self.measurement_field:
+            required_fields[self.measurement_field] = "singleLineText"
         if self.status_field:
             required_fields[self.status_field] = "singleSelect"
         if self.layout_fields:
@@ -728,6 +738,8 @@ class FurnitureItemScrapeRunner:
         list_fields = [self.field_name, self.item_name_field]
         if self.sku_field:
             list_fields.append(self.sku_field)
+        if self.measurement_field:
+            list_fields.append(self.measurement_field)
         if self.status_field:
             list_fields.append(self.status_field)
         if self.layout_fields:

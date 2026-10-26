@@ -95,6 +95,12 @@ from content_automation.foreign_key import generate_foreign_key
 from content_automation.item_tagger import tag_and_upload_blended_image
 from content_automation.krea_client import KreaClient
 from content_automation.media import download_url_to_temp_file
+from content_automation.prompts.scale import measurement_for_slot, product_type_for_slot, scale_clause
+from content_automation.scale_guard import (
+    blend_with_scale_guard,
+    ensure_scale_fields,
+    write_scale_fields,
+)
 from content_automation.shopify_client import ShopifyClient
 from content_automation.scraping.airtable import ScrapeAirtableClient
 from content_automation.scraping.furniture_item import fetch_all_base_existing_identities
@@ -200,6 +206,7 @@ FIELD_FURNITURE = "Furniture Item"
 FIELD_SKU = "SKU"
 FIELD_ITEM_NAME = "Item Name"
 FIELD_PRODUCT_TYPE = "Product Type"
+FIELD_MEASUREMENT = "Measurement"
 FIELD_CATEGORY = "Category"
 FIELD_INTERIOR = "Room Interior"
 FIELD_INTERIOR_PROMPT = "Interior Prompt"
@@ -300,12 +307,14 @@ class PipelineClients:
         try:
             self.airtable.ensure_fields({
                 FIELD_PRODUCT_TYPE: "singleLineText",
+                FIELD_MEASUREMENT: "singleLineText",
                 FIELD_CLEAN_INTERIOR: "multipleAttachments",
                 FIELD_REMOVAL_PROMPT: "multilineText",
                 FIELD_MUSIC: "multipleAttachments",
             })
         except Exception:
             pass
+        ensure_scale_fields(self.airtable)
 
 
 def resolve_font(size: int = 54, bold: bool = True) -> ImageFont.FreeTypeFont:
@@ -465,6 +474,7 @@ def run_phase_1_scrape(
             FIELD_SKU: sku,
             FIELD_ITEM_NAME: clean_name,
             FIELD_PRODUCT_TYPE: product_type,
+            FIELD_MEASUREMENT: cand.measurement,
             FIELD_CATEGORY: cfg["name"],
         }
 
@@ -602,6 +612,8 @@ def run_phase_3_claude(
     sku = str(fields.get(FIELD_SKU) or "")
     item_name = str(fields.get(FIELD_ITEM_NAME) or "Lighting Fixture")
     category = str(fields.get(FIELD_CATEGORY) or "Lighting")
+    measurement = measurement_for_slot(fields, 0)
+    product_type = product_type_for_slot(fields, 0) or category
 
     clean_atts = fields.get(FIELD_CLEAN_INTERIOR) or []
     interior_atts = clean_atts or fields.get(FIELD_INTERIOR) or []
@@ -623,6 +635,9 @@ def run_phase_3_claude(
 - Name: {item_name}
 - Category: {category}
 - SKU: {sku}
+- Measured size: {measurement or "not supplied"}
+
+{scale_clause(product_type, measurement, label="the fixture in Image 1")}
 
 Generate a JSON object with EXACTLY these 3 keys:
 1. "blending_prompt": A highly specific instruction for Fal Nano Banana Pro to place this exact lighting fixture naturally into the room interior. Describe its physical positioning, suspension/mount, scale, and that it is fully turned on casting a warm ambient luxury glow.
@@ -696,13 +711,20 @@ def run_phase_4_blend(
     furniture_url = furniture_atts[0].get("url")
 
     # Generate blend
-    blended_url = clients.fal.generate(
+    scale_result = blend_with_scale_guard(
+        clients.fal,
         prompt=blend_prompt,
-        image_urls=[interior_url, furniture_url],
+        room_url=interior_url,
+        product_url=furniture_url,
+        product_type=str(fields.get(FIELD_PRODUCT_TYPE) or product_type),
+        measurement=str(fields.get(FIELD_MEASUREMENT) or measurement_for_slot(fields, 0)),
+        item_name=item_title,
+        label=f"the {product_type.lower()}",
         aspect_ratio="9:16",
         resolution="1K",
         model="fal-ai/nano-banana-pro/edit",
     )
+    blended_url = scale_result.image_url
     print(f"  [OK] Nano Banana Pro blend produced: {blended_url[:70]}...")
 
     downloaded_blended = download_url_to_temp_file(
@@ -714,6 +736,7 @@ def run_phase_4_blend(
     )
     temp_blended = Path(downloaded_blended.path)
     clients.airtable.upload_attachment(record_id, FIELD_BLENDED_IMAGE, downloaded_blended, f"blended_{record_id}.jpg")
+    write_scale_fields(clients.airtable, record_id, [scale_result])
 
     # YOLO-World luxury floating product tagging (Item Name + Product Type)
     tagged_local: Path | None = None

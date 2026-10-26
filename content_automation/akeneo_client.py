@@ -17,12 +17,18 @@ from .media import DownloadedMedia, download_to_temp_file, media_extension
 # came back populated.
 PRODUCT_SEARCH_ATTRIBUTES = (
     "name,image,Style2,measurement,Measurement,"
-    "width,height,length,diameter,dimension,description,Description,"
-    "Costing,Selling_Price"
+    "width,Width,height,Height,length,Length,diameter,Diameter,dimension,"
+    "description,Description,Costing,Selling_Price"
 )
 
-# Narrower set for single-product lookups, where only identity is needed.
-PRODUCT_DETAIL_ATTRIBUTES = "name,image,Style2"
+# Same identity, size and description set for single-product lookups: the
+# blend prompt needs the real measurement even when a row is scraped one SKU
+# at a time.
+PRODUCT_DETAIL_ATTRIBUTES = (
+    "name,image,Style2,measurement,Measurement,"
+    "width,Width,height,Height,length,Length,diameter,Diameter,"
+    "description,Description"
+)
 
 PRODUCT_PAGE_SIZE = 100
 

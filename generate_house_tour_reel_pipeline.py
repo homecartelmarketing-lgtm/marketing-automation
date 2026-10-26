@@ -99,6 +99,13 @@ from content_automation.errors import AutomationError
 from content_automation.fal_client import FalClient
 from content_automation.krea_client import KreaClient
 from content_automation.media import attachment_filename
+from content_automation.prompts.scale import measurement_for_slot, product_type_for_slot, scale_clause
+from content_automation.scale_guard import (
+    ScaleGuardResult,
+    blend_with_scale_guard,
+    ensure_scale_fields,
+    write_scale_fields,
+)
 from content_automation.shopify_client import ShopifyClient
 from content_automation.scraping import categories
 from content_automation.scraping.airtable import ScrapeAirtableClient
@@ -393,6 +400,8 @@ STATUS_OPTIONS = [
 FURNITURE_FIELDS = {s: f"Furniture Item{s}" for s in SLOTS}
 ITEM_NAME_FIELDS = {s: f"Item Name{s}" for s in SLOTS}
 SKU_FIELDS = {s: f"SKU{s}" for s in SLOTS}
+PRODUCT_TYPE_FIELDS = {s: f"Product Type{s}" for s in SLOTS}
+MEASUREMENT_FIELDS = {s: f"Measurement{s}" for s in SLOTS}
 INTERIOR_FIELDS = {s: f"Interior{s}" for s in SLOTS}
 INTERIOR_PROMPT_FIELDS = {s: f"Interior Prompt{s}" for s in SLOTS}
 INTERIOR_ANALYSIS_FIELDS = {s: f"Interior Analysis{s}" for s in SLOTS}
@@ -417,6 +426,8 @@ REQUIRED_FIELDS: dict[str, str] = {
     **{FURNITURE_FIELDS[s]: "multipleAttachments" for s in SLOTS},
     **{ITEM_NAME_FIELDS[s]: "singleLineText" for s in SLOTS},
     **{SKU_FIELDS[s]: "multilineText" for s in SLOTS},
+    **{PRODUCT_TYPE_FIELDS[s]: "singleLineText" for s in SLOTS},
+    **{MEASUREMENT_FIELDS[s]: "singleLineText" for s in SLOTS},
     **{INTERIOR_FIELDS[s]: "multipleAttachments" for s in SLOTS},
     **{INTERIOR_PROMPT_FIELDS[s]: "multilineText" for s in SLOTS},
     **{INTERIOR_ANALYSIS_FIELDS[s]: "multilineText" for s in SLOTS},
@@ -430,6 +441,8 @@ ALL_READ_FIELDS = [
     *FURNITURE_FIELDS.values(),
     *ITEM_NAME_FIELDS.values(),
     *SKU_FIELDS.values(),
+    *PRODUCT_TYPE_FIELDS.values(),
+    *MEASUREMENT_FIELDS.values(),
     *INTERIOR_FIELDS.values(),
     *INTERIOR_PROMPT_FIELDS.values(),
     *INTERIOR_ANALYSIS_FIELDS.values(),
@@ -527,7 +540,13 @@ def extract_room_title_from_analysis(
     return default_title.strip().lower() if default_title else ""
 
 
-def _claude_instruction(slot: int, analysis_notes: str = "") -> str:
+def _claude_instruction(
+    slot: int,
+    analysis_notes: str = "",
+    *,
+    measurement: str = "",
+    product_type: str = "",
+) -> str:
     room = SLOT_ROOMS[slot]
     label = SLOT_LABELS[slot]
     placement = {
@@ -555,7 +574,8 @@ def _claude_instruction(slot: int, analysis_notes: str = "") -> str:
         f"instructs an image model to place this exact {label.lower()} naturally into "
         f"the {room.lower()} ({placement}), keeping the fixture's shape, colour and "
         "proportions identical, with photorealistic warm lighting, soft shadows and a "
-        "cohesive organic-modern Japandi mood. Do not change the product design."
+        "cohesive organic-modern Japandi mood. Do not change the product design.\n"
+        f"{scale_clause(product_type or label, measurement, label=f'the {label.lower()} in Image 2')}"
     )
     return base
 
@@ -633,6 +653,7 @@ class Clients:
 def _ensure_schema(clients: Clients) -> None:
     clients.airtable.ensure_fields(REQUIRED_FIELDS)
     clients.airtable.ensure_single_select_options(STATUS_FIELD, STATUS_OPTIONS)
+    ensure_scale_fields(clients.airtable)
     print("[OK] Airtable schema ready (fields + Status options).")
 
 
@@ -804,6 +825,9 @@ def _create_row(
         for slot, item in zip(SLOTS, items):
             fields[ITEM_NAME_FIELDS[slot]] = _display_name(item)
             fields[SKU_FIELDS[slot]] = item.sku or ""
+            fields[PRODUCT_TYPE_FIELDS[slot]] = item.product_type or SLOT_LABELS[slot]
+            if item.measurement:
+                fields[MEASUREMENT_FIELDS[slot]] = item.measurement
     try:
         record_id = clients.airtable.create_record(fields)
     except Exception as error:
@@ -1170,7 +1194,12 @@ def phase4_prompts(clients: Clients, record_id: str, fields: dict[str, Any]) -> 
         print(f"    -> asking Claude for slot {slot} ({SLOT_ROOMS[slot]}) blend prompt...")
         prompt = clients.fal.generate_vision_prompt(
             image_urls=[interior_url, product_url],
-            prompt=_claude_instruction(slot, analysis_notes=analysis_notes),
+            prompt=_claude_instruction(
+                slot,
+                analysis_notes=analysis_notes,
+                measurement=measurement_for_slot(fields, slot - 1),
+                product_type=product_type_for_slot(fields, slot - 1),
+            ),
             model=CLAUDE_MODEL,
         )
         updates[field_name] = prompt
@@ -1195,8 +1224,8 @@ def phase5_blends(
 ) -> list[Path]:
     print("[PHASE 5/8] Blending fixtures into rooms (Fal Nano Banana Pro) + YOLO Poppins tags...")
 
-    def blend_slot(slot: int) -> tuple[int, Path | None, str]:
-        """Blend one slot. Returns (slot, local still or None, blend URL or '').
+    def blend_slot(slot: int) -> tuple[int, Path | None, str, ScaleGuardResult | None]:
+        """Blend one slot. Returns (slot, local still or None, blend URL or '', guard result).
 
         The blend URL is returned (not written into ``fields`` here) so the
         caller can update the shared row state on the main thread.
@@ -1206,7 +1235,7 @@ def phase5_blends(
         prompt = str(fields.get(PROMPT_FIELDS[slot]) or "").strip()
         if not interior_url or not product_url or not prompt:
             print(f"    [SKIP] slot {slot} incomplete -- skipping blend")
-            return slot, None, ""
+            return slot, None, "", None
 
         clean_dest = workdir / f"slot{slot}_blended.jpg"
         tagged_dest = workdir / f"slot{slot}_blended_tagged.jpg"
@@ -1218,19 +1247,26 @@ def phase5_blends(
                 resp.raise_for_status()
                 clean_dest.write_bytes(resp.content)
                 print(f"    [SKIP] slot {slot} blend already attached -> reusing URL")
-                return slot, clean_dest, existing_url
+                return slot, clean_dest, existing_url, None
             except Exception as error:
                 print(f"    [WARN] Could not reuse slot {slot} blend ({error}); regenerating...")
 
         print(f"    -> blending slot {slot} ({SLOT_ROOMS[slot]} / {SLOT_LABELS[slot]})...")
         try:
-            result_url = clients.fal.generate(
+            scale_result = blend_with_scale_guard(
+                clients.fal,
                 prompt=prompt,
-                image_urls=[interior_url, product_url],
+                room_url=interior_url,
+                product_url=product_url,
+                product_type=product_type_for_slot(fields, slot),
+                measurement=measurement_for_slot(fields, slot),
+                item_name=str(fields.get(ITEM_NAME_FIELDS[slot]) or ""),
+                label=f"the {SLOT_LABELS[slot].lower()}",
                 aspect_ratio=BLEND_ASPECT_RATIO,
                 resolution=BLEND_RESOLUTION,
                 model=NANO_BANANA_MODEL,
             )
+            result_url = scale_result.image_url
             resp = requests.get(result_url, timeout=120)
             resp.raise_for_status()
             clean_dest.write_bytes(resp.content)
@@ -1266,22 +1302,27 @@ def phase5_blends(
                 except Exception:
                     pass
                 still_path = tagged_dest if tagged_dest.is_file() else clean_dest
-                return slot, still_path, result_url
+                return slot, still_path, result_url, scale_result
             except Exception as tag_err:
                 print(f"    [WARN] YOLO tagging notice on slot {slot}: {tag_err}")
-                return slot, clean_dest, result_url
+                return slot, clean_dest, result_url, scale_result
         except Exception as error:
             print(f"    [ERROR] slot {slot} blend: {error}")
-            return slot, None, ""
+            return slot, None, "", None
 
     from concurrent.futures import as_completed
 
     blended: dict[int, tuple[Path | None, str]] = {}
+    scale_results: list[tuple[int, ScaleGuardResult]] = []
     with ThreadPoolExecutor(max_workers=2) as executor:
         futures = {executor.submit(blend_slot, slot): slot for slot in SLOTS}
         for future in as_completed(futures):
-            slot, path, url = future.result()
+            slot, path, url, scale_result = future.result()
             blended[slot] = (path, url)
+            if scale_result is not None:
+                scale_results.append((slot, scale_result))
+    if scale_results:
+        write_scale_fields(clients.airtable, record_id, scale_results)
     # Hand the fresh blend URLs to downstream phases on the MAIN thread:
     # Phase 5 reads them from this same ``fields`` dict, which was fetched
     # before Phase 4 ran. Missing this update starves Kling with an empty URL.

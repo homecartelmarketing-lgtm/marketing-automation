@@ -56,6 +56,12 @@ Both modes preserve **7 phase markers** (`[PHASE n/7]`) so the Studio progress b
 | **6/7** | Kling 3.0 Pro (Queue submit & poll) | **Kling 3.0 Pro (Locked Request, Queue)** | `Video Prompt`, `Kling Queue Request`, `Raw Video` | `Video Generated` |
 | **7/7** | Pillow Pill + Outro + Audio Mux | Pillow Pill + Outro + Audio Mux | `Outro`, `Final Video`, `Caption Generated` | `Done` + PHT Timestamp |
 
+Phase 4 also runs the measured scale guard (`content_automation/scale_guard.py`):
+it measures a known-size reference in the room, locks a numeric cm target into
+the blend prompt, checks the staged frame, and re-blends once only when the
+result is outside ±15%. The audit is stored in `Scale Audit`, `Scale Check`, and
+`Scale Retry`; `SCALE_GUARD_ENABLED=0` disables the extra calls.
+
 ---
 
 ## 4. Locked Kling 3.0 Pro Request (Fal Queue)

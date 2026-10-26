@@ -10,7 +10,7 @@ class CtaStoryWorkflow(BaseWorkflow):
     requirements = (
         AssetRequirement("CTA.json", "json"),
     )
-    estimate = CallEstimate(krea=0, qwen=0, kie=2)
+    estimate = CallEstimate(krea=0, qwen=0, kie=1, fal=1)
     aspect_ratio = "9:16"
     attachment_fields = ("CTA Blended Image", "CTA Blended")
     required_columns = ("CTA Layout",)
@@ -28,11 +28,13 @@ class CtaStoryWorkflow(BaseWorkflow):
         layout = self.record_attachment("CTA Layout", "cta_layout")
         prompt_field = "CTA Prompt Blending" if "CTA Prompt Blending" in self.ctx.anchor.fields else "Prompt"
 
-        blend = self.nano_image(
+        blend = self.fal_blend(
             "cta_blended.jpg",
             self.record_prompt(prompt_field),
-            [source, product],
+            source,
+            product,
             aspect_ratio="9:16",
+            slot=0,
         )
         # Publish the first Nano Banana result before the CTA conversion.
         blended_field = (

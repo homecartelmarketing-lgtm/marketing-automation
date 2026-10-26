@@ -77,7 +77,16 @@ from content_automation.akeneo_client import AkeneoClient
 from content_automation.config import load_settings
 from content_automation.errors import AssetValidationError, AutomationError, ProviderError
 from content_automation.fal_client import FalClient
-from content_automation.prompts import build_vision_blending_instruction
+from content_automation.prompts.scale import (
+    blend_instruction_from_fields,
+    measurement_for_slot,
+    product_type_for_slot,
+)
+from content_automation.scale_guard import (
+    blend_with_scale_guard,
+    ensure_scale_fields,
+    write_scale_fields,
+)
 from content_automation.krea_client import KreaClient
 from content_automation.media import DownloadedMedia, attachment_filename, download_to_temp_file
 from content_automation.scraping.airtable import ScrapeAirtableClient
@@ -1142,7 +1151,9 @@ def run_phase_4_for_record(
             print(f"    [DRY RUN] Would generate prompt for {slot.blending_prompt_field}")
             continue
 
-        instruction = build_vision_blending_instruction(
+        instruction = blend_instruction_from_fields(
+            fields,
+            slot.slot_index - 1,
             interior_label=f"Room Interior ('{slot.label}')",
             item_name=item_name,
             aspect_ratio="4:5",
@@ -1340,12 +1351,14 @@ def run_phase_5_for_record(
             "Status": "singleSelect",
         }
         airtable.ensure_fields(required_fields)
+        ensure_scale_fields(airtable)
 
     record = airtable.get_record(record_id)
     fields = record.get("fields", {})
     known_fields = airtable.table_fields()
 
     blended_log_entries: list[dict[str, Any]] = []
+    scale_results: list[tuple[int, Any]] = []
     all_slots_succeeded = True
 
     # Slot 1: Copy clean Interior1 (modern exterior) directly into Blended Image1 with HomeCartel Feed logo
@@ -1443,12 +1456,19 @@ def run_phase_5_for_record(
 
         try:
             print(f"    Sending image blending request to Fal AI ({FAL_BLENDING_MODEL}, 4:5)...")
-            blended_url = fal.generate(
+            scale_result = blend_with_scale_guard(
+                fal,
                 prompt=blending_prompt,
-                image_urls=[interior_url, furniture_url],
+                room_url=interior_url,
+                product_url=furniture_url,
+                product_type=product_type_for_slot(fields, slot.slot_index - 1),
+                measurement=measurement_for_slot(fields, slot.slot_index - 1),
+                item_name=item_name,
+                label=f"the {slot.label.lower()} fixture",
                 aspect_ratio=FAL_ASPECT_RATIO,
                 model=FAL_BLENDING_MODEL,
             )
+            blended_url = scale_result.image_url
             print(f"    [OK] Blended image generated: {blended_url}")
 
             downloaded = download_image_url(blended_url, prefix=f"blended_{slot.slot_index}_")
@@ -1499,9 +1519,13 @@ def run_phase_5_for_record(
                 "image_url": blended_url,
                 "aspect_ratio": FAL_ASPECT_RATIO,
             })
+            scale_results.append((slot.slot_index - 1, scale_result))
         except Exception as err:
             print(f"    [ERROR] Failed blending Slot {slot.slot_index}: {err}")
             all_slots_succeeded = False
+
+    if scale_results:
+        write_scale_fields(airtable, record_id, scale_results)
 
     if execute and blended_log_entries:
         append_audit_log(

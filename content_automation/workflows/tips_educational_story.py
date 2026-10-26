@@ -15,7 +15,7 @@ class TipsEducationalStoryWorkflow(BaseWorkflow):
     requirements = (
         AssetRequirement("Tips and Edu Story/tips-and-edu.json", "json"),
     )
-    estimate = CallEstimate(krea=0, qwen=0, kie=2)
+    estimate = CallEstimate(krea=0, qwen=0, kie=1, fal=1)
     aspect_ratio = "9:16"
     final_filenames = ("tips_educational_story.jpg",)
     final_aspect_ratios = ("9:16",)
@@ -27,11 +27,13 @@ class TipsEducationalStoryWorkflow(BaseWorkflow):
         product = self.product_image()
         layout = self.record_attachment("Tips Edu layout", "tips_edu_layout")
 
-        blended = self.nano_image(
+        blended = self.fal_blend(
             "tips_story_blended.jpg",
             self.record_prompt("Prompt"),
-            [interior, product],
+            interior,
+            product,
             aspect_ratio="9:16",
+            slot=0,
         )
 
         # Airtable is the visible checkpoint between the blend and conversion.

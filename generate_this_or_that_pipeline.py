@@ -35,6 +35,7 @@ from content_automation.errors import AssetValidationError, AutomationError
 from content_automation.fal_client import FalClient
 from content_automation.item_tagger import tag_and_upload_blended_image
 from content_automation.media import download_to_temp_file
+from content_automation.prompts.scale import measurement_for_slot, scale_clause
 from content_automation.scraping import (
     ScrapeAirtableClient,
     ScrapeRunner,
@@ -382,7 +383,15 @@ def backfill_missing_this_or_that_layout(airtable: ScrapeAirtableClient, label: 
     return backfilled
 
 
-def build_runtime_prompt(top_name: str, top_type: str, bottom_name: str, bottom_type: str) -> str:
+def build_runtime_prompt(
+    top_name: str,
+    top_type: str,
+    bottom_name: str,
+    bottom_type: str,
+    *,
+    top_measurement: str = "",
+    bottom_measurement: str = "",
+) -> str:
     prompt_path = Path("JSON Prompts/This or That/this_or_that_json_prompt.json")
     if not prompt_path.is_file():
         raise FileNotFoundError(f"Prompt JSON not found at {prompt_path}")
@@ -397,6 +406,12 @@ def build_runtime_prompt(top_name: str, top_type: str, bottom_name: str, bottom_
     manual["bottom_item"]["item_name"] = bottom_name
     manual["bottom_item"]["item_type"] = bottom_type
     data["manual_inputs"] = manual
+    data["real_world_scale"] = "\n\n".join(
+        (
+            scale_clause(top_type, top_measurement, label="the top item in Image 2"),
+            scale_clause(bottom_type, bottom_measurement, label="the bottom item in Image 3"),
+        )
+    )
     return json.dumps(data, ensure_ascii=False)
 
 
@@ -477,7 +492,14 @@ def run_single_record_generation(
         pass
 
     # 3. Build dynamic prompt and invoke Fal AI
-    prompt_text = build_runtime_prompt(top_name, top_type, bottom_name, bottom_type)
+    prompt_text = build_runtime_prompt(
+        top_name,
+        top_type,
+        bottom_name,
+        bottom_type,
+        top_measurement=measurement_for_slot(fields, 0),
+        bottom_measurement=measurement_for_slot(fields, 1),
+    )
     input_urls = [layout_url, top_url, bottom_url]
 
     start_time = datetime.datetime.now()

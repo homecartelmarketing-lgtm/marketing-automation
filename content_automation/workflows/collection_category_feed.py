@@ -9,7 +9,7 @@ from .base import BaseWorkflow, FIXED_PRODUCT_BLEND_PROMPT
 
 class CollectionCategoryFeedWorkflow(BaseWorkflow):
     requirements = ()
-    estimate = CallEstimate(krea=4, qwen=0, kie=1, fal=3)
+    estimate = CallEstimate(krea=4, qwen=0, fal=4)
     aspect_ratio = "4:5"
     final_filenames = (
         "collection_styled_1.jpg",
@@ -43,11 +43,13 @@ class CollectionCategoryFeedWorkflow(BaseWorkflow):
             aspect_ratio="4:5",
         )
         self.attach_sources([source])
-        base = self.nano_image(
+        base = self.fal_blend(
             "collection_styled_1.jpg",
             FIXED_PRODUCT_BLEND_PROMPT,
-            [source, product],
+            source,
+            product,
             aspect_ratio="4:5",
+            slot=0,
         )
         room_specs = (
             ("bedroom", "collection_categ_bedroom.jpg"),

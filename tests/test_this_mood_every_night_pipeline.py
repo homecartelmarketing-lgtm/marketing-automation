@@ -109,6 +109,7 @@ class ThisMoodEveryNightPipelineTests(unittest.TestCase):
             aspect_ratio="9:16",
             resolution="1K",
             model="fal-ai/nano-banana-pro/edit",
+            output_format="jpeg",
         )
 
     def test_phase6_motion_calls_generate_kling_video(self):

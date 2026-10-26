@@ -12,7 +12,7 @@ class DayNightFeedWorkflow(BaseWorkflow):
     """Blend the record's interior and product, then create a night photo."""
 
     requirements = ()
-    estimate = CallEstimate(krea=0, qwen=0, kie=2)
+    estimate = CallEstimate(krea=0, qwen=0, fal=1, kie=1)
     aspect_ratio = "4:5"
     final_filenames = ("day_photo.jpg", "night_photo.jpg")
     final_aspect_ratios = ("4:5", "4:5")
@@ -26,11 +26,12 @@ class DayNightFeedWorkflow(BaseWorkflow):
         product = self.product_image()
         logo = self.logo_image()
 
-        day_source = self.nano_image(
+        day_source = self.fal_blend(
             "day_photo_raw.jpg",
             self.record_prompt(),
-            [interior, product],
-            model=NANO_BANANA_2,
+            interior,
+            product,
+            slot=0,
         )
         day = self.stamp_logo("day_photo.jpg", day_source, logo)
         self.ctx.airtable.clear_attachment_field(record_id, field)

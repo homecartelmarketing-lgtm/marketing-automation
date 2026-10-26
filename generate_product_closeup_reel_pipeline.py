@@ -74,6 +74,8 @@ from content_automation.errors import AutomationError, ProviderError
 from content_automation.fal_client import FalClient
 from content_automation.krea_client import KreaClient
 from content_automation.media import attachment_filename
+from content_automation.prompts.scale import measurement_for_slot, product_type_for_slot, scale_clause
+from content_automation.scale_guard import blend_with_scale_guard, write_scale_fields
 from content_automation.shopify_client import ShopifyCatalogIndex, ShopifyClient
 from content_automation.scraping import categories
 from content_automation.scraping.airtable import ScrapeAirtableClient
@@ -178,6 +180,8 @@ ITEM_NAME_FIELDS = {
     3: "Item Name3",
     4: "Item Name4",
 }
+PRODUCT_TYPE_FIELDS = {s: f"Product Type{s}" for s in SLOTS}
+MEASUREMENT_FIELDS = {s: f"Measurement{s}" for s in SLOTS}
 INTERIOR_FIELDS = {
     1: "Interior1",
     2: "Interior2",
@@ -198,6 +202,8 @@ ALL_READ_FIELDS = [
     STATUS_FIELD,
     *FURNITURE_FIELDS.values(),
     *ITEM_NAME_FIELDS.values(),
+    *PRODUCT_TYPE_FIELDS.values(),
+    *MEASUREMENT_FIELDS.values(),
     *INTERIOR_FIELDS.values(),
     *PROMPT_FIELDS.values(),
     OUTRO_FIELD,
@@ -249,6 +255,15 @@ class Clients:
             base_url=self.settings.krea_base_url,
         )
         self.fal = FalClient(api_key=self.settings.fal_key)
+        try:
+            self.airtable.ensure_fields(
+                {
+                    **{name: "singleLineText" for name in PRODUCT_TYPE_FIELDS.values()},
+                    **{name: "singleLineText" for name in MEASUREMENT_FIELDS.values()},
+                }
+            )
+        except Exception:
+            pass
 
     def akeneo(self) -> AkeneoClient:
         return AkeneoClient(
@@ -378,6 +393,9 @@ def _create_row_from_pair(clients: Clients, pair: list[ProductItem], akeneo: Ake
     fields: dict[str, Any] = {STATUS_FIELD: STATUS_STANDBY}
     for slot, item in zip(SLOTS, pair):
         fields[ITEM_NAME_FIELDS[slot]] = _display_name(item)
+        fields[PRODUCT_TYPE_FIELDS[slot]] = item.product_type or "Table Lamp"
+        if item.measurement:
+            fields[MEASUREMENT_FIELDS[slot]] = item.measurement
     try:
         record_id = clients.airtable.create_record(fields)
     except Exception as error:
@@ -499,9 +517,14 @@ def phase3_prompts(clients: Clients, record_id: str, fields: dict[str, Any]) -> 
             print(f"    [SKIP] slot {slot} missing interior or product -- skipping prompt")
             return
         print(f"    -> asking Claude for slot {slot} blend prompt...")
+        instruction = CLAUDE_INSTRUCTION + "\n" + scale_clause(
+            product_type_for_slot(fields, slot - 1) or "Table Lamp",
+            measurement_for_slot(fields, slot - 1),
+            label="the table lamp in Image 2",
+        )
         prompt = clients.fal.generate_vision_prompt(
             image_urls=[interior_url, product_url],
-            prompt=CLAUDE_INSTRUCTION,
+            prompt=instruction,
             model=CLAUDE_MODEL,
         )
         updates[field_name] = prompt
@@ -523,24 +546,30 @@ def phase3_prompts(clients: Clients, record_id: str, fields: dict[str, Any]) -> 
 def phase4_blends(clients: Clients, fields: dict[str, Any], workdir: Path, record_id: str = "") -> list[Path]:
     print("  [Phase 4] Blending lamps into bedrooms (Fal Nano Banana Pro)...")
 
-    def blend_slot(slot: int) -> Path | None:
+    def blend_slot(slot: int):
         interior_url = _first_attachment_url(fields, INTERIOR_FIELDS[slot])
         product_url = _first_attachment_url(fields, FURNITURE_FIELDS[slot])
         prompt = str(fields.get(PROMPT_FIELDS[slot]) or "").strip()
         if not interior_url or not product_url or not prompt:
             print(f"    [SKIP] slot {slot} incomplete -- skipping blend")
-            return None
+            return slot, None, None
 
         destination = workdir / f"slot{slot}_blended.jpg"
         print(f"    -> blending slot {slot}...")
         try:
-            result_url = clients.fal.generate(
+            scale_result = blend_with_scale_guard(
+                clients.fal,
                 prompt=prompt,
-                image_urls=[interior_url, product_url],
+                room_url=interior_url,
+                product_url=product_url,
+                product_type=product_type_for_slot(fields, slot - 1),
+                measurement=measurement_for_slot(fields, slot - 1),
+                item_name=str(fields.get(ITEM_NAME_FIELDS[slot]) or ""),
                 aspect_ratio=BLEND_ASPECT_RATIO,
                 resolution=BLEND_RESOLUTION,
                 model=NANO_BANANA_MODEL,
             )
+            result_url = scale_result.image_url
             resp = requests.get(result_url, timeout=60)
             with open(destination, "wb") as f:
                 f.write(resp.content)
@@ -570,14 +599,17 @@ def phase4_blends(clients: Clients, fields: dict[str, Any], workdir: Path, recor
             except Exception as tag_err:
                 print(f"    [WARN] YOLO tagging notice on slot {slot}: {tag_err}")
 
-            return destination
+            return slot, destination, scale_result
         except Exception as error:
             print(f"    [ERROR] slot {slot} blend: {error}")
-            return None
+            return slot, None, None
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         results = list(executor.map(blend_slot, SLOTS))
-    return [path for path in results if path is not None]
+    scale_results = [(slot - 1, result) for slot, _, result in results if result is not None]
+    if record_id and scale_results:
+        write_scale_fields(clients.airtable, record_id, scale_results)
+    return [path for _, path, _ in results if path is not None]
 
 
 # --------------------------------------------------------------------------

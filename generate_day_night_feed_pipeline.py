@@ -59,7 +59,12 @@ from content_automation.akeneo_client import AkeneoClient, split_item_name
 from content_automation.config import load_settings
 from content_automation.errors import AutomationError, ProviderError
 from content_automation.fal_client import FalClient
-from content_automation.prompts import build_vision_blending_instruction
+from content_automation.prompts.scale import (
+    blend_instruction_from_fields,
+    measurement_for_slot,
+    product_type_for_slot,
+)
+from content_automation.scale_guard import blend_with_scale_guard, write_scale_fields
 from content_automation.item_tagger import (
     TARGET_BLENDED_FIELD,
     tag_and_upload_blended_image,
@@ -362,7 +367,9 @@ def generate_blending_prompt_for_feed(
         print("  [DRY-RUN] Would generate Claude Sonnet 5 vision blending prompt.")
         return f"A modern living room featuring the {item_name} chandelier mounted at ceiling center with warm ambient glow."
 
-    instruction = build_vision_blending_instruction(
+    instruction = blend_instruction_from_fields(
+        fields,
+        0,
         interior_label="Room Interior ('Interior Generated Photo')",
         item_name=item_name,
         aspect_ratio="4:5",
@@ -416,12 +423,18 @@ def generate_day_image_for_feed(
 
     downloaded = None
     try:
-        result_url = fal.generate(
+        scale_result = blend_with_scale_guard(
+            fal,
             prompt=blend_prompt,
-            image_urls=[interior_url, furniture_url],
+            room_url=interior_url,
+            product_url=furniture_url,
+            product_type=product_type_for_slot(fields, 0),
+            measurement=measurement_for_slot(fields, 0),
+            item_name=str(fields.get("Item Name") or ""),
             aspect_ratio=aspect_ratio,
             model=FAL_BLENDING_MODEL,
         )
+        result_url = scale_result.image_url
         response = requests.get(result_url, stream=True)
         downloaded = download_to_temp_file(
             response,
@@ -432,6 +445,7 @@ def generate_day_image_for_feed(
         filename = f"day_photo_{record_id}.jpg"
         target_day_field = DAY_IMAGE_FIELD
         airtable.upload_attachment(record_id, target_day_field, downloaded, filename)
+        write_scale_fields(airtable, record_id, [scale_result])
         airtable.update_records([(record_id, {STATUS_FIELD: STATUS_BLENDED_DAY})])
         print(f"  [OK] Attached 4:5 Day Image to '{target_day_field}' and updated Status to '{STATUS_BLENDED_DAY}'")
 

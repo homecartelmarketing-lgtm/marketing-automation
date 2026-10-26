@@ -79,7 +79,12 @@ from content_automation.akeneo_client import AkeneoClient
 from content_automation.config import load_settings
 from content_automation.errors import AssetValidationError, AutomationError, ProviderError
 from content_automation.fal_client import FalClient
-from content_automation.prompts import build_vision_blending_instruction
+from content_automation.prompts.scale import blend_instruction_from_fields, measurement_for_slot
+from content_automation.scale_guard import (
+    blend_with_scale_guard,
+    ensure_scale_fields,
+    write_scale_fields,
+)
 from content_automation.krea_client import KreaClient
 from content_automation.media import download_to_temp_file
 from content_automation.overlay import (
@@ -1187,6 +1192,7 @@ class TipsAndEduFeedRunner:
         if execute:
             self.airtable.ensure_fields(self._schema_fields())
             self.airtable.ensure_single_select_options(STATUS_FIELD, self._status_values())
+            ensure_scale_fields(self.airtable)
             print(f"[PREFLIGHT] Schema verified for table {self.table_id} (Tips & Edu Feeds)")
         else:
             print(f"[DRY RUN] Would verify schema for table {self.table_id}")
@@ -1606,7 +1612,9 @@ class TipsAndEduFeedRunner:
                 print(f"    [DRY RUN] Would generate prompt for {prompt_field}")
                 continue
 
-            instruction = build_vision_blending_instruction(
+            instruction = blend_instruction_from_fields(
+                fields,
+                slot.slot_index - 1,
                 interior_label=f"Room Interior ('{slot.interior_field}')",
                 item_name=item_name,
                 aspect_ratio="4:5",
@@ -1693,6 +1701,7 @@ class TipsAndEduFeedRunner:
         phase_start = time.monotonic()
         blended_paths: list[Path] = []
         blended_log_entries: list[dict[str, Any]] = []
+        scale_results: list[tuple[int, Any]] = []
         all_succeeded = True
 
         for slot in SLOTS:
@@ -1729,13 +1738,21 @@ class TipsAndEduFeedRunner:
             slot_start = time.monotonic()
             try:
                 print(f"    Sending image blending request to Fal AI Nano Banana Pro...")
-                blended_url = self.fal.generate(
-                    blending_prompt,
-                    [interior_url, furniture_url],
+                scale_result = blend_with_scale_guard(
+                    self.fal,
+                    prompt=blending_prompt,
+                    room_url=interior_url,
+                    product_url=furniture_url,
+                    product_type=get_slot_product_type_val(fields, slot),
+                    measurement=measurement_for_slot(fields, slot.slot_index - 1),
+                    item_name=item_name,
+                    label=f"the {self.fixture_label} in {slot.interior_field}",
                     aspect_ratio=BLENDING_ASPECT_RATIO,
                     resolution=BLENDING_RESOLUTION,
                     model=FAL_BLENDING_MODEL,
                 )
+                blended_url = scale_result.image_url
+                scale_results.append((slot.slot_index - 1, scale_result))
                 print(f"    [OK] Blended image generated: {blended_url}")
 
                 self._download(blended_url, destination)
@@ -1778,6 +1795,8 @@ class TipsAndEduFeedRunner:
             for path in blended_paths:
                 self.airtable.upload_attachment(record_id, BLENDED_FIELD, path, path.name)
                 print(f"    [+] Uploaded {path.name} to '{BLENDED_FIELD}'")
+            if scale_results:
+                write_scale_fields(self.airtable, record_id, scale_results)
 
             # Auto-tag each blended photo with item name using YOLO-World
             for slot_idx, path in enumerate(blended_paths, start=1):

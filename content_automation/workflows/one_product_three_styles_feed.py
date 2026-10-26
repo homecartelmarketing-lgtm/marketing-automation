@@ -8,7 +8,7 @@ from .base import BaseWorkflow
 
 class OneProductThreeStylesFeedWorkflow(BaseWorkflow):
     requirements = ()
-    estimate = CallEstimate(krea=3, qwen=0, kie=3, fal=3)
+    estimate = CallEstimate(krea=3, qwen=0, fal=3)
     aspect_ratio = "4:5"
     final_filenames = (
         "1_product_3_style_blended1.jpg",
@@ -51,7 +51,7 @@ class OneProductThreeStylesFeedWorkflow(BaseWorkflow):
         def create_blend(spec):
             room_type, source_name, final_name, source = spec
             prompt = self.qwen_blend_prompt(source, product)
-            return room_type, self.nano_image(final_name, prompt, [source, product])
+            return room_type, self.fal_blend(final_name, prompt, source, product, slot=0)
 
         with ThreadPoolExecutor(max_workers=3) as executor:
             results = dict(executor.map(create_blend, sources))

@@ -58,12 +58,14 @@ class CollectionCategoryStoryWorkflow(BaseWorkflow):
             # in 16:9 ratio.
             def blend_job(args):
                 index, (interior, furniture, prompt_str) = args
-                return self.nano_image(
+                return self.fal_blend(
                     f"collection_story_blended{index}.jpg",
                     prompt_str,
-                    [interior, furniture],
+                    interior,
+                    furniture,
                     aspect_ratio="16:9",
                     model=COLLECTION_STORY_MODEL,
+                    slot=index - 1,
                 )
 
             with ThreadPoolExecutor(max_workers=3) as executor:

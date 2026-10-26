@@ -369,11 +369,13 @@ class MythAndFactStoryWorkflow(BaseWorkflow):
         # 7. Slide 2: Myth blend + Myth layout
         print("\n [PHASE 4/5] Blending & Creating Myth & Fact Slides (Fal AI)...")
         print("  [BLENDING] Blending Interior 2 + Product for Myth...")
-        blended = self.fal_image(
+        blended = self.fal_blend(
             "myth_blended.jpg",
             blending_prompt,
-            [interior2, product],
+            interior2,
+            product,
             aspect_ratio="9:16",
+            slot=0,
         )
         self.attach_exact("Myth Blended", [blended])
         print("  [OK] Myth Interior Blended: myth_blended.jpg")
@@ -407,11 +409,13 @@ class MythAndFactStoryWorkflow(BaseWorkflow):
 
         # 8. Slide 3: Fact blend + Fact debunking Myth text
         print("  [BLENDING] Blending Interior 3 + Product for Fact...")
-        fact_blended = self.fal_image(
+        fact_blended = self.fal_blend(
             "fact_blended.jpg",
             blending_prompt3,
-            [interior3, product],
+            interior3,
+            product,
             aspect_ratio="9:16",
+            slot=0,
         )
         self.attach_exact("Fact Blended", [fact_blended])
         print("  [OK] Fact Interior Blended: fact_blended.jpg")

@@ -80,6 +80,12 @@ from content_automation.foreign_key import generate_foreign_key
 from content_automation.item_tagger import tag_blended_image
 from content_automation.krea_client import KreaClient
 from content_automation.media import attachment_filename
+from content_automation.prompts.scale import measurement_for_slot, product_type_for_slot, scale_clause
+from content_automation.scale_guard import (
+    blend_with_scale_guard,
+    ensure_scale_fields,
+    write_scale_fields,
+)
 from content_automation.shopify_client import ShopifyClient
 from content_automation.scraping import categories
 from content_automation.scraping.airtable import ScrapeAirtableClient
@@ -206,6 +212,8 @@ TERMINAL_STATUSES = {STATUS_DONE, "Complete", "Scheduled", "Posted", STATUS_DISC
 FURNITURE_FIELDS: dict[int, str] = {s: f"Furniture Item{s}" for s in SLOTS}
 ITEM_NAME_FIELDS: dict[int, str] = {s: f"Item Name{s}" for s in SLOTS}
 SKU_FIELDS: dict[int, str] = {s: f"SKU{s}" for s in SLOTS}
+PRODUCT_TYPE_FIELDS: dict[int, str] = {s: f"Product Type{s}" for s in SLOTS}
+MEASUREMENT_FIELDS: dict[int, str] = {s: f"Measurement{s}" for s in SLOTS}
 INTERIOR_FIELDS: dict[int, str] = {s: f"Interior{s}" for s in SLOTS}
 INTERIOR_PROMPT_FIELDS: dict[int, str] = {s: f"Interior Prompt{s}" for s in SLOTS}
 INTERIOR_ANALYSIS_FIELDS: dict[int, str] = {s: f"Interior Analysis{s}" for s in SLOTS}
@@ -232,6 +240,8 @@ ALL_READ_FIELDS = (
     | set(FURNITURE_FIELDS.values())
     | set(ITEM_NAME_FIELDS.values())
     | set(SKU_FIELDS.values())
+    | set(PRODUCT_TYPE_FIELDS.values())
+    | set(MEASUREMENT_FIELDS.values())
     | set(INTERIOR_FIELDS.values())
     | set(INTERIOR_PROMPT_FIELDS.values())
     | set(INTERIOR_ANALYSIS_FIELDS.values())
@@ -379,6 +389,16 @@ class Clients:
         self._fal: FalClient | None = None
         self._akeneo: AkeneoClient | None = None
         self._shopify: ShopifyClient | None = None
+        try:
+            self.airtable.ensure_fields(
+                {
+                    **{name: "singleLineText" for name in PRODUCT_TYPE_FIELDS.values()},
+                    **{name: "singleLineText" for name in MEASUREMENT_FIELDS.values()},
+                }
+            )
+        except Exception:
+            pass
+        ensure_scale_fields(self.airtable)
 
     def krea(self) -> KreaClient:
         if self._krea is None:
@@ -563,6 +583,9 @@ def phase1_scrape(clients: Clients, max_rows: int = 1, style: str = DEFAULT_STYL
             disp_name = format_item_display_name(name, ptype or fallback_type)
             row_updates[ITEM_NAME_FIELDS[slot]] = disp_name
             row_updates[SKU_FIELDS[slot]] = item.sku or ""
+            row_updates[PRODUCT_TYPE_FIELDS[slot]] = ptype or fallback_type
+            if item.measurement:
+                row_updates[MEASUREMENT_FIELDS[slot]] = item.measurement
             scraped_summary.append(f"Slot {slot} ({SLOT_LABELS[slot]}): {disp_name} ({item.sku})")
 
             if item.media_code:
@@ -671,7 +694,8 @@ def phase4_prompts(clients: Clients, record_id: str, fields: dict[str, Any]) -> 
         prompt = (
             f"Seamlessly inpaint and install the {item_name} into this exact nighttime room. "
             f"{analysis} Ensure the lighting fixture is realistically turned ON, casting a soft warm golden 2700K "
-            "ambient illumination with subtle atmospheric glow and realistic shadows, preserving the cozy dark night interior."
+            "ambient illumination with subtle atmospheric glow and realistic shadows, preserving the cozy dark night interior.\n\n"
+            f"{scale_clause(product_type_for_slot(fields, slot - 1) or SLOT_LABELS[slot], measurement_for_slot(fields, slot - 1), label=f'the {SLOT_LABELS[slot].lower()}')}"
         )
         updates[GENERATED_PROMPT_FIELDS[slot]] = prompt
 
@@ -703,19 +727,35 @@ def phase5_blend(clients: Clients, record_id: str, fields: dict[str, Any]) -> bo
 
         print(f"    [SLOT {slot}] Blending {SLOT_LABELS[slot]}...")
         try:
-            image_urls = [int_url]
+            scale_result = None
             if prod_url:
-                image_urls.append(prod_url)
-            blended_url = fal.generate(
-                prompt=prompt,
-                image_urls=image_urls,
-                aspect_ratio="9:16",
-                resolution="1K",
-                model="fal-ai/nano-banana-pro/edit",
-            )
+                scale_result = blend_with_scale_guard(
+                    fal,
+                    prompt=prompt,
+                    room_url=int_url,
+                    product_url=prod_url,
+                    product_type=str(fields.get(PRODUCT_TYPE_FIELDS[slot]) or ""),
+                    measurement=str(fields.get(MEASUREMENT_FIELDS[slot]) or ""),
+                    item_name=str(fields.get(ITEM_NAME_FIELDS[slot]) or ""),
+                    label=f"the {SLOT_LABELS[slot].lower()}",
+                    aspect_ratio="9:16",
+                    resolution="1K",
+                    model="fal-ai/nano-banana-pro/edit",
+                )
+                blended_url = scale_result.image_url
+            else:
+                blended_url = fal.generate(
+                    prompt=prompt,
+                    image_urls=[int_url],
+                    aspect_ratio="9:16",
+                    resolution="1K",
+                    model="fal-ai/nano-banana-pro/edit",
+                )
             if blended_url:
                 clients.airtable.upload_attachment_url(record_id, BLENDED_FIELDS[slot], blended_url, f"blended_{slot}.jpg")
                 fields[BLENDED_FIELDS[slot]] = [{"url": blended_url}]
+                if scale_result is not None:
+                    write_scale_fields(clients.airtable, record_id, [(slot - 1, scale_result)])
                 print(f"    [OK] Slot {slot} blended.")
         except Exception as err:
             print(f"    [ERROR] Blending failed for slot {slot}: {err}")

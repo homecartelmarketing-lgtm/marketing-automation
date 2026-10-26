@@ -65,6 +65,7 @@ from content_automation.fal_client import FalClient
 from content_automation.item_tagger import tag_blended_image
 from content_automation.krea_client import KreaClient
 from content_automation.media import attachment_filename
+from content_automation.prompts.scale import measurement_for_slot, scale_clause
 from content_automation.shopify_client import ShopifyClient
 from content_automation.scraping import categories
 from content_automation.scraping.airtable import ScrapeAirtableClient
@@ -145,6 +146,8 @@ SCRAPED_FIELDS = {
 }
 SCRAPED_ITEMS_FIELD = "Scraped Items"
 SELECTED_ITEMS_FIELD = "Selected Items"
+PRODUCT_TYPE_FIELDS = {s: f"Product Type{s}" for s in SCRAPED_FIELDS}
+MEASUREMENT_FIELDS = {s: f"Measurement{s}" for s in SCRAPED_FIELDS}
 INTERIOR_FIELD = "Living Room Interior"
 BLEND_PROMPT_FIELD = "Blending Prompt"
 BLENDED_IMAGE_FIELD = "Blended Image"
@@ -166,6 +169,8 @@ ALL_READ_FIELDS = [
     FINAL_VIDEO_FIELD,
     OUTRO_FIELD,
     *SCRAPED_FIELDS.values(),
+    *PRODUCT_TYPE_FIELDS.values(),
+    *MEASUREMENT_FIELDS.values(),
 ]
 
 REQUIRED_FIELDS: dict[str, str] = {
@@ -177,6 +182,8 @@ REQUIRED_FIELDS: dict[str, str] = {
     BLEND_PROMPT_FIELD: "multilineText",
     OUTRO_FIELD: "multipleAttachments",
     **{name: "multipleAttachments" for name in SCRAPED_FIELDS.values()},
+    **{name: "singleLineText" for name in PRODUCT_TYPE_FIELDS.values()},
+    **{name: "singleLineText" for name in MEASUREMENT_FIELDS.values()},
     INTERIOR_FIELD: "multipleAttachments",
     BLENDED_IMAGE_FIELD: "multipleAttachments",
     CONVERTED_IMAGE_1_FIELD: "multipleAttachments",
@@ -262,8 +269,24 @@ def build_multi_fixture_blending_instruction(
     pendant_light_name: str,
     interior_label: str = "Modern Bedroom Interior",
     aspect_ratio: str = "9:16",
+    table_lamp_measurement: str = "",
+    ceiling_light_measurement: str = "",
+    pendant_light_measurement: str = "",
 ) -> str:
     """Standardized vision blending instruction for 3 distinct fixtures (matching existing content style)."""
+    scale_block = "\n\n".join(
+        (
+            scale_clause(
+                "table_lamp", table_lamp_measurement, label="the table lamp in Image 2"
+            ),
+            scale_clause(
+                "ceiling", ceiling_light_measurement, label="the ceiling light in Image 3"
+            ),
+            scale_clause(
+                "pendant", pendant_light_measurement, label="the pendant light in Image 4"
+            ),
+        )
+    )
     return (
         f"You are an expert interior design AI prompt engineer. Analyze Image 1 as the {interior_label} photo, "
         f"Image 2 as the product photo for Table Lamp '{table_lamp_name}', "
@@ -281,6 +304,8 @@ def build_multi_fixture_blending_instruction(
         f"2. Remove, replace, or clear any pre-existing competing lighting fixtures in those target locations in Image 1.\n"
         f"3. Ensure authentic material textures (metals, brass, glass, fabrics, ceramics), warm ambient illumination (2700K-3000K) naturally casting soft light and subtle ambient shadows onto surrounding furniture and architecture, and photorealistic 8k styling.\n"
         f"4. Strictly maintain the exact room composition, wall color, architectural textures, and layout from Image 1.\n"
+        f"5. SIZE AND SCALE - each fixture has its own real-world size and must never be enlarged to fill the frame:\n"
+        f"{scale_block}\n"
         f"Output ONLY the prompt text, with no preamble, markdown formatting, or quotes."
     )
 
@@ -571,15 +596,16 @@ def _scrape_candidates_grouped(
 
 def _create_row(clients: Clients, items: list[ProductItem], akeneo: AkeneoClient) -> str | None:
     lines = []
+    fields: dict[str, Any] = {STATUS_FIELD: STATUS_IN_PROGRESS}
     for slot, item in zip(SLOTS, items):
         label = SLOT_LABELS.get(slot, "Fixture")
         lines.append(
             f"Slot {slot} ({label}) | {_display_name(item)} | SKU {item.sku or '-'} | {SLOT_CATEGORIES[slot]}"
         )
-    fields: dict[str, Any] = {
-        STATUS_FIELD: STATUS_IN_PROGRESS,
-        SCRAPED_ITEMS_FIELD: "\n".join(lines),
-    }
+        fields[PRODUCT_TYPE_FIELDS[slot]] = item.product_type or label
+        if item.measurement:
+            fields[MEASUREMENT_FIELDS[slot]] = item.measurement
+    fields[SCRAPED_ITEMS_FIELD] = "\n".join(lines)
     try:
         record_id = clients.airtable.create_record(fields)
     except Exception as error:
@@ -697,6 +723,9 @@ def phase3_claude(clients: Clients, record_id: str, fields: dict[str, Any]) -> N
         pendant_light_name=slot_names[3],
         interior_label="Modern Luxury Bedroom Interior",
         aspect_ratio=BLEND_ASPECT_RATIO,
+        table_lamp_measurement=measurement_for_slot(fields, 0),
+        ceiling_light_measurement=measurement_for_slot(fields, 1),
+        pendant_light_measurement=measurement_for_slot(fields, 2),
     )
 
     raw = clients.fal.generate_vision_prompt(

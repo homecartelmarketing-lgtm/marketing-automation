@@ -43,7 +43,12 @@ from content_automation.overlay import (
     HOMECARTEL_STORY_LOGO_BOX,
     create_three_image_story_grid,
 )
-from content_automation.prompts import build_vision_blending_instruction
+from content_automation.prompts.scale import (
+    blend_instruction_from_fields,
+    measurement_for_slot,
+    product_type_for_slot,
+)
+from content_automation.scale_guard import blend_with_scale_guard, write_scale_fields
 from content_automation.scraping import ScrapeAirtableClient, load_scrape_settings
 from content_automation.scraping.categories import (
     SCRAPE_CATEGORIES,
@@ -848,7 +853,9 @@ def generate_claude_blending_prompts(
                 else str(fields.get("Item Name") or "").strip()
             ) or item_label
 
-            instruction = build_vision_blending_instruction(
+            instruction = blend_instruction_from_fields(
+                fields,
+                slot - 1,
                 interior_label=f"Room Interior ('Furniture Item {slot}')",
                 item_name=slot_item_name,
                 aspect_ratio="16:9",
@@ -962,6 +969,7 @@ def generate_nano_banana_blends(
         )
 
         slot_success = 0
+        scale_results = []
         for slot in (1, 2, 3):
             blended_field = resolve_slot_blended_target(airtable, slot)
 
@@ -988,13 +996,20 @@ def generate_nano_banana_blends(
 
             downloaded = None
             try:
-                image_url = fal_or_blend_client.generate(
+                scale_result = blend_with_scale_guard(
+                    fal_or_blend_client,
                     prompt=prompt_text,
-                    image_urls=image_inputs,
+                    room_url=interior_url,
+                    product_url=furniture_url,
+                    product_type=product_type_for_slot(fields, slot - 1),
+                    measurement=measurement_for_slot(fields, slot - 1),
+                    item_name=str(item_label),
                     aspect_ratio=aspect_ratio,
                     resolution="1K",
                     model=blend_model,
                 )
+                image_url = scale_result.image_url
+                scale_results.append((slot - 1, scale_result))
 
                 append_audit_log({
                     "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -1056,6 +1071,9 @@ def generate_nano_banana_blends(
             finally:
                 if downloaded:
                     downloaded.cleanup()
+
+        if scale_results:
+            write_scale_fields(airtable, record_id, scale_results)
 
         if slot_success > 0:
             new_status = STATUS_COMPLETE if slot_success == 3 else STATUS_BLENDED

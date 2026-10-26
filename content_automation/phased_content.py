@@ -38,6 +38,16 @@ from .item_tagger import (
 from .krea_client import KreaClient
 from .overlay import create_tips_edu_story_image
 from .prompts import build_vision_blending_instruction
+from .prompts.scale import (
+    blend_instruction_from_fields,
+    measurement_for_slot,
+    product_type_for_slot,
+)
+from .scale_guard import (
+    blend_with_scale_guard,
+    ensure_scale_fields,
+    write_scale_fields,
+)
 from .scraping.airtable import ScrapeAirtableClient
 from .scraping.categories import akeneo_category_code
 from .scraping.furniture_item import (
@@ -835,6 +845,7 @@ class PhasedContentRunner:
     def preflight(self) -> None:
         self.airtable.ensure_fields(self._schema_fields())
         self.airtable.ensure_single_select_options("Status", self._status_values())
+        ensure_scale_fields(self.airtable)
         if self.definition.final_prompt_asset:
             asset = AssetCatalog(self.settings.workspace).path(self.definition.final_prompt_asset)
             if not asset.is_file():
@@ -1387,9 +1398,11 @@ class PhasedContentRunner:
         item_name = str(fields.get("Item Name") or fields.get("SKU") or "Lighting Product").strip()
 
         ratio = getattr(self.definition, "aspect_ratio", None) or "9:16"
-        instruction = build_vision_blending_instruction(
+        instruction = blend_instruction_from_fields(
+            fields,
+            0,
             interior_label=f"Room Interior ('{self.definition.interior_field}')",
-            item_name=item_name,
+            item_name=item_name or None,
             aspect_ratio=ratio,
         )
         print(f"  Requesting vision blending prompt from Claude Sonnet 5 ({FAL_VISION_MODEL})...", flush=True)
@@ -1449,16 +1462,23 @@ class PhasedContentRunner:
 
         filename = "day_and_night_blended.jpg" if self.is_day_night else "tips_edu_blended.jpg"
         print(f"  Sending image blending request to Fal AI Nano Banana Pro ({FAL_NANO_BANANA_MODEL}) at 9:16...", flush=True)
-        result_url = self.fal.generate(
-            prompt,
-            image_urls,
+        scale_result = blend_with_scale_guard(
+            self.fal,
+            prompt=prompt,
+            room_url=image_urls[0],
+            product_url=image_urls[1],
+            product_type=product_type_for_slot(fields, 0),
+            measurement=measurement_for_slot(fields, 0),
+            item_name=str(fields.get("Item Name") or ""),
             aspect_ratio="9:16",
             resolution="1K",
             model=FAL_NANO_BANANA_MODEL,
         )
+        result_url = scale_result.image_url
         destination = self._artifact_path(record_id, filename)
         self._download(result_url, destination)
         self._validate_9_16(destination, "Nano Banana Pro blended image")
+        write_scale_fields(self.airtable, record_id, [scale_result])
 
         if not self.is_day_night:
             self.airtable.upload_attachment(record_id, self.definition.blended_field, destination, destination.name)

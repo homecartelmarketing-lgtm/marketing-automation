@@ -74,6 +74,12 @@ from content_automation.fal_client import FalClient
 from content_automation.foreign_key import generate_foreign_key
 from content_automation.krea_client import KreaClient
 from content_automation.media import download_url_to_temp_file
+from content_automation.prompts.scale import measurement_for_slot, product_type_for_slot, scale_clause
+from content_automation.scale_guard import (
+    blend_with_scale_guard,
+    ensure_scale_fields,
+    write_scale_fields,
+)
 from content_automation.shopify_client import ShopifyClient
 from content_automation.scraping.airtable import ScrapeAirtableClient
 from content_automation.scraping.furniture_item import fetch_all_base_existing_identities
@@ -156,6 +162,8 @@ FIELD_DATE_SCHEDULED = "Date and Time Scheduled"
 FIELD_FURNITURE = "Furniture Item"
 FIELD_ITEM_NAME = "Item Name"
 FIELD_SKU = "SKU"
+FIELD_PRODUCT_TYPE = "Product Type"
+FIELD_MEASUREMENT = "Measurement"
 FIELD_CATEGORY = "Category"
 FIELD_ROOM_INTERIOR = "Room Interior"
 FIELD_INTERIOR_PROMPT = "Interior Prompt"
@@ -176,6 +184,8 @@ REQUIRED_STANDARD_FIELDS: dict[str, str] = {
     FIELD_FK: "singleLineText",
     FIELD_ITEM_NAME: "singleLineText",
     FIELD_SKU: "singleLineText",
+    FIELD_PRODUCT_TYPE: "singleLineText",
+    FIELD_MEASUREMENT: "singleLineText",
     FIELD_CATEGORY: "singleLineText",
     FIELD_FURNITURE: "multipleAttachments",
     FIELD_ROOM_INTERIOR: "multipleAttachments",
@@ -201,6 +211,7 @@ UPLOAD_STAGING_INSTRUCTION = (
     "Furnish with: a main sofa, an area rug with a coffee table on it, a shelving cabinet against the right wall, "
     "wall art, a floor plant, pillows and a throw on the sofa, and small decor on the shelves and table. "
     "Match the room's architecture and style. Mount the fixture centered on the ceiling with a correct canopy and drop, lit warm (2700K).\n"
+    "{scale_clause}\n"
     "STRICT: keep the camera angle, framing, perspective, walls, windows, doors, floor material and daylight identical. "
     "Do not crop, zoom or re-frame. Realistic contact shadows and scale.\n"
     "Output ONLY the prompt text."
@@ -315,6 +326,7 @@ class Clients:
             self.airtable.ensure_fields(REQUIRED_STANDARD_FIELDS)
         except Exception as err:
             print(f"[WARN] Standard fields check returned: {err}")
+        ensure_scale_fields(self.airtable)
 
         # Check options fields (ID, Status, Date fields)
         try:
@@ -470,7 +482,7 @@ def phase1_scrape(clients: Clients, max_items: int = 1) -> list[str]:
 
         sku = (cand.sku or "").strip()
         item_name = (cand.item_name or "").strip()
-        clean_name, _ = split_item_name(item_name, fallback_product_type=CATEGORY_NAME)
+        clean_name, product_type = split_item_name(item_name, fallback_product_type=CATEGORY_NAME)
         norm_sku = sku.lower()
         norm_name = clean_name.lower()
 
@@ -498,9 +510,12 @@ def phase1_scrape(clients: Clients, max_items: int = 1) -> list[str]:
         new_fields = {
             FIELD_ITEM_NAME: clean_name,
             FIELD_SKU: sku,
+            FIELD_PRODUCT_TYPE: product_type,
             FIELD_CATEGORY: CATEGORY_SLUG,
             FIELD_STATUS: STATUS_STANDBY,
         }
+        if cand.measurement:
+            new_fields[FIELD_MEASUREMENT] = cand.measurement
         id_info = clients.airtable.table_fields().get(FIELD_ID, {})
         if id_info.get("type") != "autoNumber":
             new_fields[FIELD_ID] = row_id_val
@@ -619,8 +634,11 @@ def phase3_blending_prompt(clients: Clients, record_id: str, fields: dict[str, A
         raise AutomationError("Missing interior or product cutout attachment for blending prompt generation")
 
     is_upload = str(fields.get(FIELD_SOURCE_MODE) or "").lower() == "upload"
+    product_type = product_type_for_slot(fields, 0) or item_name
+    measurement = measurement_for_slot(fields, 0)
+    scale = scale_clause(product_type, measurement, label="the fixture in Image 2")
     if is_upload:
-        prompt_instruction = UPLOAD_STAGING_INSTRUCTION.format(item_name=item_name)
+        prompt_instruction = UPLOAD_STAGING_INSTRUCTION.format(item_name=item_name, scale_clause=scale)
     else:
         prompt_instruction = (
             f"You are an expert luxury interior designer and visual prompt engineer.\n"
@@ -633,6 +651,7 @@ def phase3_blending_prompt(clients: Clients, record_id: str, fields: dict[str, A
             f"3. Ensure seamless integration: realistic shadows on the ceiling and walls, reflections in windows or polished surfaces, "
             f"and physically accurate scale.\n"
             f"4. Do NOT change or distort the existing room furniture, walls, or architecture.\n"
+            f"{scale}\n"
             f"Output ONLY the prompt text."
         )
 
@@ -679,13 +698,20 @@ def phase4_room_blend(clients: Clients, record_id: str, fields: dict[str, Any]) 
     cutout_fal_url = clients.fal.ensure_fal_url(cutout_url, filename=f"cutout_{record_id}.png")
 
     print(f"  [INFO] Blending chandelier into room with Nano Banana Pro ({NANO_BANANA_MODEL})...")
-    url = clients.fal.generate(
+    scale_result = blend_with_scale_guard(
+        clients.fal,
         prompt=blending_prompt,
-        image_urls=[interior_fal_url, cutout_fal_url],
+        room_url=interior_fal_url,
+        product_url=cutout_fal_url,
+        product_type=product_type_for_slot(fields, 0),
+        measurement=measurement_for_slot(fields, 0),
+        item_name=str(fields.get(FIELD_ITEM_NAME) or ""),
+        label="the chandelier",
         aspect_ratio=ASPECT_RATIO,
         resolution=RESOLUTION,
         model=NANO_BANANA_MODEL,
     )
+    url = scale_result.image_url
     if not url:
         raise AutomationError("Fal Nano Banana Pro failed to return blended image URL")
 
@@ -702,6 +728,7 @@ def phase4_room_blend(clients: Clients, record_id: str, fields: dict[str, Any]) 
         upload_path = temp_staged
 
     clients.airtable.upload_attachment(record_id, FIELD_FULLY_STAGED, upload_path, f"fully_staged_{record_id}.jpg")
+    write_scale_fields(clients.airtable, record_id, [scale_result])
     clients.airtable.update_record(record_id, {FIELD_STATUS: STATUS_BLENDED_GENERATED})
     print(f"  [OK] Fully staged room uploaded. Status -> '{STATUS_BLENDED_GENERATED}'.")
     fields[FIELD_FULLY_STAGED] = [{"url": url}]

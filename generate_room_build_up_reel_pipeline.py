@@ -48,7 +48,13 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
 
 from content_automation.akeneo_client import AkeneoClient
 from content_automation.errors import AutomationError
-from content_automation.prompts import build_vision_blending_instruction
+from content_automation.prompts.scale import blend_instruction_from_fields
+from content_automation.scale_guard import (
+    ScaleGuardResult,
+    blend_with_scale_guard,
+    ensure_scale_fields,
+    write_scale_fields,
+)
 from content_automation.scraping import categories
 from content_automation.scraping.furniture_item import fetch_all_base_existing_identities
 from content_automation.scraping.products import ProductItem, identity_key
@@ -144,6 +150,14 @@ def f_sku(room: int) -> str:
     return f"SKU{room}"
 
 
+def f_product_type(room: int) -> str:
+    return f"Product Type{room}"
+
+
+def f_measurement(room: int) -> str:
+    return f"Measurement{room}"
+
+
 def f_interior(room: int) -> str:
     return f"Room {room} Interior"
 
@@ -173,6 +187,8 @@ for _room in ROOMS:
     REQUIRED_FIELDS[f_item(_room)] = "multipleAttachments"
     REQUIRED_FIELDS[f_name(_room)] = "multilineText"
     REQUIRED_FIELDS[f_sku(_room)] = "singleLineText"
+    REQUIRED_FIELDS[f_product_type(_room)] = "singleLineText"
+    REQUIRED_FIELDS[f_measurement(_room)] = "singleLineText"
     REQUIRED_FIELDS[f_interior(_room)] = "multipleAttachments"
     REQUIRED_FIELDS[f_blend_prompt(_room)] = "multilineText"
     REQUIRED_FIELDS[f_removal_plan(_room)] = "multilineText"
@@ -461,6 +477,7 @@ def mix_sound_track(
 def _ensure_schema(clients: Clients) -> None:
     clients.airtable.ensure_fields(REQUIRED_FIELDS)
     clients.airtable.ensure_single_select_options(STATUS_FIELD, STATUS_OPTIONS)
+    ensure_scale_fields(clients.airtable)
     print("[OK] Airtable schema ready (fields + Status options).")
 
 
@@ -526,6 +543,9 @@ def _create_row(clients: Clients, items: list[ProductItem], akeneo: AkeneoClient
     for room, item in zip(ROOMS, items):
         fields[f_name(room)] = _display_name(item)
         fields[f_sku(room)] = item.sku or ""
+        fields[f_product_type(room)] = item.product_type or ROOM_LABELS[room]
+        if item.measurement:
+            fields[f_measurement(room)] = item.measurement
     try:
         record_id = clients.airtable.create_record(fields)
     except Exception as error:
@@ -561,10 +581,11 @@ def _room_prompt(room: int) -> str:
 
 def _split_name(fields: dict[str, Any], room: int) -> tuple[str, str]:
     raw = str(fields.get(f_name(room)) or "").strip()
+    stored_type = str(fields.get(f_product_type(room)) or "").strip()
     if "|" in raw:
         title, ptype = (part.strip() for part in raw.split("|", 1))
-        return title, ptype or ROOM_LABELS[room]
-    return raw or ROOM_LABELS[room], ROOM_LABELS[room]
+        return title, ptype or stored_type or ROOM_LABELS[room]
+    return raw or ROOM_LABELS[room], stored_type or ROOM_LABELS[room]
 
 
 def phase2_interiors(clients: Clients, record_id: str, fields: dict[str, Any]) -> None:
@@ -606,9 +627,11 @@ def phase3_blend_prompts(clients: Clients, record_id: str, fields: dict[str, Any
         if not interior_url or not product_url:
             raise AutomationError(f"Phase 3 needs {f_interior(room)} and {f_item(room)}")
         title, ptype = _split_name(fields, room)
-        instruction = build_vision_blending_instruction(
+        instruction = blend_instruction_from_fields(
+            fields,
+            room - 1,
             interior_label="Furnished Modern Living Room Interior",
-            item_name=f"{title} ({ptype})",
+            item_name=f"{title} | {ptype}",
             aspect_ratio=ASPECT_RATIO,
             extra_instructions=(
                 "Do not add, remove or move any furniture, art or decor; only install this lighting fixture and "
@@ -632,32 +655,46 @@ def phase4_blend(clients: Clients, record_id: str, fields: dict[str, Any], workd
     """State FULL per room. Returns {room: (local_path, remote_url)}."""
     print("[PHASE 4/7] Nano Banana Pro blend: fixture into each room (full room state)...", flush=True)
 
-    def one(room: int) -> tuple[int, Path, str]:
+    def one(room: int) -> tuple[int, Path, str, ScaleGuardResult | None]:
         dest = workdir / f"room{room}_full.jpg"
         existing = _first_attachment_url(fields, f_state(room, STATE_FULL))
         if existing:
             print(f"    [SKIP] {f_state(room, STATE_FULL)} already attached -> reusing")
             _download_url(existing, dest, timeout=120)
-            return room, dest, existing
+            return room, dest, existing, None
         interior_url = _first_attachment_url(fields, f_interior(room))
         product_url = _first_attachment_url(fields, f_item(room))
         prompt = str(fields.get(f_blend_prompt(room)) or "").strip()
         if not (interior_url and product_url and prompt):
             raise AutomationError(f"Phase 4 needs interior, product and blending prompt for room {room}")
-        url = clients.fal.generate(
+        label = str(fields.get(f_product_type(room)) or "lighting fixture").strip().lower()
+        scale_result = blend_with_scale_guard(
+            clients.fal,
             prompt=prompt,
-            image_urls=[interior_url, product_url],
+            room_url=interior_url,
+            product_url=product_url,
+            product_type=str(fields.get(f_product_type(room)) or ""),
+            measurement=str(fields.get(f_measurement(room)) or ""),
+            item_name=str(fields.get(f_name(room)) or ""),
+            label=f"the {label}",
             aspect_ratio=ASPECT_RATIO,
             resolution=RESOLUTION,
             model=NANO_BANANA_MODEL,
         )
+        url = scale_result.image_url
         _download_url(url, dest, timeout=120)
         clients.airtable.upload_attachment(record_id, f_state(room, STATE_FULL), dest, dest.name)
         print(f"    [OK] Room {room} full room uploaded")
-        return room, dest, url
+        return room, dest, url, scale_result
 
     with ThreadPoolExecutor(max_workers=len(ROOMS)) as pool:
-        return {room: (path, url) for room, path, url in pool.map(one, ROOMS)}
+        results = list(pool.map(one, ROOMS))
+    write_scale_fields(
+        clients.airtable,
+        record_id,
+        [(room - 1, result) for room, _path, _url, result in results if result is not None],
+    )
+    return {room: (path, url) for room, path, url, _result in results}
 
 
 def phase5_removal_plans(clients: Clients, record_id: str, fields: dict[str, Any], fulls: dict[int, tuple[Path, str]]) -> dict[int, dict[str, Any]]:

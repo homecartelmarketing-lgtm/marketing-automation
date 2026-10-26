@@ -232,7 +232,7 @@ DEFAULT_CLOSEUP_PLACEHOLDER_PROMPT = json.dumps({
 
 
 class Moodboard1FeedWorkflow(BaseWorkflow):
-    estimate = CallEstimate(kie=4)
+    estimate = CallEstimate(kie=3, fal=1)
     aspect_ratio = "4:5"
     required_columns = ("Status", "Prompt")
     attachment_fields = (
@@ -261,12 +261,13 @@ class Moodboard1FeedWorkflow(BaseWorkflow):
             product = self.product_image()
             blend_prompt = self.record_prompt("Prompt")
 
-            blended_image = self.nano_image(
+            blended_image = self.fal_blend(
                 "moodboard_1_blended.jpg",
                 blend_prompt,
-                [source_interior, product],
+                source_interior,
+                product,
                 aspect_ratio="4:5",
-                model="nano-banana-pro",
+                slot=0,
             )
             self.attach_exact("Moodboard #1 Blended", [blended_image])
 

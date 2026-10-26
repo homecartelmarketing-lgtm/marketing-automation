@@ -8,6 +8,7 @@ from .base import BaseWorkflow
 
 
 NANO_BANANA_PRO = "nano-banana-pro"
+FAL_NANO_BANANA_PRO = "fal-ai/nano-banana-pro/edit"
 BLENDED_FIELD = "Style This Blended"
 DOUBLE_TAP_CONVERTED_FIELD = "Double Tap Converted"
 HOW_WOULD_YOU_LAYOUT_FIELD = "How would You Layout"
@@ -72,7 +73,7 @@ class StyleThisStoryWorkflow(BaseWorkflow):
         AssetRequirement(HOW_WOULD_YOU_PROMPT, "json"),
         AssetRequirement(DOUBLE_TAP_PROMPT, "json"),
     )
-    estimate = CallEstimate(krea=0, qwen=0, kie=8)
+    estimate = CallEstimate(krea=0, qwen=0, kie=4, fal=4)
     aspect_ratio = "9:16"
     final_filenames = FINAL_FILENAMES
     final_aspect_ratios = ("9:16", "9:16", "9:16", "9:16")
@@ -124,12 +125,14 @@ class StyleThisStoryWorkflow(BaseWorkflow):
 
         def create(values) -> LocalImage:
             filename, interior, product, prompt = values
-            return self.nano_image(
+            return self.fal_blend(
                 filename,
                 prompt,
-                [interior, product],
+                interior,
+                product,
                 aspect_ratio=self.aspect_ratio,
-                model=NANO_BANANA_PRO,
+                model=FAL_NANO_BANANA_PRO,
+                slot=0,
             )
 
         with ThreadPoolExecutor(max_workers=4) as executor:

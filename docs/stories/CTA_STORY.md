@@ -28,6 +28,17 @@ The **CTA Story Automation Pipeline** generates branded **9:16 vertical Instagra
 | **Phase 6** | **Local Logo & CTA Stamping** | **Local Python Pillow** | **Zero-API Local Python Script**<br>Canva Layout Box: $820.8 \times 304.6\text{ px}$ | `CTA Blended Image` + `Word Generated` + `Logo` | `CTA Converted Image` |
 | **Phase 7** | **Instagram Caption Gen** | Fal AI (`anthropic/claude-sonnet-5`) | Shared luxury caption prompt (`generate_caption`) + contact block + hashtags | `Item Name` + `Product Type` + `CTA Blended Image` | `Caption Generated` -> Status: `Complete` (`C`) |
 
+### Measured scale guard (Phase 4)
+
+Phase 4 wraps the Nano Banana Pro call in `content_automation/scale_guard.py`:
+one Claude Vision call measures a known-size reference in the room and locks a
+numeric cm target into the blend prompt, a second call checks the result against
+that target, and the guard re-blends once when the result is outside ±15%. The
+attempt with the smaller error is kept and the pipeline never blocks. Audit
+output lands in `Scale Audit`, `Scale Check`, and `Scale Retry`; set
+`SCALE_GUARD_ENABLED=0` to disable the extra calls (the prompt-only scale rule
+still applies).
+
 ---
 
 ## 3. Foreign Key ID Convention & Examples

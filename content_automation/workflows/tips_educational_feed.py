@@ -7,6 +7,7 @@ from .base import BaseWorkflow
 
 
 NANO_BANANA_PRO = "nano-banana-pro"
+FAL_NANO_BANANA_PRO = "fal-ai/nano-banana-pro/edit"
 BLENDED_FIELD = "Tips and Edu Blended"
 TAGGED_BLENDED_FIELD = "Tips and Edu Blended Attach Item Name"
 LAYOUT_FIELDS = (
@@ -57,7 +58,7 @@ class TipsEducationalFeedWorkflow(BaseWorkflow):
     ) + tuple(
         AssetRequirement(path, "image", aspect_ratio="4:5") for path in LAYOUT_ASSET_PATHS
     )
-    estimate = CallEstimate(krea=0, qwen=0, kie=6)
+    estimate = CallEstimate(krea=0, qwen=0, kie=3, fal=3)
     aspect_ratio = "4:5"
     final_filenames = FINAL_FILENAMES
     final_aspect_ratios = ("4:5", "4:5", "4:5")
@@ -97,20 +98,24 @@ class TipsEducationalFeedWorkflow(BaseWorkflow):
         ]
 
         def create(values) -> LocalImage:
-            filename, interior, product, prompt = values
-            return self.nano_image(
+            slot, (filename, interior, product, prompt) = values
+            return self.fal_blend(
                 filename,
                 prompt,
-                [interior, product],
+                interior,
+                product,
                 aspect_ratio=self.aspect_ratio,
-                model=NANO_BANANA_PRO,
+                model=FAL_NANO_BANANA_PRO,
+                slot=slot,
             )
 
         with ThreadPoolExecutor(max_workers=3) as executor:
             raw_blends = list(
                 executor.map(
                     create,
-                    zip(BLENDED_FILENAMES, interiors, products, prompts),
+                    enumerate(
+                        zip(BLENDED_FILENAMES, interiors, products, prompts)
+                    ),
                 )
             )
 

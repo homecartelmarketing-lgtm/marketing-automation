@@ -344,6 +344,15 @@ def scrape_active_table_lamps(
 
     created_record_ids: list[str] = []
     items_to_process = candidates[:needed_items]
+    try:
+        airtable.ensure_fields(
+            {
+                **{f"Product Type{i}": "singleLineText" for i in range(1, 4)},
+                **{f"Measurement{i}": "singleLineText" for i in range(1, 4)},
+            }
+        )
+    except Exception:
+        pass
 
     # Chunk into 3-item groups per row
     chunks = [items_to_process[i : i + 3] for i in range(0, len(items_to_process), 3)]
@@ -369,6 +378,9 @@ def scrape_active_table_lamps(
         try:
             for slot_idx, prod in enumerate(group, 1):
                 record_fields[f"Item Name{slot_idx}"] = prod.item_name
+                record_fields[f"Product Type{slot_idx}"] = prod.product_type or "Table Lamp"
+                if prod.measurement:
+                    record_fields[f"Measurement{slot_idx}"] = prod.measurement
 
             rec_id = airtable.create_record(record_fields)
             print(f"[SUCCESS] Created Airtable Record base: {rec_id}")

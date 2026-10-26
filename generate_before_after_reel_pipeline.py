@@ -38,7 +38,16 @@ from content_automation.audio import analyze_music_for_cut_grid, add_onbeat_musi
 from content_automation.config import REEL_TABLES, load_settings, resolve_reel_table
 from content_automation.errors import AutomationError, ProviderError
 from content_automation.fal_client import FalClient
-from content_automation.prompts import build_vision_blending_instruction
+from content_automation.prompts.scale import (
+    blend_instruction_from_fields,
+    measurement_for_slot,
+    product_type_for_slot,
+)
+from content_automation.scale_guard import (
+    blend_with_scale_guard,
+    ensure_scale_fields,
+    write_scale_fields,
+)
 from content_automation.krea_client import KreaClient
 from content_automation.media import download_to_temp_file, download_url_to_temp_file
 from content_automation.models import LocalImage
@@ -538,7 +547,9 @@ def generate_claude_blending_prompts(
             f"record {record_id} ({item_label}) with Fal AI Claude Sonnet 5..."
         )
 
-        instruction = build_vision_blending_instruction(
+        instruction = blend_instruction_from_fields(
+            fields,
+            0,
             interior_label="Room Interior ('Interior Generated Photo')",
             item_name=item_name,
             aspect_ratio="9:16",
@@ -592,6 +603,7 @@ def generate_nano_banana_pro_blends(
     category: str = "",
 ) -> bool:
     """Generate image-to-image blended photo using Fal AI Nano Banana Pro into 'Blended Image' (Phase 3: After Image)."""
+    ensure_scale_fields(airtable)
     records = airtable.list_records()
     records = restrict_records(records, record_ids)
     if not records:
@@ -643,13 +655,29 @@ def generate_nano_banana_pro_blends(
 
         downloaded = None
         try:
-            image_url = fal.generate(
-                prompt=prompt_text,
-                image_urls=image_inputs,
-                aspect_ratio="9:16",
-                resolution="1K",
-                model=blend_model,
-            )
+            scale_result = None
+            if interior_url and furniture_url:
+                scale_result = blend_with_scale_guard(
+                    fal,
+                    prompt=prompt_text,
+                    room_url=interior_url,
+                    product_url=furniture_url,
+                    product_type=product_type_for_slot(fields, 0),
+                    measurement=measurement_for_slot(fields, 0),
+                    item_name=str(item_label),
+                    aspect_ratio="9:16",
+                    resolution="1K",
+                    model=blend_model,
+                )
+                image_url = scale_result.image_url
+            else:
+                image_url = fal.generate(
+                    prompt=prompt_text,
+                    image_urls=image_inputs,
+                    aspect_ratio="9:16",
+                    resolution="1K",
+                    model=blend_model,
+                )
             append_audit_log({
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "record_id": record_id,
@@ -672,6 +700,8 @@ def generate_nano_banana_pro_blends(
             target_blended_field = resolve_table_field(airtable, BLENDED_IMAGE_FIELDS, blended_field)
             target_status = resolve_status_choice(airtable, [STATUS_BLENDED_IMAGE, "Blended Image Generated", "Processing Day Image"])
             airtable.upload_attachment(record_id, target_blended_field, downloaded, filename)
+            if scale_result is not None:
+                write_scale_fields(airtable, record_id, [scale_result])
             airtable.update_records([(record_id, {STATUS_FIELD: target_status})])
             print(
                 f"[OK] Attached blended image to '{target_blended_field}' and updated "

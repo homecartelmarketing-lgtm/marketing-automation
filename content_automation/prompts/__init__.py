@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from .scale import build_scale_rule, normalize_product_type, product_type_label
+
 
 # How each fixture type physically mounts. These are facts, not locations: Claude chooses the
 # location from the actual room in Image 1.
@@ -50,6 +52,9 @@ def build_banner_multi_fixture_instruction(
         notes = (fx.get("notes") or "").strip()
         if notes:
             line += f" Supplier notes (hints only, may be inaccurate): {notes}"
+        measurement = (fx.get("measurement") or "").strip()
+        if measurement:
+            line += f" Supplier dimensions: {measurement}."
         lines.append(line)
     inputs_block = "\n".join(lines)
     extra: list[str] = []
@@ -137,6 +142,8 @@ def build_vision_blending_instruction(
     aspect_ratio: str = "9:16",
     *,
     extra_instructions: str = "",
+    product_type: str = "",
+    measurement: str = "",
 ) -> str:
     """Generate the standardized vision-adaptive blending instruction for Claude Sonnet 5 Vision.
 
@@ -144,15 +151,27 @@ def build_vision_blending_instruction(
     type (ceiling chandelier/pendant, standing floor lamp, tabletop lamp, or wall sconce)
     and generates appropriate architectural placement rules for Image 1 (room interior),
     strictly enforcing the removal of any competing pre-existing lighting fixtures.
+    The scale rule uses the supplier measurement when available, and otherwise falls back
+    to a typical size range for the inferred fixture type.
     """
+    display_name = str(item_name or "Lighting Fixture").strip()
+    type_hint = str(product_type or "").strip()
+    if "|" in display_name:
+        left, right = display_name.split("|", 1)
+        display_name = left.strip() or display_name
+        type_hint = type_hint or right.strip()
+
+    normalized = normalize_product_type(type_hint or display_name)
+    label = product_type_label(normalized)
+    scale_rule = build_scale_rule(normalized, str(measurement or ""), label=label)
     extra_block = f"\n{extra_instructions.strip()}\n" if extra_instructions and extra_instructions.strip() else ""
     return (
         f"You are an expert interior design AI prompt engineer. Analyze Image 1 as the {interior_label} photo "
-        f"and Image 2 as the product photo for '{item_name}' ('Furniture Item').\n"
+        f"and Image 2 as the product photo for '{display_name}' ('Furniture Item').\n"
         f"First, visually examine Image 2 to identify the exact lighting fixture type, physical form, and installation method "
         f"(e.g., hanging chandelier or pendant from ceiling, standing floor lamp on floor, tabletop lamp on furniture surface, or wall-mounted sconce).\n"
         f"Generate a detailed, highly specific image-blending prompt for Nano Banana Pro ({aspect_ratio} aspect ratio) "
-        f"to seamlessly install and integrate the '{item_name}' from Image 2 into the interior room in Image 1.\n"
+        f"to seamlessly install and integrate the '{display_name}' from Image 2 into the interior room in Image 1.\n"
         f"RULES:\n"
         f"1. The lighting fixture from Image 2 MUST BE THE ONLY MAIN STATEMENT LIGHTING FIXTURE OF ITS TYPE in the entire final blended scene. "
         f"Remove, replace, or clear any competing or duplicate fixture in that target location in Image 1.\n"
@@ -161,8 +180,9 @@ def build_vision_blending_instruction(
         f"   - If a floor lamp: stand naturally on the floor space (e.g. beside an armchair, sofa, or room corner) with firm floor contact and realistic base shadows.\n"
         f"   - If a table lamp: place naturally on top of an available tabletop, bedside nightstand, console table, or desk surface with realistic contact shadows.\n"
         f"   - If a wall light / sconce: mount securely on a prominent wall surface at eye-level with subtle architectural wall-wash illumination.\n"
-        f"3. Ensure authentic material textures (metals, brass, glass, fabrics, ceramics), warm ambient illumination (2700K-3000K) naturally casting soft light and subtle ambient shadows onto surrounding furniture and architecture, and photorealistic 8k styling.\n"
-        f"4. Strictly maintain the exact room composition, wall color, architectural textures, and layout from Image 1.{extra_block}\n"
+        f"{scale_rule}\n"
+        f"4. Ensure authentic material textures (metals, brass, glass, fabrics, ceramics), warm ambient illumination (2700K-3000K) naturally casting soft light and subtle ambient shadows onto surrounding furniture and architecture, and photorealistic 8k styling.\n"
+        f"5. Strictly maintain the exact room composition, wall color, architectural textures, and layout from Image 1.{extra_block}\n"
         f"Output ONLY the prompt text, with no preamble, markdown formatting, or quotes."
     )
 

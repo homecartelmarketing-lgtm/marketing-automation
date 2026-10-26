@@ -33,7 +33,12 @@ from content_automation.akeneo_client import AkeneoClient
 from content_automation.config import load_settings
 from content_automation.errors import AutomationError
 from content_automation.fal_client import FalClient
-from content_automation.prompts import build_vision_blending_instruction
+from content_automation.prompts.scale import (
+    blend_instruction_from_fields,
+    measurement_for_slot,
+    product_type_for_slot,
+)
+from content_automation.scale_guard import blend_with_scale_guard, write_scale_fields
 from content_automation.krea_client import KreaClient
 from content_automation.media import download_to_temp_file
 from content_automation.overlay import HOMECARTEL_LOGO_BOX, stamp_logo
@@ -409,7 +414,9 @@ def generate_moodboard_2_prompts(
             f"record {record_id} ({item_label}) with Claude Sonnet 5..."
         )
 
-        instruction = build_vision_blending_instruction(
+        instruction = blend_instruction_from_fields(
+            fields,
+            0,
             interior_label="Room Interior",
             item_name=item_label,
             aspect_ratio="4:5",
@@ -526,13 +533,29 @@ def generate_moodboard_2_blends(
         stamped_blended_file = None
         logo_temp = None
         try:
-            image_url = fal.generate(
-                prompt=prompt_text,
-                image_urls=image_inputs,
-                aspect_ratio=aspect_ratio,
-                resolution=resolution,
-                model=blend_model,
-            )
+            scale_result = None
+            if interior_url and furniture_url:
+                scale_result = blend_with_scale_guard(
+                    fal,
+                    prompt=prompt_text,
+                    room_url=interior_url,
+                    product_url=furniture_url,
+                    product_type=product_type_for_slot(fields, 0),
+                    measurement=measurement_for_slot(fields, 0),
+                    item_name=str(item_label),
+                    aspect_ratio=aspect_ratio,
+                    resolution=resolution,
+                    model=blend_model,
+                )
+                image_url = scale_result.image_url
+            else:
+                image_url = fal.generate(
+                    prompt=prompt_text,
+                    image_urls=image_inputs,
+                    aspect_ratio=aspect_ratio,
+                    resolution=resolution,
+                    model=blend_model,
+                )
             response = requests.get(image_url, stream=True)
             downloaded = download_to_temp_file(
                 response,
@@ -566,6 +589,8 @@ def generate_moodboard_2_blends(
 
             filename = f"blended_{record_id}.jpg"
             airtable.upload_attachment(record_id, blended_field, blended_source_for_upload, filename)
+            if scale_result is not None:
+                write_scale_fields(airtable, record_id, [scale_result])
             airtable.update_records([(record_id, {FIELD_STATUS: STATUS_IN_PROGRESS, "Date and Time": current_pht_timestamp()})])
 
             # Auto-tag furniture item name onto Blended Image using YOLO-World

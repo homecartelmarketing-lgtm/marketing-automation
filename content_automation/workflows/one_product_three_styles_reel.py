@@ -11,7 +11,7 @@ from ..models import CallEstimate, LocalImage
 from .base import BaseWorkflow
 
 
-NANO_BANANA_PRO = "nano-banana-pro"
+NANO_BANANA_PRO = "fal-ai/nano-banana-pro/edit"
 BLENDED_FIELD = "1 Product 3 Style Blended"
 TAGGED_BLENDED_FIELD = "Blended Image with Name text"
 FINAL_REEL_FIELD = "Converted Reel"
@@ -27,7 +27,7 @@ class OneProductThreeStylesReelWorkflow(BaseWorkflow):
     """Blend one product into three distinct room styles and assemble a silent 9:16 reel with YOLO item name tagging."""
 
     requirements = ()
-    estimate = CallEstimate(krea=3, qwen=3, kie=3)
+    estimate = CallEstimate(krea=3, qwen=3, fal=3)
     aspect_ratio = "9:16"
     final_filenames = (FINAL_REEL_FILENAME,)
     final_aspect_ratios = ("9:16",)
@@ -203,12 +203,14 @@ class OneProductThreeStylesReelWorkflow(BaseWorkflow):
                     custom_prompt = self.qwen_blend_prompt(interior, product)
                 except Exception:
                     custom_prompt = "Blend this chandelier naturally into the room with realistic lighting and reflections."
-            return self.nano_image(
+            return self.fal_blend(
                 filename,
                 custom_prompt,
-                [interior, product],
+                interior,
+                product,
                 aspect_ratio="9:16",
                 model=NANO_BANANA_PRO,
+                slot=0,
             )
 
         with ThreadPoolExecutor(max_workers=3) as executor:

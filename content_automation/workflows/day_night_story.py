@@ -51,11 +51,13 @@ class DayNightStoryWorkflow(BaseWorkflow):
         print("  [OK] Blending Prompt saved to Airtable field 'Blending Prompt'")
 
         print("\n [PHASE 3/4] Blending Day Photo at 9:16 (Fal AI Nano Banana Pro)...")
-        day_raw = self.fal_image(
+        day_raw = self.fal_blend(
             "day_photo_raw.jpg",
             blend_prompt,
-            [source, product],
+            source,
+            product,
             aspect_ratio="9:16",
+            slot=0,
         )
         print("  [OK] Phase 3 Complete: Daytime photo blended (day_photo_raw.jpg)")
 
