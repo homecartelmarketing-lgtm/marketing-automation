@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Toaster } from './components/ui/sonner';
 import { ThemeToggle } from './components/ThemeToggle';
-import { RefreshCw, Key, Check, LogOut } from 'lucide-react';
+import { RefreshCw, Key, Check, LogOut, CalendarDays, ExternalLink } from 'lucide-react';
 import { FormatTabs, TabType } from './components/planning/FormatTabs';
 import { SubTabRail } from './components/planning/SubTabRail';
 import { FixtureProgressGrid } from './components/planning/FixtureProgressGrid';
@@ -18,6 +18,10 @@ import { getPipelineConfig, getPipelineByType, getPipelineHeaderTitle } from './
 import { usePipelineData, useQueue, usePipelineRunner } from './hooks';
 import type { FinishedQueueJob } from './hooks/useQueue';
 import type { PipelineType, QueueJob, QueueHistoryItem } from './types';
+
+// Marketing calendar v2 (separate Vercel app). Kept here so the Studio has one
+// clickable shortcut instead of the team retyping the URL.
+const MARKETING_CALENDAR_URL = 'https://homecartel-marketing-calendar-v2.vercel.app/';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('story');
@@ -681,6 +685,18 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3">
+            <a
+              href={MARKETING_CALENDAR_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid="studio-calendar-link"
+              title="Open the HomeCartel marketing calendar in a new tab"
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-card border border-slate-300 rounded-lg hover:bg-slate-50 active:bg-slate-100 transition shadow-xs cursor-pointer"
+            >
+              <CalendarDays className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Content Calendar</span>
+              <ExternalLink className="w-3 h-3 text-slate-400" />
+            </a>
             <ThemeToggle />
             <button
               type="button"

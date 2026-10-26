@@ -225,6 +225,7 @@ Second sub-tab of the **Banner** tab. A red sale panel with `10%` and `15%` bloc
 
 | Doc | Status |
 | :--- | :--- |
+| [`plans/2026-10-26-studio-calendar-link.md`](plans/2026-10-26-studio-calendar-link.md) | Studio header shortcut that opens the marketing calendar (`homecartel-marketing-calendar-v2.vercel.app`) in a new tab. Implemented locally in `App.tsx`; no backend change. |
 | [`plans/2026-10-20-universal-caption-generation.md`](plans/2026-10-20-universal-caption-generation.md) | Universal Instagram auto-caption generation across all Story/Feed/Reel/Banner tables (`Caption Generated` field via Claude Sonnet 5). |
 | [`plans/2026-10-19-tips-edu-feed-fix-tips-attach-item-name.md`](plans/2026-10-19-tips-edu-feed-fix-tips-attach-item-name.md) | Tips & Edu Feed: Carousel attachment ordering (thumbnail prepended at index 0) and item-name normalization. |
 | [`plans/2026-10-05-calendar-import.md`](plans/2026-10-05-calendar-import.md) | Content Calendar XLSX → Studio queue import (implemented: `content_automation/calendar_import.py`, `UI Control/routes/calendar.py`, `scripts/ops/import_content_calendar.py`). |
