@@ -19,7 +19,7 @@ Room interiors are generated fresh by Krea using 11 ultra-detailed reusable prom
   - **Font Policy**: Strictly Poppins typography (`content_automation/fonts/Poppins-Medium.ttf`). Zero external or serif fonts.
   - **Outro**: Seamless loop (`--outro none`, default for reference pacing) or optional branded HomeCartel outro (`assets/outro_layout.jpg`, 24.5s total).
 - **Audio Profile**: Stereo AAC @ 192 kbps Fal ElevenLabs background music (~24s warm organic-modern acoustic instrumental).
-- **Caption**: none — the pipeline writes no caption or hashtag text.
+- **Caption**: the Instagram caption (`Caption Generated`) is written just before `Done` from the tagged blends and the tour flow; the video itself carries no caption text.
 
 ---
 

@@ -75,6 +75,7 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFont
 import requests
 
 from content_automation.akeneo_client import AkeneoClient, first_attribute
+from content_automation.caption import TAGGED_BLEND_FIELD, write_row_caption
 from content_automation.config import load_settings
 from content_automation.errors import AssetValidationError, AutomationError, ProviderError
 from content_automation.fal_client import FalClient
@@ -1648,6 +1649,10 @@ def run_phase_5_for_record(
     if existing_slideshow:
         print(f"  Record {record_id} already has a slideshow video attached in '{slideshow_field_name}'.")
         if execute:
+            write_row_caption(
+                airtable, record_id, None, fal, "style_reel_slideshow",
+                image_fields=("Blended Image2", "Blended Image3", "Blended Image4", "Blended Image5", "Interior1"),
+            )
             update_record_status(airtable, record_id, STATUS_DONE)
         return True
 
@@ -1854,6 +1859,10 @@ def run_phase_5_for_record(
         AUDIT_LOG_SLIDESHOW,
     )
 
+    write_row_caption(
+        airtable, record_id, None, fal, "style_reel_slideshow",
+        image_fields=("Blended Image2", "Blended Image3", "Blended Image4", "Blended Image5", "Interior1"),
+    )
     update_record_status(airtable, record_id, STATUS_DONE)
     print(f"  [OK] Slideshow video attached. Updated record {record_id} Status -> '{STATUS_DONE}'")
     print(f"[OK] Phase 5 completed for {record_id}.")

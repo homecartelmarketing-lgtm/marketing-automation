@@ -102,7 +102,7 @@ The Studio pencils write the moodboard and prompt values to these keys (see [`..
 | Field | Type |
 | :--- | :--- |
 | `Foreign Key ID`, `Date and Time Generated`, `Date and Time Scheduled` | singleLineText / dateTime |
-| `Caption Generated` | multilineText (provisioned; this reel writes no caption) |
+| `Caption Generated` | multilineText (Instagram caption, written in Phase 7 before `Done`; blank if Claude fails) |
 | `Status` | singleSelect (`In progress` / `Done` / `Scheduled` / `Posted` / `Discard` / `For Manual`) |
 | `ID` | autoNumber (created if missing) |
 | `Furniture Item` | attachment (scraped fixture photo) |

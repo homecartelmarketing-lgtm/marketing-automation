@@ -29,6 +29,7 @@ from PIL import Image
 import requests
 
 from content_automation.config import load_settings
+from content_automation.caption import write_row_caption
 from content_automation.errors import AutomationError
 from content_automation.fal_client import FalClient
 from content_automation.prompts.scale import (
@@ -894,6 +895,10 @@ def generate_moodboard_v1_closeups(
             )
             filename = f"closeup_{record_id}.jpg"
             airtable.upload_attachment(record_id, CLOSEUP_FIELD, downloaded, filename)
+            write_row_caption(
+                airtable, record_id, None, fal, "moodboard_1_feed",
+                image_fields=("Moodboard V1 Blended", "Moodboard Added Watermark", "Moodboard Converted", CLOSEUP_FIELD),
+            )
             airtable.update_records([(record_id, {STATUS_FIELD: STATUS_COMPLETE})])
             print(
                 f"[OK] Attached close-up image to '{CLOSEUP_FIELD}' and updated "

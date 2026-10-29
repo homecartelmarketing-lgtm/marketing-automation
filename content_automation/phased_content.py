@@ -28,6 +28,7 @@ from PIL import Image, UnidentifiedImageError
 from .airtable_client import current_pht_timestamp
 from .akeneo_client import AkeneoClient, split_item_name
 from .assets import AssetCatalog
+from .caption import write_row_caption
 from .errors import AssetValidationError, AutomationError, ProviderError
 from .fal_client import FalClient
 from .isolated_config import IsolatedAutomationSettings
@@ -1047,6 +1048,12 @@ class PhasedContentRunner:
             }
             actions[phase](record_id)
             if phase == self.definition.phase_count:
+                if self.definition.key.startswith("day_night_reel"):  # Reels only; Stories have no caption
+                    write_row_caption(
+                        self.airtable, record_id, None, self.fal, "day_night_reel",
+                        image_fields=(self.definition.blended_field,),
+                        category=self.definition.category_code,
+                    )
                 self._update_status(record_id, "Complete")
                 print(f"[OK] Record {record_id} is 100% COMPLETE! Final media uploaded to '{self.definition.final_field}'.\n", flush=True)
             else:

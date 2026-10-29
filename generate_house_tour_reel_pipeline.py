@@ -9,7 +9,7 @@ organic-modern/Japandi room interior using unified moodboard ID
 ``fda7090c-787b-4116-94cd-3feef613eaaa`` and video-accurate prompts, each blend
 is animated with Fal Kling V3 Turbo Pro (3 s alternating pans), and the clips
 are assembled locally with FFmpeg (1 s crossfades, Poppins title overlays,
-HomeCartel outro, ElevenLabs music). No caption is written.
+HomeCartel outro, ElevenLabs music). An Instagram caption is written to `Caption Generated` before Done.
 
 Slots (11-room luxury home tour)
 --------------------------------
@@ -94,6 +94,7 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
         pass
 
 from content_automation.akeneo_client import AkeneoClient, split_item_name
+from content_automation.caption import TAGGED_BLEND_FIELD, write_row_caption
 from content_automation.config import load_settings
 from content_automation.errors import AutomationError
 from content_automation.fal_client import FalClient
@@ -2010,6 +2011,10 @@ def process_row(
             print(f"  [Upload] Uploading {mp4_path.name} to Airtable...")
             clients.airtable.upload_attachment(
                 record_id, FINAL_VIDEO_FIELD, mp4_path, f"house_tour_reel_{record_id}.mp4"
+            )
+            write_row_caption(
+                clients.airtable, record_id, None, clients.fal, "house_tour_reel",
+                image_fields=(TAGGED_BLEND_FIELD, *(f"Blended Image{i}" for i in range(1, 12))),
             )
             clients.airtable.update_records([(record_id, {STATUS_FIELD: STATUS_DONE})])
             print(f"[ROW {record_id}] COMPLETE -> Final Video uploaded & Status = Done")

@@ -59,6 +59,7 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
         pass
 
 from content_automation.akeneo_client import AkeneoClient, split_item_name
+from content_automation.caption import write_row_caption
 from content_automation.config import load_settings
 from content_automation.errors import AutomationError, ProviderError
 from content_automation.fal_client import FalClient
@@ -930,6 +931,12 @@ def phase6_assembly(
 
     clients.airtable.upload_attachment(
         record_id, FINAL_VIDEO_FIELD, output, f"one_at_a_time_lights_reel_{record_id}.mp4"
+    )
+    write_row_caption(
+        clients.airtable, record_id, None, clients.fal, "oatl_reel",
+        image_fields=("Blended Image", "Converted Image1", "Converted Image2", "Converted Image3"),
+        item_name=_extract_slot_item_names(fields)[1], product_type="Table Lamp",
+        category="bedroom lighting",
     )
     clients.airtable.update_records([(record_id, {STATUS_FIELD: STATUS_DONE})])
     print("    [OK] Final Video uploaded & Status = Done (PHT timestamp auto-stamped)")

@@ -30,6 +30,7 @@ import requests
 
 from content_automation.airtable_client import current_pht_timestamp
 from content_automation.akeneo_client import AkeneoClient
+from content_automation.caption import write_row_caption
 from content_automation.config import load_settings
 from content_automation.errors import AutomationError
 from content_automation.fal_client import FalClient
@@ -800,6 +801,10 @@ def generate_moodboard_2_converted(
             )
             filename = f"moodboard_2_converted_{record_id}.jpg"
             airtable.upload_attachment(record_id, converted_field, downloaded, filename)
+            write_row_caption(
+                airtable, record_id, None, fal, "moodboard_2_feed",
+                image_fields=(blended_field, converted_field),
+            )
             airtable.update_records([(record_id, {FIELD_STATUS: STATUS_DONE, "Date and Time Generated": current_pht_timestamp()})])
 
             append_audit_log({

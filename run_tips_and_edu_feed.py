@@ -76,6 +76,7 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFont, UnidentifiedImageErro
 import requests
 
 from content_automation.akeneo_client import AkeneoClient
+from content_automation.caption import write_row_caption
 from content_automation.config import load_settings
 from content_automation.errors import AssetValidationError, AutomationError, ProviderError
 from content_automation.fal_client import FalClient
@@ -1197,6 +1198,13 @@ class TipsAndEduFeedRunner:
         else:
             print(f"[DRY RUN] Would verify schema for table {self.table_id}")
 
+    def _write_caption(self, record_id: str) -> None:
+        """Instagram caption from the 3 tip slides (never blocks Complete)."""
+        write_row_caption(
+            self.airtable, record_id, None, self.fal, "tips_edu_feed",
+            image_fields=(FINAL_FEED_FIELD, TAGGED_BLENDED_FIELD, "Thumbnail with Text"),
+        )
+
     def _update_status(self, record_id: str, status: str) -> None:
         self.airtable.update_records([(record_id, {STATUS_FIELD: status})])
         self.logger.event("status_updated", record_id=record_id, status=status)
@@ -2188,6 +2196,8 @@ class TipsAndEduFeedRunner:
         existing_finals = fields.get(FINAL_FEED_FIELD) or []
         if len(existing_finals) >= 3 and not self.force_layouts:
             print(f"[OK] Record {record_id} already has {len(existing_finals)} images in '{FINAL_FEED_FIELD}'.")
+            if execute:
+                self._write_caption(record_id)
             self._update_status(record_id, STATUS_COMPLETE)
             return True
 
@@ -2302,6 +2312,8 @@ class TipsAndEduFeedRunner:
             )
 
         if all_succeeded and len(final_paths) == 3:
+            if execute:
+                self._write_caption(record_id)
             self._update_status(record_id, STATUS_COMPLETE)
             print(f"\n[OK] Record {record_id} is 100% COMPLETE! All 3 Final Feed Layouts attached to '{FINAL_FEED_FIELD}'.\n")
             return True

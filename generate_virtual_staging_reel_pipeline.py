@@ -67,7 +67,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from content_automation.airtable_client import current_pht_timestamp
 from content_automation.akeneo_client import AkeneoClient, split_item_name
-from content_automation.caption import CAPTION_FIELD, generate_caption
+from content_automation.caption import CAPTION_FIELD, write_row_caption
 from content_automation.config import load_settings
 from content_automation.errors import AutomationError
 from content_automation.fal_client import FalClient
@@ -1067,19 +1067,12 @@ def phase7_assemble_final_reel(clients: Clients, record_id: str, fields: dict[st
     print(f"  [OK] Final video assembled: {final_mp4_path.stat().st_size:,} bytes.")
 
     # 5. Generate universal Instagram caption via shared helper (never blocks Done)
-    caption_text = str(fields.get(FIELD_CAPTION) or "").strip()
-    if not caption_text:
-        print("  [INFO] Generating Instagram caption with shared helper...")
-        staged_url = get_first_attachment_url(fields, FIELD_FULLY_STAGED) or raw_video_url
-        caption_text, used_fallback = generate_caption(
-            clients.fal, item_name, "Chandelier", [staged_url] if staged_url else [], "chandeliers",
-        )
-        try:
-            clients.airtable.update_record(record_id, {FIELD_CAPTION: caption_text})
-        except Exception as err:
-            print(f"  [WARN] Caption update failed: {err}")
-        suffix = " (fallback)" if used_fallback else ""
-        print(f"  [OK] Caption generated.{suffix}")
+    staged_url = get_first_attachment_url(fields, FIELD_FULLY_STAGED) or raw_video_url
+    write_row_caption(
+        clients.airtable, record_id, fields, clients.fal, "virtual_staging_reel",
+        image_urls=[staged_url] if staged_url else [],
+        item_name=item_name, product_type="Chandelier", category="chandeliers",
+    )
 
     # 6. Upload final video & complete row
     clients.airtable.upload_attachment(record_id, FIELD_FINAL_VIDEO, final_mp4_path, f"final_reel_{record_id}.mp4")

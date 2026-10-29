@@ -69,6 +69,7 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
         pass
 
 from content_automation.akeneo_client import AkeneoClient
+from content_automation.caption import TAGGED_BLEND_FIELD, write_row_caption
 from content_automation.config import load_settings
 from content_automation.errors import AutomationError, ProviderError
 from content_automation.fal_client import FalClient
@@ -784,6 +785,10 @@ def process_row(clients: Clients, record_id: str, force: bool = False) -> bool:
         print(f"  [Upload] Uploading {mp4_path.name} to Airtable...")
         clients.airtable.upload_attachment(
             record_id, FINAL_VIDEO_FIELD, mp4_path, f"product_closeup_reel_{record_id}.mp4"
+        )
+        write_row_caption(
+            clients.airtable, record_id, None, clients.fal, "product_closeup_reel",
+            image_fields=(TAGGED_BLEND_FIELD,), category="table lamps",
         )
         clients.airtable.update_records([(record_id, {STATUS_FIELD: STATUS_DONE})])
         print(f"[ROW {record_id}] COMPLETE -> Final Video uploaded & Status = Done")
