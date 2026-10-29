@@ -85,7 +85,7 @@ Both prompts default to `Generate me a modern living room`. The Studio pencils e
 | Field | Type |
 | :--- | :--- |
 | `Foreign Key ID`, `Date and Time Generated`, `Date and Time Scheduled` | singleLineText / dateTime |
-| `Caption Generated` | multilineText |
+| `Caption Generated` | multilineText (Instagram caption, written in Phase 7 before `Done`; blank if Claude fails) |
 | `Status` | singleSelect (`In progress` / `Done` / `Scheduled` / `Posted` / `Discard` / `For Manual`) |
 | `Furniture Item1..2` | attachment (scraped fixture photo) |
 | `Item Name1..2`, `SKU1..2` | multilineText / singleLineText |

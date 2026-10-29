@@ -40,8 +40,8 @@ class KlingPanPatternTests(unittest.TestCase):
                 self.assertIn(room_word, prompt.lower())
                 self.assertIn(MODULE.SLOT_LABELS[slot].lower(), prompt.lower())
 
-    def test_caption_is_gone(self):
-        self.assertFalse(hasattr(MODULE, "CAPTION_FIELD"))
+    def test_caption_uses_the_shared_helper_not_a_default(self):
+        self.assertTrue(callable(MODULE.write_row_caption))
         self.assertFalse(hasattr(MODULE, "CAPTION_DEFAULT"))
 
 

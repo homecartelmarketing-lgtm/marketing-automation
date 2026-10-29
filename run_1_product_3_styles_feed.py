@@ -37,6 +37,7 @@ import requests
 from PIL import Image, UnidentifiedImageError
 
 from content_automation.akeneo_client import AkeneoClient, split_item_name
+from content_automation.caption import TAGGED_BLEND_FIELD, write_row_caption
 from content_automation.config import load_settings
 from content_automation.errors import AssetValidationError, AutomationError, ProviderError
 from content_automation.fal_client import FalClient
@@ -672,6 +673,11 @@ class OneProductThreeStylesRunner:
                 self.phase_4(record_id)
 
             if phase == 4:
+                write_row_caption(
+                    self.airtable, record_id, None, self.fal, "op3s_feed",
+                    image_fields=(BLENDED_FIELD, TAGGED_BLEND_FIELD),
+                    category="chandeliers",
+                )
                 self._update_status(record_id, "Complete")
                 print(
                     f"[OK] Record {record_id} is 100% COMPLETE! 3 Blended images (Slide 1 with logo) uploaded to '{BLENDED_FIELD}'.\n",

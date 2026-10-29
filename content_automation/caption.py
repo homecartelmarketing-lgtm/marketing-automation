@@ -1,10 +1,10 @@
 """Shared universal Instagram caption generation for HomeCartel pipelines.
 
-Every pipeline run auto-generates one caption per Airtable row (slot-0 /
+Every Feed and Reel run auto-generates one caption per Airtable row (slot-0 /
 anchor product) in the exact user format and stores it in the
 ``Caption Generated`` (multilineText) field. Caption failure must NEVER
-block ``Complete``/``Done`` -- callers use :func:`generate_caption`,
-which falls back deterministically on any error.
+block ``Complete``/``Done`` -- callers use :func:`write_row_caption`, which
+leaves the cell blank on any failure (no generic fallback caption).
 
 Canonical shape (blocks separated by one blank line):
     [One liner] [emoji]
@@ -24,9 +24,12 @@ from __future__ import annotations
 
 import os
 import re
+from typing import Callable
 
 CAPTION_FIELD = "Caption Generated"
 CAPTION_FIELD_TYPE = "multilineText"
+#: Same value as ``item_tagger.TARGET_BLENDED_FIELD`` (kept here to avoid its heavy import).
+TAGGED_BLEND_FIELD = "Blended Image with Name text"
 
 CLAUDE_MODEL_ENV = "CLAUDE_VISION_MODEL"
 CLAUDE_MODEL_DEFAULT = "anthropic/claude-sonnet-5"
@@ -56,17 +59,26 @@ def build_caption_instruction(
     item_name: str = "",
     product_type: str = "",
     category: str = "",
+    flow: str = "",
 ) -> str:
     """Build the Claude Sonnet 5 vision prompt for the row caption."""
     item = _clean(item_name) or "featured lighting piece"
     ptype = _clean(product_type) or "lighting"
     cat = _clean(category)
     cat_line = f"Category context: {cat}.\n" if cat else ""
+    flow_text = _clean(flow)
+    flow_line = (
+        f"About this post: {flow_text} Make the hook and value sentences "
+        "fit this post, not a generic product ad.\n"
+        if flow_text
+        else ""
+    )
     return (
         "You write the Instagram caption for HomeCartel, a premium lighting "
         "brand in the Philippines.\n"
         f"The photo shows the '{item}' ({ptype}) installed in a styled room.\n"
         f"{cat_line}"
+        f"{flow_line}"
         "Write the caption with 6 blocks separated by exactly one blank line:\n"
         "1. One short poetic hook line ending with one emoji.\n"
         f"2. Product line exactly: {item} | {ptype}\n"
@@ -149,22 +161,25 @@ def sanitize_caption(raw: object, item_name: str = "") -> str:
     return text.strip()
 
 
-def fallback_caption(
-    item_name: str = "",
-    product_type: str = "",
-    category: str = "",  # noqa: ARG001 - uniform call signature
-) -> str:
-    """Deterministic caption used when Claude fails. Never empty."""
-    item = _clean(item_name) or "Featured Piece"
-    ptype = _clean(product_type) or "Lighting"
-    one_liner = "Timeless glow, made for slow evenings \u2728"
-    value = (
-        "Its warm glow softens the room and pairs beautifully with wood, "
-        f"linen, and stone, bringing quiet luxury to everyday moments "
-        f"with the {item}."
-    )
-    cta = f"Ready to let the {item} steal the spotlight in your home?"
-    return assemble_caption(one_liner, item, ptype, value, cta)
+def collect_image_urls(
+    fields: dict,
+    field_names: "tuple[str, ...] | list[str]",
+    limit: int = 4,
+) -> list[str]:
+    """Airtable attachment URLs from the named fields, in order, capped."""
+    urls: list[str] = []
+    for name in field_names:
+        value = (fields or {}).get(name)
+        if isinstance(value, str) and value.startswith("http"):
+            urls.append(value.strip())
+        elif isinstance(value, list):
+            for att in value:
+                url = att.get("url") if isinstance(att, dict) else att
+                if isinstance(url, str) and url.strip().startswith("http"):
+                    urls.append(url.strip())
+        if len(urls) >= limit:
+            break
+    return urls[:limit]
 
 
 def generate_caption(
@@ -173,29 +188,101 @@ def generate_caption(
     product_type: str = "",
     image_urls: list[str] | None = None,
     category: str = "",
-) -> tuple[str, bool]:
+    flow: str = "",
+) -> str:
     """Generate the row caption via Claude Vision. Never raises.
 
-    Returns ``(caption, used_fallback)``. On any error -- missing client,
-    API exception, or unusable reply -- returns the deterministic
-    fallback with ``used_fallback=True`` so the run still completes.
+    Returns the cleaned caption, or ``""`` when the client is missing, the
+    call fails, or the reply is unusable after one retry. There is no
+    generic fallback caption: a blank cell is better than a wrong one.
     """
-    item = _clean(item_name) or "Featured Piece"
-    ptype = _clean(product_type) or "Lighting"
-    try:
-        if fal is None:
-            raise ValueError("no Fal client available for caption")
-        instruction = build_caption_instruction(item, ptype, category)
-        model = os.environ.get(CLAUDE_MODEL_ENV, CLAUDE_MODEL_DEFAULT).strip()
-        if not model:
-            model = CLAUDE_MODEL_DEFAULT
-        urls = [str(u).strip() for u in (image_urls or []) if str(u).strip()]
-        generate = getattr(fal, "generate_vision_prompt")
-        raw = generate(image_urls=urls, prompt=instruction, model=model)
-        cleaned = sanitize_caption(raw, item)
-        if cleaned:
-            return cleaned, False
-        return fallback_caption(item, ptype, category), True
-    except Exception:
-        return fallback_caption(item, ptype, category), True
+    item = _clean(item_name)
+    ptype = _clean(product_type)
+    if fal is None or not item:
+        return ""
+    instruction = build_caption_instruction(item, ptype, category, flow)
+    model = os.environ.get(CLAUDE_MODEL_ENV, CLAUDE_MODEL_DEFAULT).strip()
+    if not model:
+        model = CLAUDE_MODEL_DEFAULT
+    urls = [str(u).strip() for u in (image_urls or []) if str(u).strip()]
+    for _attempt in range(2):
+        try:
+            generate = getattr(fal, "generate_vision_prompt")
+            raw = generate(image_urls=urls, prompt=instruction, model=model)
+            cleaned = sanitize_caption(raw, item)
+            if cleaned:
+                return cleaned
+        except Exception:
+            continue
+    return ""
 
+
+def write_row_caption(
+    airtable: object,
+    record_id: str,
+    fields: "dict | None",
+    fal: object,
+    flow_key: str,
+    *,
+    image_fields: "tuple[str, ...] | list[str]" = (),
+    image_urls: list[str] | None = None,
+    slot: int = 0,
+    item_name: str = "",
+    product_type: str = "",
+    category: str = "",
+    update_fn: "Callable[[dict], object] | None" = None,
+) -> str:
+    """Generate and store ``Caption Generated`` for one finished row.
+
+    Call it right before the row is marked Complete/Done. Pass ``fields=None``
+    to re-read the row from Airtable. It never raises
+    and never blocks completion: on any failure the cell stays blank and a
+    ``[WARN]`` line is printed. An existing caption is kept as is (manual
+    edits win). Returns the caption now on the row ("" when none).
+    ``update_fn`` replaces the Airtable write for pipelines that use raw
+    HTTP calls instead of a client object.
+    """
+    try:
+        if fields is None:  # re-read so attachments uploaded this run are present
+            fields = (airtable.get_record(record_id) or {}).get("fields") or {}  # type: ignore[attr-defined]
+        existing = str((fields or {}).get(CAPTION_FIELD) or "").strip()
+        if existing:
+            return existing
+        from content_automation.akeneo_client import split_item_name
+        from content_automation.caption_flows import flow_for
+        from content_automation.prompts.scale import (
+            item_name_for_slot,
+            product_type_for_slot,
+        )
+
+        raw_name = _clean(item_name) or item_name_for_slot(fields or {}, slot)
+        raw_type = _clean(product_type) or product_type_for_slot(fields or {}, slot)
+        name, ptype = split_item_name(raw_name, raw_type)
+        urls = list(image_urls or []) or collect_image_urls(fields or {}, image_fields)
+        print("  [INFO] Generating Instagram caption...")
+        caption = generate_caption(
+            fal, name, ptype, urls, category, flow_for(flow_key),
+        )
+        if not caption:
+            print("  [WARN] Caption not generated; leaving it blank.")
+            return ""
+        ensure = getattr(airtable, "ensure_fields", None)
+        if callable(ensure):  # create the column if the table lacks it
+            try:
+                try:
+                    ensure({CAPTION_FIELD: CAPTION_FIELD_TYPE})
+                except TypeError:  # AirtableClient.ensure_fields needs execute=
+                    ensure({CAPTION_FIELD: CAPTION_FIELD_TYPE}, execute=True)
+            except Exception:
+                pass
+        if update_fn is not None:
+            update_fn({CAPTION_FIELD: caption})
+        elif hasattr(airtable, "update_record"):
+            airtable.update_record(record_id, {CAPTION_FIELD: caption})  # type: ignore[attr-defined]
+        else:
+            airtable.update_records([(record_id, {CAPTION_FIELD: caption})])  # type: ignore[attr-defined]
+        print("  [OK] Caption generated.")
+        return caption
+    except Exception as err:  # never block Complete/Done
+        print(f"  [WARN] Caption step failed: {err}")
+        return ""

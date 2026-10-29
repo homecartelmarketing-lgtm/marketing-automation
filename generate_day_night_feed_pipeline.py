@@ -56,6 +56,7 @@ import requests
 from PIL import Image
 
 from content_automation.akeneo_client import AkeneoClient, split_item_name
+from content_automation.caption import write_row_caption
 from content_automation.config import load_settings
 from content_automation.errors import AutomationError, ProviderError
 from content_automation.fal_client import FalClient
@@ -530,6 +531,7 @@ def finalize_feed_record(
     *,
     category: str = DEFAULT_CATEGORY,
     dry_run: bool = False,
+    fal: FalClient | None = None,
 ) -> bool:
     """Upload both photos to multi-attachment field if present and set Status to Complete."""
     if dry_run:
@@ -627,6 +629,11 @@ def finalize_feed_record(
         except Exception as mirror_err:
             print(f"  [WARN] Failed mirroring to '{TARGET_BLENDED_FIELD}': {mirror_err}")
 
+        write_row_caption(
+            airtable, record_id, None, fal, "day_night_feed",
+            image_urls=[u for u in (day_url, night_url) if u],
+            category=category,
+        )
         # Update status to Complete
         airtable.update_records([(record_id, {STATUS_FIELD: STATUS_COMPLETE})])
         print(f"  [OK] Updated Status to '{STATUS_COMPLETE}' on record {record_id}!")
@@ -760,6 +767,7 @@ def process_single_feed_row(
         night_image_url,
         category=category,
         dry_run=dry_run,
+        fal=fal,
     )
 
     elapsed = round(time.time() - start_time, 2)

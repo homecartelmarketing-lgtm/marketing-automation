@@ -37,6 +37,7 @@ import requests
 from content_automation.audio import analyze_music_for_cut_grid, add_onbeat_music
 from content_automation.config import REEL_TABLES, load_settings, resolve_reel_table
 from content_automation.errors import AutomationError, ProviderError
+from content_automation.caption import TAGGED_BLEND_FIELD, write_row_caption
 from content_automation.fal_client import FalClient
 from content_automation.prompts.scale import (
     blend_instruction_from_fields,
@@ -1439,6 +1440,10 @@ def generate_slideshow_reels_pipeline(
             target_field = resolve_table_field(airtable, SLIDESHOW_FIELDS, slideshow_field)
             target_status = resolve_status_choice(airtable, [STATUS_COMPLETE, "Complete"])
             airtable.upload_attachment(record_id, target_field, local_video, f"slideshow_{record_id}.mp4")
+            write_row_caption(
+                airtable, record_id, None, fal, "before_after_reel",
+                image_fields=(TAGGED_BLEND_FIELD, *BLENDED_IMAGE_FIELDS, "Multiple Angle Blended Image"),
+            )
             airtable.update_records([(record_id, {STATUS_FIELD: target_status})])
             print(
                 f"[OK] Attached slideshow MP4 video to '{target_field}' attachment field and updated "

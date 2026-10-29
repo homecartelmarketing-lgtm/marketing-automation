@@ -74,6 +74,7 @@ from typing import Any
 import requests
 
 from content_automation.akeneo_client import AkeneoClient
+from content_automation.caption import write_row_caption
 from content_automation.config import load_settings
 from content_automation.errors import AssetValidationError, AutomationError, ProviderError
 from content_automation.fal_client import FalClient
@@ -1541,6 +1542,11 @@ def run_phase_5_for_record(
         )
 
     if execute and all_slots_succeeded:
+        write_row_caption(
+            airtable, record_id, None, fal, "collection_feed",
+            image_fields=tuple(f"Blended Image{i}" for i in range(1, 6)),
+            slot=1,  # slot 1 is the exterior cover with no product; Item Name2 is the anchor
+        )
         update_record_status(airtable, record_id, STATUS_DONE)
         print(f"  [OK] All 5 slots blended. Updated record {record_id} Status -> '{STATUS_DONE}'")
 

@@ -44,6 +44,7 @@ import requests
 from PIL import Image, UnidentifiedImageError
 
 from content_automation.airtable_client import current_pht_timestamp
+from content_automation.caption import TAGGED_BLEND_FIELD, write_row_caption
 from content_automation.akeneo_client import AkeneoClient, split_item_name
 from content_automation.config import load_settings
 from content_automation.errors import AssetValidationError, AutomationError, ProviderError
@@ -235,6 +236,14 @@ class OneProductThreeStylesReelRunner:
             if url:
                 urls.append(url)
         return urls
+
+    def _write_caption(self, record_id: str) -> None:
+        """Instagram caption from the tagged/blended styles (never blocks Complete)."""
+        write_row_caption(
+            self.airtable, record_id, None, self.fal, "op3s_reel",
+            image_fields=(TAGGED_BLEND_FIELD, "1 Product 3 Style Blended"),
+            category="chandeliers",
+        )
 
     def _update_status(self, record_id: str, status_value: str) -> None:
         updates: dict[str, Any] = {STATUS_FIELD: status_value}
@@ -499,8 +508,6 @@ class OneProductThreeStylesReelRunner:
             available_fields = set(self.airtable.table_fields().keys())
             if "Reel Headline" in available_fields:
                 updates["Reel Headline"] = headline_text
-            elif "Caption Generated" in available_fields:
-                updates["Caption Generated"] = headline_text
         except Exception:
             updates["Reel Headline"] = headline_text
         print(f"  [+] Generated 'Reel Headline': \"{headline_text}\"", flush=True)
@@ -683,7 +690,8 @@ class OneProductThreeStylesReelRunner:
         print(f"  [+] Phase 5.4: Uploading video to '{CONVERTED_REEL_FIELD}'...", flush=True)
         self.airtable.upload_attachment(record_id, CONVERTED_REEL_FIELD, video_dest, video_dest.name)
 
-        # 6. Mark 100% Complete & Stamp PHT Timestamp
+        # 6. Caption (non-blocking), then mark 100% Complete & stamp PHT timestamp
+        self._write_caption(record_id)
         self._update_status(record_id, "Complete")
         print(f"  [OK] Record {record_id} is 100% COMPLETE! Stamped timestamp and Status -> Complete.\n", flush=True)
         return video_dest
@@ -739,6 +747,7 @@ class OneProductThreeStylesReelRunner:
         else:
             status = str(fields.get(STATUS_FIELD) or "").lower().strip()
             if status not in ("complete", "completed", "done", "discard", "discarded"):
+                self._write_caption(record_id)
                 self._update_status(record_id, "Complete")
 
     def run(

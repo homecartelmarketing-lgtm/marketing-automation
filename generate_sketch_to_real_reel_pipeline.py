@@ -16,7 +16,7 @@ Core Principles:
    Zero ElevenLabs audio calls. Video renders with local audio or silent outro muxing.
 4. Minimalist Claude Vision:
    Claude Sonnet 5 only generates the Blending Prompt and 3-5 word Reel Headline.
-   No sketch prompt, no video prompt, and no caption generation.
+   No sketch prompt and no video prompt. The Instagram caption is written in Phase 8, before Done.
 
 Phases
 ------
@@ -87,6 +87,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from content_automation.airtable_client import current_pht_timestamp
 from content_automation.akeneo_client import AkeneoClient, split_item_name
+from content_automation.caption import TAGGED_BLEND_FIELD, write_row_caption
 from content_automation.auto_draw import extract_outline_preview, render_auto_draw_video
 from content_automation.config import load_settings
 from content_automation.errors import AutomationError
@@ -1074,6 +1075,11 @@ def run_phase_8_outro(
     # Attach Outro & Final Video to Airtable
     clients.airtable.upload_attachment(record_id, FIELD_OUTRO, outro_file, "Outro.jpg")
     clients.airtable.upload_attachment(record_id, FIELD_FINAL_VIDEO, final_video_path, f"STR_{record_id}_final.mp4")
+
+    write_row_caption(
+        clients.airtable, record_id, None, clients.fal, "sketch_to_real_reel",
+        image_fields=(TAGGED_BLEND_FIELD, "Blended Image"),
+    )
 
     # Set status to Done + auto stamp PHT timestamp
     clients.airtable.update_record(record_id, {

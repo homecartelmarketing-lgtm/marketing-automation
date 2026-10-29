@@ -34,6 +34,7 @@ from PIL import Image
 
 from content_automation.airtable_client import current_pht_timestamp
 from content_automation.akeneo_client import AkeneoClient, first_attribute, split_item_name
+from content_automation.caption import write_row_caption
 from content_automation.config import load_settings
 from content_automation.errors import AutomationError, ProviderError
 from content_automation.fal_client import FalClient
@@ -615,6 +616,10 @@ def generate_product_showcase_feed_for_record(
         for idx, spath in enumerate(stamped_slide_paths, 1):
             airtable.upload_attachment(record_id, output_field, spath, f"showcase_slide_{idx}_{record_id}.jpg")
 
+        write_row_caption(
+            airtable, record_id, None, fal, "product_showcase_feed",
+            image_fields=(output_field,),
+        )
         airtable.update_records([
             (
                 record_id,

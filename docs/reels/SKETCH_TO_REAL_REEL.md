@@ -22,7 +22,7 @@ The **Sketch to Real Reel Automation Pipeline** generates high-engagement **~11-
 | **Phase 1** | **Akeneo Scrape & Catalog Verification** | Akeneo PIM API + Shopify Client | Active ingestion + strict Shopify catalog check + base-wide dedup | Fresh category product (Chandelier, Pendant, etc.) | `Furniture Item`, `SKU`, `Item Name`, `Product Type`, `Category` -> Status: `In progress`<br>*(Strictly NO Price Field)* |
 | **Phase 2** | **Krea Room Interior Generation** | Krea AI | `krea-2-medium` (9:16, 1K)<br>Preset category Moodboard | Category Moodboard ID + Room Prompt | `Room Interior`, `Interior Prompt` -> Status: `Interior Generated` |
 | **Phase 3** | **Nano Banana Fixture Removal (Clean Interior)** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: 9:16, Resolution: 1K, fixed removal prompt (zero Claude cost) | `Room Interior` (raw Krea, may contain built-in lights) | `Clean Interior`, `Removal Prompt` -> Status: `Fixture Removed`<br>*(On failure falls back to the original `Room Interior`; reel never dies on this phase. Skip with `--skip-fixture-removal`.)* |
-| **Phase 4** | **Claude Vision Prompting & Headline** | Fal AI | `anthropic/claude-sonnet-5` | Product Photo + Clean Interior (falls back to Room Interior) | `Blending Prompt`, `Reel Headline` -> Status: `Prompt Generated`<br>*(Generates dynamic music prompt, No Caption)* |
+| **Phase 4** | **Claude Vision Prompting & Headline** | Fal AI | `anthropic/claude-sonnet-5` | Product Photo + Clean Interior (falls back to Room Interior) | `Blending Prompt`, `Reel Headline` -> Status: `Prompt Generated`<br>*(Generates dynamic music prompt. The Instagram caption is written in Phase 8, before `Done`.)* |
 | **Phase 5** | **Nano Banana Pro Photorealistic Blend** | Fal AI + YOLO-World | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: 9:16, Resolution: 1K | Clean Interior + Product + Blending Prompt | `Blended Image` + `Blended Image with Name text` -> Status: `Blended Image Generated` |
 | **Phase 6** | **Auto Draw Outline & Cover Generation** | Local Auto Draw Engine + Pillow | Canny edge subtraction + Pillow Poppins Bold | Clean Interior (BEFORE) + Blended Image (AFTER) + `Reel Headline` | `Sketch Image` + `Thumbnail with Generated Text` -> Status: `Sketch Generated` |
 | **Phase 7** | **Auto Draw Vector Animation** | Local Auto Draw Engine via FFmpeg | Vector stroke path tracing directly to FFmpeg rawvideo pipe | Clean Interior + Blended Image (with 2-line floating tag reveal) | `Raw Video` -> Status: `Video Generated` |
@@ -107,7 +107,7 @@ Rows marked "no Airtable table yet" cannot be run until a real table exists: cre
 | 22 | `Outro` | `multipleAttachments` | Branded HomeCartel Outro (`assets/outro_layout.jpg`) |
 | 23 | `Final Video` | `multipleAttachments` | Final 9:16 vertical video reel with Outro and ElevenLabs audio |
 
-*(Note: Price, Caption Generated, Sketch Prompt, and Video Prompt fields are omitted per specifications).*
+*(Note: Price, Sketch Prompt, and Video Prompt fields are omitted per specifications. `Caption Generated` is created automatically when the caption is written).*
 
 ---
 

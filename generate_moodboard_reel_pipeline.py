@@ -45,6 +45,7 @@ from content_automation.config import (
     load_settings,
 )
 from content_automation.errors import AutomationError
+from content_automation.caption import TAGGED_BLEND_FIELD, write_row_caption
 from content_automation.fal_client import FalClient
 from content_automation.prompts.scale import measurement_for_slot, product_type_for_slot
 from content_automation.scale_guard import (
@@ -1615,6 +1616,7 @@ def run_phase_5_reel(
     table_id: str,
     workdir: Path,
     execute: bool = True,
+    fal: FalClient | None = None,
 ) -> bool:
     """Build MP4 vertical on-beat reel and upload to REEL - Moodboard Reel field."""
     record_id = record["id"]
@@ -1651,6 +1653,19 @@ def run_phase_5_reel(
 
     _upload_attachment(session, token, base_id, record_id, REEL_FIELD, reel)
 
+    try:  # fresh read: blends/conversions were uploaded during this run
+        fresh_fields = _get_record(session, token, base_id, table_id, record_id).get("fields") or {}
+    except Exception:
+        fresh_fields = record.get("fields") or {}
+    write_row_caption(
+        None, record_id, fresh_fields, fal, "moodboard_reel",
+        image_fields=(TAGGED_BLEND_FIELD, BLENDED_FIELD, CONVERTED_FIELD),
+        item_name=get_item_name_for_slot(fresh_fields, 0),
+        update_fn=lambda f: (
+            _ensure_field(session, token, base_id, table_id, "Caption Generated", "multilineText"),
+            _update_record_fields(session, token, base_id, table_id, record_id, f),
+        ),
+    )
     _update_record_fields(session, token, base_id, table_id, record_id, {STATUS_FIELD: STATUS_COMPLETE})
     print(f"    [OK] Uploaded {reel.filename} -> '{REEL_FIELD}', Status -> '{STATUS_COMPLETE}'")
     return True
@@ -1773,7 +1788,7 @@ def process_one_record_end_to_end(
     ok = run_phase_5_reel(
         record, blended_map, converted_map, music=music_img, outro=outro_img,
         session=session, token=token, base_id=base_id, table_id=table_id,
-        workdir=workdir, execute=execute,
+        workdir=workdir, execute=execute, fal=fal,
     )
 
     if ok:
@@ -1977,7 +1992,7 @@ def main(argv=None) -> int:
                     music_img = None
                     print(f"  [PHASE 4.5] Record {record_id}: Music generation disabled for reel (silent video). Pass --enable-music to enable.")
                 outro_img = run_phase_outro(record, assets.workspace, session=session, token=token, base_id=base_id, table_id=table_id, workdir=workdir, execute=args.execute)
-                run_phase_5_reel(record, blended_map, converted_map, music=music_img, outro=outro_img, session=session, token=token, base_id=base_id, table_id=table_id, workdir=workdir, execute=args.execute)
+                run_phase_5_reel(record, blended_map, converted_map, music=music_img, outro=outro_img, session=session, token=token, base_id=base_id, table_id=table_id, workdir=workdir, execute=args.execute, fal=fal)
         return 0
 
     # -----------------------------------------------------------------------

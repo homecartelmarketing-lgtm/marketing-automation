@@ -57,13 +57,6 @@ class CaptionFormatTest(unittest.TestCase):
         self.assertTrue(blocks[4].startswith("Inquire now!"))
         self.assertEqual(blocks[5], C.HASHTAG_LINE)
 
-    def test_fallback_never_empty(self):
-        for item, ptype in [("Aurelia Chandelier", "Chandelier"), ("", "")]:
-            out = C.fallback_caption(item, ptype)
-            self.assertTrue(out.strip())
-            self.assertIn("Inquire now!", out)
-            self.assertTrue(out.rstrip().endswith(C.HASHTAG_LINE))
-
     def test_contact_and_hashtag_constants_verbatim(self):
         self.assertEqual(
             C.CONTACT_BLOCK,
@@ -113,43 +106,128 @@ class CaptionPromptTest(unittest.TestCase):
         self.assertIn(C.CONTACT_BLOCK, instruction)
         self.assertIn(C.HASHTAG_LINE, instruction)
 
+    def test_flow_text_is_in_the_prompt(self):
+        instruction = C.build_caption_instruction(
+            "Aurelia Chandelier", "Chandelier", "", "One locked camera reveal.",
+        )
+        self.assertIn("One locked camera reveal.", instruction)
+        self.assertNotIn("About this post", C.build_caption_instruction("A", "B"))
+
 
 class GenerateCaptionTest(unittest.TestCase):
     def test_success_returns_cleaned_caption(self):
         fal = MagicMock()
         fal.generate_vision_prompt.return_value = _valid_raw()
-        out, used_fallback = C.generate_caption(
+        out = C.generate_caption(
             fal, "Aurelia Chandelier", "Chandelier",
-            ["https://example.com/room.jpg"], "chandeliers",
+            ["https://example.com/room.jpg"], "chandeliers", "Day to night.",
         )
-        self.assertFalse(used_fallback)
         self.assertIn("Aurelia Chandelier | Chandelier", out)
         fal.generate_vision_prompt.assert_called_once()
+        prompt = fal.generate_vision_prompt.call_args.kwargs["prompt"]
+        self.assertIn("Day to night.", prompt)
 
-    def test_failure_returns_fallback_never_raises(self):
+    def test_failure_returns_blank_never_raises(self):
         fal = MagicMock()
         fal.generate_vision_prompt.side_effect = RuntimeError("boom")
-        out, used_fallback = C.generate_caption(
-            fal, "Aurelia Chandelier", "Chandelier",
-            ["https://example.com/room.jpg"],
+        out = C.generate_caption(
+            fal, "Aurelia Chandelier", "Chandelier", ["https://example.com/room.jpg"],
         )
-        self.assertTrue(used_fallback)
-        self.assertIn("Aurelia Chandelier | Chandelier", out)
-        self.assertIn("Inquire now!", out)
+        self.assertEqual(out, "")
+        self.assertEqual(fal.generate_vision_prompt.call_count, 2)  # one retry
 
-    def test_unusable_reply_returns_fallback(self):
+    def test_unusable_reply_retries_once_then_blank(self):
         fal = MagicMock()
         fal.generate_vision_prompt.return_value = "too short"
-        out, used_fallback = C.generate_caption(
-            fal, "Aurelia Chandelier", "Chandelier", [],
-        )
-        self.assertTrue(used_fallback)
+        self.assertEqual(C.generate_caption(fal, "Aurelia Chandelier", "Chandelier", []), "")
+        self.assertEqual(fal.generate_vision_prompt.call_count, 2)
+
+    def test_retry_recovers_from_first_bad_reply(self):
+        fal = MagicMock()
+        fal.generate_vision_prompt.side_effect = ["too short", _valid_raw()]
+        out = C.generate_caption(fal, "Aurelia Chandelier", "Chandelier", [])
         self.assertIn("Aurelia Chandelier", out)
 
-    def test_none_client_returns_fallback(self):
-        out, used_fallback = C.generate_caption(None, "Aurelia Chandelier")
-        self.assertTrue(used_fallback)
-        self.assertTrue(out.strip())
+    def test_none_client_or_no_item_returns_blank(self):
+        self.assertEqual(C.generate_caption(None, "Aurelia Chandelier"), "")
+        self.assertEqual(C.generate_caption(MagicMock(), ""), "")
+
+    def test_no_fallback_helpers_remain(self):
+        self.assertFalse(hasattr(C, "fallback_caption"))
+
+
+class WriteRowCaptionTest(unittest.TestCase):
+    def _fal(self):
+        fal = MagicMock()
+        fal.generate_vision_prompt.return_value = _valid_raw()
+        return fal
+
+    def test_writes_caption_using_row_images(self):
+        airtable = MagicMock()
+        fal = self._fal()
+        fields = {
+            "Item Name1": "Aurelia Chandelier | Chandelier",
+            "Blended Image": [{"url": "https://example.com/a.jpg"}],
+        }
+        out = C.write_row_caption(
+            airtable, "rec1", fields, fal, "room_reveal_reel",
+            image_fields=("Blended Image",),
+        )
+        self.assertIn("Aurelia Chandelier | Chandelier", out)
+        airtable.update_record.assert_called_once_with("rec1", {C.CAPTION_FIELD: out})
+        self.assertEqual(
+            fal.generate_vision_prompt.call_args.kwargs["image_urls"],
+            ["https://example.com/a.jpg"],
+        )
+
+    def test_rereads_row_when_fields_is_none(self):
+        airtable = MagicMock()
+        airtable.get_record.return_value = {"fields": {"Item Name": "Aurelia Chandelier"}}
+        out = C.write_row_caption(airtable, "rec1", None, self._fal(), "tmen_reel")
+        airtable.get_record.assert_called_once_with("rec1")
+        self.assertTrue(out)
+
+    def test_existing_caption_is_not_overwritten(self):
+        airtable = MagicMock()
+        fal = self._fal()
+        fields = {C.CAPTION_FIELD: "Hand written", "Item Name": "Aurelia Chandelier"}
+        out = C.write_row_caption(airtable, "rec1", fields, fal, "tmen_reel")
+        self.assertEqual(out, "Hand written")
+        fal.generate_vision_prompt.assert_not_called()
+        airtable.update_record.assert_not_called()
+
+    def test_blank_result_writes_nothing_and_never_raises(self):
+        airtable = MagicMock()
+        fal = MagicMock()
+        fal.generate_vision_prompt.side_effect = RuntimeError("down")
+        out = C.write_row_caption(
+            airtable, "rec1", {"Item Name": "Aurelia Chandelier"}, fal, "tmen_reel",
+        )
+        self.assertEqual(out, "")
+        airtable.update_record.assert_not_called()
+
+    def test_airtable_write_failure_is_swallowed(self):
+        airtable = MagicMock()
+        airtable.update_record.side_effect = RuntimeError("422")
+        out = C.write_row_caption(
+            airtable, "rec1", {"Item Name": "Aurelia Chandelier"}, self._fal(), "tmen_reel",
+        )
+        self.assertEqual(out, "")
+
+    def test_update_fn_replaces_the_airtable_write(self):
+        sink = []
+        out = C.write_row_caption(
+            None, "rec1", {"Item Name": "Aurelia Chandelier"}, self._fal(), "moodboard_reel",
+            update_fn=sink.append,
+        )
+        self.assertEqual(sink, [{C.CAPTION_FIELD: out}])
+
+    def test_collect_image_urls(self):
+        fields = {"A": [{"url": "https://x/1.jpg"}, {"url": "https://x/2.jpg"}], "B": "https://x/3.jpg"}
+        self.assertEqual(
+            C.collect_image_urls(fields, ("A", "B"), limit=3),
+            ["https://x/1.jpg", "https://x/2.jpg", "https://x/3.jpg"],
+        )
 
 
 class PipelineWiringTest(unittest.TestCase):
@@ -163,7 +241,7 @@ class PipelineWiringTest(unittest.TestCase):
         self.assertEqual(vst.FIELD_CAPTION, C.CAPTION_FIELD)
         self.assertEqual(vst.FIELD_CAPTION, "Caption Generated")
         src = inspect.getsource(vst.phase7_assemble_final_reel)
-        self.assertIn("generate_caption", src)
+        self.assertIn("write_row_caption", src)
         self.assertNotIn("cap_prompt", src)
 
 

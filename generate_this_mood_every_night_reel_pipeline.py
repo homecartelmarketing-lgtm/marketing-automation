@@ -73,6 +73,7 @@ load_dotenv(REPO_ROOT / ".env")
 
 from content_automation.airtable_client import current_pht_timestamp
 from content_automation.akeneo_client import AkeneoClient, split_item_name
+from content_automation.caption import TAGGED_BLEND_FIELD, write_row_caption
 from content_automation.config import Settings, load_settings
 from content_automation.errors import AutomationError
 from content_automation.fal_client import FalClient
@@ -1087,6 +1088,10 @@ def phase8_assemble(clients: Clients, record_id: str, fields: dict[str, Any]) ->
 
         # 6. Upload Final Video & Stamp Done
         clients.airtable.upload_attachment(record_id, "Final Video", final_output, f"TMEN_{record_id}_final.mp4")
+        write_row_caption(
+            clients.airtable, record_id, None, clients.fal(), "tmen_reel",
+            image_fields=(TAGGED_BLEND_FIELD, *(f"Blended Image{i}" for i in range(1, 8))),
+        )
         updates = {
             STATUS_FIELD: STATUS_DONE,
             "Date and Time Generated": current_pht_timestamp(),

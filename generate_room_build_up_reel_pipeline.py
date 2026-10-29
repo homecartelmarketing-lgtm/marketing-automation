@@ -47,6 +47,7 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
         pass
 
 from content_automation.akeneo_client import AkeneoClient
+from content_automation.caption import write_row_caption
 from content_automation.errors import AutomationError
 from content_automation.prompts.scale import blend_instruction_from_fields
 from content_automation.scale_guard import (
@@ -819,6 +820,10 @@ def phase7_assemble(
     track = mix_sound_track(sfx, workdir / "room_build_up_sound.m4a")
     final_video = assemble_hard_cut_video(sequence, workdir / f"room_build_up_reel_{record_id}.mp4", audio_path=track)
     clients.airtable.upload_attachment(record_id, FINAL_VIDEO_FIELD, final_video, final_video.name)
+    write_row_caption(
+        clients.airtable, record_id, None, clients.fal, "room_build_up_reel",
+        image_fields=("Room 1 Full", "Room 2 Full"),
+    )
     clients.airtable.update_records([(record_id, {STATUS_FIELD: STATUS_DONE})])
     print("    [OK] Final Video uploaded & Status = Done (PHT timestamp auto-stamped)")
     return final_video
