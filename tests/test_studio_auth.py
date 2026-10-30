@@ -29,7 +29,9 @@ class StudioAuthTests(unittest.TestCase):
             "STUDIO_SECRET_KEY": "test-secret",
             "STUDIO_ADMIN_EMAIL": "",
             "STUDIO_ADMIN_PASSWORD": "",
-            "STUDIO_MAX_ACCOUNTS": "10",  # most tests need several accounts; the cap has its own tests
+            "STUDIO_MAX_ACCOUNTS": "10",
+            "DATABASE_URL": "",
+            "POSTGRES_URL": "",  # most tests need several accounts; the cap has its own tests
         }
         self.env_patch = patch.dict(os.environ, env)
         self.env_patch.start()
@@ -208,6 +210,49 @@ class StudioAuthTests(unittest.TestCase):
 
     def test_login_refused_when_no_accounts_exist(self):
         self.assertEqual(self._login().status_code, 400)
+
+
+
+
+class PostgresStudioAuthTests(unittest.TestCase):
+    def setUp(self):
+        routes_dir = Path(__file__).resolve().parents[1] / "UI Control"
+        if str(routes_dir) not in sys.path:
+            sys.path.insert(0, str(routes_dir))
+        self.auth = importlib.import_module("routes.studio_auth")
+
+    def test_postgres_read_users(self):
+        mock_cursor = unittest.mock.MagicMock()
+        mock_cursor.fetchall.return_value = [
+            ("pguser@homecartel.net", "hashed_pw", "admin", "2026-10-30T00:00:00Z")
+        ]
+        mock_conn = unittest.mock.MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+
+        with patch.dict(os.environ, {"DATABASE_URL": "postgresql://test:test@localhost:5432/test"}),              patch("psycopg2.connect", return_value=mock_conn):
+            users = self.auth.load_users()
+            self.assertIn("pguser@homecartel.net", users)
+            self.assertEqual(users["pguser@homecartel.net"]["role"], "admin")
+
+    def test_postgres_add_user(self):
+        mock_cursor = unittest.mock.MagicMock()
+        mock_cursor.fetchall.return_value = []
+        mock_conn = unittest.mock.MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+
+        temp = tempfile.TemporaryDirectory()
+        try:
+            with patch.dict(os.environ, {
+                "DATABASE_URL": "postgresql://test:test@localhost:5432/test",
+                "STUDIO_USERS_PATH": str(Path(temp.name) / "users.json"),
+                "STUDIO_MAX_ACCOUNTS": "10",
+            }), patch("psycopg2.connect", return_value=mock_conn):
+                u = self.auth.add_user("newpg@homecartel.net", PASSWORD, role="user")
+                self.assertEqual(u["email"], "newpg@homecartel.net")
+                self.assertEqual(u["role"], "user")
+                self.assertTrue(mock_cursor.execute.called)
+        finally:
+            temp.cleanup()
 
 
 if __name__ == "__main__":

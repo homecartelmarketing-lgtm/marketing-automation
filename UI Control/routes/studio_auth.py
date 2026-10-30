@@ -38,7 +38,7 @@ VALID_ROLES = ("admin", "user")
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _SESSION_KEY = "studio_user"
 
-_USERS_LOCK = threading.Lock()
+_USERS_LOCK = threading.RLock()
 _SEED_CACHE: dict[str, Any] = {}
 _SEED_PREFIXES = ("STUDIO_ADMIN", "STUDIO_ADMIN2")
 # Checked for unknown emails so a miss takes as long as a wrong password.
@@ -52,6 +52,150 @@ def _users_path() -> Path:
 
 def normalize_email(email: Any) -> str:
     return str(email or "").strip().lower()
+
+
+
+def _database_url() -> str:
+    for key in ("DATABASE_URL", "POSTGRES_URL", "PG_DATABASE_URL"):
+        url = os.getenv(key, "").strip()
+        if url:
+            if url.startswith("postgres://"):
+                url = "postgresql://" + url[len("postgres://"):]
+            return url
+    return ""
+
+
+def _init_db_schema(conn) -> None:
+    with conn.cursor() as cur:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS studio_users (
+                id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                email TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_studio_users_email ON studio_users (email);
+        """)
+        conn.commit()
+
+
+def _read_db_users() -> dict[str, dict[str, Any]] | None:
+    url = _database_url()
+    if not url:
+        return None
+    conn = None
+    try:
+        import psycopg2
+        conn = psycopg2.connect(url, connect_timeout=5)
+        _init_db_schema(conn)
+        with conn.cursor() as cur:
+            cur.execute("SELECT email, password_hash, role, created_at FROM studio_users;")
+            rows = cur.fetchall()
+            res: dict[str, dict[str, Any]] = {}
+            for email, p_hash, role, created_at in rows:
+                res[normalize_email(email)] = {
+                    "email": normalize_email(email),
+                    "password_hash": p_hash,
+                    "role": role,
+                    "created_at": created_at.isoformat() if hasattr(created_at, "isoformat") else str(created_at),
+                }
+            return res
+    except Exception:
+        return None
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+
+def _write_db_user(email: str, password_hash: str, role: str) -> None:
+    url = _database_url()
+    if not url:
+        return
+    conn = None
+    try:
+        import psycopg2
+        conn = psycopg2.connect(url, connect_timeout=5)
+        _init_db_schema(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO studio_users (email, password_hash, role, created_at, updated_at)
+                VALUES (%s, %s, %s, NOW(), NOW())
+                ON CONFLICT (email) DO UPDATE SET
+                    password_hash = EXCLUDED.password_hash,
+                    role = EXCLUDED.role,
+                    updated_at = NOW();
+                """,
+                (normalize_email(email), password_hash, role),
+            )
+            conn.commit()
+    except Exception:
+        pass
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+
+def _set_db_password(email: str, password_hash: str) -> None:
+    url = _database_url()
+    if not url:
+        return
+    conn = None
+    try:
+        import psycopg2
+        conn = psycopg2.connect(url, connect_timeout=5)
+        _init_db_schema(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE studio_users
+                SET password_hash = %s, updated_at = NOW()
+                WHERE email = %s;
+                """,
+                (password_hash, normalize_email(email)),
+            )
+            conn.commit()
+    except Exception:
+        pass
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+
+def _remove_db_user(email: str) -> None:
+    url = _database_url()
+    if not url:
+        return
+    conn = None
+    try:
+        import psycopg2
+        conn = psycopg2.connect(url, connect_timeout=5)
+        _init_db_schema(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM studio_users WHERE email = %s;",
+                (normalize_email(email),),
+            )
+            conn.commit()
+    except Exception:
+        pass
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 
 def _read_file_users() -> dict[str, dict[str, Any]]:
@@ -99,9 +243,13 @@ def _seed_users() -> list[dict[str, Any]]:
 
 
 def load_users() -> dict[str, dict[str, Any]]:
-    """All accounts keyed by lower-cased email (file users, plus the env-seeded admin)."""
+    """All accounts keyed by lower-cased email (DB/file users, plus the env-seeded admin)."""
     with _USERS_LOCK:
-        users = _read_file_users()
+        db_users = _read_db_users()
+        if db_users is not None:
+            users = db_users
+        else:
+            users = _read_file_users()
     for seed in _seed_users():
         users.setdefault(seed["email"], seed)
     return users
@@ -112,11 +260,12 @@ def accounts_enabled() -> bool:
 
 
 def max_accounts() -> int:
-    """How many accounts may exist (STUDIO_MAX_ACCOUNTS, default 1: one shared team login)."""
+    """How many accounts may exist (STUDIO_MAX_ACCOUNTS, default 50 when DB is connected, 1 for single file)."""
+    default_cap = 50 if _database_url() else DEFAULT_MAX_ACCOUNTS
     try:
-        return max(int(os.getenv("STUDIO_MAX_ACCOUNTS", str(DEFAULT_MAX_ACCOUNTS))), 1)
+        return max(int(os.getenv("STUDIO_MAX_ACCOUNTS", str(default_cap))), 1)
     except ValueError:
-        return DEFAULT_MAX_ACCOUNTS
+        return default_cap
 
 
 def accounts_full() -> bool:
@@ -166,8 +315,8 @@ def add_user(email: str, password: str, role: str = "user") -> dict[str, Any]:
     if role not in VALID_ROLES:
         raise ValueError(f"Role must be one of: {', '.join(VALID_ROLES)}.")
     with _USERS_LOCK:
-        users = _read_file_users()
-        if email in users:
+        all_users = load_users()
+        if email in all_users:
             raise ValueError(f"{email} already exists.")
     if accounts_full():
         limit = max_accounts()
@@ -175,16 +324,21 @@ def add_user(email: str, password: str, role: str = "user") -> dict[str, Any]:
             f"This Studio is limited to {limit} account{'s' if limit != 1 else ''}. "
             "Use set-password to change the login, or raise STUDIO_MAX_ACCOUNTS."
         )
+    p_hash = generate_password_hash(password)
+    now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    record = {
+        "email": email,
+        "password_hash": p_hash,
+        "role": role,
+        "created_at": now_iso,
+    }
     with _USERS_LOCK:
+        if _database_url():
+            _write_db_user(email, p_hash, role)
         users = _read_file_users()
-        users[email] = {
-            "email": email,
-            "password_hash": generate_password_hash(password),
-            "role": role,
-            "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        }
+        users[email] = record
         _write_file_users(users)
-        return users[email]
+        return record
 
 
 def set_password(email: str, password: str) -> None:
@@ -192,21 +346,30 @@ def set_password(email: str, password: str) -> None:
     if len(password) < MIN_PASSWORD_LENGTH:
         raise ValueError(f"Password must be at least {MIN_PASSWORD_LENGTH} characters.")
     with _USERS_LOCK:
-        users = _read_file_users()
-        if email not in users:
+        all_users = load_users()
+        if email not in all_users:
             raise ValueError(f"No such user: {email}")
-        users[email]["password_hash"] = generate_password_hash(password)
-        _write_file_users(users)
+        p_hash = generate_password_hash(password)
+        if _database_url():
+            _set_db_password(email, p_hash)
+        users = _read_file_users()
+        if email in users:
+            users[email]["password_hash"] = p_hash
+            _write_file_users(users)
 
 
 def remove_user(email: str) -> None:
     email = normalize_email(email)
     with _USERS_LOCK:
-        users = _read_file_users()
-        if email not in users:
+        all_users = load_users()
+        if email not in all_users:
             raise ValueError(f"No such user: {email}")
-        del users[email]
-        _write_file_users(users)
+        if _database_url():
+            _remove_db_user(email)
+        users = _read_file_users()
+        if email in users:
+            del users[email]
+            _write_file_users(users)
 
 
 def verify_credentials(email: str, password: str) -> dict[str, Any] | None:
