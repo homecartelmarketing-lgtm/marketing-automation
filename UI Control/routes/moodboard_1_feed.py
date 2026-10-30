@@ -160,7 +160,7 @@ _EXEC_STATE: dict[str, Any] = {
     "active_table_id": None,
     "current_phase": "",
     "current_phase_index": 0,
-    "total_phases": 6,
+    "total_phases": 7,
     "elapsed_seconds": 0,
     "logs": [],
     "error": None,
@@ -297,7 +297,7 @@ def run_pipeline():
             "active_table_id": fix_info["table_id"],
             "current_phase": "Starting pipeline...",
             "current_phase_index": 0,
-            "total_phases": 6,
+            "total_phases": 7,
             "elapsed_seconds": 0,
             "logs": [f"[{time.strftime('%X')}] Triggering Moodboard #1 Feed for {fix_info['name']} ({max_items} item(s))..."],
             "error": None,
@@ -341,18 +341,21 @@ def run_pipeline():
                     elif "phase 2" in txt.lower() or "prompt" in txt.lower():
                         _EXEC_STATE["current_phase"] = "Phase 2: Claude Sonnet 5 Prompting"
                         _EXEC_STATE["current_phase_index"] = 2
+                    elif "visual qa" in txt.lower() or "phase 6: visual qa" in txt.lower() or "inspecting" in txt.lower() or "re-blend" in txt.lower():
+                        _EXEC_STATE["current_phase"] = "Phase 4: Self-Healing Visual QA (Claude Sonnet 5 Inspection)"
+                        _EXEC_STATE["current_phase_index"] = 4
                     elif "phase 3" in txt.lower() or "blending" in txt.lower():
                         _EXEC_STATE["current_phase"] = "Phase 3: Nano Banana Pro Blending + YOLO Item Tagging"
                         _EXEC_STATE["current_phase_index"] = 3
                     elif "phase 4" in txt.lower() or "watermark" in txt.lower() or "logo" in txt.lower():
-                        _EXEC_STATE["current_phase"] = "Phase 4: Python PIL Brand Logo Stamping"
-                        _EXEC_STATE["current_phase_index"] = 4
-                    elif "phase 5" in txt.lower() or "moodboard converted" in txt.lower():
-                        _EXEC_STATE["current_phase"] = "Phase 5: Material Moodboard Conversion"
+                        _EXEC_STATE["current_phase"] = "Phase 5: Python PIL Brand Logo Stamping"
                         _EXEC_STATE["current_phase_index"] = 5
-                    elif "phase 6" in txt.lower() or "closeup" in txt.lower():
-                        _EXEC_STATE["current_phase"] = "Phase 6: Macro Product Close-up Shot"
+                    elif "phase 5" in txt.lower() or "moodboard converted" in txt.lower():
+                        _EXEC_STATE["current_phase"] = "Phase 6: Material Moodboard Conversion"
                         _EXEC_STATE["current_phase_index"] = 6
+                    elif "phase 6" in txt.lower() or "closeup" in txt.lower() or "caption" in txt.lower():
+                        _EXEC_STATE["current_phase"] = "Phase 7: Macro Product Close-up Shot & Captioning"
+                        _EXEC_STATE["current_phase_index"] = 7
 
             p.wait()
             with _STATE_LOCK:

@@ -40,6 +40,11 @@ from content_automation.prompts.scale import (
 from content_automation.scale_guard import blend_with_scale_guard, write_scale_fields
 from content_automation.krea_client import KreaClient
 from content_automation.media import download_to_temp_file
+from content_automation.feed_qa import (
+    QASlotTarget,
+    run_self_healing_feed_qa,
+    STATUS_FOR_REVIEW,
+)
 from content_automation.item_tagger import (
     TARGET_BLENDED_FIELD,
     fixture_display_type,
@@ -77,6 +82,7 @@ STATUS_BLENDED_IMAGE = "Blended Image Generated"
 STATUS_ADDED_WATERMARK = "Added Watermark Layout"
 STATUS_MOODBOARD_CONVERTED = "Moodboard Converted"
 STATUS_COMPLETE = "Complete"
+STATUS_FOR_REVIEW = "For Review"
 
 INTERIOR_FIELD = "Interior Generated"
 INTERIOR_ASPECT_RATIO = "4:5"
@@ -531,12 +537,94 @@ def generate_moodboard_v1_blends(
             airtable.upload_attachment(record_id, BLENDED_FIELD, TempWrap(upload_source), filename)
             if scale_result is not None:
                 write_scale_fields(airtable, record_id, [scale_result])
-            airtable.update_records([(record_id, {STATUS_FIELD: STATUS_BLENDED_IMAGE})])
-            print(
-                f"[OK] Attached tagged blended image to '{BLENDED_FIELD}' and updated "
-                f"{STATUS_FIELD} to '{STATUS_BLENDED_IMAGE}' on record {record_id}"
+
+            # ── Self-Healing Visual QA (Claude Sonnet 5 Inspection) ───────────────
+            fresh_rec = airtable.get_record(record_id)
+            fresh_fields = fresh_rec.get("fields", {})
+            fresh_blended_url = extract_attachment_url(fresh_fields.get(BLENDED_FIELD)) or image_url
+
+            qa_target = QASlotTarget(
+                slot_index=1,
+                slot_label=f"Slide 1 Interior Blend ({item_title})",
+                item_name=item_title,
+                category=category_inferred,
+                room_type="Living Room" if "living" in prompt_text.lower() else "Dining Room",
+                image_url=fresh_blended_url,
+                attachment_field=BLENDED_FIELD,
+                blending_prompt=prompt_text,
+                interior_url=interior_url,
+                product_url=furniture_url,
+                measurement=measurement_for_slot(fields, 0),
+                aspect_ratio=aspect_ratio,
             )
 
+            def reblend_callback(target: QASlotTarget, correction_directive: str) -> str:
+                retry_prompt = f"{target.blending_prompt}\n\nCRITICAL DESIGN CORRECTION: {correction_directive}".strip()
+                print(f"    [RE-BLEND] Calling Fal AI Nano Banana Pro with corrective prompt...")
+                retry_scale = blend_with_scale_guard(
+                    fal,
+                    prompt=retry_prompt,
+                    room_url=target.interior_url,
+                    product_url=target.product_url,
+                    product_type=product_type_for_slot(fields, 0),
+                    measurement=target.measurement,
+                    item_name=target.item_name,
+                    aspect_ratio=target.aspect_ratio,
+                    resolution=resolution,
+                    model=blend_model,
+                )
+                retry_url = retry_scale.image_url
+                retry_resp = requests.get(retry_url, stream=True)
+                dl_retry = download_to_temp_file(
+                    retry_resp,
+                    prefix="reblend_mb1_",
+                    suffix=".jpg",
+                    context=f"Download reblended image from {retry_url}",
+                )
+                retagged_paths: list[Path] = []
+                try:
+                    tag_and_upload_blended_image(
+                        airtable=airtable,
+                        record_id=record_id,
+                        blended_source=dl_retry.path,
+                        item_name=item_title,
+                        product_type=prod_type,
+                        category=category_inferred,
+                        target_field=TARGET_BLENDED_FIELD,
+                        fallback_if_undetected=True,
+                        output_tagged_paths=retagged_paths,
+                        output_format="feed",
+                    )
+                except Exception as tag_err:
+                    print(f"    [WARN] Failed re-tagging on re-blend: {tag_err}")
+
+                retry_upload_source = retagged_paths[0] if retagged_paths and retagged_paths[0].is_file() else dl_retry.path
+                airtable.upload_attachment(record_id, BLENDED_FIELD, TempWrap(retry_upload_source), f"blended_{record_id}_corrected.jpg")
+                dl_retry.cleanup()
+
+                after_rec = airtable.get_record(record_id)
+                after_val = after_rec.get("fields", {}).get(BLENDED_FIELD)
+                return extract_attachment_url(after_val) or retry_url
+
+            qa_result = run_self_healing_feed_qa(
+                fal,
+                airtable,
+                record_id,
+                [qa_target],
+                reblend_fn=reblend_callback,
+                execute=True,
+                status_done_val=STATUS_BLENDED_IMAGE,
+            )
+
+            if not qa_result.passed:
+                print(f"  [QA REVIEW NEEDED] Record {record_id} has defects after retry. Halting downstream phases. Status set to '{STATUS_FOR_REVIEW}'.")
+                failed += 1
+                continue
+
+            print(
+                f"[OK] Visual QA passed! Attached verified blended image to '{BLENDED_FIELD}' and updated "
+                f"{STATUS_FIELD} to '{STATUS_BLENDED_IMAGE}' on record {record_id}"
+            )
             succeeded += 1
         except Exception as error:
             err_msg = str(error).encode("ascii", errors="replace").decode("ascii")
@@ -1002,6 +1090,12 @@ def main(argv=None) -> int:
         settings.airtable_base_id,
         settings.airtable_table_id,
     )
+    # Ensure QA and review notes fields exist
+    try:
+        airtable.ensure_fields({"Blend Review Notes": "multilineText"})
+        airtable.ensure_single_select_options("Status", ["For Review"])
+    except Exception as e:
+        print(f"[WARN] Failed ensuring QA review fields: {e}")
 
     print("=" * 64)
     print("Moodboard #1 Feed AI Generation & Local Overlay Pipeline")

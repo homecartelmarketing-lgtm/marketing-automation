@@ -118,7 +118,7 @@ docs/
 | :---: | :--- | :--- | :--- | :--- |
 | **0** | [`TIPS_AND_EDU_FEED.md`](feeds/TIPS_AND_EDU_FEED.md) | `tblQ65S51Dmauwx4c` (Chandelier) | `TNE-FEEDS-<FIXTURE>-<ID>` | 4-slide carousel: 1 exterior thumbnail cover + 3 interior product blend layouts. |
 | **1** | [`COLLECTION_CATEGORY_FEED.md`](feeds/COLLECTION_CATEGORY_FEED.md) | `tbl5o1j3XvUaUqmjs` (5-Room Set) | `CC-FEEDS-SET-<ID>` | 5-room coordinated whole-home collection carousel (Exterior, Bed, Dining, Kitchen, Living). |
-| **2** | [`MOODBOARD_1_FEED.md`](feeds/MOODBOARD_1_FEED.md) | `tbl9u5vjgx8kuE44R` (Chandelier) | `MB1-FEEDS-<FIXTURE>-<ID>` | 4-slide carousel: Blended room, brand watermark, 3-swatch moodboard, macro closeup. |
+| **2** | [`MOODBOARD_1_FEED.md`](feeds/MOODBOARD_1_FEED.md) | `tbl9u5vjgx8kuE44R` (Chandelier) | `MB1-FEEDS-<FIXTURE>-<ID>` | 4-slide carousel: Blended room (with Claude Sonnet 5 Self-Healing Visual QA & YOLO tagging), brand watermark, 3-swatch moodboard, macro closeup. |
 | **3** | [`MOODBOARD_2_FEED.md`](feeds/MOODBOARD_2_FEED.md) | `tbltWgQKOYjuHw6tx` (Chandelier) | `MB2-FEEDS-<FIXTURE>-<ID>` | 2-slide carousel: In-situ room blend + architectural flat-lay moodboard. |
 | **4** | [`ONE_PRODUCT_THREE_STYLES_FEED.md`](feeds/ONE_PRODUCT_THREE_STYLES_FEED.md) | `tblrlfqBGe5EjS5PI` (Chandelier) | `OP3S-FEEDS-<FIXTURE>-<ID>` | 3-slide carousel showing 1 product in 3 distinct luxury room styles. |
 | **5** | [`DAY_NIGHT_FEED.md`](feeds/DAY_NIGHT_FEED.md) | `tblSceuLVvLMQ6wWp` (4 Tables) | `DN-FEEDS-<FIXTURE>-<ID>` | Comparative day and night illumination feed post (Chandelier, Pendant, Floor Lamp, Table Lamp). |

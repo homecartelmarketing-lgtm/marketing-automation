@@ -291,6 +291,8 @@ class StudioUsersFilePermissionsTests(unittest.TestCase):
                 "STUDIO_USERS_PATH": str(Path(self.temp.name) / "users.json"),
                 "STUDIO_ADMIN_EMAIL": "",
                 "STUDIO_ADMIN_PASSWORD": "",
+                "DATABASE_URL": "",
+                "POSTGRES_URL": "",
             },
         )
         self.env_patch.start()

@@ -60,7 +60,7 @@ The Studio opens on a split-layout login screen (`src/app/components/auth/LoginS
 ### 2. Feed Workspace (4:5 vertical, 1080 x 1350 px)
 - **Tips & Educational Feed**: 4 categories (Chandelier, Pendant, Floor Lamp, Cluster).
 - **Collection Category Feed**: 5-Room whole-home coordinated collection set.
-- **Moodboard #1 Feed**: 4-slide editorial carousel (Blended, Watermark, Swatches, Macro).
+- **Moodboard #1 Feed**: 4-slide editorial carousel (Blended with Self-Healing Visual QA & YOLO tags, Watermark, Swatches, Macro).
 - **Moodboard #2 Feed**: 2-slide architectural flat-lay carousel across 4 categories.
 - **1 Product 3 Styles Feed**: 3 room styles per product across 3 categories.
 - **Day & Night Feed**: Comparative daylight and night illumination contrast.

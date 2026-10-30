@@ -64,7 +64,7 @@ Open **`http://localhost:5200`** to access:
 | :---: | :--- | :--- | :--- | :---: |
 | **0** | [**`TIPS_AND_EDU_FEED.md`**](docs/feeds/TIPS_AND_EDU_FEED.md) | 4:5 (cover + 3 slides) | Editorial cover thumbnail + 3 product slides: interior blend, tips layout, and item tagging. | `TNE-FEEDS` |
 | **1** | [**`COLLECTION_CATEGORY_FEED.md`**](docs/feeds/COLLECTION_CATEGORY_FEED.md) | 4:5 (5 slides) | 5-room carousel post showcasing a full lighting collection across living, dining, and bedroom spaces. | `CC-FEEDS` |
-| **2** | [**`MOODBOARD_1_FEED.md`**](docs/feeds/MOODBOARD_1_FEED.md) | 4:5 (4 slides) | 4-slide moodboard carousel: Main room blend, watermark card, swatch card, macro texture. | `MB1-FEEDS` |
+| **2** | [**`MOODBOARD_1_FEED.md`**](docs/feeds/MOODBOARD_1_FEED.md) | 4:5 (4 slides) | 4-slide moodboard carousel: Main room blend (with Self-Healing Visual QA & YOLO tagging), watermark card, swatch card, macro texture. | `MB1-FEEDS` |
 | **3** | [**`MOODBOARD_2_FEED.md`**](docs/feeds/MOODBOARD_2_FEED.md) | 4:5 (2 slides) | 2-slide carousel: photorealistic room blend + editorial architectural flat-lay moodboard. | `MB2-FEEDS` |
 | **4** | [**`ONE_PRODUCT_THREE_STYLES_FEED.md`**](docs/feeds/ONE_PRODUCT_THREE_STYLES_FEED.md) | 4:5 (3 slides) | 1 lighting fixture rendered into 3 contrasting interior aesthetics (e.g. Japandi, Industrial, Modern). | `OP3S-FEEDS` |
 | **5** | [**`DAY_NIGHT_FEED.md`**](docs/feeds/DAY_NIGHT_FEED.md) | 4:5 (2 slides) | Day and night carousel: Natural daylight mood vs. warm evening illumination. | `DN-FEEDS` |
