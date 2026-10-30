@@ -233,6 +233,11 @@ class CheckTests(unittest.TestCase):
 
 
 class BlendLoopTests(unittest.TestCase):
+    def setUp(self):
+        self._env_patch = mock.patch.dict(os.environ, {'SCALE_GUARD_ENABLED': '1', 'SCALE_GUARD': ''})
+        self._env_patch.start()
+        self.addCleanup(self._env_patch.stop)
+
     def _blend(self, fal, **kwargs):
         return blend_with_scale_guard(
             fal,
@@ -331,6 +336,11 @@ class BlendLoopTests(unittest.TestCase):
 
 
 class AuditTests(unittest.TestCase):
+    def setUp(self):
+        self._env_patch = mock.patch.dict(os.environ, {'SCALE_GUARD_ENABLED': '1', 'SCALE_GUARD': ''})
+        self._env_patch.start()
+        self.addCleanup(self._env_patch.stop)
+
     def _result(self, verdict, retry="Not Needed", kept=1):
         return blend_with_scale_guard(
             FakeFal(

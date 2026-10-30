@@ -24,11 +24,21 @@ The **Tips & Educational Feed Automation Pipeline** is an end-to-end multi-slide
 | **Phase 1** | **Akeneo Scraper** | Akeneo PIM REST API | Active Catalog Ingestion (`enabled=true`) + Shopify published catalog check | Akeneo Catalog (`chandeliers`, `pendant_lights`, etc.) | Populates 4 product slots (`Furniture Item[1-4]`, `SKU[1-4]`, `Item Name[1-4]`) -> Status: `Standby` |
 | **Phase 2** | **Krea Room & Thumbnail Gen** | Krea AI | `krea-2-medium` (4:5, 1K resolution)<br>Thumb Moodboard: `ec860c16-10e4-429e-bba6-ff068bcb80b1` | Category room prompts + Preset Moodboard ID | `Interior1`, `Interior2`, `Interior3`, `Thumbnail` -> Status: `Already attached a room Interior` |
 | **Phase 3** | **Claude Sonnet 5 Prompt Analysis** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `Interior[1-3]` + `Furniture Item[1-3]` | Populates `Prompt1`, `Prompt2`, `Prompt3` |
-| **Phase 4** | **Nano Banana Pro Blending & Tips Gen** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `4:5`, Resolution: `1K`<br>Claude Vision for Tips | `Interior[1-3]` + `Furniture Item[1-3]` + `Prompt[1-3]` | Uploads 3 blended images to `Tips and Edu Blended`, generates `Thumbnail with Text`, and saves educational tips to `Tips 1..3` (dual-written to `Tip1..3`) |
+| **Phase 4** | **Nano Banana Pro Blending, Visual QA & Tips Gen** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `4:5`, Resolution: `1K`<br>`anthropic/claude-sonnet-5` (Visual QA & Tips) | `Interior[1-3]` + `Furniture Item[1-3]` + `Prompt[1-3]` | Uploads 3 blended images to `Tips and Edu Blended`, executes **Claude Sonnet 5 Visual QA & 1-Time Self-Healing Retry** (using chandelier & feed QA skills), logs defects to `Blend Review Notes`. If pass: generates `Thumbnail with Text` and `Tips 1..3` -> Status: `Already attached a room Interior`. If fail after retry: halts row at Status: `For Review`. |
 | **Phase 5** | **YOLO Item Name Tagging & Carousel Assembly** | YOLO-World (Local CPU) | Open-vocabulary tagging (Line 1: Item Name, Line 2: Product Type) with subtitle normalization | `Tips and Edu Blended` + `Item Name[1-3]` + `Product Type[1-3]` | Stamps floating tag onto each blend, clears `Tips and Edu Blended Attach Item Name`, and uploads carousel: `[Thumbnail with Text (index 0), tagged_1, tagged_2, tagged_3]` -> Status: `Already attached a room Interior` (`C`) |
 | **Phase 6** | **Programmatic PIL Layout Compositing** | Local Python Pillow | Zero-API Local Compositor (Canva coordinates) | `Tips and Edu Blended Attach Item Name` + `Tips 1..3` | Selects 3 tagged blends (excluding index-0 thumbnail), overlays Numeral (196px) + Tip Text (32px), uploads 3 feed photos to `Tips and Edu Feeds` -> Status: `Complete` (`C`); fails closed to `For Manual` (`FM`) if < 3 tagged blends |
 
 > **Measured scale guard:** every product-to-room blend goes through `content_automation/scale_guard.py`. A Claude Vision measurement sets the fixture to its real Akeneo size (or a conservative estimate when the row has none), and a second check retries once when the finished blend is more than ±15% off. Audit fields: `Scale Check`, `Scale Retry`, `Scale Audit`. `SCALE_GUARD_ENABLED=0` keeps the measurements in the prompt but skips both paid vision calls. Details: [`docs/SCALE_GUARD.md`](../SCALE_GUARD.md).
+
+---
+
+### Visual QA & 1-Time Context-Aware Self-Healing Retry
+Phase 4 integrates `content_automation/feed_qa.py` powered by `anthropic/claude-sonnet-5` via Fal AI (`openrouter/router/vision`):
+- **Chandelier Skill Integration**: For chandelier fixtures (`tblQ65S51Dmauwx4c` and `tblwY6eGQCD5bJeF1`), Claude evaluates ceiling canopy mounting (flush attachment, visible suspension wire, zero floating mounts), catches severed cords, and prevents living room oversizing according to `.agents/skills/chandelier-blend-qa/SKILL.md`.
+- **Feed Quality Standards**: Verifies product identity, perspective alignment, and room contact shadows per `.agents/skills/feed-blended-qa/SKILL.md`.
+- **1-Time Self-Healing Retry**: If any of the 3 slots fails Round 1 inspection, Claude provides an actionable correction directive (e.g. *"Mount canopy flush to ceiling with visible suspension wire"*). Fal AI re-blends **only** that defective slot, re-uploads the corrected list of 3 images, and re-checks it.
+- **Audit & Review Notes**: Full per-slot critique and verdict are recorded in the multiline Airtable field `Blend Review Notes`.
+- **Defect Shielding**: If defects persist after 1 retry, the row is marked with Status `For Review`, halting Phase 5 & 6 so downstream YOLO tagging and Pillow layout assembly are never wasted on bad blends.
 
 ---
 
@@ -71,6 +81,7 @@ The Airtable single-select Status field tracks records across 5 lifecycle stages
 | **S** | Purple | **Scheduled** | Scheduled, Schedule | Approved and scheduled for publishing. |
 | **C** | Emerald | **Complete / Done** | Complete, Completed, Done | All phases complete; deliverables attached. |
 | **D** | Rose | **Discarded** | Discard, Discarded | Archived or rejected candidate. |
+| **R** | Amber/Yellow | **For Review** | For Review | Visual QA detected defects after 1 retry; critique saved in `Blend Review Notes`. |
 | **FM** | Amber | **For Manual / Revision** | For Manual, Minor revision, FM | Flagged for manual review or adjustment. |
 
 ### Failure Handling

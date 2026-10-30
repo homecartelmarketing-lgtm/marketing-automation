@@ -23,10 +23,11 @@ The **Collection Category Feed Automation Pipeline** generates complete 5-room c
 | Phase | Phase Name | Provider / Engine | Model / Settings | Input Fields / Triggers | Output Fields / Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Phase 1** | **Sequential Krea Generation** | Krea AI | `krea-2-medium` (4:5, 1K) with sequential image chaining | Category room prompts + dedicated moodboard IDs per room | `Interior1` (Exterior), `Interior2` (Bedroom), `Interior3` (Dining), `Interior4` (Kitchen), `Interior5` (Living) -> Status: `Processing` |
-| **Phase 2** | **Claude Sonnet 5 Matching** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `Interior2..5` simultaneous vision analysis | Populates `Suggest Furniture Item[2-5]` with non-duplicate categories |
-| **Phase 3** | **Akeneo Dynamic Scraping** | Akeneo PIM API | Active products (`enabled=true`) + cross-table deduplication | Categories suggested by Claude | Populates `Furniture Item[2-5]` and `Item Name[2-5]` |
+| **Phase 2** | **Guided Claude Sonnet 5 Matching** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `Interior2..5` simultaneous vision analysis constrained by candidate pools | Populates `Suggest Furniture Item[2-5]` (Bedroom: pendants/table lamps; Dining: chandeliers/pendants; Kitchen: wall lights; Living: chandeliers/floor lamps) |
+| **Phase 3** | **Akeneo Dynamic Scraping** | Akeneo PIM API | Active products (`enabled=true`) + Shopify published verification | Categories suggested by Claude | Populates `Furniture Item[2-5]` and `Item Name[2-5]` |
 | **Phase 4** | **Claude Prompt Engineering** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` | `Interior[2-5]` + `Furniture Item[2-5]` | Generates `Blending Prompt2..5` |
-| **Phase 5** | **Nano Banana Pro Blending** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `4:5`, Resolution: `1K` | `Interior[2-5]` + `Furniture Item[2-5]` + `Blending Prompt[2-5]` | Generates `Blended Image2..5` (Slide 1 gets `Interior1`) -> Status: `Completed` (`C`) |
+| **Phase 5** | **Nano Banana Pro Blending** | Fal AI | `fal-ai/nano-banana-pro/edit`<br>Aspect Ratio: `4:5`, Resolution: `1K` | `Interior[2-5]` + `Furniture Item[2-5]` + `Blending Prompt[2-5]` | Generates `Blended Image2..5` (Slide 1 gets `Interior1` cover) + YOLO item name tag & Feed logo stamps |
+| **Phase 6** | **Claude Sonnet 5 Visual QA & Self-Healing** | Fal AI / OpenRouter | `anthropic/claude-sonnet-5` via `openrouter/router/vision` | Evaluates `Blended Image2..5` against `.agents/skills/feed-blended-qa/SKILL.md` | Populates `Blend Review Notes`. If defect found, triggers **1-time corrective re-blend** of the bad slot. Status -> `Done` (passed/healed) or `For Review` (persisted defect). |
 
 > **Measured scale guard:** every product-to-room blend goes through `content_automation/scale_guard.py`. A Claude Vision measurement sets the fixture to its real Akeneo size (or a conservative estimate when the row has none), and a second check retries once when the finished blend is more than ±15% off. Audit fields: `Scale Check`, `Scale Retry`, `Scale Audit`. `SCALE_GUARD_ENABLED=0` keeps the measurements in the prompt but skips both paid vision calls. Details: [`docs/SCALE_GUARD.md`](../SCALE_GUARD.md).
 
@@ -65,9 +66,12 @@ The Airtable single-select Status field tracks records across 5 lifecycle stages
 | :---: | :---: | :--- | :--- | :--- |
 | **P** | Sky Blue | **Posted / Processing** | Posted, Processing, Pending, In Progress, intermediate phase statuses | Record is actively queued or being processed. |
 | **S** | Purple | **Scheduled** | Scheduled, Schedule | Approved and scheduled for publishing. |
-| **C** | Emerald | **Complete / Done** | Complete, Completed, Done | All phases complete; deliverables attached. |
+| **C** | Emerald | **Complete / Done** | Complete, Completed, Done | All phases complete; deliverables attached & passed Phase 6 QA. |
+| **FR** | Amber | **For Review** | For Review, For Manual, Minor revision | Flagged by Phase 6 QA for human inspection when defect persists after 1 retry. |
 | **D** | Rose | **Discarded** | Discard, Discarded | Archived or rejected candidate. |
-| **FM** | Amber | **For Manual / Revision** | For Manual, Minor revision, FM | Flagged for manual review or adjustment. |
+
+### Quality Assurance & Audit Field
+- **`Blend Review Notes`** (`multilineText`): Automatically populated by Phase 6 Visual QA. Records itemized pass/fail verdicts, detected failure codes (e.g. `[LIVING_ROOM_OVERSIZING]`, `[CEILING_CANOPY_MOUNT]`), and notes whether a defective slot was `(healed on retry)`.
 
 ### Execution Timestamp
 When a row reaches Complete (C), the pipeline automatically writes the Philippine Standard Time timestamp (UTC+8, ISO 8601) into the **Date and Time Generated** field:

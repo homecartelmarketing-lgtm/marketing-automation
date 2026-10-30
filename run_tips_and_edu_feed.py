@@ -135,12 +135,15 @@ STATUS_STANDBY = "Standby"
 STATUS_INTERIOR_ATTACHED = "Already attached a room Interior"
 STATUS_PROCESSING = "Processing"
 STATUS_COMPLETE = "Complete"
+STATUS_FOR_REVIEW = "For Review"
 STATUS_FOR_MANUAL = "For Manual"
+FIELD_REVIEW_NOTES = "Blend Review Notes"
 
 TERMINAL_AND_PROTECTED_STATUSES = {
     "complete", "completed", "done", "finished",
     "posted", "scheduled", "schedule",
     "discard", "discarded",
+    "for review", "review",
     "for manual", "minor revision", "minor revisions", "fm",
     "skip", "skipped",
 }
@@ -230,7 +233,7 @@ PRESETS: dict[str, TipsAndEduPreset] = {
         env_table_key="AIRTABLE_TABLE_ID_TIPS_EDUCATIONAL_FEED",
         category_code="chandeliers",
         default_moodboard_id="b5ffdcbb-192e-4528-8d86-d1a4cf496887",
-        env_moodboard_key="KREA_MOODBOARD_ID_CHANDELIERS",
+        env_moodboard_key="KREA_MOODBOARD_ID_CHANDELIERS_TIPS_EDU_FEED",
         interior_prompt="Generate me a modern living room hanging chandelier from the ceiling",
         fixture_label="chandelier",
     ),
@@ -245,11 +248,35 @@ PRESETS: dict[str, TipsAndEduPreset] = {
         interior_prompt="Generate me a modern dining room",
         fixture_label="pendant light",
     ),
+    "floor_lamps": TipsAndEduPreset(
+        key="floor_lamps",
+        label="Floor Lamp Tips & Edu Feed",
+        default_table_id="tblQuhvktqYB59Ofw",
+        env_table_key="AIRTABLE_TABLE_ID_FLOOR_LAMPS_TIPS_EDU_FEED",
+        category_code="floor_lamps",
+        default_moodboard_id="b1641228-beec-4823-8d01-1de3eec8410d",
+        env_moodboard_key="KREA_MOODBOARD_ID_FLOOR_LAMPS_TIPS_EDU_FEED",
+        interior_prompt="Generate me a modern living room with empty floor space for a standing floor lamp",
+        fixture_label="floor lamp",
+    ),
+    "cluster_chandeliers": TipsAndEduPreset(
+        key="cluster_chandeliers",
+        label="Cluster Chandelier Tips & Edu Feed",
+        default_table_id="tblwY6eGQCD5bJeF1",
+        env_table_key="AIRTABLE_TABLE_ID_CLUSTER_CHANDELIERS_TIPS_EDU_FEED",
+        category_code="chandeliers",
+        default_moodboard_id="b5ffdcbb-192e-4528-8d86-d1a4cf496887",
+        env_moodboard_key="KREA_MOODBOARD_ID_CLUSTER_CHANDELIERS_TIPS_EDU_FEED",
+        interior_prompt="Generate me a luxury modern room with high ceiling for a cluster chandelier",
+        fixture_label="chandelier",
+    ),
 }
 
 TABLE_TO_PRESET: dict[str, str] = {
     "tblQ65S51Dmauwx4c": "chandeliers",
     "tblIhCP3Gjg09QFCK": "pendant_lights",
+    "tblQuhvktqYB59Ofw": "floor_lamps",
+    "tblwY6eGQCD5bJeF1": "cluster_chandeliers",
 }
 
 
@@ -299,10 +326,14 @@ def resolve_tips_and_edu_preset(
     # 2. Check target_arg / category_arg
     raw = (target_arg or category_arg or "").strip().lower()
     if raw:
-        if raw in ("1", "chandeliers", "chandelier", "tblQ65S51Dmauwx4c"):
+        if raw in ("1", "chandeliers", "chandelier", "tblq65s51dmauwx4c"):
             return PRESETS["chandeliers"]
         if raw in ("2", "pendant_lights", "pendant_light", "pendant", "tblihcp3gjg09qfck"):
             return PRESETS["pendant_lights"]
+        if raw in ("3", "floor_lamps", "floor_lamp", "floor-lamp", "tblquhvktqyb59ofw"):
+            return PRESETS["floor_lamps"]
+        if raw in ("4", "cluster_chandeliers", "cluster_chandelier", "cluster-chandelier", "tblwy6egqcd5bjef1"):
+            return PRESETS["cluster_chandeliers"]
         if raw in PRESETS:
             return PRESETS[raw]
 
@@ -1186,6 +1217,8 @@ class TipsAndEduFeedRunner:
             STATUS_INTERIOR_ATTACHED,
             STATUS_PROCESSING,
             STATUS_COMPLETE,
+            STATUS_FOR_REVIEW,
+            STATUS_FOR_MANUAL,
         ]
 
     def preflight(self, *, execute: bool = True) -> None:
@@ -1698,6 +1731,10 @@ class TipsAndEduFeedRunner:
         existing_blended = fields.get(BLENDED_FIELD) or []
         if len(existing_blended) >= 3:
             print(f"[OK] Record {record_id} already has {len(existing_blended)} blended images in '{BLENDED_FIELD}'.")
+            current_status = str(fields.get(STATUS_FIELD) or "").strip()
+            if current_status == STATUS_FOR_REVIEW:
+                print(f"  [QA NOTICE] Record {record_id} is marked '{STATUS_FOR_REVIEW}'. Skipping auto-advance.")
+                return False
             has_thumb_text = bool(fields.get(THUMBNAIL_WITH_TEXT_FIELD))
             if not has_thumb_text:
                 print(f"  [+] 'Thumbnail with Text' missing on record {record_id}. Generating thumbnail text & composite...")
@@ -1843,7 +1880,132 @@ class TipsAndEduFeedRunner:
             )
 
         if all_succeeded and len(blended_paths) == 3:
-            print(f"\n[OK] All 3 Blended images attached to '{BLENDED_FIELD}'. Now generating Thumbnail with Text and Tips...")
+            # ══════════════════════════════════════════════════════════════════
+            # Claude Sonnet 5 Visual QA & 1-Time Self-Healing Retry
+            # ══════════════════════════════════════════════════════════════════
+            if execute:
+                from content_automation.feed_qa import (
+                    QASlotTarget,
+                    run_self_healing_feed_qa,
+                )
+
+                # Refresh record to get actual attachment URLs from Airtable
+                fresh_rec = self.airtable.get_record(record_id)
+                fresh_fields = fresh_rec.get("fields", {})
+                blended_attachments = fresh_fields.get(BLENDED_FIELD) or []
+                sorted_blends = sort_attachments_by_slot(blended_attachments)
+
+                qa_targets: list[QASlotTarget] = []
+                for slot_idx, slot in enumerate(SLOTS, start=1):
+                    blend_att = sorted_blends[slot_idx - 1] if slot_idx - 1 < len(sorted_blends) else None
+                    blended_url = extract_attachment_url(blend_att)
+                    item_name = str(fresh_fields.get(slot.item_name_field) or f"{self.fixture_label.title()} {slot_idx}").strip()
+                    prompt_raw = str(fresh_fields.get(slot.prompt_field) or "").strip()
+                    blending_prompt = prompt_raw
+                    try:
+                        parsed = json.loads(prompt_raw)
+                        if isinstance(parsed, dict) and "final_blending_prompt" in parsed:
+                            blending_prompt = parsed["final_blending_prompt"]
+                    except Exception:
+                        pass
+                    interior_val = get_slot_interior_val(fresh_fields, slot)
+                    interior_url = extract_attachment_url(interior_val)
+                    furniture_val = fresh_fields.get(slot.furniture_field)
+                    furniture_url = extract_attachment_url(furniture_val)
+                    meas = measurement_for_slot(fresh_fields, slot.slot_index - 1)
+
+                    if blended_url:
+                        qa_targets.append(QASlotTarget(
+                            slot_index=slot.slot_index,
+                            slot_label=f"{self.fixture_label.title()} {slot.slot_index}",
+                            item_name=item_name,
+                            category=self.category_code,
+                            room_type="modern interior",
+                            image_url=blended_url,
+                            attachment_field=BLENDED_FIELD,
+                            blending_prompt=blending_prompt,
+                            interior_url=interior_url,
+                            product_url=furniture_url,
+                            measurement=meas,
+                            aspect_ratio=BLENDING_ASPECT_RATIO,
+                        ))
+
+                def reblend_callback(target: QASlotTarget, correction_directive: str) -> str:
+                    """Re-blend ONLY the single defective slot using original prompt + correction directive."""
+                    target_slot = next((s for s in SLOTS if s.slot_index == target.slot_index), None)
+                    if not target_slot:
+                        raise ValueError(f"Unknown slot index {target.slot_index}")
+
+                    retry_prompt = f"{target.blending_prompt}\n\nCRITICAL DESIGN CORRECTION: {correction_directive}".strip()
+                    print(f"    [RE-BLEND] Calling Fal AI Nano Banana Pro with corrective prompt...")
+                    retry_result = blend_with_scale_guard(
+                        self.fal,
+                        prompt=retry_prompt,
+                        room_url=target.interior_url,
+                        product_url=target.product_url,
+                        product_type=get_slot_product_type_val(fresh_fields, target_slot),
+                        measurement=target.measurement,
+                        item_name=target.item_name,
+                        label=f"the {self.fixture_label} in {target_slot.interior_field}",
+                        aspect_ratio=target.aspect_ratio,
+                        resolution=BLENDING_RESOLUTION,
+                        model=FAL_BLENDING_MODEL,
+                    )
+                    new_url = retry_result.image_url
+                    new_dest = self._artifact_path(record_id, f"tips_and_edu_blended_{target.slot_index}_{record_id}.jpg")
+                    self._download(new_url, new_dest)
+
+                    slot_pos = target.slot_index - 1
+                    if 0 <= slot_pos < len(blended_paths):
+                        blended_paths[slot_pos] = new_dest
+
+                    try:
+                        self.airtable.clear_attachment_field(record_id, BLENDED_FIELD)
+                    except Exception as clear_err:
+                        print(f"    [WARN] Could not clear '{BLENDED_FIELD}': {clear_err}")
+
+                    for p in blended_paths:
+                        self.airtable.upload_attachment(record_id, BLENDED_FIELD, p, p.name)
+
+                    try:
+                        from content_automation.akeneo_client import split_item_name
+                        from content_automation.item_tagger import TARGET_BLENDED_FIELD, tag_and_upload_blended_image
+                        raw_name = str(fresh_fields.get(f"Item Name{target.slot_index}") or fresh_fields.get(f"SKU{target.slot_index}") or f"{self.fixture_label} {target.slot_index}").strip()
+                        item_title, product_type = split_item_name(raw_name, fallback_product_type=self.fixture_label)
+                        tag_and_upload_blended_image(
+                            airtable=self.airtable,
+                            record_id=record_id,
+                            blended_source=new_dest,
+                            item_name=item_title,
+                            product_type=product_type,
+                            category=self.category_code,
+                            target_field=TARGET_BLENDED_FIELD,
+                            output_filename_prefix=f"tne_feed_tagged_{target.slot_index}",
+                            fallback_if_undetected=True,
+                        )
+                    except Exception as tag_err:
+                        print(f"    [WARN] Failed YOLO item re-tagging on Slot {target.slot_index}: {tag_err}")
+
+                    after_rec = self.airtable.get_record(record_id)
+                    after_blends = sort_attachments_by_slot(after_rec.get("fields", {}).get(BLENDED_FIELD) or [])
+                    after_url = extract_attachment_url(after_blends[slot_pos]) if slot_pos < len(after_blends) else None
+                    return after_url or new_url
+
+                qa_result = run_self_healing_feed_qa(
+                    self.fal,
+                    self.airtable,
+                    record_id,
+                    qa_targets,
+                    reblend_fn=reblend_callback,
+                    execute=execute,
+                    status_done_val=STATUS_INTERIOR_ATTACHED,
+                )
+
+                if not qa_result.passed:
+                    print(f"  [QA REVIEW NEEDED] Record {record_id} has defects after retry. Halting Phase 4 downstream layout steps. Status set to 'For Review'.")
+                    return False
+
+            print(f"\n[OK] All 3 Blended images attached and verified by Visual QA. Now generating Thumbnail with Text and Tips...")
             self.generate_thumbnail_with_text(record_id, execute=execute)
             self.generate_tips_texts(record_id, execute=execute)
             self._update_status(record_id, STATUS_INTERIOR_ATTACHED)
@@ -2345,7 +2507,10 @@ class TipsAndEduFeedRunner:
                 start_phase = self._phase_for_record(record) or 2
                 print(f"\n>>> Processing Specified Record {target_record_id} starting at Phase {start_phase} <<<")
                 for p_num in range(start_phase, 7):
-                    self._run_single_phase(p_num, target_record_id, execute=execute)
+                    ok = self._run_single_phase(p_num, target_record_id, execute=execute)
+                    if ok is False:
+                        print(f"[HALT] Halting remaining phases for record {target_record_id} due to Phase {p_num} status.")
+                        break
                 return
 
             # Default behavior: Always create a brand-new row and run end-to-end to completion
@@ -2362,7 +2527,10 @@ class TipsAndEduFeedRunner:
                 new_id = new_rec["id"]
                 print(f"\n>>> Running Phases 2..6 for Newly Created Record: {new_id} <<<")
                 for p_num in range(2, 7):
-                    self._run_single_phase(p_num, new_id, execute=execute)
+                    ok = self._run_single_phase(p_num, new_id, execute=execute)
+                    if ok is False:
+                        print(f"[HALT] Halting remaining phases for record {new_id} due to Phase {p_num} status.")
+                        break
                 print(f"\n[OK] Completed end-to-end processing for Row {i+1}/{count} (Record: {new_id})!")
             return
 
@@ -2450,17 +2618,23 @@ class TipsAndEduFeedRunner:
         self.logger.event("phase_started", record_id=record_id, phase=phase_num, phase_label=label)
 
         try:
+            success = True
             if phase_num == 2:
-                self.phase_2(record_id, execute=execute)
+                success = self.phase_2(record_id, execute=execute)
             elif phase_num == 3:
-                self.phase_3(record_id, execute=execute)
+                success = self.phase_3(record_id, execute=execute)
             elif phase_num == 4:
-                self.phase_4(record_id, execute=execute)
+                success = self.phase_4(record_id, execute=execute)
             elif phase_num == 5:
-                self.phase_5(record_id, execute=execute)
+                success = self.phase_5(record_id, execute=execute)
             elif phase_num == 6:
-                self.phase_6(record_id, execute=execute)
+                success = self.phase_6(record_id, execute=execute)
+
+            if success is False:
+                print(f"[WARN] Phase {phase_num} did not succeed for record {record_id}.")
+                return False
             self.logger.event("phase_completed", record_id=record_id, phase=phase_num, phase_label=label)
+            return True
         except Exception as error:
             append_error_log(record_id, phase_num, error, {"phase_label": label})
             self.logger.event("phase_failed", record_id=record_id, phase=phase_num, error=str(error))
@@ -2488,10 +2662,16 @@ def parse_args(argv=None):
         choices=(
             "chandeliers",
             "pendant_lights",
+            "floor_lamps",
+            "cluster_chandeliers",
             "chandelier",
             "pendant",
+            "floor-lamp",
+            "cluster-chandelier",
             "1",
             "2",
+            "3",
+            "4",
         ),
         default=None,
         help="Target category / table preset (1: chandeliers, 2: pendant_lights).",

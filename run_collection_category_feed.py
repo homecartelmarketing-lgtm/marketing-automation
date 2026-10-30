@@ -229,7 +229,7 @@ SLOTS: list[SlotConfig] = [
     ),
 ]
 
-# 4 Lighting Categories for Claude analysis & Akeneo scraping
+# 5 Lighting Categories for Claude analysis & Akeneo scraping
 CATEGORY_MAPPINGS = {
     "chandeliers": {
         "label": "Chandelier",
@@ -247,6 +247,18 @@ CATEGORY_MAPPINGS = {
         "label": "Table Lamp",
         "keywords": ("table lamp", "table lamps", "desk lamp"),
     },
+    "wall_lights": {
+        "label": "Wall Light",
+        "keywords": ("wall light", "wall lights", "sconce", "wall sconce"),
+    },
+}
+
+# Guided Lighting Candidate Pools per Room Slot
+SLOT_CANDIDATE_POOLS: dict[int, list[str]] = {
+    2: ["pendant_lights", "table_lamps"],
+    3: ["chandeliers", "pendant_lights"],
+    4: ["wall_lights"],
+    5: ["chandeliers", "floor_lamps"],
 }
 
 # ── Audit Logging ────────────────────────────────────────────────────────
@@ -396,6 +408,8 @@ def parse_category_from_suggestion(text: str) -> str:
         return "floor_lamps"
     if "pendant" in lower:
         return "pendant_lights"
+    if "wall light" in lower or "sconce" in lower:
+        return "wall_lights"
     if "chandelier" in lower:
         return "chandeliers"
 
@@ -638,45 +652,44 @@ def run_phase_2_for_record(
         "- Image 3: Modern Kitchen (Interior4)\n"
         "- Image 4: Modern Living Room (Interior5)\n\n"
         "TASK:\n"
-        "You must assign EXACTLY ONE distinct lighting category to each of the 4 rooms with ZERO DUPLICATES.\n"
-        "This is a strict 1-to-1 bijective mapping where all 4 of these categories must be used exactly once:\n"
-        "1. 'chandeliers' (Chandelier)\n"
-        "2. 'pendant_lights' (Pendant Light)\n"
-        "3. 'floor_lamps' (Floor Lamp)\n"
-        "4. 'table_lamps' (Table Lamp)\n\n"
+        "Assign the most architecturally fitting lighting category to each room from its allowed candidate pool:\n"
+        "1. Interior2 (Modern Bedroom): Choose 'pendant_lights' OR 'table_lamps'\n"
+        "2. Interior3 (Modern Dining Room): Choose 'chandeliers' OR 'pendant_lights'\n"
+        "3. Interior4 (Modern Kitchen): Must be 'wall_lights' (wall sconce / architectural accent light)\n"
+        "4. Interior5 (Modern Living Room): Choose 'chandeliers' OR 'floor_lamps'\n\n"
         "CURATION GUIDELINES:\n"
-        "- Dining rooms and luxury living rooms are prime candidates for a striking chandelier or statement pendant light, or living lounge for a sculptural floor lamp.\n"
-        "- Kitchens frequently benefit from pendant lights over islands or dining spaces.\n"
-        "- Bedrooms excel with ambient table lamps on nightstands/dressers or a slender floor lamp in a cozy corner.\n"
-        "Evaluate the architectural layout, ceiling heights, and furniture arrangements in each room to make the most stunning, commercially effective pairing.\n\n"
+        "- Bedroom: bedside pendant or bedside table lamp matching nightstands.\n"
+        "- Dining: statement chandelier or linear pendant centered over dining table.\n"
+        "- Kitchen: architectural wall light / sconce on backsplash or kitchen wall.\n"
+        "- Living Room: statement chandelier or sculptural floor lamp.\n"
+        "Evaluate the architectural layout, ceiling heights, and furniture arrangements in each room.\n\n"
         "CRITICAL: Return valid JSON ONLY with no extra commentary, following this exact schema:\n"
         "{\n"
         "  \"interior2\": {\n"
-        "    \"category\": \"floor_lamps\" | \"table_lamps\" | \"chandeliers\" | \"pendant_lights\",\n"
-        "    \"category_label\": \"Floor Lamp\" | \"Table Lamp\" | \"Chandelier\" | \"Pendant Light\",\n"
+        "    \"category\": \"pendant_lights\" | \"table_lamps\",\n"
+        "    \"category_label\": \"Pendant Light\" | \"Table Lamp\",\n"
         "    \"suggested_description\": \"Specific recommendation of the ideal lighting fixture design, finish, silhouette, and placement for this bedroom.\",\n"
         "    \"reasoning\": \"Why this fixture category best elevates this bedroom.\"\n"
         "  },\n"
         "  \"interior3\": {\n"
-        "    \"category\": \"floor_lamps\" | \"table_lamps\" | \"chandeliers\" | \"pendant_lights\",\n"
-        "    \"category_label\": \"...\",\n"
+        "    \"category\": \"chandeliers\" | \"pendant_lights\",\n"
+        "    \"category_label\": \"Chandelier\" | \"Pendant Light\",\n"
         "    \"suggested_description\": \"...\",\n"
         "    \"reasoning\": \"...\"\n"
         "  },\n"
         "  \"interior4\": {\n"
-        "    \"category\": \"floor_lamps\" | \"table_lamps\" | \"chandeliers\" | \"pendant_lights\",\n"
-        "    \"category_label\": \"...\",\n"
+        "    \"category\": \"wall_lights\",\n"
+        "    \"category_label\": \"Wall Light\",\n"
         "    \"suggested_description\": \"...\",\n"
         "    \"reasoning\": \"...\"\n"
         "  },\n"
         "  \"interior5\": {\n"
-        "    \"category\": \"floor_lamps\" | \"table_lamps\" | \"chandeliers\" | \"pendant_lights\",\n"
-        "    \"category_label\": \"...\",\n"
+        "    \"category\": \"chandeliers\" | \"floor_lamps\",\n"
+        "    \"category_label\": \"Chandelier\" | \"Floor Lamp\",\n"
         "    \"suggested_description\": \"...\",\n"
         "    \"reasoning\": \"...\"\n"
         "  }\n"
-        "}\n\n"
-        "Remember: Each of the 4 categories ('chandeliers', 'pendant_lights', 'floor_lamps', 'table_lamps') must be chosen EXACTLY ONCE."
+        "}\n"
     )
 
     image_urls = [room_urls[2], room_urls[3], room_urls[4], room_urls[5]]
@@ -701,23 +714,17 @@ def run_phase_2_for_record(
     except Exception as err:
         print(f"  [WARN] Failed direct JSON parse from Claude response: {err}")
 
-    # Fallback default assignment if parse failed or was incomplete
-    available_cats = {"chandeliers", "pendant_lights", "floor_lamps", "table_lamps"}
+    # Reconcile categories using guided candidate pools per slot
     assigned_cats: dict[int, str] = {}
-
     for slot_idx, key in [(2, "interior2"), (3, "interior3"), (4, "interior4"), (5, "interior5")]:
+        allowed = SLOT_CANDIDATE_POOLS[slot_idx]
         entry = parsed.get(key, {})
         cat = str(entry.get("category") or "").strip().lower()
-        if cat in available_cats:
+        if cat in allowed:
             assigned_cats[slot_idx] = cat
-            available_cats.remove(cat)
-
-    # Reconcile any missing or duplicate categories to ensure strict 1-to-1 mapping
-    for slot_idx in (2, 3, 4, 5):
-        if slot_idx not in assigned_cats:
-            fallback_cat = next(iter(available_cats))
-            assigned_cats[slot_idx] = fallback_cat
-            available_cats.remove(fallback_cat)
+        else:
+            # Fallback to first allowed candidate for this slot
+            assigned_cats[slot_idx] = allowed[0]
 
     updates: dict[str, str] = {}
     log_updates: dict[str, Any] = {}
@@ -1542,13 +1549,115 @@ def run_phase_5_for_record(
         )
 
     if execute and all_slots_succeeded:
-        write_row_caption(
-            airtable, record_id, None, fal, "collection_feed",
-            image_fields=tuple(f"Blended Image{i}" for i in range(1, 6)),
-            slot=1,  # slot 1 is the exterior cover with no product; Item Name2 is the anchor
+        # ══════════════════════════════════════════════════════════════════════════
+        # PHASE 6: Claude Sonnet 5 Visual QA & 1-Time Self-Healing Retry
+        # ══════════════════════════════════════════════════════════════════════════
+        from content_automation.feed_qa import (
+            QASlotTarget,
+            run_self_healing_feed_qa,
         )
-        update_record_status(airtable, record_id, STATUS_DONE)
-        print(f"  [OK] All 5 slots blended. Updated record {record_id} Status -> '{STATUS_DONE}'")
+
+        # Refresh fields to ensure we have the newly uploaded attachment URLs
+        fresh_rec = airtable.get_record(record_id)
+        fresh_fields = fresh_rec.get("fields", {})
+
+        qa_targets: list[QASlotTarget] = []
+        for slot in room_slots:
+            blended_val = get_field_val(fresh_fields, slot.blended_image_field_candidates)
+            blended_url = extract_attachment_url(blended_val)
+            item_name = str(get_field_val(fresh_fields, slot.item_name_field_candidates) or f"Slot {slot.slot_index} Product")
+            suggest_text = str(get_field_val(fresh_fields, slot.suggest_field_candidates) or "")
+            cat_code = parse_category_from_suggestion(suggest_text)
+            blending_prompt = str(get_field_val(fresh_fields, slot.blending_prompt_field) or "")
+            interior_val = get_field_val(fresh_fields, slot.interior_field_candidates)
+            interior_url = extract_attachment_url(interior_val)
+            furniture_val = get_field_val(fresh_fields, slot.furniture_field_candidates)
+            furniture_url = extract_attachment_url(furniture_val)
+            meas = measurement_for_slot(fresh_fields, slot.slot_index - 1)
+
+            if blended_url:
+                qa_targets.append(QASlotTarget(
+                    slot_index=slot.slot_index,
+                    slot_label=slot.label,
+                    item_name=item_name,
+                    category=cat_code,
+                    room_type=slot.room_type,
+                    image_url=blended_url,
+                    attachment_field=resolve_field_name(known_fields, slot.blended_image_field_candidates),
+                    blending_prompt=blending_prompt,
+                    interior_url=interior_url,
+                    product_url=furniture_url,
+                    measurement=meas,
+                    aspect_ratio=FAL_ASPECT_RATIO,
+                ))
+
+        def reblend_callback(target: QASlotTarget, correction_directive: str) -> str:
+            """Re-blend ONLY the single defective slot using original prompt + correction directive."""
+            target_slot = next((s for s in room_slots if s.slot_index == target.slot_index), None)
+            if not target_slot:
+                raise ValueError(f"Unknown slot index {target.slot_index}")
+
+            retry_prompt = f"{target.blending_prompt}\n\nCRITICAL DESIGN CORRECTION: {correction_directive}".strip()
+            print(f"    [RE-BLEND] Calling Fal AI Nano Banana Pro with corrective prompt...")
+            retry_result = blend_with_scale_guard(
+                fal,
+                prompt=retry_prompt,
+                room_url=target.interior_url,
+                product_url=target.product_url,
+                product_type=product_type_for_slot(fresh_fields, target.slot_index - 1),
+                measurement=target.measurement,
+                item_name=target.item_name,
+                label=f"the {target.slot_label.lower()} fixture",
+                aspect_ratio=target.aspect_ratio,
+                model=FAL_BLENDING_MODEL,
+            )
+            new_url = retry_result.image_url
+            downloaded = download_image_url(new_url, prefix=f"reblend_{target.slot_index}_")
+
+            # Auto-tag and stamp logo
+            stamp_item_name_tag(downloaded.path, target.item_name, target_slot, fresh_fields)
+            try:
+                from content_automation.overlay import stamp_logo, HOMECARTEL_LOGO_BOX
+                logo_path = _resolve_feed_logo_path()
+                if logo_path.is_file():
+                    stamp_logo(downloaded.path, logo_path, destination=downloaded.path, box=HOMECARTEL_LOGO_BOX)
+            except Exception as stamp_err:
+                print(f"    [WARN] Failed stamping Feed logo: {stamp_err}")
+
+            # Overwrite attachment in Airtable
+            airtable.upload_attachment(
+                record_id,
+                target.attachment_field,
+                downloaded.path,
+                filename=f"Blended_Image{target.slot_index}_{record_id}_corrected.jpg",
+            )
+            downloaded.cleanup()
+
+            # Fetch fresh attachment URL
+            after_rec = airtable.get_record(record_id)
+            after_val = get_field_val(after_rec.get("fields", {}), target.attachment_field)
+            return extract_attachment_url(after_val) or new_url
+
+        qa_result = run_self_healing_feed_qa(
+            fal,
+            airtable,
+            record_id,
+            qa_targets,
+            reblend_fn=reblend_callback,
+            execute=execute,
+            status_done_val=STATUS_DONE,
+        )
+
+        if qa_result.passed:
+            write_row_caption(
+                airtable, record_id, None, fal, "collection_feed",
+                image_fields=tuple(f"Blended Image{i}" for i in range(1, 6)),
+                slot=1,  # slot 1 is the exterior cover with no product; Item Name2 is the anchor
+            )
+            update_record_status(airtable, record_id, STATUS_DONE)
+            print(f"  [OK] All 5 slots verified and passed. Updated record {record_id} Status -> '{STATUS_DONE}'")
+        else:
+            print(f"  [QA REVIEW NEEDED] Record {record_id} has defects after retry. Maintained in Status -> 'For Review'. Captioning skipped.")
 
     print(f"[OK] Phase 5 completed for {record_id}.")
     return True

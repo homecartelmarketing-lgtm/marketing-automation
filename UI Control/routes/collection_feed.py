@@ -43,7 +43,7 @@ _EXEC_STATE: dict[str, Any] = {
     "active_table_id": None,
     "current_phase": "",
     "current_phase_index": 0,
-    "total_phases": 5,
+    "total_phases": 6,
     "elapsed_seconds": 0,
     "logs": [],
     "error": None,
@@ -131,7 +131,7 @@ def run_pipeline():
             "active_table_id": fix_info["table_id"],
             "current_phase": "Starting pipeline...",
             "current_phase_index": 0,
-            "total_phases": 5,
+            "total_phases": 6,
             "elapsed_seconds": 0,
             "logs": [f"[{time.strftime('%X')}] Triggering Collection Category Feed ({max_items} set(s))..."],
             "error": None,
@@ -178,6 +178,12 @@ def run_pipeline():
                     elif "phase 4" in txt.lower() or "blending prompt" in txt.lower():
                         _EXEC_STATE["current_phase"] = "Phase 4: Blending Prompt Engineering"
                         _EXEC_STATE["current_phase_index"] = 4
+                    elif "auto-healing" in txt.lower() or "re-blending" in txt.lower():
+                        _EXEC_STATE["current_phase"] = "Phase 6: Auto-Healing Defective Slot (1-Time Retry)"
+                        _EXEC_STATE["current_phase_index"] = 6
+                    elif "phase 6" in txt.lower() or "visual qa" in txt.lower() or "[qa review]" in txt.lower():
+                        _EXEC_STATE["current_phase"] = "Phase 6: Claude Sonnet 5 Visual QA & Verification"
+                        _EXEC_STATE["current_phase_index"] = 6
                     elif "phase 5" in txt.lower() or "blending" in txt.lower():
                         _EXEC_STATE["current_phase"] = "Phase 5: Nano Banana Pro Image Blending"
                         _EXEC_STATE["current_phase_index"] = 5

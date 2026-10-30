@@ -1,0 +1,1154 @@
+{
+ "rec0gFogg3RBQLN3e": {
+  "seconds": 76.8,
+  "parsed": {
+   "slides": [
+    {
+     "label": "tips slide 1",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "Door at left (~200 cm), framed portraits (~65 cm wide), low bookshelf, curved sofa",
+     "est_width_cm": 190,
+     "est_height_cm": 200,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "too_big",
+     "scale_reasoning": "The fixture spans about 370 px, wider than the sofa and about 3.5x the portrait frames behind it, which makes it roughly 1.9 m wide. Each globe comes out near 30 cm across, so an 8-globe brass chandelier looks oversized. The bottom sits just above the portrait tops, around 2 m above the floor, and the piece is too large for the furniture below it.",
+     "room_preserved": true,
+     "artifacts": [
+      "hallway pendant now lit (minor change from original)"
+     ],
+     "photoreal": 4,
+     "vibe": 4,
+     "tag_present": null,
+     "tag_text": "",
+     "logo_count": null,
+     "finished_slide_issues": [],
+     "notes": "The black shaded chandelier was replaced cleanly with the brass 8-globe fixture. The globe count and arm layout match the cutout. The small hallway pendant in the background is original, not a competing fixture. The lighting is warm and realistic."
+    },
+    {
+     "label": "tips slide 2",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "Cased doorway (~210-240 cm tall), coffee table (~120 cm wide), sofa, ceiling (~260 cm)",
+     "est_width_cm": 210,
+     "est_height_cm": 150,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "ok",
+     "scale_reasoning": "The ring is about 400 px wide, roughly twice the coffee table, which puts it at about 2 m. That is large but believable as a statement ring in this big open living room. It hangs on thin wires with the bottom roughly 2 m above the floor, and the room has enough volume to carry it.",
+     "room_preserved": true,
+     "artifacts": [
+      "rug has a warm yellow cast and a hard-edged dark rectangle under the coffee table",
+      "vase flowers look fuller than in the original",
+      "wall texture seam above the doorway slightly changed"
+     ],
+     "photoreal": 4,
+     "vibe": 4,
+     "tag_present": null,
+     "tag_text": "",
+     "logo_count": null,
+     "finished_slide_issues": [],
+     "notes": "The spiral ribbon chandelier was replaced by the brass ring with 20 candle cylinders and suspension wires. The product matches the cutout (it has 4 wires where the cutout shows 3). The man in the foreground was already in the original room and is a distracting element that was not removed. The rug recolor is a small room-integrity drift."
+    },
+    {
+     "label": "tips slide 3",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "Window (~150 cm tall), dining chairs and table, fireplace opening (~90-100 cm), ceiling (~260 cm)",
+     "est_width_cm": 110,
+     "est_height_cm": 150,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "ok",
+     "scale_reasoning": "The discs are about 35 cm across and the bar about 1.1 m long, a sensible size for a 3-light linear pendant over a dining table. The lowest pendant sits roughly 150 cm above the floor, about 75-80 cm above the table-top height, which is normal. The fixture is proportionate to the chairs and window.",
+     "room_preserved": true,
+     "artifacts": [
+      "fixture appears mirrored versus cutout (globes on the left of the discs)",
+      "wall sconce now lit (minor change from original)"
+     ],
+     "photoreal": 4,
+     "vibe": 4,
+     "tag_present": null,
+     "tag_text": "",
+     "logo_count": null,
+     "finished_slide_issues": [],
+     "notes": "The silver torus ring was removed cleanly and the room is intact. The 3-disc linear pendant is correct in material and form. The cord lengths vary and the bar runs diagonally for perspective, which is plausible. The pendants hang near the window and the far end of the table rather than centered over it."
+    }
+   ],
+   "row": {
+    "same_product_across_slides": null,
+    "same_room_across_slides": null,
+    "extras_consistent": true,
+    "overall_notes": "The cover is an exterior architecture shot with the headline 'Statement Chandeliers For Modern Living In 3 Simple Ways' and one HomeCartel logo at bottom-left. It is clean and legible, though the thin subtitle sits over trees with slightly lower contrast. Each slide uses a different product in a different room, as intended. Slide 1 is the main risk because the chandelier looks oversized. Slide 2 has a rug recolor and a foreground person left in from the original room. No finished slides were provided, so tags and logos could not be checked."
+   }
+  },
+  "feed": "TNE",
+  "table": "tblQ65S51Dmauwx4c",
+  "status": "REJECTED",
+  "fk": "TNE-FEEDS-CH-7",
+  "item": "Dana 8"
+ },
+ "recOVjiL5W4TLnrp2": {
+  "seconds": 66.3,
+  "parsed": {
+   "slides": [
+    {
+     "label": "tips slide 1",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "150 cm round ottoman and 100x170 cm window; vaulted ceiling about 3.5 m",
+     "est_width_cm": 120,
+     "est_height_cm": 135,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "ok",
+     "scale_reasoning": "The linear brass fixture is roughly 120 cm wide, about the same width as the window and under the ottoman's 150 cm. It looks proportionate to the ottoman and the vaulted room. It hangs from the ceiling with its orbs about 2.2 m above the floor, near the top of the window, which is plausible for a tall vault.",
+     "room_preserved": true,
+     "artifacts": [
+      "window view changed from trees to frosted white panes",
+      "added floor light streaks",
+      "mirror reflection of fixture is slightly flat"
+     ],
+     "photoreal": 4,
+     "vibe": 4,
+     "tag_present": true,
+     "tag_text": "Limon",
+     "logo_count": 0,
+     "finished_slide_issues": [
+      "tip text sits over the cream ottoman and has poor white-on-light contrast",
+      "text overlaps the furniture",
+      "'Limon' tag is small and low contrast on the light wall",
+      "numeral 1 is a thin bar that reads weakly",
+      "no HomeCartel logo on the slide"
+     ],
+     "notes": "The woven black sphere chandelier was fully removed. The Limon fixture matches the cutout: brass bar, opal globes and wrapped rope suspension. The back-row globes are hidden by the front view."
+    },
+    {
+     "label": "tips slide 2",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "sofa about 200-250 cm wide with about 45 cm seat height; floor-to-ceiling window about 260 cm",
+     "est_width_cm": 150,
+     "est_height_cm": 220,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "ok",
+     "scale_reasoning": "The leaf-shaped acrylic body is about 150 cm wide, roughly two-thirds of the sofa width. That is large but fine for a statement pendant in a large room. The bottom disc hangs near the window head at about 2 m above the floor, and the fixture is proportionate to the sofa and beam ceiling.",
+     "room_preserved": true,
+     "artifacts": [
+      "sofa and rug tones shifted slightly warmer"
+     ],
+     "photoreal": 4,
+     "vibe": 4,
+     "tag_present": true,
+     "tag_text": "Ankeli",
+     "logo_count": 0,
+     "finished_slide_issues": [
+      "tip text overlaps the white chair and black ottoman, hurting legibility of 'ceiling and'",
+      "text covers key furniture",
+      "tag is small at top right over the beam and wall",
+      "no HomeCartel logo on the slide"
+     ],
+     "notes": "The boxy shade pendant was removed. The Ankeli fixture matches the cutout: ceiling canopy, three wires, translucent leaf layers and lower disc. It looks integrated, with a convincing glow."
+    },
+    {
+     "label": "tips slide 3",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "about 130 cm oval coffee table; large sectional sofa about 300 cm; plant about 220 cm tall",
+     "est_width_cm": 200,
+     "est_height_cm": 190,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "ok",
+     "scale_reasoning": "The two-arm fixture is about 200 cm wide, in line with the sectional and larger than the coffee table, which suits a linear chandelier over a large seating area. The shades are at about 2 m, just below the top of the plant, with a long single stem. It is proportionate to the furniture, though on the large side.",
+     "room_preserved": true,
+     "artifacts": [
+      "sofa tone shifted from cool to warm cream",
+      "the shade overlaps plant leaves slightly"
+     ],
+     "photoreal": 4,
+     "vibe": 4,
+     "tag_present": true,
+     "tag_text": "Keljin",
+     "logo_count": 0,
+     "finished_slide_issues": [
+      "tip text covers the coffee table, vase and sofa",
+      "'Keljin' tag is white on a sheer white curtain and nearly illegible",
+      "no HomeCartel logo on the slide"
+     ],
+     "notes": "The capiz-disc chandelier was fully replaced. Keljin matches the cutout: black stem, curved arms and two linen shades. The off-center placement is plausible."
+    }
+   ],
+   "row": {
+    "same_product_across_slides": null,
+    "same_room_across_slides": null,
+    "extras_consistent": false,
+    "overall_notes": "Each slide is a distinct product in a distinct room, as intended. The main problem is finished-slide legibility. Tip text is placed over light furniture or the coffee table in all three slides, and the tags sit in different spots (mid-right, top-right, top-right), the last one on a white curtain. None of the finished slides has a HomeCartel logo, which appears only on the cover. The cover (exterior with 'Statement Chandeliers For Modern Living') is good, with one HomeCartel logo at bottom-left. Its thin 'HomeCartel Design Guide' subtitle has low contrast over the pale roof. The brass pendant above the mirror in slide 1 and the large pendants in slides 2 and 3 all look photoreal."
+   }
+  },
+  "feed": "TNE",
+  "table": "tblQ65S51Dmauwx4c",
+  "status": "REJECTED",
+  "fk": "TNE-FEEDS-CH-9",
+  "item": "Limon"
+ },
+ "recb6okDbhZCavevt": {
+  "seconds": 47.6,
+  "parsed": {
+   "slides": [
+    {
+     "label": "tips slide 1",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "curved sofa (~230 cm long, seat ~45 cm high) and round side table (~50 cm high)",
+     "est_width_cm": 105,
+     "est_height_cm": 130,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "ok",
+     "scale_reasoning": "The widest ring spans about 275 px against a sofa of about 615 px, which puts it near 100-110 cm. The lowest ring hangs roughly 1.6 m above the sofa seat, clear of the sofa and in proportion to it. The original paper lantern had the same footprint.",
+     "room_preserved": true,
+     "artifacts": [
+      "warm yellow colour cast on sofa, cushions and floor versus the original neutral beige",
+      "original paper-lantern pendant fully replaced (intended)",
+      "rings are compressed vertically so they look slightly flatter than in the cutout"
+     ],
+     "photoreal": 4,
+     "vibe": 4,
+     "tag_present": null,
+     "tag_text": "",
+     "logo_count": null,
+     "finished_slide_issues": [],
+     "notes": "A three-ring brass chandelier is cleanly swapped in for the lantern. The ring layout matches the cutout (small top ring, large middle, small bottom). The blurred foreground sphere in the top right is unchanged from the room photo."
+    },
+    {
+     "label": "tips slide 2",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "dining chairs (~45 cm seat, ~85 cm back height) and the low coffee table (~120 cm wide)",
+     "est_width_cm": 170,
+     "est_height_cm": 85,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "ok",
+     "scale_reasoning": "The fixture is about 390 px wide at mid-room depth, and the dining chairs at similar depth are about 180 px tall for roughly 85 cm. That gives about 170 cm wide, which is plausible for a linear six-light arch pendant. The gold shades hang roughly 1.5-1.8 m above the floor, so they are not low enough to be an obstruction, and the fixture is in proportion to the room.",
+     "room_preserved": true,
+     "artifacts": [
+      "slight warm tint on sofa and cushions",
+      "fixture hangs in open space between the dining and lounge zones rather than directly over the dining table"
+     ],
+     "photoreal": 4,
+     "vibe": 4,
+     "tag_present": null,
+     "tag_text": "",
+     "logo_count": null,
+     "finished_slide_issues": [],
+     "notes": "The black bar canopy, six arches and six brass cylinders all match the cutout. The old glass-drop chandelier is fully removed, with no ghosting. The lit shades look natural."
+    },
+    {
+     "label": "tips slide 3",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "round pedestal side table (~60-70 cm wide) and the curved sofa",
+     "est_width_cm": 140,
+     "est_height_cm": 75,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "ok",
+     "scale_reasoning": "The fixture is about 350 px wide, set farther back than the side table (which is about 250 px wide, so about 65 cm), which gives roughly 140 cm. That is plausible for a linear bar with globes and a frame. It hangs high, with the lowest globe about 2 m above the floor, and it is proportionate to the sofas and the window wall. The wooden sphere it replaced was about 100 cm across.",
+     "room_preserved": true,
+     "artifacts": [
+      "glass globes are small and slightly soft at this resolution",
+      "outdoor view through the glazing looks a little brighter and flatter than the original",
+      "warm tint on sofa and floor"
+     ],
+     "photoreal": 4,
+     "vibe": 4,
+     "tag_present": null,
+     "tag_text": "",
+     "logo_count": null,
+     "finished_slide_issues": [],
+     "notes": "The black rod, canopy bar, clear globes and lit square frame all match the cutout, and the original slatted sphere is fully removed. The frame is hung from a single wire as in the cutout. The composition is balanced."
+    }
+   ],
+   "row": {
+    "same_product_across_slides": null,
+    "same_room_across_slides": null,
+    "extras_consistent": true,
+    "overall_notes": "Each slide has a different product in a different room, as intended, and every product matches its cutout with one fixture and no leftover competing fixtures. Scale reads plausibly on all three, though there are no listed dimensions to check against. The recurring defect is a warm yellow cast on soft furnishings, strongest on slide 1. The cover is a clean modern exterior with a legible headline (the thin 'In 3 Simple Ways' line has slightly low contrast against the sky) and one HomeCartel logo at bottom-left. It is stylistically consistent with the warm, minimal interiors. No finished slides were supplied, so tags and logos on slides could not be checked."
+   }
+  },
+  "feed": "TNE",
+  "table": "tblQ65S51Dmauwx4c",
+  "status": "REJECTED",
+  "fk": "TNE-FEEDS-CH-5",
+  "item": "Hera Trois"
+ },
+ "recrA7IGiifJktVMT": {
+  "seconds": 62.2,
+  "parsed": {
+   "slides": [
+    {
+     "label": "tips slide 1",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "swivel armchair (about 80-85 cm wide, seat about 45 cm high) and ceiling height of about 260 cm",
+     "est_width_cm": 130,
+     "est_height_cm": 90,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "ok",
+     "scale_reasoning": "The black linear 3-spot bar is about 1.5x the armchair width, so roughly 120-140 cm. That is normal for a linear pendant. It hangs about 85-90 cm below the ceiling on two thin cables, with the shades near cornice level, and it is proportionate to the sofa and chair. It floats over an open seating area, not a table, which is acceptable.",
+     "room_preserved": true,
+     "artifacts": [
+      "armchair seat and rug shifted to a warmer golden tint",
+      "overall room lighting warmed compared with room_before"
+     ],
+     "photoreal": 4,
+     "vibe": 4,
+     "tag_present": null,
+     "tag_text": "",
+     "logo_count": null,
+     "finished_slide_issues": [],
+     "notes": "Matches the cutout: black bar canopy, two cables, three cylindrical downlight heads with warm glow. The original beaded chandelier is cleanly removed. Architecture, furniture and window are intact."
+    },
+    {
+     "label": "tips slide 2",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "round column (about 80 cm diameter) and dining table top (about 75 cm) with rattan chairs at the bottom, lowered ceiling about 250 cm",
+     "est_width_cm": 160,
+     "est_height_cm": 110,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "ok",
+     "scale_reasoning": "Against the column and dining chairs the five-ring pendant is roughly 150-175 cm wide, which is large but plausible for a long dining or island table. It hangs low from a recessed ceiling, with the rings about 120-145 cm above the table top, which is somewhat high. It is proportionate to the long table, the column and the paneled wall.",
+     "room_preserved": false,
+     "artifacts": [
+      "room is a completely different scene from room_before (a close-up of a stone-shaded chandelier on a plain ceiling with wood panelling)",
+      "two extra diagonal suspension wires from the canopy that are not in the cutout"
+     ],
+     "photoreal": 5,
+     "vibe": 5,
+     "tag_present": null,
+     "tag_text": "",
+     "logo_count": null,
+     "finished_slide_issues": [],
+     "notes": "The product is very faithful: gold interlocking rings, ceiling canopy, vertical wires, LED glow. The scene does not correspond to room_before at all, so the blend looks like a fresh generation or the product's own lifestyle photo and not the supplied room. The fixture also looks nothing like the old stone chandelier, so no competing fixture remains."
+    },
+    {
+     "label": "tips slide 3",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "partial",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "round dining table (about 130-150 cm diameter, top about 75 cm) and boucle dining chairs (seat about 45 cm)",
+     "est_width_cm": 120,
+     "est_height_cm": 130,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "ok",
+     "scale_reasoning": "The chandelier spans about 0.8x the table diameter, so roughly 110-125 cm wide, which is a good proportion for a round dining table. The bottom of the shades is about 75-90 cm above the table top, which is the right hanging height. It is proportionate to the table, chairs and wall panelling.",
+     "room_preserved": false,
+     "artifacts": [
+      "room differs from room_before: the jellyfish-style chandelier room with curvy chairs and fluted panelling is replaced by a different dining room (new table, chairs, sofa, wall)",
+      "product design drifts from the cutout"
+     ],
+     "photoreal": 5,
+     "vibe": 4,
+     "tag_present": null,
+     "tag_text": "",
+     "logo_count": null,
+     "finished_slide_issues": [],
+     "notes": "The cutout is a brass chandelier with three long crossing arms and about 8 flat, wide, hat-like smoky glass shades. The blend shows a brass central hub with short radiating arms and 6 deep tulip-shaped smoky glass shades with exposed filament bulbs. Brass finish and smoky glass carry over, but the arm structure, shade shape and shade count differ, so it is not the same product. The scene is also not the supplied room."
+    }
+   ],
+   "row": {
+    "same_product_across_slides": null,
+    "same_room_across_slides": false,
+    "extras_consistent": true,
+    "overall_notes": "Slide 1 is the only usable blend: the room is preserved and the product matches. Slide 2 matches the product, but the room is not room_before. Slide 3 changes both the room and the product design. The cover is a clean architecture shot with one HomeCartel logo and the headline 'Modern Chandelier Styling Made Simple in 3 Elegant Ways'. The headline's thin second line ('in 3 Elegant Ways') and part of the first line sit over bright roof and sky and are low in contrast, with tree branches crossing the text, so legibility is weak. No finished slides were supplied, so the tag and logo checks could not be done."
+   }
+  },
+  "feed": "TNE",
+  "table": "tblQ65S51Dmauwx4c",
+  "status": "REJECTED",
+  "fk": "TNE-FEEDS-CH-6",
+  "item": "Krame"
+ },
+ "recEZh2JFgFUcQ5Nz": {
+  "seconds": 72.9,
+  "parsed": {
+   "slides": [
+    {
+     "label": "collection room 2",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "low nightstand (~55 cm wide, ~45 cm high), bed headboard (~100 cm) and ceiling height (~260 cm)",
+     "est_width_cm": 52,
+     "est_height_cm": 180,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "ok",
+     "scale_reasoning": "Against the nightstand and headboard the lamp comes out about 180 cm tall with a shade about 50 cm wide, a tall but normal floor lamp. Its shade sits well above the headboard and is in proportion to the bed and low furniture.",
+     "room_preserved": true,
+     "artifacts": [
+      "original ceiling chandelier removed",
+      "bedside table lamp removed",
+      "left-wall slat texture smoothed and re-lit",
+      "round bolster cushion partly hidden and slightly distorted behind the lamp pole",
+      "image re-cropped, narrower than room_before"
+     ],
+     "photoreal": 4,
+     "vibe": 4,
+     "tag_present": null,
+     "tag_text": "",
+     "logo_count": null,
+     "finished_slide_issues": [
+      "finished_slide absent, so no item-name tag or logo to check; none visible on the blend"
+     ],
+     "notes": "The product matches the cutout: black tapered stem, cream drum shade, brass base ring. It stands as a single floor lamp beside the bed, with a convincing wall glow. The bedroom has no ceiling fixture now, and the pre-existing chandelier and bedside lamp are gone."
+    },
+    {
+     "label": "collection room 3",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "round dining table (~150-170 cm wide), stacked books (~25 cm wide) and ceramic vase (~30 cm tall)",
+     "est_width_cm": 65,
+     "est_height_cm": 80,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "too_big",
+     "scale_reasoning": "The books and vase put the scale at about 2.2 px/cm, so the lamp is about 65 cm wide and 80 cm tall. The shade is roughly 40% of the table's width, oversized for a table lamp. It would block sightlines across a dining table, and the cutout looks like a lamp of about 45-50 cm. Borderline, but larger than a real one would be.",
+     "room_preserved": true,
+     "artifacts": [
+      "table top changed from pale reflective to dark and the table outline slightly reshaped",
+      "original sculptural pendant removed",
+      "left floor lamp removed",
+      "round wall globe at top right removed",
+      "image re-cropped"
+     ],
+     "photoreal": 4,
+     "vibe": 4,
+     "tag_present": null,
+     "tag_text": "",
+     "logo_count": null,
+     "finished_slide_issues": [
+      "finished_slide absent, so no item-name tag or logo to check; none visible on the blend"
+     ],
+     "notes": "The product matches the cutout: bronze dome shade, U-shaped brass stem, dark round base. It sits on the table with a plausible warm glow. The competing pendant and floor lamp were removed. The table finish changed noticeably from room_before."
+    },
+    {
+     "label": "collection room 4",
+     "blend_opened": false,
+     "fixture_count": 0,
+     "matches_cutout": "na",
+     "competing_fixture_left": false,
+     "placement_plausible": null,
+     "scale_reference": "",
+     "est_width_cm": null,
+     "est_height_cm": null,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "na",
+     "scale_reasoning": "Blend is MISSING, so scale could not be assessed.",
+     "room_preserved": null,
+     "artifacts": [],
+     "photoreal": 1,
+     "vibe": 1,
+     "tag_present": null,
+     "tag_text": "",
+     "logo_count": null,
+     "finished_slide_issues": [
+      "blend and finished_slide both missing"
+     ],
+     "notes": "No blend was produced. room_before is a kitchen with an island and two existing dark pendants, which will need to be removed. The cutout is a round crystal drop chandelier on a ceiling canopy with four suspension wires. Slide failed and needs regeneration."
+    },
+    {
+     "label": "collection room 5",
+     "blend_opened": false,
+     "fixture_count": 0,
+     "matches_cutout": "na",
+     "competing_fixture_left": false,
+     "placement_plausible": null,
+     "scale_reference": "",
+     "est_width_cm": null,
+     "est_height_cm": null,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "na",
+     "scale_reasoning": "Blend is MISSING, so scale could not be assessed.",
+     "room_preserved": null,
+     "artifacts": [],
+     "photoreal": 1,
+     "vibe": 1,
+     "tag_present": null,
+     "tag_text": "",
+     "logo_count": null,
+     "finished_slide_issues": [
+      "blend and finished_slide both missing"
+     ],
+     "notes": "No blend was produced. room_before is a living room with an existing hanging cluster fixture over the dining zone, which will need to be removed. The cutout is a rectangular brass linear crystal chandelier. Slide failed and needs regeneration."
+    }
+   ],
+   "row": {
+    "same_product_across_slides": null,
+    "same_room_across_slides": true,
+    "extras_consistent": false,
+    "overall_notes": "Only 2 of 4 blends exist; slides 3 and 4 (kitchen, living room) are missing. The four rooms share one architectural language (dark beams, textured walls, warm accents), so they read as one house. The fixtures are stylistically mixed: matte black and cream floor lamp and bronze table lamp, versus two crystal chandeliers. Slide 2's table lamp is oversized. The extra 'exterior_cover_slide1' is not an exterior: it is a living room with a brass and pleated-shade drum pendant that matches none of the four cutouts, so it does not fit the brief for slide 1 and is inconsistent with the rest of the set."
+   }
+  },
+  "feed": "CC",
+  "table": "tbl5o1j3XvUaUqmjs",
+  "status": "REJECTED",
+  "fk": "CC-FEEDS-SET-5",
+  "item": null
+ },
+ "recfzGU0YVNlIJRSd": {
+  "seconds": 78.1,
+  "parsed": {
+   "slides": [
+    {
+     "label": "collection room 2 (bedroom, Waddell)",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "partial",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "right nightstand, about 55 cm wide, and the bed headboard",
+     "est_width_cm": 48,
+     "est_height_cm": 48,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "ok",
+     "scale_reasoning": "The lamp is about 130 px wide against a nightstand of about 150 px (about 55 cm), so roughly 48 cm wide and tall. That is slightly large for a bedside lamp but believable, and it sits on the nightstand top in proportion to the bed and headboard.",
+     "room_preserved": true,
+     "artifacts": [
+      "ring and globe appear doubled: two concentric rings and two glowing globes where the cutout has one ring and one globe",
+      "brass cylinder base is small and cluttered at the nightstand edge",
+      "left lamp and both original vases/lamp on the right were removed, so the nightstands are now asymmetric"
+     ],
+     "photoreal": 4,
+     "vibe": 4,
+     "tag_present": true,
+     "tag_text": "Waddell Table Lamp",
+     "logo_count": 1,
+     "finished_slide_issues": [
+      "tag sits on the light nightstand/window edge and has weak contrast",
+      "finished slide is identical to the blend"
+     ],
+     "notes": "Warm glow and placement are convincing, but the doubled ring and globe means it is not a faithful copy of the single-ring cutout."
+    },
+    {
+     "label": "collection room 3 (dining room, Deimos)",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "dining chairs (about 50 cm wide), table top (75 cm) and a ceiling of about 260 cm",
+     "est_width_cm": 95,
+     "est_height_cm": 175,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "ok",
+     "scale_reasoning": "The canopy is about 255 px against back chairs of about 115 px (about 50 cm), which gives a cluster about 90-100 cm wide and a drop of about 170-180 cm. The lowest pendant ends just above the chair-back line, only about 40-60 cm above the table top. That is lower than the usual 75-90 cm but acceptable. It is large yet proportionate to the big table and room.",
+     "room_preserved": true,
+     "artifacts": [
+      "fixture hangs over the left side of the table and covers part of the centre artwork",
+      "lowest pendants nearly touch chair-back height"
+     ],
+     "photoreal": 4,
+     "vibe": 4,
+     "tag_present": true,
+     "tag_text": "Deimos Chandelier",
+     "logo_count": 1,
+     "finished_slide_issues": [
+      "finished slide is identical to the blend"
+     ],
+     "notes": "The original black chandelier was cleanly removed. The Deimos matches the cutout in shape, brass canopy and glass shades, and the light glow is consistent. The tag is legible on the wall panel."
+    },
+    {
+     "label": "collection room 4 (kitchen, Hedda)",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "range hood (about 90 cm wide, about 225 px) and island counter (90 cm)",
+     "est_width_cm": 115,
+     "est_height_cm": 105,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "too_big",
+     "scale_reasoning": "Against the hood the fixture is about 285 px wide, roughly 115 cm. Each globe is about 55 cm across, and the fixture drops about 105 cm from the ceiling, leaving its bottom about 155 cm above the floor. A two-globe semi-flush like this is normally 45-60 cm wide, so it looks oversized next to the hood and cabinetry, though it is clear of the island and hood.",
+     "room_preserved": true,
+     "artifacts": [
+      "fixture looks oversized relative to the hood and cabinets",
+      "original black pendants all removed, leaving a bare ceiling",
+      "fixture floats off to the side rather than over the island, with weak grounding shadow"
+     ],
+     "photoreal": 4,
+     "vibe": 4,
+     "tag_present": true,
+     "tag_text": "Hedda Pendant Light",
+     "logo_count": 1,
+     "finished_slide_issues": [
+      "tag overlaps the light cove strip, which weakens contrast on the 'Pendant Light' line",
+      "finished slide is identical to the blend"
+     ],
+     "notes": "The product matches the cutout well (brass canopy, black marble stem, two opal globes). The scale looks too large, and the fixture is offset from the island."
+    },
+    {
+     "label": "collection room 5 (living room, Valhalla)",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": false,
+     "scale_reference": "sofa (seat about 45 cm, back about 85 cm) and coffee table (about 45 cm high)",
+     "est_width_cm": 70,
+     "est_height_cm": 140,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "ok",
+     "scale_reasoning": "The object is about 240 px tall against a sofa back of about 140 px (about 85 cm), so roughly 140 cm tall and 70 cm wide. That is plausible for a floor lamp and proportionate to the sofa. However, its base sits at about the coffee-table top level, in front of the sofa seat, rather than on the floor.",
+     "room_preserved": true,
+     "artifacts": [
+      "floor lamp appears to stand on the sofa seat or coffee-table corner instead of the floor",
+      "no contact shadow or grounding",
+      "object reads as a sculpture or vase, with no visible light output",
+      "tag overlaps the glass vase and plant, which hurts legibility"
+     ],
+     "photoreal": 3,
+     "vibe": 3,
+     "tag_present": true,
+     "tag_text": "Valhalla Floor Lamp",
+     "logo_count": 1,
+     "finished_slide_issues": [
+      "tag sits over the vase foliage with poor contrast and clutter",
+      "finished slide is identical to the blend"
+     ],
+     "notes": "The product matches the cutout, a translucent peach mesh form. The placement is wrong for a floor lamp, and it looks pasted in and unlit."
+    }
+   ],
+   "row": {
+    "same_product_across_slides": null,
+    "same_room_across_slides": null,
+    "extras_consistent": true,
+    "overall_notes": "The exterior cover (stone, glass, grey roof) fits the neutral, warm-stone interiors, and the HomeCartel logo sits bottom-left on every slide. Slide 3 (Hedda) looks oversized. Slide 4 (Valhalla) is placed on furniture instead of the floor and has a cluttered tag. Slide 1 (Waddell) has a doubled ring and globe. Slide 2 (Deimos) is the cleanest."
+   }
+  },
+  "feed": "CC",
+  "table": "tbl5o1j3XvUaUqmjs",
+  "status": "REJECTED",
+  "fk": "CC-FEEDS-SET-25",
+  "item": null
+ },
+ "recu7wBr0zQGM4zmn": {
+  "seconds": 26.7,
+  "parsed": {
+   "slides": [
+    {
+     "label": "moodboard v1 blend file 1",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "Rectangular marble coffee table (about 130 cm long, 40 cm high) and the sofa seat (about 45 cm high). The ceiling is about 260 cm.",
+     "est_width_cm": 145,
+     "est_height_cm": 120,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "ok",
+     "scale_reasoning": "The fixture spans about 325 px, about 1.1 times the 290 px coffee table width, which gives roughly 140-150 cm. That is a plausible size for a 6-7 shade linear chandelier. It hangs from a canopy flush with the ceiling, and the shades sit roughly 190-200 cm above the floor, about 150 cm over the coffee table. That height is reasonable, and the fixture is proportionate to the sectional and the table below.",
+     "room_preserved": true,
+     "artifacts": [
+      "book cover text on the coffee table is garbled",
+      "slight overall softening and colour shift of the room compared with the original",
+      "shade cluster is more compressed than in the cutout, with the arms shortened"
+     ],
+     "photoreal": 4,
+     "vibe": 4,
+     "tag_present": true,
+     "tag_text": "Illawarra Chandelier",
+     "logo_count": 1,
+     "finished_slide_issues": [
+      "the HomeCartel logo at bottom-left sits on the ottoman's gold base trim and touches it",
+      "the white item tag on the cream wall has low contrast, though it is legible"
+     ],
+     "notes": "The product is brass with cream tapered shades and a rectangular canopy, matching the cutout. The finished slide is identical to the blend plus the logo. The room (sectional, sofa, fireplace, rug, window) is intact."
+    }
+   ],
+   "row": {
+    "same_product_across_slides": true,
+    "same_room_across_slides": true,
+    "extras_consistent": true,
+    "overall_notes": "The swatch board (moss green velvet, light oak flooring, textured wallcovering) matches the room's materials. The closeup shows brass arms, a chain link and cream linen shades consistent with the chandelier. Minor issues are the low-contrast tag and the logo touching the ottoman trim."
+   }
+  },
+  "feed": "MB1",
+  "table": "tbl9u5vjgx8kuE44R",
+  "status": "REJECTED",
+  "fk": "MB1-FEEDS-CH-101",
+  "item": "Illawarra | Chandelier"
+ },
+ "rec5NlHXJzXh3fAlJ": {
+  "seconds": 33.3,
+  "parsed": {
+   "slides": [
+    {
+     "label": "style room 1",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "Wall artwork (~100 cm wide, 157 px) and 3-seat sectional/coffee table (~120 cm, ~165 px); ceiling ~260-280 cm",
+     "est_width_cm": 190,
+     "est_height_cm": 80,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "too_big",
+     "scale_reasoning": "The ring spans about 410 px, against about 157 px for the artwork and 165 px for the coffee table. Even allowing for it hanging nearer the camera, that is roughly 180-200 cm wide. It is nearly as wide as the sofa and larger than the original linear fixture, so it is oversized for a typical ring chandelier. It hangs about 2.1-2.3 m above the floor, with the canopy at the ceiling, which is fine. The fixture looks too large for the furniture below it.",
+     "room_preserved": true,
+     "artifacts": [
+      "slight warm tint added to coffee table and wall",
+      "original linear chandelier removed cleanly"
+     ],
+     "photoreal": 4,
+     "vibe": 4,
+     "tag_present": null,
+     "tag_text": "",
+     "logo_count": 1,
+     "finished_slide_issues": [],
+     "notes": "Same product as the cutout, with a clean ceiling mount and wires. Good lighting integration, but it is oversized. HomeCartel logo is bottom left. No item-name tag is visible on the blend and there is no finished slide."
+    },
+    {
+     "label": "style room 2",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "Arched window (~120 cm wide, ~205 px) and 3-seat sofa (~220 cm, ~400 px); coffee table ~110 cm; ceiling ~290 cm",
+     "est_width_cm": 230,
+     "est_height_cm": 95,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "too_big",
+     "scale_reasoning": "The ring spans about 445 px, wider than the arched window and wider than the sofa's three seat cushions, so it is about 220-240 cm. That is too large for a ring chandelier in this room. It hangs well above head height, with the lowest petals at about 2.2 m. It overlaps the window and the artwork edge and crowds the upper wall.",
+     "room_preserved": true,
+     "artifacts": [
+      "petal tips overlap the artwork edge",
+      "fixture crowds the window and curtain area"
+     ],
+     "photoreal": 4,
+     "vibe": 5,
+     "tag_present": null,
+     "tag_text": "",
+     "logo_count": null,
+     "finished_slide_issues": [],
+     "notes": "Room is well preserved and the warm glow suits it. Product matches, though the fixture is oversized for the space. There is no tag or logo on the blend and no finished slide."
+    },
+    {
+     "label": "style room 3",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "Grey tufted sofa (~220 cm, ~450 px), round coffee table (~100 cm), vaulted ceiling (~350+ cm)",
+     "est_width_cm": 200,
+     "est_height_cm": 75,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "too_big",
+     "scale_reasoning": "The ring spans about 410 px, which is close to the sofa's whole width (~450 px, ~220 cm), so it is about 190-210 cm. The fixture is closer to the camera than the sofa, so the true size may be somewhat smaller, but it is still large for a ring chandelier. It hangs from a high vaulted ceiling at about 2.5-2.8 m above the floor. The canopy is clipped at the top frame edge.",
+     "room_preserved": true,
+     "artifacts": [
+      "canopy cropped at top edge of frame",
+      "soft petal-shaped light patches on wall are a plausible reflection but slightly artificial"
+     ],
+     "photoreal": 4,
+     "vibe": 4,
+     "tag_present": null,
+     "tag_text": "",
+     "logo_count": null,
+     "finished_slide_issues": [],
+     "notes": "The original black pendant is fully removed and the room is otherwise unchanged. The product matches the cutout. Lighting is warm and cohesive. The fixture is oversized and the canopy is cut off by the frame. There is no tag or logo on the blend and no finished slide."
+    }
+   ],
+   "row": {
+    "same_product_across_slides": true,
+    "same_room_across_slides": null,
+    "extras_consistent": true,
+    "overall_notes": "The same brass ring chandelier with frosted petal shades appears in all three rooms, with one fixture each and no leftover original fixtures. All three renders look oversized, at about 190-230 cm wide, which is too big for a ring chandelier. No item-name tags are visible on the blends and no finished slides were provided. Only slide 1 shows the HomeCartel logo."
+   }
+  },
+  "feed": "1P3S",
+  "table": "tblrlfqBGe5EjS5PI",
+  "status": "REJECTED",
+  "fk": "OP3S-FEEDS-CH-3",
+  "item": "Lytta | Modern Chandelier"
+ },
+ "rec0pH8z06y2V2ncf": {
+  "seconds": 39.3,
+  "parsed": {
+   "slides": [
+    {
+     "label": "day slide",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": true,
+     "placement_plausible": true,
+     "scale_reference": "3-seat sofa (about 220 cm long) and the window frames; the fixture sits slightly behind the sofa plane",
+     "est_width_cm": 150,
+     "est_height_cm": 130,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "ok",
+     "scale_reasoning": "The fixture spans about 380 px against a sofa of about 650 px (about 220 cm). It sits further back, so it comes to roughly 140-160 cm wide, which is normal for a 5-shade linear pendant. The 5 shades are about 30 cm tall, in proportion to the sofa and windows. The drop is roughly 130-140 cm from the ceiling, so the bottom is about 120 cm above floor level, well above the sofa back and the table. That is plausible, although a linear pendant over a sofa is an unusual layout.",
+     "room_preserved": true,
+     "artifacts": [
+      "brass wall sconce still lit and competing with the new pendant",
+      "item-name tag text is almost invisible, white on the bright window at upper left, and cut off ('...nand')",
+      "pendant has no cast shadow or reflection on the wall or window",
+      "bar crosses the window mullions and the wall corner, so it looks slightly pasted in",
+      "lamps glow warmly in full daylight"
+     ],
+     "photoreal": 3,
+     "vibe": 3,
+     "tag_present": true,
+     "tag_text": "Umea Lin | Modern Chand... (faint and cut off)",
+     "logo_count": 1,
+     "finished_slide_issues": [],
+     "notes": "The room is identical to room_before and the product matches the cutout (5 smoked-glass shades on a black bar). The tag is effectively unreadable. The HomeCartel logo is present once, at lower left."
+    },
+    {
+     "label": "night slide",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "3-seat sofa (about 220 cm long) and the window frames",
+     "est_width_cm": 150,
+     "est_height_cm": 130,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "ok",
+     "scale_reasoning": "Same position and size as the day slide, about 150 cm wide against a sofa of about 220 cm. The shades are about 30 cm tall and in proportion to the sofa and windows. The bottom hangs roughly 120 cm above the floor, clear of the sofa and the table.",
+     "room_preserved": false,
+     "artifacts": [
+      "brass wall sconce from the day room is gone, leaving a blank wall",
+      "garden plants and terracotta pots beyond the right door are replaced by darkness",
+      "small lit lamps added in the garden at left",
+      "sofa legs changed from wood to dark",
+      "no HomeCartel logo or item-name tag visible",
+      "pendant glow on the surrounding walls and ceiling is modest"
+     ],
+     "photoreal": 4,
+     "vibe": 4,
+     "tag_present": false,
+     "tag_text": "",
+     "logo_count": 0,
+     "finished_slide_issues": [],
+     "notes": "The camera angle and furniture layout match the day slide, and the lighting is believable. The pendant is clearly on, with visible bulbs and a warm ambient glow. The windows are convincingly dark with a blue-hour tint. The wall sconce was removed, which breaks day/night consistency. The logo and tag are missing from this slide."
+    }
+   ],
+   "row": {
+    "same_product_across_slides": true,
+    "same_room_across_slides": false,
+    "extras_consistent": false,
+    "overall_notes": "The same pendant is placed identically in both slides and the night lighting is good. The row is inconsistent in three ways: the wall sconce is present by day and missing at night, the HomeCartel logo and tag appear only on the day slide (and the tag there is almost illegible), and the day pendant is lit in daylight with no shadow. Fix the tag legibility and the sconce, and add the logo to the night slide."
+   }
+  },
+  "feed": "DN",
+  "table": "tblSceuLVvLMQ6wWp",
+  "status": "REJECTED",
+  "fk": "DN-FEEDS-CH-6",
+  "item": "Umea Lin | Modern Chandelier"
+ },
+ "recMOGrw1ROCXUHGl": {
+  "seconds": 42.8,
+  "parsed": {
+   "slides": [
+    {
+     "label": "hero group slide",
+     "blend_opened": true,
+     "fixture_count": 3,
+     "matches_cutout": "partial",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "Round podiums (assumed about 50-60 cm wide for the front one) and the yellow lamp's roughly 12 cm base",
+     "est_width_cm": null,
+     "est_height_cm": null,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "ok",
+     "scale_reasoning": "All three lamps sit plausibly on their podiums with believable shadows. The globe lamp on the back podium renders about 1.6x taller than the yellow lamp, against about 1.13x in the cutouts, so it reads a little oversized even though it sits farther back. No measurements are listed, so I can't confirm further.",
+     "room_preserved": true,
+     "artifacts": [
+      "globe lamp rendered as a perfect sphere instead of the oval pebble-shaped glass in the cutout",
+      "globe lamp stem and bracket slightly altered from the cutout",
+      "glass lamp's glass reads clearer and thinner than in the cutout"
+     ],
+     "photoreal": 4,
+     "vibe": 4,
+     "tag_present": null,
+     "tag_text": "",
+     "logo_count": 1,
+     "finished_slide_issues": [],
+     "notes": "All three lamps are present and the brass, yellow and glass finishes are recognisable. The globe lamp's shape drift is the only product-fidelity issue. HomeCartel logo is bottom-left. There is no item-name tag, which is fine for a hero slide."
+    },
+    {
+     "label": "solo slide 1",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "Round podium, assumed about 60 cm wide",
+     "est_width_cm": 21,
+     "est_height_cm": 42,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "ok",
+     "scale_reasoning": "The lamp's height-to-base ratio (about 3:1) matches the cutout. It sits centred on the podium at a believable table-lamp size. No measurement is listed, so I can't check it further.",
+     "room_preserved": true,
+     "artifacts": [],
+     "photoreal": 4,
+     "vibe": 4,
+     "tag_present": true,
+     "tag_text": "Tummu",
+     "logo_count": 1,
+     "finished_slide_issues": [],
+     "notes": "Yellow disc lamp is faithful to the cutout, with a warm glow and a believable shadow. Tag text is clean. I can't check the name against the brief because the expected name is UNKNOWN."
+    },
+    {
+     "label": "solo slide 2",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "Round podium, assumed about 60 cm wide",
+     "est_width_cm": 10,
+     "est_height_cm": 54,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "ok",
+     "scale_reasoning": "A slim brass lamp about 50 cm tall on a podium is plausible for a table lamp. The thin stem and small base are proportionate to the cutout and the podium.",
+     "room_preserved": true,
+     "artifacts": [],
+     "photoreal": 4,
+     "vibe": 4,
+     "tag_present": true,
+     "tag_text": "Silgrin",
+     "logo_count": 1,
+     "finished_slide_issues": [],
+     "notes": "The oval opal globe, brass stem and base match the cutout. Lighting is warm and editorial. I can't check the name against the brief because the expected name is UNKNOWN."
+    },
+    {
+     "label": "solo slide 3",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "Round podium, assumed about 60 cm wide",
+     "est_width_cm": 36,
+     "est_height_cm": 50,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "ok",
+     "scale_reasoning": "The lamp's width-to-base ratio (about 2.7:1) matches the cutout. It is large on the podium but still a believable table lamp, and it is proportionate to the podium.",
+     "room_preserved": true,
+     "artifacts": [
+      "glass picks up a warm amber tint from the lighting"
+     ],
+     "photoreal": 4,
+     "vibe": 4,
+     "tag_present": true,
+     "tag_text": "Payapa",
+     "logo_count": 1,
+     "finished_slide_issues": [],
+     "notes": "The brass base, bulb and holder, and the double glass ring with the side lens, are all preserved. The glass reads slightly warmer than the clear glass in the cutout. I can't check the name against the brief because the expected name is UNKNOWN."
+    }
+   ],
+   "row": {
+    "same_product_across_slides": false,
+    "same_room_across_slides": true,
+    "extras_consistent": true,
+    "overall_notes": "The podium styling and warm taupe palette are consistent, and every slide has exactly one logo. The hero's globe lamp is a perfect sphere while the solo Silgrin slide shows the oval pebble globe from the cutout, so the product differs between them. The hero background is also lighter and creamier than the solo backgrounds. Name tags appear only on the solo slides, which is expected. I can't validate product names because the expected names are UNKNOWN."
+   }
+  },
+  "feed": "PS",
+  "table": "tbln0MNBaVVrZ0wrF",
+  "status": "REJECTED",
+  "fk": "PS-FEEDS-TL-11",
+  "item": null
+ },
+ "recVl3FdpF33J0vsp": {
+  "seconds": 40.2,
+  "parsed": {
+   "slides": [
+    {
+     "label": "hero group slide",
+     "blend_opened": true,
+     "fixture_count": 3,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "Lamp bases against the round pedestals (the front pedestal is about 50-60 cm across); the lamp heights are the second check",
+     "est_width_cm": null,
+     "est_height_cm": null,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "ok",
+     "scale_reasoning": "Rendered at roughly 7 px/cm, the Hudson Deux lamp is about 60 cm tall, the Inca about 45-48 cm and the Hrefna about 45 cm. The Inca and Hrefna are a little taller than the solo slides imply, but all three are credible table-lamp sizes. Relative heights match the real products and the solo slides. All three sit proportionately on their pedestals.",
+     "room_preserved": true,
+     "artifacts": [
+      "front pedestal overlaps the left pedestal edge slightly awkwardly",
+      "Hrefna lamp renders a little smaller than the rear lamps even though its pedestal is closer to the camera"
+     ],
+     "photoreal": 4,
+     "vibe": 4,
+     "tag_present": null,
+     "tag_text": "",
+     "logo_count": 1,
+     "finished_slide_issues": [],
+     "notes": "All three lamps (Inca black dome, Hudson Deux with white shade and rose-gold stem, Hrefna black disc with brass stem and pull chain) match their cutouts and appear in cutout order 1, 2, 3 for the hero. They are placed on three podiums of different heights. The warm side light and soft shadows look editorial. There is no name tag on the hero, which is fine. The HomeCartel logo is bottom left."
+    },
+    {
+     "label": "solo slide 1",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "The lamp base against the round podium (about 55-60 cm across)",
+     "est_width_cm": 30,
+     "est_height_cm": 37,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "ok",
+     "scale_reasoning": "The shade is about 290 px wide against a podium of about 515 px. If the podium is roughly 55 cm across, the shade is about 30 cm wide and the lamp about 37 cm tall, which is a normal size for this style of table lamp. The lamp sits proportionately on the podium.",
+     "room_preserved": true,
+     "artifacts": [],
+     "photoreal": 5,
+     "vibe": 5,
+     "tag_present": true,
+     "tag_text": "Inca",
+     "logo_count": 1,
+     "finished_slide_issues": [],
+     "notes": "The black mushroom-dome lamp matches the cutout. The shade interior has a warm glow and the stem and cylinder body are intact. The tag text is clean and the logo is bottom left. The podium reads as a studio set."
+    },
+    {
+     "label": "solo slide 2",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "The marble base against the round podium (about 65-70 cm across)",
+     "est_width_cm": 25,
+     "est_height_cm": 60,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "ok",
+     "scale_reasoning": "The lamp is about 450 px tall against a podium of about 520 px. At about 60 cm tall the podium works out at 65-70 cm across, which is plausible. The slim stem and shade look like a real table lamp and fit the podium.",
+     "room_preserved": true,
+     "artifacts": [],
+     "photoreal": 4,
+     "vibe": 5,
+     "tag_present": true,
+     "tag_text": "Hudson Deux",
+     "logo_count": 1,
+     "finished_slide_issues": [],
+     "notes": "The product matches: tilted white fabric shade, rose-gold band and stem, arrow finial and marble base. The shade is glowing warmly. The orange glow on the floor to the left of the podium is slightly odd but acceptable. The tag text is clean."
+    },
+    {
+     "label": "solo slide 3",
+     "blend_opened": true,
+     "fixture_count": 1,
+     "matches_cutout": "yes",
+     "competing_fixture_left": false,
+     "placement_plausible": true,
+     "scale_reference": "The brass base against the round podium (about 60 cm across)",
+     "est_width_cm": 32,
+     "est_height_cm": 45,
+     "listed_width_cm": null,
+     "scale_ratio": null,
+     "size": "ok",
+     "scale_reasoning": "The lamp is about 385 px tall against a podium of about 520 px. If the podium is roughly 60 cm across, the lamp is about 45 cm tall and the disc shade about 32 cm wide, which is realistic. The lamp is proportionate to the podium.",
+     "room_preserved": true,
+     "artifacts": [],
+     "photoreal": 5,
+     "vibe": 5,
+     "tag_present": true,
+     "tag_text": "Hrefna",
+     "logo_count": 1,
+     "finished_slide_issues": [],
+     "notes": "The black disc shade, brass top ornament, brass stem, pull chain and round brass base all match the cutout. The warm pool of light on the podium looks good. The tag is correctly spelled and the logo is bottom left."
+    }
+   ],
+   "row": {
+    "same_product_across_slides": true,
+    "same_room_across_slides": true,
+    "extras_consistent": true,
+    "overall_notes": "The hero's three lamps match the three solo slides in order (Inca, Hudson Deux, Hrefna). The studio wall, podium style, lighting and logo placement are consistent across all four slides. The tag font and position are consistent on the solo slides. No scale or product problems found."
+   }
+  },
+  "feed": "PS",
+  "table": "tbln0MNBaVVrZ0wrF",
+  "status": "REJECTED",
+  "fk": "PS-FEEDS-TL-15",
+  "item": null
+ }
+}

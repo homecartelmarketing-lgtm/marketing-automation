@@ -327,6 +327,9 @@ def run_pipeline():
                     elif "phase 3" in txt.lower() or "prompt analysis" in txt.lower():
                         _EXEC_STATE["current_phase"] = "Phase 3: Claude Vision Prompting"
                         _EXEC_STATE["current_phase_index"] = 3
+                    elif "[qa review]" in txt.lower() or "visual qa" in txt.lower() or "[qa heal]" in txt.lower():
+                        _EXEC_STATE["current_phase"] = "Phase 4: Claude Sonnet 5 Visual QA & Self-Healing"
+                        _EXEC_STATE["current_phase_index"] = 4
                     elif "phase 4" in txt.lower() or "banana pro blending" in txt.lower():
                         _EXEC_STATE["current_phase"] = "Phase 4: Banana Pro Room Blending"
                         _EXEC_STATE["current_phase_index"] = 4
